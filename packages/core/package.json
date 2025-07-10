@@ -57,6 +57,22 @@
       "import": "./dist/address.js",
       "require": "./dist/address.cjs"
     },
+    "./attachment": {
+      "types": {
+        "import": "./dist/attachment.d.ts",
+        "require": "./dist/attachment.cts"
+      },
+      "import": "./dist/attachment.js",
+      "require": "./dist/attachment.cjs"
+    },
+    "./message": {
+      "types": {
+        "import": "./dist/message.d.ts",
+        "require": "./dist/message.cts"
+      },
+      "import": "./dist/message.js",
+      "require": "./dist/message.cjs"
+    },
     "./priority": {
       "types": {
         "import": "./dist/priority.d.ts",
@@ -64,6 +80,14 @@
       },
       "import": "./dist/priority.js",
       "require": "./dist/priority.cjs"
+    },
+    "./receipt": {
+      "types": {
+        "import": "./dist/receipt.d.ts",
+        "require": "./dist/receipt.cts"
+      },
+      "import": "./dist/receipt.js",
+      "require": "./dist/receipt.cjs"
     },
     "./package.json": "./package.json"
   },
