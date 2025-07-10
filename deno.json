@@ -1,0 +1,9 @@
+{
+  "workspace": [
+    "packages/*"
+  ],
+  "imports": {
+    "tsdown": "npm:tsdown@^0.12.7"
+  },
+  "nodeModulesDir": "none"
+}
