@@ -89,6 +89,14 @@
       "import": "./dist/receipt.js",
       "require": "./dist/receipt.cjs"
     },
+    "./transport": {
+      "types": {
+        "import": "./dist/transport.d.ts",
+        "require": "./dist/transport.cts"
+      },
+      "import": "./dist/transport.js",
+      "require": "./dist/transport.cjs"
+    },
     "./package.json": "./package.json"
   },
   "sideEffects": false,

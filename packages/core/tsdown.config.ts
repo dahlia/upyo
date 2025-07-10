@@ -8,6 +8,7 @@ export default defineConfig({
     "src/message.ts",
     "src/priority.ts",
     "src/receipt.ts",
+    "src/transport.ts",
   ],
   dts: true,
   format: ["esm", "cjs"],

@@ -8,7 +8,8 @@
     "./attachment": "./src/attachment.ts",
     "./message": "./src/message.ts",
     "./priority": "./src/priority.ts",
-    "./receipt": "./src/receipt.ts"
+    "./receipt": "./src/receipt.ts",
+    "./transport": "./src/transport.ts"
   },
   "exclude": [
     "dist/"
