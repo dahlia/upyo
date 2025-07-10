@@ -57,6 +57,14 @@
       "import": "./dist/address.js",
       "require": "./dist/address.cjs"
     },
+    "./priority": {
+      "types": {
+        "import": "./dist/priority.d.ts",
+        "require": "./dist/priority.cts"
+      },
+      "import": "./dist/priority.js",
+      "require": "./dist/priority.cjs"
+    },
     "./package.json": "./package.json"
   },
   "sideEffects": false,

@@ -4,7 +4,8 @@
   "license": "MIT",
   "exports": {
     ".": "./src/index.ts",
-    "./address": "./src/address.ts"
+    "./address": "./src/address.ts",
+    "./priority": "./src/priority.ts"
   },
   "exclude": [
     "dist/"
