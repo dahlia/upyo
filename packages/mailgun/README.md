@@ -3,9 +3,17 @@
 @upyo/mailgun
 =============
 
-[Mailgun] transport for Upyo email library.
+[![JSR][JSR badge]][JSR]
+[![npm][npm badge]][npm]
 
+[Mailgun] transport for the [Upyo] email library.
+
+[JSR]: https://jsr.io/@upyo/mailgun
+[JSR badge]: https://jsr.io/badges/@upyo/mailgun
+[npm]: https://www.npmjs.com/package/@upyo/mailgun
+[npm badge]: https://img.shields.io/npm/v/@upyo/mailgun?logo=npm
 [Mailgun]: https://www.mailgun.com/
+[Upyo]: https://upyo.org/
 
 
 Installation

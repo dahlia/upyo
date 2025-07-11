@@ -3,8 +3,17 @@
 @upyo/core
 ==========
 
-Shared types and interfaces for Upyo, a simple and cross-runtime library for
+[![JSR][JSR badge]][JSR]
+[![npm][npm badge]][npm]
+
+Shared types and interfaces for [Upyo], a simple and cross-runtime library for
 sending email messages.
+
+[JSR]: https://jsr.io/@upyo/core
+[JSR badge]: https://jsr.io/badges/@upyo/core
+[npm]: https://www.npmjs.com/package/@upyo/core
+[npm badge]: https://img.shields.io/npm/v/@upyo/core?logo=npm
+[Upyo]: https://upyo.org/
 
 
 Installation

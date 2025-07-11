@@ -3,7 +3,16 @@
 @upyo/smtp
 ==========
 
-SMTP transport implementation for the Upyo email library.
+[![JSR][JSR badge]][JSR]
+[![npm][npm badge]][npm]
+
+SMTP transport implementation for the [Upyo] email library.
+
+[JSR]: https://jsr.io/@upyo/smtp
+[JSR badge]: https://jsr.io/badges/@upyo/smtp
+[npm]: https://www.npmjs.com/package/@upyo/smtp
+[npm badge]: https://img.shields.io/npm/v/@upyo/smtp?logo=npm
+[Upyo]: https://upyo.org/
 
 
 Features

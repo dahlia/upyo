@@ -1,5 +1,7 @@
 <!-- deno-fmt-ignore-file -->
 
+<img src="docs/public/logo.svg" width="128" height="128" align="right">
+
 Upyo
 ====
 
@@ -19,11 +21,11 @@ Upyo is a monorepo which contains several packages.  The main package is
 sending email messages.  Other packages implement specific transports for
 sending messages.  The following is a list of the available packages:
 
-| Package       | JSR                      | npm                      | Description                                    |
-| ------------- | ------------------------ | ------------------------ | ---------------------------------------------- |
-| @upyo/core    | [JSR][jsr:@upyo/core]    | [npm][npm:@upyo/core]    | Shared types and interfaces for email messages |
-| @upyo/smtp    | [JSR][jsr:@upyo/smtp]    | [npm][npm:@upyo/smtp]    | SMTP transport                                 |
-| @upyo/mailgun | [JSR][jsr:@upyo/mailgun] | [npm][npm:@upyo/mailgun] | Mailgun transport                              |
+| Package                            | JSR                      | npm                      | Description                                    |
+| ---------------------------------- | ------------------------ | ------------------------ | ---------------------------------------------- |
+| [@upyo/core](/packages/core/)      | [JSR][jsr:@upyo/core]    | [npm][npm:@upyo/core]    | Shared types and interfaces for email messages |
+| [@upyo/smtp](/packages/smtp/)      | [JSR][jsr:@upyo/smtp]    | [npm][npm:@upyo/smtp]    | SMTP transport                                 |
+| [@upyo/mailgun](/packages/mailgun) | [JSR][jsr:@upyo/mailgun] | [npm][npm:@upyo/mailgun] | Mailgun transport                              |
 
 [jsr:@upyo/core]: https://jsr.io/@upyo/core
 [npm:@upyo/core]: https://www.npmjs.com/package/@upyo/core
