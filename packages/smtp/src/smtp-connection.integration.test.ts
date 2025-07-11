@@ -490,21 +490,21 @@ describe("SMTP Connection Integration Tests", () => {
           secure: false,
         });
 
-        await assert.rejects(
-          () => freshConnection.sendCommand("EHLO test"),
-          {
-            name: "Error",
-            message: "Not connected",
-          },
-        );
+        // Test sendCommand throws
+        try {
+          await freshConnection.sendCommand("EHLO test");
+          assert.fail("Expected sendCommand to throw an error");
+        } catch (error) {
+          assert.strictEqual((error as Error).message, "Not connected");
+        }
 
-        await assert.rejects(
-          () => freshConnection.reset(),
-          {
-            name: "Error",
-            message: "Not connected",
-          },
-        );
+        // Test reset throws
+        try {
+          await freshConnection.reset();
+          assert.fail("Expected reset to throw an error");
+        } catch (error) {
+          assert.strictEqual((error as Error).message, "Not connected");
+        }
       } finally {
         await teardownTest(server, connection);
       }
@@ -522,13 +522,16 @@ describe("SMTP Connection Integration Tests", () => {
 
         await freshConnection.connect();
 
-        await assert.rejects(
-          () => freshConnection.connect(),
-          {
-            name: "Error",
-            message: "Connection already established",
-          },
-        );
+        // Test double connect throws
+        try {
+          await freshConnection.connect();
+          assert.fail("Expected connect to throw an error");
+        } catch (error) {
+          assert.strictEqual(
+            (error as Error).message,
+            "Connection already established",
+          );
+        }
 
         // Cleanup
         await freshConnection.quit();
