@@ -10,7 +10,7 @@ export interface SmtpEnvelope {
   readonly to: string[];
 }
 
-export function convertMessage(message: Message): SmtpMessage {
+export async function convertMessage(message: Message): Promise<SmtpMessage> {
   const envelope: SmtpEnvelope = {
     from: message.sender.address,
     to: [
@@ -20,12 +20,12 @@ export function convertMessage(message: Message): SmtpMessage {
     ],
   };
 
-  const raw = buildRawMessage(message);
+  const raw = await buildRawMessage(message);
 
   return { envelope, raw };
 }
 
-function buildRawMessage(message: Message): string {
+async function buildRawMessage(message: Message): Promise<string> {
   const lines: string[] = [];
   const boundary = generateBoundary();
   const hasAttachments = message.attachments.length > 0;
@@ -134,7 +134,7 @@ function buildRawMessage(message: Message): string {
       }
 
       lines.push("");
-      lines.push(encodeBase64(attachment.content));
+      lines.push(encodeBase64(await attachment.content));
     }
 
     lines.push("");

@@ -75,7 +75,7 @@ export class MailgunTransport implements Transport {
     options?.signal?.throwIfAborted();
 
     try {
-      const formData = convertMessage(message, this.config);
+      const formData = await convertMessage(message, this.config);
 
       options?.signal?.throwIfAborted();
 

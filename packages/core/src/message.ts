@@ -1,10 +1,14 @@
-import type { Address } from "./address.ts";
-import type { Attachment } from "./attachment.ts";
+import { type Address, parseAddress } from "./address.ts";
+import { type Attachment, isAttachment } from "./attachment.ts";
 import type { Priority } from "./priority.ts";
 
 /**
  * Represents an email message with various properties such as
  * sender, recipients, subject, content, and attachments.
+ *
+ * You wouldn't typically create this type directly.  Instead, you probably
+ * want to use the {@link createMessage} function, which provides a more
+ * convenient API for creating messages.
  */
 export interface Message {
   /**
@@ -121,3 +125,176 @@ export type MessageContent =
  * read-only access to the headers of an email message.
  */
 export type ImmutableHeaders = Omit<Headers, "append" | "delete" | "set">;
+
+/**
+ * A constructor interface for creating a new email message using
+ * the {@link createMessage} function.
+ */
+export interface MessageConstructor {
+  /**
+   * The email address of the sender of the message.
+   */
+  readonly from: Address | string;
+
+  /**
+   * The email addresses of the recipient of the message.
+   */
+  readonly to: Address | string | (Address | string)[];
+
+  /**
+   * The email addresses of the carbon copy (CC) recipients of the message.
+   * @default `[]`
+   */
+  readonly cc?: Address | string | (Address | string)[];
+
+  /**
+   * The email addresses of the blind carbon copy (BCC) recipients of the message.
+   * @default `[]`
+   */
+  readonly bcc?: Address | string | (Address | string)[];
+
+  /**
+   * The email addresses of the reply-to recipients of the message.
+   * @default `[]`
+   */
+  readonly replyTo?: Address | string | (Address | string)[];
+
+  /**
+   * The attachments included in the email message.  These are files that
+   * are sent along with the email, such as documents, images, or other
+   * media files.  Each attachment can be represented by an {@link Attachment}
+   * or a `File` object, which contains information about the attachment such as
+   * its filename and content type.
+   * @default `[]`
+   */
+  readonly attachments?: Attachment | File | (Attachment | File)[];
+
+  /**
+   * The subject of the email message.  This is typically a brief summary
+   * of the content of the email, and is used to help the recipient identify
+   * the purpose of the message.
+   */
+  readonly subject: string;
+
+  /**
+   * The content of the email message, which can be either HTML or plain text.
+   * This property is represented by the {@link MessageContent} type, which
+   * includes both HTML and plain text content.  The HTML content is typically
+   * used for rich formatting and layout, while the plain text content is
+   * used for simple text emails or for compatibility with email clients
+   * that do not support HTML.
+   */
+  readonly content: MessageContent;
+
+  /**
+   * The priority of the email message, which indicates its importance
+   * relative to other messages.  The priority can be one of three
+   * levels: `"high"`, `"normal"`, or `"low"`.  This is represented by
+   * the {@link Priority} type, which is a string literal type that
+   * allows only these three values.
+   * @default `"normal"`
+   */
+  readonly priority?: Priority;
+
+  /**
+   * The tags associated with the email message.
+   * @default `[]`
+   */
+  readonly tags?: string[];
+
+  /**
+   * The headers of the email message.
+   * @default `{}`
+   */
+  readonly headers?: ImmutableHeaders | Record<string, string>;
+}
+
+/**
+ * Creates a new email {@link Message} based on the provided constructor
+ * parameters.  This function provides a more convenient API for creating
+ * messages compared to constructing a {@link Message} object directly.
+ *
+ * @example
+ * ```typescript
+ * const message = createMessage({
+ *   from: "sender@example.com",
+ *   to: "recipient1@example.com",
+ *   subject: "Hello World",
+ *   content: { text: "This is a test message" }
+ * });
+ * ```
+ *
+ * @param constructor The constructor parameters for the message. Uses more
+ *                    user-friendly types like accepting strings for email
+ *                    addresses and `File` objects for attachments.
+ * @returns A new {@link Message} object with all properties normalized and
+ *          validated.
+ * @throws {TypeError} When any email address string cannot be parsed or when
+ *                     an attachment object is invalid.
+ */
+export function createMessage(constructor: MessageConstructor): Message {
+  return {
+    sender: typeof constructor.from === "string"
+      ? parseAddress(constructor.from) ??
+        throwTypeError(
+          `Invalid sender address: ${JSON.stringify(constructor.from)}`,
+        )
+      : constructor.from,
+    recipients: esureArray(constructor.to).map((to) =>
+      typeof to === "string"
+        ? parseAddress(to) ??
+          throwTypeError(`Invalid recipient address: ${JSON.stringify(to)}`)
+        : to
+    ),
+    ccRecipients: esureArray(constructor.cc).map((cc) =>
+      typeof cc === "string"
+        ? parseAddress(cc) ??
+          throwTypeError(`Invalid CC address: ${JSON.stringify(cc)}`)
+        : cc
+    ),
+    bccRecipients: esureArray(constructor.bcc).map((bcc) =>
+      typeof bcc === "string"
+        ? parseAddress(bcc) ??
+          throwTypeError(`Invalid BCC address: ${JSON.stringify(bcc)}`)
+        : bcc
+    ),
+    replyRecipients: esureArray(constructor.replyTo).map((replyTo) =>
+      typeof replyTo === "string"
+        ? parseAddress(replyTo) ??
+          throwTypeError(`Invalid reply-to address: ${JSON.stringify(replyTo)}`)
+        : replyTo
+    ),
+    attachments: esureArray(constructor.attachments).map((attachment) => {
+      if (attachment instanceof File) {
+        return {
+          inline: false,
+          filename: attachment.name,
+          content: attachment.arrayBuffer().then((b) => new Uint8Array(b)),
+          contentType: attachment.type == null || attachment.type === ""
+            ? "application/octet-stream"
+            : attachment.type as `${string}/${string}`,
+          contentId: "",
+        };
+      } else if (isAttachment(attachment)) {
+        return attachment;
+      } else {
+        throwTypeError(`Invalid attachment: ${JSON.stringify(attachment)}`);
+      }
+    }),
+    subject: constructor.subject,
+    content: constructor.content,
+    priority: constructor.priority ?? "normal",
+    tags: esureArray(constructor.tags),
+    headers: new Headers(constructor.headers ?? {}),
+  };
+}
+
+function throwTypeError(message: string): never {
+  throw new TypeError(message);
+}
+
+function esureArray<T>(
+  value: T | T[] | null | undefined,
+): T[] {
+  return Array.isArray(value) ? value : value == null ? [] : [value];
+}

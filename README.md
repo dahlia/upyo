@@ -12,6 +12,36 @@ Upyo is a simple and cross-runtime library for sending email messages using
 SMTP and various email providers.  It works on Node.js, Deno, Bun, and edge
 functions.
 
+Here's a quick demo of sending an email using the Mailgun transport:
+
+~~~~ typescript
+import { createMessage } from "@upyo/core";
+import { MailgunTransport } from "@upyo/mailgun";
+import fs from "node:fs/promises";
+import process from "node:process";
+
+const message = createMessage({
+  from: "sender@example.com",
+  to: "recipient@example.net",
+  subject: "Hello from Upyo!",
+  content: { text: "This is a test email." },
+  attachments: [
+    new File(
+      [await fs.readFile("image.jpg"), "image.jpg", { type: "image/jpeg" }]
+    )
+  ],
+});
+
+const transport = new MailgunTransport({
+  apiKey: process.env.MAILGUN_KEY,
+  domain: process.env.MAILGUN_DOMAIN,
+  region: process.env.MAILGUN_REGION,
+});
+
+const receipt = await transport.send(message);
+console.log("Email sent:", receipt.successful);
+~~~~
+
 
 Packages
 --------

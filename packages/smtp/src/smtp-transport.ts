@@ -86,7 +86,7 @@ export class SmtpTransport implements Transport, AsyncDisposable {
     try {
       options?.signal?.throwIfAborted();
 
-      const smtpMessage = convertMessage(message);
+      const smtpMessage = await convertMessage(message);
 
       options?.signal?.throwIfAborted();
 
@@ -167,7 +167,7 @@ export class SmtpTransport implements Transport, AsyncDisposable {
           }
 
           try {
-            const smtpMessage = convertMessage(message);
+            const smtpMessage = await convertMessage(message);
             options?.signal?.throwIfAborted();
 
             const messageId = await connection.sendMessage(
@@ -207,7 +207,7 @@ export class SmtpTransport implements Transport, AsyncDisposable {
           }
 
           try {
-            const smtpMessage = convertMessage(message);
+            const smtpMessage = await convertMessage(message);
             options?.signal?.throwIfAborted();
 
             const messageId = await connection.sendMessage(

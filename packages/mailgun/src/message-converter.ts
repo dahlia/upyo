@@ -13,14 +13,14 @@ import type { ResolvedMailgunConfig } from "./config.ts";
  *
  * @example
  * ```typescript
- * const formData = convertMessage(message, config);
+ * const formData = await convertMessage(message, config);
  * const response = await fetch(url, { method: 'POST', body: formData });
  * ```
  */
-export function convertMessage(
+export async function convertMessage(
   message: Message,
   config: ResolvedMailgunConfig,
-): FormData {
+): Promise<FormData> {
   const formData = new FormData();
 
   // Required fields
@@ -85,7 +85,7 @@ export function convertMessage(
 
   // Attachments
   for (const attachment of message.attachments) {
-    appendAttachment(formData, attachment);
+    await appendAttachment(formData, attachment);
   }
 
   // Tracking options
@@ -125,8 +125,13 @@ function formatAddress(address: Address): string {
  * @param formData - The FormData to append to
  * @param attachment - The attachment to append
  */
-function appendAttachment(formData: FormData, attachment: Attachment): void {
-  const blob = new Blob([attachment.content], { type: attachment.contentType });
+async function appendAttachment(
+  formData: FormData,
+  attachment: Attachment,
+): Promise<void> {
+  const blob = new Blob([await attachment.content], {
+    type: attachment.contentType,
+  });
 
   if (attachment.contentId) {
     // Inline attachment

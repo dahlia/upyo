@@ -10,7 +10,7 @@ describe("convertMessage", () => {
     domain: "test-domain.com",
   });
 
-  it("should convert a simple message", () => {
+  it("should convert a simple message", async () => {
     const message: Message = {
       sender: { address: "sender@example.com" },
       recipients: [{ address: "recipient@example.com" }],
@@ -25,7 +25,7 @@ describe("convertMessage", () => {
       headers: new Headers(),
     };
 
-    const formData = convertMessage(message, config);
+    const formData = await convertMessage(message, config);
 
     assert.equal(formData.get("from"), "sender@example.com");
     assert.equal(formData.get("to"), "recipient@example.com");
@@ -33,7 +33,7 @@ describe("convertMessage", () => {
     assert.equal(formData.get("text"), "Test content");
   });
 
-  it("should format addresses with names", () => {
+  it("should format addresses with names", async () => {
     const message: Message = {
       sender: { address: "sender@example.com", name: "John Doe" },
       recipients: [{ address: "recipient@example.com", name: "Jane Smith" }],
@@ -48,13 +48,13 @@ describe("convertMessage", () => {
       headers: new Headers(),
     };
 
-    const formData = convertMessage(message, config);
+    const formData = await convertMessage(message, config);
 
     assert.equal(formData.get("from"), '"John Doe" <sender@example.com>');
     assert.equal(formData.get("to"), '"Jane Smith" <recipient@example.com>');
   });
 
-  it("should handle HTML content", () => {
+  it("should handle HTML content", async () => {
     const message: Message = {
       sender: { address: "sender@example.com" },
       recipients: [{ address: "recipient@example.com" }],
@@ -69,13 +69,13 @@ describe("convertMessage", () => {
       headers: new Headers(),
     };
 
-    const formData = convertMessage(message, config);
+    const formData = await convertMessage(message, config);
 
     assert.equal(formData.get("html"), "<p>Test HTML</p>");
     assert.equal(formData.get("text"), "Test text");
   });
 
-  it("should handle CC and BCC recipients", () => {
+  it("should handle CC and BCC recipients", async () => {
     const message: Message = {
       sender: { address: "sender@example.com" },
       recipients: [{ address: "recipient@example.com" }],
@@ -90,13 +90,13 @@ describe("convertMessage", () => {
       headers: new Headers(),
     };
 
-    const formData = convertMessage(message, config);
+    const formData = await convertMessage(message, config);
 
     assert.equal(formData.get("cc"), "cc@example.com");
     assert.equal(formData.get("bcc"), "bcc@example.com");
   });
 
-  it("should handle reply-to addresses", () => {
+  it("should handle reply-to addresses", async () => {
     const message: Message = {
       sender: { address: "sender@example.com" },
       recipients: [{ address: "recipient@example.com" }],
@@ -111,12 +111,12 @@ describe("convertMessage", () => {
       headers: new Headers(),
     };
 
-    const formData = convertMessage(message, config);
+    const formData = await convertMessage(message, config);
 
     assert.equal(formData.get("h:Reply-To"), "replyto@example.com");
   });
 
-  it("should handle priority", () => {
+  it("should handle priority", async () => {
     const message: Message = {
       sender: { address: "sender@example.com" },
       recipients: [{ address: "recipient@example.com" }],
@@ -131,12 +131,12 @@ describe("convertMessage", () => {
       headers: new Headers(),
     };
 
-    const formData = convertMessage(message, config);
+    const formData = await convertMessage(message, config);
 
     assert.equal(formData.get("h:X-Priority"), "1");
   });
 
-  it("should handle tags", () => {
+  it("should handle tags", async () => {
     const message: Message = {
       sender: { address: "sender@example.com" },
       recipients: [{ address: "recipient@example.com" }],
@@ -151,13 +151,13 @@ describe("convertMessage", () => {
       headers: new Headers(),
     };
 
-    const formData = convertMessage(message, config);
+    const formData = await convertMessage(message, config);
 
     const tags = formData.getAll("o:tag");
     assert.deepEqual(tags, ["tag1", "tag2"]);
   });
 
-  it("should handle custom headers", () => {
+  it("should handle custom headers", async () => {
     const headers = new Headers();
     headers.set("X-Custom-Header", "custom-value");
 
@@ -175,13 +175,13 @@ describe("convertMessage", () => {
       headers,
     };
 
-    const formData = convertMessage(message, config);
+    const formData = await convertMessage(message, config);
 
     // Headers are normalized to lowercase by the Headers API
     assert.equal(formData.get("h:x-custom-header"), "custom-value");
   });
 
-  it("should handle tracking options", () => {
+  it("should handle tracking options", async () => {
     const configWithTracking = createMailgunConfig({
       apiKey: "test-key",
       domain: "test-domain.com",
@@ -204,7 +204,7 @@ describe("convertMessage", () => {
       headers: new Headers(),
     };
 
-    const formData = convertMessage(message, configWithTracking);
+    const formData = await convertMessage(message, configWithTracking);
 
     assert.equal(formData.get("o:tracking"), "no");
     assert.equal(formData.get("o:tracking-clicks"), "no");
