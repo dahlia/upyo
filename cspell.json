@@ -3,6 +3,13 @@
     "Minhee",
     "tsdown",
     "upyo",
-    "unbundle"
+    "unbundle",
+    "mailpit",
+    "ehlo",
+    "dotenvx",
+    "helo",
+    "STARTTLS",
+    "healthcheck",
+    "axllent"
   ]
 }

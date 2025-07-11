@@ -5,5 +5,20 @@
   "imports": {
     "tsdown": "npm:tsdown@^0.12.7"
   },
-  "nodeModulesDir": "none"
+  "nodeModulesDir": "none",
+  "exclude": [
+    "**/dist",
+    "**/node_modules",
+    "node_modules"
+  ],
+  "fmt": {
+    "exclude": [
+      "*.md",
+      "**/*.md",
+      "*.yaml",
+      "**/*.yaml",
+      "*.yml",
+      "**/*.yml"
+    ]
+  }
 }

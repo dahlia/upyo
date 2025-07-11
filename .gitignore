@@ -1,3 +1,5 @@
 packages/*/dist/
 .claude/
+.env
+.env.test
 node_modules/

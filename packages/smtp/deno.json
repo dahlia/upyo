@@ -1,0 +1,32 @@
+{
+  "name": "@upyo/smtp",
+  "version": "0.1.0",
+  "license": "MIT",
+  "exports": "./src/index.ts",
+  "exclude": [
+    "dist/"
+  ],
+  "tasks": {
+    "build": "pnpm build",
+    "test": "deno test --allow-env --allow-net --env-file=.env.test",
+    "test:node": {
+      "dependencies": [
+        "build"
+      ],
+      "command": "pnpm exec dotenvx run --env-file=.env.test -- node --experimental-transform-types --test"
+    },
+    "test:bun": {
+      "dependencies": [
+        "build"
+      ],
+      "command": "bun test --env-file=.env.test"
+    },
+    "test-all": {
+      "dependencies": [
+        "test",
+        "test:node",
+        "test:bun"
+      ]
+    }
+  }
+}
