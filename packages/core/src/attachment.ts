@@ -14,9 +14,11 @@ export interface Attachment {
   readonly filename: string;
 
   /**
-   * The content of the attachment as a byte array.
+   * The content of the attachment as a byte array.  It can be a `Promise`
+   * that resolves to a `Uint8Array`, allowing for asynchronous loading
+   * of the attachment content.
    */
-  readonly content: Uint8Array;
+  readonly content: Uint8Array | Promise<Uint8Array>;
 
   /**
    * The media type of the attachment, which indicates the type of content
@@ -29,4 +31,28 @@ export interface Attachment {
    * inline images in HTML emails.
    */
   readonly contentId: string;
+}
+
+/**
+ * Checks if the provided value is an {@link Attachment} object.
+ * @param attachment The value to check.
+ * @return `true` if the value is an {@link Attachment}, otherwise `false`.
+ */
+export function isAttachment(attachment: unknown): attachment is Attachment {
+  return (
+    typeof attachment === "object" &&
+    attachment !== null &&
+    "inline" in attachment &&
+    "filename" in attachment &&
+    "content" in attachment &&
+    "contentType" in attachment &&
+    "contentId" in attachment &&
+    typeof attachment.inline === "boolean" &&
+    typeof attachment.filename === "string" &&
+    (attachment.content instanceof Uint8Array ||
+      (attachment.content instanceof Promise &&
+        typeof attachment.content.then === "function")) &&
+    typeof attachment.contentType === "string" &&
+    typeof attachment.contentId === "string"
+  );
 }
