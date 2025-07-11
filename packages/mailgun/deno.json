@@ -8,18 +8,18 @@
   ],
   "tasks": {
     "build": "pnpm build",
-    "test": "deno test --allow-env --allow-net --env-file=.env.test",
+    "test": "deno test --allow-env --allow-net --env-file=.env",
     "test:node": {
       "dependencies": [
         "build"
       ],
-      "command": "pnpm exec dotenvx run --env-file=.env.test --ignore=MISSING_ENV_FILE -- node --experimental-transform-types --test"
+      "command": "pnpm exec dotenvx run --ignore=MISSING_ENV_FILE -- node --experimental-transform-types --test"
     },
     "test:bun": {
       "dependencies": [
         "build"
       ],
-      "command": "bun test --env-file=.env.test"
+      "command": "bun test --env-file=.env"
     },
     "test-all": {
       "dependencies": [

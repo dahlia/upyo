@@ -64,8 +64,8 @@
     "build": "tsdown",
     "prepack": "tsdown",
     "prepublish": "tsdown",
-    "test": "tsdown && dotenvx run --env-file=.env.test --ignore=MISSING_ENV_FILE -- node --experimental-transform-types --test",
-    "test:bun": "tsdown && bun test --env-file=.env.test",
-    "test:deno": "deno test --allow-env --allow-net --env-file=.env.test"
+    "test": "tsdown && dotenvx run --ignore=MISSING_ENV_FILE -- node --experimental-transform-types --test",
+    "test:bun": "tsdown && bun test --env-file=.env",
+    "test:deno": "deno test --allow-env --allow-net --env-file=.env"
   }
 }
