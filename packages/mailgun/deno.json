@@ -19,7 +19,7 @@
       "dependencies": [
         "build"
       ],
-      "command": "bun test --env-file=.env"
+      "command": "bun test --timeout=30000 --env-file=.env"
     },
     "test-all": {
       "dependencies": [

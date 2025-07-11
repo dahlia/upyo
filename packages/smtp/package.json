@@ -65,7 +65,7 @@
     "prepack": "tsdown",
     "prepublish": "tsdown",
     "test": "tsdown && dotenvx run --ignore=MISSING_ENV_FILE -- node --experimental-transform-types --test",
-    "test:bun": "tsdown && bun test --env-file=.env",
+    "test:bun": "tsdown && bun test --timeout=30000 --env-file=.env",
     "test:deno": "deno test --allow-env --allow-net --env-file=.env",
     "mailpit:start": "docker run -d --name upyo-mailpit -p 1025:1025 -p 8025:8025 axllent/mailpit:latest",
     "mailpit:stop": "docker stop upyo-mailpit && docker rm upyo-mailpit",
