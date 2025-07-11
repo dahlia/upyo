@@ -2,4 +2,6 @@ packages/*/dist/
 .claude/
 .env
 .env.test
+coverage/
+junit.xml
 node_modules/

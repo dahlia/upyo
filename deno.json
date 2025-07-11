@@ -9,6 +9,8 @@
   "exclude": [
     "**/dist",
     "**/node_modules",
+    "coverage",
+    "junit.xml",
     "node_modules"
   ],
   "fmt": {
