@@ -1,0 +1,3 @@
+.jsr-cache-*.json
+.vitepress/cache/
+.vitepress/config.mts.timestamp-*

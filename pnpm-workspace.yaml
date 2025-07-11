@@ -1,11 +1,14 @@
 packages:
-- packages/*
+  - packages/*
+  - docs
 
 catalog:
-  "@dotenvx/dotenvx": ^1.47.3
+  '@dotenvx/dotenvx': ^1.47.3
   tsdown: ^0.12.7
-  typescript: ^5.8.3
+  typescript: 5.8.3
+
+engineStrict: true
 
 nodeVersion: 20.18.0
-engineStrict: true
+
 shellEmulator: true
