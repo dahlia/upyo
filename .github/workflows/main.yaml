@@ -4,6 +4,26 @@ on: [push, pull_request]
 jobs:
   test-node:
     runs-on: ubuntu-latest
+    services:
+      mailpit:
+        image: axllent/mailpit:latest
+        ports:
+        - 1025:1025  # SMTP port
+        - 8025:8025  # Web interface port
+        env:
+          MP_SMTP_AUTH_ACCEPT_ANY: "1"
+          MP_SMTP_AUTH_ALLOW_INSECURE: "1"
+        options: >-
+          --health-cmd="wget --quiet --tries=1 --spider http://localhost:8025/api/v1/info"
+          --health-interval=30s
+          --health-timeout=10s
+          --health-retries=3
+          --health-start-period=40s
+    env:
+      MAILPIT_SMTP_HOST: localhost
+      MAILPIT_SMTP_PORT: 1025
+      MAILPIT_SMTP_SECURE: "false"
+      MAILPIT_API_URL: http://localhost:8025
     steps:
     - uses: actions/checkout@v4
     - uses: pnpm/action-setup@v4
@@ -17,6 +37,26 @@ jobs:
 
   test-deno:
     runs-on: ubuntu-latest
+    services:
+      mailpit:
+        image: axllent/mailpit:latest
+        ports:
+        - 1025:1025  # SMTP port
+        - 8025:8025  # Web interface port
+        env:
+          MP_SMTP_AUTH_ACCEPT_ANY: "1"
+          MP_SMTP_AUTH_ALLOW_INSECURE: "1"
+        options: >-
+          --health-cmd="wget --quiet --tries=1 --spider http://localhost:8025/api/v1/info"
+          --health-interval=30s
+          --health-timeout=10s
+          --health-retries=3
+          --health-start-period=40s
+    env:
+      MAILPIT_SMTP_HOST: localhost
+      MAILPIT_SMTP_PORT: 1025
+      MAILPIT_SMTP_SECURE: "false"
+      MAILPIT_API_URL: http://localhost:8025
     steps:
     - uses: actions/checkout@v4
     - uses: denoland/setup-deno@v2
@@ -35,6 +75,26 @@ jobs:
 
   test-bun:
     runs-on: ubuntu-latest
+    services:
+      mailpit:
+        image: axllent/mailpit:latest
+        ports:
+        - 1025:1025  # SMTP port
+        - 8025:8025  # Web interface port
+        env:
+          MP_SMTP_AUTH_ACCEPT_ANY: "1"
+          MP_SMTP_AUTH_ALLOW_INSECURE: "1"
+        options: >-
+          --health-cmd="wget --quiet --tries=1 --spider http://localhost:8025/api/v1/info"
+          --health-interval=30s
+          --health-timeout=10s
+          --health-retries=3
+          --health-start-period=40s
+    env:
+      MAILPIT_SMTP_HOST: localhost
+      MAILPIT_SMTP_PORT: 1025
+      MAILPIT_SMTP_SECURE: "false"
+      MAILPIT_API_URL: http://localhost:8025
     steps:
     - uses: actions/checkout@v4
     - uses: pnpm/action-setup@v4
