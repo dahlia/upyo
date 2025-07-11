@@ -18,6 +18,8 @@ describe(
   "Mailgun Transport E2E Tests",
   { skip: !isE2eTestingEnabled() },
   () => {
+    if (!isE2eTestingEnabled()) return;
+
     function setupTest() {
       const config = getTestConfig();
       const transport = new MailgunTransport(config.mailgun);

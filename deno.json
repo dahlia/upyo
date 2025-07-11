@@ -10,6 +10,7 @@
     "**/dist",
     "**/node_modules",
     ".env",
+    ".github",
     "coverage",
     "junit.xml",
     "node_modules"

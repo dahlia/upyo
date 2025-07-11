@@ -17,6 +17,8 @@ describe(
   "SMTP Transport Mailpit Tests",
   { skip: !isMailpitTestingEnabled() },
   () => {
+    if (!isMailpitTestingEnabled()) return;
+
     async function setupTest() {
       const config = getTestConfig();
       const transport = new SmtpTransport(config.smtp);
