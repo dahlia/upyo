@@ -1,9 +1,15 @@
 import type { Message } from "@upyo/core";
 import { MailgunTransport } from "@upyo/mailgun";
-import { describe, it } from "node:test";
 import { strict as assert } from "node:assert";
+import { describe, it } from "node:test";
 
-describe("MailgunTransport", () => {
+// Note: Tests are split into separate describe blocks instead of one unified block
+// because Deno runs tests within the same describe block concurrently, which causes
+// globalThis.fetch mocking to interfere between tests. Node.js runs tests sequentially
+// so it doesn't have this issue. By separating each test into its own describe block,
+// we ensure that fetch mocking is isolated between tests in both environments.
+
+describe("MailgunTransport - Send Message", () => {
   it("should send a message successfully", async () => {
     const originalFetch = globalThis.fetch;
     try {
@@ -50,7 +56,9 @@ describe("MailgunTransport", () => {
       globalThis.fetch = originalFetch;
     }
   });
+});
 
+describe("MailgunTransport - API Errors", () => {
   it("should handle API errors", async () => {
     const originalFetch = globalThis.fetch;
     try {
@@ -97,7 +105,9 @@ describe("MailgunTransport", () => {
       globalThis.fetch = originalFetch;
     }
   });
+});
 
+describe("MailgunTransport - Network Errors", () => {
   it("should handle network errors", async () => {
     const originalFetch = globalThis.fetch;
     try {
@@ -136,7 +146,9 @@ describe("MailgunTransport", () => {
       globalThis.fetch = originalFetch;
     }
   });
+});
 
+describe("MailgunTransport - Multiple Messages", () => {
   it("should send multiple messages", async () => {
     const originalFetch = globalThis.fetch;
     try {
@@ -201,7 +213,9 @@ describe("MailgunTransport", () => {
       globalThis.fetch = originalFetch;
     }
   });
+});
 
+describe("MailgunTransport - Abort Signal", () => {
   it("should handle abort signal", async () => {
     const originalFetch = globalThis.fetch;
     try {
