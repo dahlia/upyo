@@ -26,7 +26,7 @@ import { convertMessage } from "./message-converter.ts";
  *
  * const receipt = await transport.send(message);
  * // Connections are automatically closed here
- * 
+ *
  * // Or manual management
  * const transport2 = new SmtpTransport(config);
  * try {
@@ -339,11 +339,11 @@ export class SmtpTransport implements Transport, AsyncDisposable {
 
   /**
    * Implements AsyncDisposable interface for automatic resource cleanup.
-   * 
+   *
    * This method is called automatically when using the `using` keyword,
    * ensuring that all SMTP connections are properly closed when the
    * transport goes out of scope.
-   * 
+   *
    * @example
    * ```typescript
    * // Automatic cleanup with using statement

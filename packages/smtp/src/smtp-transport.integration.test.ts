@@ -21,11 +21,14 @@ describe("SmtpTransport Integration Tests", () => {
     return { server, transport };
   }
 
-  async function teardownTest(server: MockSmtpServer, transport: SmtpTransport) {
+  async function teardownTest(
+    server: MockSmtpServer,
+    transport: SmtpTransport,
+  ) {
     await transport.closeAllConnections();
     await server.stop();
     // Give the event loop time to clean up resources
-    await new Promise(resolve => setTimeout(resolve, 1));
+    await new Promise((resolve) => setTimeout(resolve, 1));
   }
 
   function createTestMessage(overrides: Partial<Message> = {}): Message {
@@ -50,11 +53,11 @@ describe("SmtpTransport Integration Tests", () => {
     try {
       const message = createTestMessage();
       const receipt = await transport.send(message);
-      
+
       assert.strictEqual(receipt.successful, true);
       assert.strictEqual(receipt.errorMessages.length, 0);
       assert.ok(receipt.messageId.length > 0);
-      
+
       const receivedMessages = server.getReceivedMessages();
       assert.strictEqual(receivedMessages.length, 1);
       assert.strictEqual(receivedMessages[0].from, "john@example.com");
@@ -70,11 +73,11 @@ describe("SmtpTransport Integration Tests", () => {
       const message = createTestMessage({
         content: { html: "<h1>Hello, World!</h1>" },
       });
-      
+
       const receipt = await transport.send(message);
-      
+
       assert.strictEqual(receipt.successful, true);
-      
+
       const receivedMessages = server.getReceivedMessages();
       assert.strictEqual(receivedMessages.length, 1);
       assert.ok(receivedMessages[0].data.includes("Content-Type: text/html"));
@@ -95,11 +98,11 @@ describe("SmtpTransport Integration Tests", () => {
         ccRecipients: [{ address: "cc@example.com" }],
         bccRecipients: [{ address: "bcc@example.com" }],
       });
-      
+
       const receipt = await transport.send(message);
-      
+
       assert.strictEqual(receipt.successful, true);
-      
+
       const receivedMessages = server.getReceivedMessages();
       assert.strictEqual(receivedMessages.length, 1);
       assert.deepStrictEqual(receivedMessages[0].to, [
@@ -127,16 +130,20 @@ describe("SmtpTransport Integration Tests", () => {
           },
         ],
       });
-      
+
       const receipt = await transport.send(message);
-      
+
       assert.strictEqual(receipt.successful, true);
-      
+
       const receivedMessages = server.getReceivedMessages();
       assert.strictEqual(receivedMessages.length, 1);
-      assert.ok(receivedMessages[0].data.includes("Content-Type: multipart/mixed"));
+      assert.ok(
+        receivedMessages[0].data.includes("Content-Type: multipart/mixed"),
+      );
       assert.ok(receivedMessages[0].data.includes('filename="test.txt"'));
-      assert.ok(receivedMessages[0].data.includes("Content-Transfer-Encoding: base64"));
+      assert.ok(
+        receivedMessages[0].data.includes("Content-Transfer-Encoding: base64"),
+      );
     } finally {
       await teardownTest(server, transport);
     }
@@ -155,15 +162,15 @@ describe("SmtpTransport Integration Tests", () => {
           content: { text: "Second email content" },
         }),
       ];
-      
+
       const receipts = [];
       for await (const receipt of transport.sendMany(messages)) {
         receipts.push(receipt);
       }
-      
+
       assert.strictEqual(receipts.length, 2);
       assert.ok(receipts.every((r) => r.successful));
-      
+
       const receivedMessages = server.getReceivedMessages();
       assert.strictEqual(receivedMessages.length, 2);
     } finally {
@@ -177,16 +184,16 @@ describe("SmtpTransport Integration Tests", () => {
       const headers = new Headers();
       headers.set("X-Custom-Header", "Custom Value");
       headers.set("X-Mailer", "Test Mailer");
-      
+
       const message = createTestMessage({ headers });
-      
+
       const receipt = await transport.send(message);
-      
+
       assert.strictEqual(receipt.successful, true);
-      
+
       const receivedMessages = server.getReceivedMessages();
       const receivedMessage = receivedMessages[0];
-      
+
       assert.ok(receivedMessage.data.includes("x-custom-header: Custom Value"));
       assert.ok(receivedMessage.data.includes("x-mailer: Test Mailer"));
     } finally {
@@ -198,10 +205,10 @@ describe("SmtpTransport Integration Tests", () => {
     const { server, transport } = await setupTest();
     try {
       server.setResponse("MAIL", { code: 550, message: "Sender rejected" });
-      
+
       const message = createTestMessage();
       const receipt = await transport.send(message);
-      
+
       assert.strictEqual(receipt.successful, false);
       assert.ok(receipt.errorMessages.length > 0);
       assert.ok(receipt.errorMessages[0].includes("MAIL FROM failed"));
@@ -217,19 +224,23 @@ describe("SmtpTransport Integration Tests", () => {
         subject: "테스트 제목 (Korean Subject)",
         content: { text: "안녕하세요! Hello World! 🌍" },
       });
-      
+
       const receipt = await transport.send(message);
-      
+
       assert.strictEqual(receipt.successful, true);
-      
+
       const receivedMessages = server.getReceivedMessages();
       const receivedMessage = receivedMessages[0];
-      
+
       // Subject should be RFC 2047 encoded
       assert.ok(receivedMessage.data.includes("Subject: =?UTF-8?B?"));
-      
+
       // Content should be quoted-printable encoded
-      assert.ok(receivedMessage.data.includes("Content-Transfer-Encoding: quoted-printable"));
+      assert.ok(
+        receivedMessage.data.includes(
+          "Content-Transfer-Encoding: quoted-printable",
+        ),
+      );
     } finally {
       await teardownTest(server, transport);
     }
@@ -244,16 +255,18 @@ describe("SmtpTransport Integration Tests", () => {
           html: "<h1>Hello, World!</h1><p>HTML version</p>",
         },
       });
-      
+
       const receipt = await transport.send(message);
-      
+
       assert.strictEqual(receipt.successful, true);
-      
+
       const receivedMessages = server.getReceivedMessages();
       const receivedMessage = receivedMessages[0];
-      
+
       // Should create multipart/alternative structure
-      assert.ok(receivedMessage.data.includes("Content-Type: multipart/alternative"));
+      assert.ok(
+        receivedMessage.data.includes("Content-Type: multipart/alternative"),
+      );
       assert.ok(receivedMessage.data.includes("Content-Type: text/plain"));
       assert.ok(receivedMessage.data.includes("Content-Type: text/html"));
     } finally {
@@ -282,18 +295,20 @@ describe("SmtpTransport Integration Tests", () => {
           },
         ],
       });
-      
+
       const receipt = await transport.send(message);
-      
+
       assert.strictEqual(receipt.successful, true);
-      
+
       const receivedMessages = server.getReceivedMessages();
       const receivedMessage = receivedMessages[0];
-      
+
       assert.ok(receivedMessage.data.includes("Content-Type: multipart/mixed"));
       assert.ok(receivedMessage.data.includes('filename="document.pdf"'));
       assert.ok(receivedMessage.data.includes('filename="image.png"'));
-      assert.ok(receivedMessage.data.includes("Content-Disposition: attachment"));
+      assert.ok(
+        receivedMessage.data.includes("Content-Disposition: attachment"),
+      );
       assert.ok(receivedMessage.data.includes("Content-Disposition: inline"));
       assert.ok(receivedMessage.data.includes("Content-ID: <img1>"));
     } finally {
@@ -309,27 +324,27 @@ describe("SmtpTransport Integration Tests", () => {
         priority: "high",
         subject: "High Priority Message",
       });
-      
+
       await transport.send(highPriorityMessage);
-      
+
       // Test low priority
       const lowPriorityMessage = createTestMessage({
         priority: "low",
         subject: "Low Priority Message",
       });
-      
+
       await transport.send(lowPriorityMessage);
-      
+
       const receivedMessages = server.getReceivedMessages();
       assert.strictEqual(receivedMessages.length, 2);
-      
+
       const highPriorityReceived = receivedMessages[0];
       const lowPriorityReceived = receivedMessages[1];
-      
+
       // High priority should have priority headers
       assert.ok(highPriorityReceived.data.includes("X-Priority: 1"));
       assert.ok(highPriorityReceived.data.includes("X-MSMail-Priority: High"));
-      
+
       // Low priority should have priority headers
       assert.ok(lowPriorityReceived.data.includes("X-Priority: 5"));
       assert.ok(lowPriorityReceived.data.includes("X-MSMail-Priority: Low"));
@@ -347,15 +362,19 @@ describe("SmtpTransport Integration Tests", () => {
           { name: "Sales", address: "sales@example.com" },
         ],
       });
-      
+
       const receipt = await transport.send(message);
-      
+
       assert.strictEqual(receipt.successful, true);
-      
+
       const receivedMessages = server.getReceivedMessages();
       const receivedMessage = receivedMessages[receivedMessages.length - 1];
-      
-      assert.ok(receivedMessage.data.includes("Reply-To: Support <support@example.com>, Sales <sales@example.com>"));
+
+      assert.ok(
+        receivedMessage.data.includes(
+          "Reply-To: Support <support@example.com>, Sales <sales@example.com>",
+        ),
+      );
     } finally {
       await teardownTest(server, transport);
     }

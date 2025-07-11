@@ -84,11 +84,11 @@ export function parseAddress(address: string): Address | undefined {
   if (nameAngleBracketMatch) {
     const name = nameAngleBracketMatch[1].trim();
     const email = nameAngleBracketMatch[2].trim();
-    
+
     if (!isValidEmail(email)) {
       return undefined;
     }
-    
+
     // Remove quotes from name if present
     const cleanName = name.replace(/^"(.+)"$/, "$1");
     return { name: cleanName, address: email };
@@ -98,11 +98,11 @@ export function parseAddress(address: string): Address | undefined {
   const angleBracketMatch = trimmed.match(/^<(.+?)>$/);
   if (angleBracketMatch) {
     const email = angleBracketMatch[1].trim();
-    
+
     if (!isValidEmail(email)) {
       return undefined;
     }
-    
+
     return { address: email };
   }
 
@@ -123,13 +123,13 @@ function isValidEmail(email: string): boolean {
   // If the local part is quoted, we need to find the @ after the closing quote
   let atIndex = -1;
   let inQuotes = false;
-  
+
   for (let i = 0; i < email.length; i++) {
     const char = email[i];
-    
-    if (char === '"' && (i === 0 || email[i - 1] !== '\\')) {
+
+    if (char === '"' && (i === 0 || email[i - 1] !== "\\")) {
       inQuotes = !inQuotes;
-    } else if (char === '@' && !inQuotes) {
+    } else if (char === "@" && !inQuotes) {
       if (atIndex === -1) {
         atIndex = i;
       } else {
@@ -162,9 +162,9 @@ function isValidLocalPart(localPart: string): boolean {
     let isValid = true;
     for (let i = 0; i < quotedContent.length; i++) {
       const char = quotedContent[i];
-      if (char === '"' || char === '\r' || char === '\n') {
+      if (char === '"' || char === "\r" || char === "\n") {
         // Check if it's escaped
-        if (i === 0 || quotedContent[i - 1] !== '\\') {
+        if (i === 0 || quotedContent[i - 1] !== "\\") {
           isValid = false;
           break;
         }
@@ -175,12 +175,16 @@ function isValidLocalPart(localPart: string): boolean {
 
   // Check for dot-atom format (RFC 5322)
   // No leading/trailing dots, no consecutive dots
-  if (localPart.startsWith(".") || localPart.endsWith(".") || localPart.includes("..")) {
+  if (
+    localPart.startsWith(".") || localPart.endsWith(".") ||
+    localPart.includes("..")
+  ) {
     return false;
   }
 
   // Valid characters for dot-atom: alphanumeric, and some special chars
-  const validLocalPartRegex = /^[a-zA-Z0-9!#$%&'*+/=?^_`{|}~-]+(\.[a-zA-Z0-9!#$%&'*+/=?^_`{|}~-]+)*$/;
+  const validLocalPartRegex =
+    /^[a-zA-Z0-9!#$%&'*+/=?^_`{|}~-]+(\.[a-zA-Z0-9!#$%&'*+/=?^_`{|}~-]+)*$/;
   return validLocalPartRegex.test(localPart);
 }
 

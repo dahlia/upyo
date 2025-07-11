@@ -1,10 +1,10 @@
 /**
  * Configuration interface for SMTP transport connection settings.
- * 
+ *
  * This interface defines all available options for configuring an SMTP
  * connection including server details, authentication, security, and
  * connection pooling settings.
- * 
+ *
  * @example
  * ```typescript
  * const config: SmtpConfig = {
@@ -80,10 +80,10 @@ export interface SmtpConfig {
 
 /**
  * Authentication configuration for SMTP connections.
- * 
+ *
  * Defines the credentials and authentication method to use when
  * connecting to an SMTP server that requires authentication.
- * 
+ *
  * @example
  * ```typescript
  * const auth: SmtpAuth = {
@@ -113,10 +113,10 @@ export interface SmtpAuth {
 
 /**
  * TLS/SSL configuration options for secure SMTP connections.
- * 
+ *
  * These options control the behavior of TLS encryption when connecting
  * to SMTP servers, including certificate validation and client authentication.
- * 
+ *
  * @example
  * ```typescript
  * const tlsOptions: SmtpTlsOptions = {
@@ -163,31 +163,31 @@ export interface SmtpTlsOptions {
 
 /**
  * Resolved SMTP configuration with all optional fields filled with default values.
- * 
+ *
  * This type represents the final configuration after applying defaults,
  * used internally by the SMTP transport implementation.
  */
-export type ResolvedSmtpConfig = Omit<Required<SmtpConfig>, 'auth' | 'tls'> & {
+export type ResolvedSmtpConfig = Omit<Required<SmtpConfig>, "auth" | "tls"> & {
   readonly auth?: SmtpAuth;
   readonly tls?: SmtpTlsOptions;
 };
 
 /**
  * Creates a resolved SMTP configuration by applying default values to optional fields.
- * 
+ *
  * This function takes a partial SMTP configuration and returns a complete
  * configuration with all optional fields filled with sensible defaults.
- * 
+ *
  * @param config - The SMTP configuration with optional fields
  * @returns A resolved configuration with all defaults applied
- * 
+ *
  * @example
  * ```typescript
  * const resolved = createSmtpConfig({
  *   host: 'smtp.example.com',
  *   auth: { user: 'user', pass: 'pass' }
  * });
- * 
+ *
  * // resolved.port will be 587 (default)
  * // resolved.secure will be true (default)
  * // resolved.poolSize will be 5 (default)

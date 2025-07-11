@@ -30,12 +30,20 @@ describe("Message Converter Integration Tests", () => {
 
       // Test raw message structure
       const lines = result.raw.split("\r\n");
-      assert.ok(lines.some(line => line.startsWith("From: John Doe <john@example.com>")));
-      assert.ok(lines.some(line => line.startsWith("To: Jane Doe <jane@example.com>")));
-      assert.ok(lines.some(line => line.startsWith("Subject: Test Subject")));
-      assert.ok(lines.some(line => line.startsWith("Date:")));
-      assert.ok(lines.some(line => line.startsWith("Message-ID:")));
-      assert.ok(lines.some(line => line === "MIME-Version: 1.0"));
+      assert.ok(
+        lines.some((line) =>
+          line.startsWith("From: John Doe <john@example.com>")
+        ),
+      );
+      assert.ok(
+        lines.some((line) =>
+          line.startsWith("To: Jane Doe <jane@example.com>")
+        ),
+      );
+      assert.ok(lines.some((line) => line.startsWith("Subject: Test Subject")));
+      assert.ok(lines.some((line) => line.startsWith("Date:")));
+      assert.ok(lines.some((line) => line.startsWith("Message-ID:")));
+      assert.ok(lines.some((line) => line === "MIME-Version: 1.0"));
       assert.ok(result.raw.includes("Hello, World!"));
     });
 
@@ -75,7 +83,9 @@ describe("Message Converter Integration Tests", () => {
       const result = convertMessage(message);
 
       assert.ok(result.raw.includes("Content-Type: text/html; charset=utf-8"));
-      assert.ok(result.raw.includes("Content-Transfer-Encoding: quoted-printable"));
+      assert.ok(
+        result.raw.includes("Content-Transfer-Encoding: quoted-printable"),
+      );
       assert.ok(result.raw.includes("<h1>Hello</h1><p>World!</p>"));
       assert.ok(!result.raw.includes("multipart"));
     });
@@ -92,15 +102,15 @@ describe("Message Converter Integration Tests", () => {
 
       // Should be multipart/alternative
       assert.ok(result.raw.includes("Content-Type: multipart/alternative"));
-      
+
       // Should contain both content types
       assert.ok(result.raw.includes("Content-Type: text/plain; charset=utf-8"));
       assert.ok(result.raw.includes("Content-Type: text/html; charset=utf-8"));
-      
+
       // Should contain both content versions
       assert.ok(result.raw.includes("Hello World in plain text"));
       assert.ok(result.raw.includes("<h1>Hello World</h1>"));
-      
+
       // Should have proper boundary structure
       const boundaryMatch = result.raw.match(/boundary="([^"]+)"/);
       assert.ok(boundaryMatch);
@@ -129,12 +139,18 @@ describe("Message Converter Integration Tests", () => {
 
       // Should be multipart/mixed
       assert.ok(result.raw.includes("Content-Type: multipart/mixed"));
-      
+
       // Should contain attachment headers
-      assert.ok(result.raw.includes('Content-Type: text/plain; name="test.txt"'));
+      assert.ok(
+        result.raw.includes('Content-Type: text/plain; name="test.txt"'),
+      );
       assert.ok(result.raw.includes("Content-Transfer-Encoding: base64"));
-      assert.ok(result.raw.includes('Content-Disposition: attachment; filename="test.txt"'));
-      
+      assert.ok(
+        result.raw.includes(
+          'Content-Disposition: attachment; filename="test.txt"',
+        ),
+      );
+
       // Should contain base64 encoded content
       const expectedBase64 = btoa(String.fromCharCode(...attachmentContent));
       assert.ok(result.raw.includes(expectedBase64));
@@ -156,8 +172,14 @@ describe("Message Converter Integration Tests", () => {
 
       const result = convertMessage(message);
 
-      assert.ok(result.raw.includes('Content-Type: image/png; name="image.png"'));
-      assert.ok(result.raw.includes('Content-Disposition: inline; filename="image.png"'));
+      assert.ok(
+        result.raw.includes('Content-Type: image/png; name="image.png"'),
+      );
+      assert.ok(
+        result.raw.includes(
+          'Content-Disposition: inline; filename="image.png"',
+        ),
+      );
       assert.ok(result.raw.includes("Content-ID: <embedded-image>"));
     });
 
@@ -183,14 +205,18 @@ describe("Message Converter Integration Tests", () => {
 
       // Should be multipart/mixed at top level
       assert.ok(result.raw.includes("Content-Type: multipart/mixed"));
-      
+
       // Should contain nested multipart/alternative for content
       assert.ok(result.raw.includes("Content-Type: multipart/alternative"));
-      
+
       // Should contain all parts
       assert.ok(result.raw.includes("Text version"));
       assert.ok(result.raw.includes("<p>HTML version</p>"));
-      assert.ok(result.raw.includes('Content-Type: application/pdf; name="document.pdf"'));
+      assert.ok(
+        result.raw.includes(
+          'Content-Type: application/pdf; name="document.pdf"',
+        ),
+      );
     });
   });
 
@@ -230,8 +256,10 @@ describe("Message Converter Integration Tests", () => {
 
       const result = convertMessage(message);
 
-      assert.ok(result.raw.includes("Content-Transfer-Encoding: quoted-printable"));
-      
+      assert.ok(
+        result.raw.includes("Content-Transfer-Encoding: quoted-printable"),
+      );
+
       // Should encode non-ASCII characters as quoted-printable
       assert.ok(result.raw.includes("=E4=B8=96=E7=95=8C")); // 世界 in UTF-8 quoted-printable
     });
@@ -306,14 +334,18 @@ describe("Message Converter Integration Tests", () => {
 
       const result = convertMessage(message);
 
-      assert.ok(result.raw.includes("Reply-To: Support <support@example.com>, noreply@example.com"));
+      assert.ok(
+        result.raw.includes(
+          "Reply-To: Support <support@example.com>, noreply@example.com",
+        ),
+      );
     });
   });
 
   describe("Message ID Generation", () => {
     test("should generate unique message IDs", () => {
       const message = createTestMessage();
-      
+
       const result1 = convertMessage(message);
       const result2 = convertMessage(message);
 
@@ -323,7 +355,7 @@ describe("Message Converter Integration Tests", () => {
       assert.ok(messageId1);
       assert.ok(messageId2);
       assert.notStrictEqual(messageId1, messageId2);
-      
+
       // Should follow expected format
       assert.ok(messageId1.includes("@upyo.local"));
       assert.ok(messageId2.includes("@upyo.local"));
@@ -335,11 +367,11 @@ describe("Message Converter Integration Tests", () => {
 
       const dateMatch = result.raw.match(/Date: (.+)/);
       assert.ok(dateMatch);
-      
+
       const dateString = dateMatch[1];
       const parsedDate = new Date(dateString);
       assert.ok(!isNaN(parsedDate.getTime()));
-      
+
       // Should be recent (within last minute)
       const now = new Date();
       const timeDiff = Math.abs(now.getTime() - parsedDate.getTime());
@@ -351,9 +383,18 @@ describe("Message Converter Integration Tests", () => {
     test("should properly encode binary attachments", () => {
       // Create a test binary file (ZIP signature + some data)
       const binaryContent = new Uint8Array([
-        0x50, 0x4B, 0x03, 0x04, // ZIP signature
-        0x14, 0x00, 0x00, 0x00, // Version, flags
-        0x08, 0x00, 0x00, 0x00, // Compression method, time
+        0x50,
+        0x4B,
+        0x03,
+        0x04, // ZIP signature
+        0x14,
+        0x00,
+        0x00,
+        0x00, // Version, flags
+        0x08,
+        0x00,
+        0x00,
+        0x00, // Compression method, time
       ]);
 
       const message = createTestMessage({
@@ -373,15 +414,18 @@ describe("Message Converter Integration Tests", () => {
       // Should contain base64 encoded content
       const expectedBase64 = btoa(String.fromCharCode(...binaryContent));
       assert.ok(result.raw.includes(expectedBase64));
-      
+
       // Should have proper line breaks (76 chars max per line)
-      const base64Lines = result.raw.split("\r\n").filter(line => 
+      const base64Lines = result.raw.split("\r\n").filter((line) =>
         /^[A-Za-z0-9+/]+=*$/.test(line) && line.length > 50
       );
-      
+
       if (base64Lines.length > 0) {
-        base64Lines.forEach(line => {
-          assert.ok(line.length <= 76, `Base64 line too long: ${line.length} chars`);
+        base64Lines.forEach((line) => {
+          assert.ok(
+            line.length <= 76,
+            `Base64 line too long: ${line.length} chars`,
+          );
         });
       }
     });
@@ -411,8 +455,11 @@ describe("Message Converter Integration Tests", () => {
       const result = convertMessage(message);
 
       // Envelope should contain all recipients
-      assert.deepStrictEqual(result.envelope.to, ["cc@example.com", "bcc@example.com"]);
-      
+      assert.deepStrictEqual(result.envelope.to, [
+        "cc@example.com",
+        "bcc@example.com",
+      ]);
+
       // Should have Cc header and empty To header (RFC compliant)
       assert.ok(result.raw.includes("Cc: cc@example.com"));
       assert.ok(result.raw.includes("To: "));
@@ -427,8 +474,10 @@ describe("Message Converter Integration Tests", () => {
       const result = convertMessage(message);
 
       // Should use quoted-printable encoding
-      assert.ok(result.raw.includes("Content-Transfer-Encoding: quoted-printable"));
-      
+      assert.ok(
+        result.raw.includes("Content-Transfer-Encoding: quoted-printable"),
+      );
+
       // Long lines should be present (quoted-printable doesn't break long ASCII lines)
       assert.ok(result.raw.includes(longLine));
     });
