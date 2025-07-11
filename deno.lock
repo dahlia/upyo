@@ -1,8 +1,29 @@
 {
   "version": "5",
   "specifiers": {
+    "jsr:@std/fs@^1.0.19": "1.0.19",
+    "jsr:@std/internal@^1.0.9": "1.0.9",
+    "jsr:@std/path@^1.1.1": "1.1.1",
     "npm:@types/node@*": "22.15.15",
     "npm:tsdown@~0.12.7": "0.12.9_rolldown@1.0.0-beta.24"
+  },
+  "jsr": {
+    "@std/fs@1.0.19": {
+      "integrity": "051968c2b1eae4d2ea9f79a08a3845740ef6af10356aff43d3e2ef11ed09fb06",
+      "dependencies": [
+        "jsr:@std/internal",
+        "jsr:@std/path"
+      ]
+    },
+    "@std/internal@1.0.9": {
+      "integrity": "bdfb97f83e4db7a13e8faab26fb1958d1b80cc64366501af78a0aee151696eb8"
+    },
+    "@std/path@1.1.1": {
+      "integrity": "fe00026bd3a7e6a27f73709b83c607798be40e20c81dde655ce34052fd82ec76",
+      "dependencies": [
+        "jsr:@std/internal"
+      ]
+    }
   },
   "npm": {
     "@babel/generator@7.28.0": {
@@ -383,6 +404,8 @@
   },
   "workspace": {
     "dependencies": [
+      "jsr:@std/fs@^1.0.19",
+      "jsr:@std/path@^1.1.1",
       "npm:tsdown@~0.12.7"
     ]
   }

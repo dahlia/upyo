@@ -1,11 +1,19 @@
 <!-- deno-fmt-ignore-file -->
 
-Upyo
-====
+@upyo/core
+==========
 
-> [!CAUTION]
-> This project is in early development and subject to change without notice.
+Shared types and interfaces for Upyo, a simple and cross-runtime library for
+sending email messages.
 
-Upyo is a simple and cross-runtime library for sending email messages using
-SMTP and various email providers.  It works on Node.js, Deno, Bun, and edge
-functions.
+
+Installation
+------------
+
+~~~~ sh
+npm  add     @upyo/core
+pnpm add     @upyo/core
+yarn add     @upyo/core
+deno add jsr:@upyo/core
+bun  add     @upyo/core
+~~~~
