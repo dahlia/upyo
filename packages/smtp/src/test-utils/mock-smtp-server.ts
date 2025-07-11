@@ -97,6 +97,7 @@ export class MockSmtpServer extends EventEmitter {
 
           switch (command) {
             case "EHLO":
+            // deno-lint-ignore no-case-declarations
             case "HELO":
               const ehloResponse = this.responses.get("EHLO")!;
               socket.write(`${ehloResponse.code}-${ehloResponse.message}\r\n`);
@@ -119,12 +120,14 @@ export class MockSmtpServer extends EventEmitter {
               }
               break;
 
+              // deno-lint-ignore no-case-declarations
             case "MAIL":
               currentMessage.from = this.extractEmail(line);
               const mailResponse = this.responses.get("MAIL")!;
               socket.write(`${mailResponse.code} ${mailResponse.message}\r\n`);
               break;
 
+              // deno-lint-ignore no-case-declarations
             case "RCPT":
               if (!currentMessage.to) currentMessage.to = [];
               currentMessage.to.push(this.extractEmail(line));
@@ -132,18 +135,21 @@ export class MockSmtpServer extends EventEmitter {
               socket.write(`${rcptResponse.code} ${rcptResponse.message}\r\n`);
               break;
 
+              // deno-lint-ignore no-case-declarations
             case "DATA":
               inDataMode = true;
               const dataResponse = this.responses.get("DATA")!;
               socket.write(`${dataResponse.code} ${dataResponse.message}\r\n`);
               break;
 
+              // deno-lint-ignore no-case-declarations
             case "RSET":
               currentMessage = {};
               const rsetResponse = this.responses.get("RSET")!;
               socket.write(`${rsetResponse.code} ${rsetResponse.message}\r\n`);
               break;
 
+              // deno-lint-ignore no-case-declarations
             case "QUIT":
               const quitResponse = this.responses.get("QUIT")!;
               socket.write(`${quitResponse.code} ${quitResponse.message}\r\n`);
@@ -157,7 +163,9 @@ export class MockSmtpServer extends EventEmitter {
                   socket.write("334 UGFzc3dvcmQ6\r\n"); // "Password:" in base64
                 } else if (line.includes("dGVzdHBhc3M=")) { // "testpass" in base64
                   const authResponse = this.responses.get("AUTH")!;
-                  socket.write(`${authResponse.code} ${authResponse.message}\r\n`);
+                  socket.write(
+                    `${authResponse.code} ${authResponse.message}\r\n`,
+                  );
                 } else {
                   socket.write("334 Continue\r\n");
                 }
@@ -175,7 +183,7 @@ export class MockSmtpServer extends EventEmitter {
     return match ? match[1] : "";
   }
 
-  async start(): Promise<number> {
+  start(): Promise<number> {
     return new Promise((resolve, reject) => {
       this.server.listen(this.port, () => {
         const address = this.server.address();
@@ -198,28 +206,29 @@ export class MockSmtpServer extends EventEmitter {
       socket.destroy();
     }
     this.connections.clear();
-    
+
     // Clear all timeouts immediately
     for (const timeout of this.timeouts) {
+      // deno-lint-ignore no-explicit-any
       clearTimeout(timeout as any);
     }
     this.timeouts.clear();
-    
+
     // Close the server and wait for it to complete
     await new Promise<void>((resolve) => {
       this.server.removeAllListeners();
       this.server.close(() => {
         resolve();
       });
-      
+
       // Failsafe timeout
       setTimeout(() => {
         resolve();
       }, 100);
     });
-    
+
     // Give the event loop a chance to clean up
-    await new Promise(resolve => setTimeout(resolve, 0));
+    await new Promise((resolve) => setTimeout(resolve, 0));
   }
 
   setResponse(command: string, response: SmtpResponse): void {

@@ -110,10 +110,10 @@ describe("SmtpTransport", () => {
   test("should respect AbortSignal in send method", async () => {
     const transport = new SmtpTransport(mockConfig);
     const controller = new AbortController();
-    
+
     // Abort immediately
     controller.abort();
-    
+
     const message: Message = {
       sender: { address: "sender@example.com" },
       recipients: [{ address: "recipient@example.com" }],
@@ -141,7 +141,7 @@ describe("SmtpTransport", () => {
   test("should respect AbortSignal in sendMany method", async () => {
     const transport = new SmtpTransport(mockConfig);
     const controller = new AbortController();
-    
+
     const messages: Message[] = [
       {
         sender: { address: "sender@example.com" },
@@ -155,14 +155,16 @@ describe("SmtpTransport", () => {
         priority: "normal",
         tags: [],
         headers: new Headers(),
-      }
+      },
     ];
 
     // Abort immediately
     controller.abort();
 
     try {
-      for await (const receipt of transport.sendMany(messages, { signal: controller.signal })) {
+      for await (
+        const _ of transport.sendMany(messages, { signal: controller.signal })
+      ) {
         // Should not reach here
       }
       assert.fail("Expected AbortError to be thrown");
@@ -175,13 +177,13 @@ describe("SmtpTransport", () => {
 
   test("should implement AsyncDisposable interface", async () => {
     const transport = new SmtpTransport(mockConfig);
-    
+
     // Test that Symbol.asyncDispose method exists
     assert.strictEqual(typeof transport[Symbol.asyncDispose], "function");
-    
+
     // Test that we can call the dispose method directly
     await transport[Symbol.asyncDispose]();
-    
+
     // Should complete without error
     assert.strictEqual(true, true);
   });
@@ -189,10 +191,10 @@ describe("SmtpTransport", () => {
   test("should work with using statement pattern", async () => {
     // This test verifies the pattern works even if the environment
     // doesn't fully support using statements yet
-    
+
     async function testUsingPattern() {
       const transport = new SmtpTransport(mockConfig);
-      
+
       try {
         // Simulate some work
         assert.strictEqual(transport instanceof SmtpTransport, true);
@@ -201,7 +203,7 @@ describe("SmtpTransport", () => {
         await transport[Symbol.asyncDispose]();
       }
     }
-    
+
     await testUsingPattern();
     assert.strictEqual(true, true); // Should complete without error
   });
