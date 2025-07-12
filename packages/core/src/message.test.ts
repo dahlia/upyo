@@ -112,7 +112,11 @@ describe("createMessage", () => {
     assert.equal(attachment.filename, "test.txt");
     assert.equal(attachment.contentType, "text/plain");
     assert.equal(attachment.inline, false);
-    assert.equal(attachment.contentId, "");
+    assert.ok(
+      attachment.contentId.match(
+        /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}@example.com$/,
+      ),
+    );
 
     const content = await attachment.content;
     assert.ok(content instanceof Uint8Array);

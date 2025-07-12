@@ -233,13 +233,14 @@ export interface MessageConstructor {
  *                     an attachment object is invalid.
  */
 export function createMessage(constructor: MessageConstructor): Message {
+  const sender = typeof constructor.from === "string"
+    ? parseAddress(constructor.from) ??
+      throwTypeError(
+        `Invalid sender address: ${JSON.stringify(constructor.from)}`,
+      )
+    : constructor.from;
   return {
-    sender: typeof constructor.from === "string"
-      ? parseAddress(constructor.from) ??
-        throwTypeError(
-          `Invalid sender address: ${JSON.stringify(constructor.from)}`,
-        )
-      : constructor.from,
+    sender,
     recipients: esureArray(constructor.to).map((to) =>
       typeof to === "string"
         ? parseAddress(to) ??
@@ -273,7 +274,9 @@ export function createMessage(constructor: MessageConstructor): Message {
           contentType: attachment.type == null || attachment.type === ""
             ? "application/octet-stream"
             : attachment.type as `${string}/${string}`,
-          contentId: "", // TODO: Automatically generate a content ID if needed
+          contentId: `${crypto.randomUUID()}@${
+            sender.address.replace(/^[^@]*@/, "")
+          }`,
         };
       } else if (isAttachment(attachment)) {
         return attachment;
