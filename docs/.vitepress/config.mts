@@ -55,6 +55,13 @@ const NAV = [
       { text: "Attachments", link: "/messages/attachments" },
     ],
   },
+  {
+    text: "Transports",
+    items: [
+      { text: "SMTP", link: "/transports/smtp" },
+      { text: "Mailgun", link: "/transports/mailgun" },
+    ],
+  },
 ];
 
 // https://vitepress.dev/reference/site-config
