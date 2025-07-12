@@ -1,5 +1,5 @@
 import type { Message, Receipt, Transport, TransportOptions } from "@upyo/core";
-import type { MailgunConfig } from "./config.ts";
+import type { MailgunConfig, ResolvedMailgunConfig } from "./config.ts";
 import { createMailgunConfig } from "./config.ts";
 import { MailgunHttpClient } from "./http-client.ts";
 import { convertMessage } from "./message-converter.ts";
@@ -29,7 +29,7 @@ import { convertMessage } from "./message-converter.ts";
  * ```
  */
 export class MailgunTransport implements Transport {
-  config: ReturnType<typeof createMailgunConfig>;
+  config: ResolvedMailgunConfig;
   httpClient: MailgunHttpClient;
 
   /**

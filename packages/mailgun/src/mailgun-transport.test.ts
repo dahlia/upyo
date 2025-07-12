@@ -1,6 +1,6 @@
 import type { Message } from "@upyo/core";
 import { MailgunTransport } from "@upyo/mailgun";
-import { strict as assert } from "node:assert";
+import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
 // Note: Tests are split into separate describe blocks instead of one unified block

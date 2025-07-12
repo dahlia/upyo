@@ -1,14 +1,15 @@
 import type { Message } from "@upyo/core";
-import { strict as assert } from "node:assert";
+import { MailgunTransport } from "@upyo/mailgun";
+import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { convertMessage } from "./message-converter.ts";
-import { createMailgunConfig } from "./config.ts";
 
 describe("convertMessage", () => {
-  const config = createMailgunConfig({
+  const transport = new MailgunTransport({
     apiKey: "test-key",
     domain: "test-domain.com",
   });
+  const config = (transport as any).config;
 
   it("should convert a simple message", async () => {
     const message: Message = {
@@ -182,13 +183,14 @@ describe("convertMessage", () => {
   });
 
   it("should handle tracking options", async () => {
-    const configWithTracking = createMailgunConfig({
+    const transportWithTracking = new MailgunTransport({
       apiKey: "test-key",
       domain: "test-domain.com",
       tracking: false,
       clickTracking: false,
       openTracking: false,
     });
+    const configWithTracking = (transportWithTracking as any).config;
 
     const message: Message = {
       sender: { address: "sender@example.com" },

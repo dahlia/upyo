@@ -108,21 +108,11 @@ export type ResolvedMailgunConfig = Required<MailgunConfig>;
  *
  * This function takes a partial Mailgun configuration and returns a complete
  * configuration with all optional fields filled with sensible defaults.
+ * It is used internally by the Mailgun transport.
  *
  * @param config - The Mailgun configuration with optional fields
  * @returns A resolved configuration with all defaults applied
- *
- * @example
- * ```typescript
- * const resolved = createMailgunConfig({
- *   apiKey: 'your-api-key',
- *   domain: 'your-domain.com'
- * });
- *
- * // resolved.region will be 'us' (default)
- * // resolved.timeout will be 30000 (default)
- * // resolved.retries will be 3 (default)
- * ```
+ * @internal
  */
 export function createMailgunConfig(
   config: MailgunConfig,
