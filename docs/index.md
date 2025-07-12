@@ -19,12 +19,21 @@ hero:
 
 features:
 - title: Cross-runtime
-  details: Upyo works on Node.js, Deno, Bun, and edge functions.
+  details: Works seamlessly on Node.js, Deno, Bun, and edge functions with consistent API.
   icon: 🌍
-- title: Lightweight
-  details: Zero dependencies and minimal footprint.
-  icon: ⚡
 - title: Dead simple
-  details: Intuitive API for sending emails with minimal setup.
-  icon: 📨
+  details: Intuitive API for sending emails with just a few lines of code.
+  icon: 🎮
+- title: Type-safe
+  details: TypeScript-first design with discriminated unions for compile-time error handling safety.
+  icon: 🛡️
+- title: Lightweight
+  details: Zero dependencies and minimal footprint for fast integration.
+  icon: 🪶
+- title: Built for testing
+  details: Comprehensive mock transport for reliable testing without sending real emails.
+  icon: 🧪
+- title: Provider independence
+  details: Switch between SMTP, Mailgun, SendGrid, and other providers without code changes.
+  icon: 🔄
 ---

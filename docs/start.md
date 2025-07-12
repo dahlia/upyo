@@ -38,10 +38,27 @@ bun add @upyo/core
 Choosing a transport
 --------------------
 
-Upyo supports various transports for sending emails. The most common one would
-be SMTP, but you can also use providers like Mailgun.  You need to install
-the transport package you want to use. For example, to use the SMTP transport,
-you would install the *@upyo/smtp* package:
+Upyo supports multiple transports for sending emails, each with different
+strengths and use cases:
+
+[SMTP](./transports/smtp.md)
+:   Universal email protocol, works with any SMTP server
+
+[Mailgun](./transports/mailgun.md)
+:   HTTP API service with advanced features and analytics
+
+[SendGrid](./transports/sendgrid.md)
+:    Popular email API with deliverability focus
+
+[Mock transport](./transports/mock.md)
+:    Testing utility that captures emails without sending
+
+If none of these fit your needs, you can also
+[create a custom transport](./transports/custom.md)
+to integrate with any email service or add specialized functionality.
+
+To get started, install the transport package for your chosen option. For example,
+to use the SMTP transport, you would install the *@upyo/smtp* package:
 
 ::: code-group
 
@@ -70,7 +87,7 @@ bun add @upyo/smtp
 > [!CAUTION]
 > The SMTP transport currently does not support edge functions or web browsers.
 > If you need to use Upyo in these environments, consider using other transports
-> like Mailgun or similar services that provide HTTP APIs.
+> like [Mailgun](./transports/mailgun.md) or similar services that provide HTTP APIs.
 
 
 Sending your first email

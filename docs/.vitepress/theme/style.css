@@ -119,6 +119,12 @@
     }
 }
 
+.VPHero h1>.name:after {
+    content: ' /upʰjo/';
+    font-weight: 400;
+    opacity: 50%;
+}
+
 /**
  * Component: Custom Block
  * -------------------------------------------------------------------------- */

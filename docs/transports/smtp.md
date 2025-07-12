@@ -12,6 +12,11 @@ Upyo provides a comprehensive SMTP transport through the *@upyo/smtp* package,
 offering connection pooling, TLS support, multiple authentication methods,
 and efficient bulk sending capabilities.
 
+> [!CAUTION]
+> The SMTP transport currently does not support edge functions or web browsers.
+> If you need to use Upyo in these environments, consider using other transports
+> like [Mailgun](./mailgun.md) or similar services that provide HTTP APIs.
+
 [RFC 5321]: https://datatracker.ietf.org/doc/html/rfc5321
 
 

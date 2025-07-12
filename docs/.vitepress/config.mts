@@ -61,7 +61,8 @@ const NAV = [
       { text: "SMTP", link: "/transports/smtp" },
       { text: "Mailgun", link: "/transports/mailgun" },
       { text: "SendGrid", link: "/transports/sendgrid" },
-      { text: "Mock", link: "/transports/mock" },
+      { text: "Mock transport", link: "/transports/mock" },
+      { text: "Custom transport", link: "/transports/custom" },
     ],
   },
   {

@@ -1,7 +1,7 @@
-Mock
-====
+Mock transport
+==============
 
-The Mock transport is a specialized testing utility that simulates email sending
+The mock transport is a specialized testing utility that simulates email sending
 without actually delivering messages. Instead of connecting to email servers
 or APIs, it stores all “sent” messages in memory where they can be inspected,
 verified, and manipulated during testing. This makes it invaluable for unit
@@ -16,7 +16,7 @@ async testing utilities, and full compatibility with all Upyo transport features
 Installation
 ------------
 
-To use the Mock transport, you need to install the *@upyo/mock* package:
+To use the mock transport, you need to install the *@upyo/mock* package:
 
 ::: code-group
 
@@ -46,7 +46,7 @@ bun add @upyo/mock
 Basic testing
 -------------
 
-The Mock transport implements the same `Transport` interface as all other Upyo
+The mock transport implements the same `Transport` interface as all other Upyo
 transports, making it a drop-in replacement for testing purposes. You can swap
 out real transports with the mock transport in your tests without changing any
 other code:
@@ -90,7 +90,7 @@ Simulating realistic behavior
 -----------------------------
 
 Real email services have network delays, rate limits, and occasional failures.
-The Mock transport can simulate these conditions to make your tests more
+The mock transport can simulate these conditions to make your tests more
 realistic and help you build robust error handling:
 
 ~~~~ typescript twoslash
@@ -189,7 +189,7 @@ test using normal behavior.
 Message verification and querying
 ---------------------------------
 
-A key feature of the Mock transport is its ability to inspect and verify
+A key feature of the mock transport is its ability to inspect and verify
 sent messages. This goes beyond just counting messages—you can search by
 recipient, subject, content, and custom criteria:
 
@@ -260,7 +260,7 @@ Async testing patterns
 ----------------------
 
 Many email workflows are asynchronous, such as sending emails after user
-registration or periodic notifications. The Mock transport provides utilities
+registration or periodic notifications. The mock transport provides utilities
 for testing these async patterns effectively:
 
 ~~~~ typescript twoslash
@@ -326,7 +326,7 @@ Bulk email testing
 ------------------
 
 For applications that send newsletters, notifications, or other bulk emails,
-the Mock transport efficiently handles large message volumes while providing
+the mock transport efficiently handles large message volumes while providing
 detailed verification capabilities:
 
 ~~~~ typescript twoslash
@@ -384,7 +384,7 @@ const allNewsletters = transport.findMessagesBy(msg =>
 console.log(`Total newsletters in system: ${allNewsletters.length}`);
 ~~~~
 
-The Mock transport handles bulk sending efficiently and provides detailed
+The mock transport handles bulk sending efficiently and provides detailed
 verification of each message, making it perfect for testing newsletter
 systems, notification broadcasts, and other high-volume email features.
 
@@ -393,7 +393,7 @@ Test cleanup and isolation
 --------------------------
 
 When running multiple tests, it's important to ensure that each test starts
-with a clean state. The Mock transport provides several methods for managing
+with a clean state. The mock transport provides several methods for managing
 test isolation:
 
 ~~~~ typescript twoslash
@@ -453,7 +453,7 @@ history while preserving any custom configuration like delays or failure rates.
 Integration with testing frameworks
 -----------------------------------
 
-The Mock transport integrates seamlessly with popular testing frameworks
+The mock transport integrates seamlessly with popular testing frameworks
 like Jest, Mocha, Vitest, and Deno's built-in test runner. Here's how to
 set it up for comprehensive email testing:
 
@@ -536,7 +536,7 @@ and error conditions are handled appropriately.
 Development and debugging
 -------------------------
 
-During development, the Mock transport serves as an excellent debugging tool
+During development, the mock transport serves as an excellent debugging tool
 for understanding email flows and troubleshooting issues. You can inspect
 exactly what emails your application would send without cluttering real
 inboxes or hitting email service rate limits:
@@ -580,7 +580,7 @@ transport.send = async function(message, options) {
 ~~~~
 
 > [!TIP]
-> The Mock transport is perfect for development environments where you want
+> The mock transport is perfect for development environments where you want
 > to test email functionality without sending real emails. You can inspect
 > the `transport.getSentMessages()` output in your browser's developer console
 > or server logs to see exactly what emails your application generates.
