@@ -62,6 +62,14 @@ const NAV = [
       { text: "Mailgun", link: "/transports/mailgun" },
     ],
   },
+  {
+    text: "References",
+    items: [
+      { text: "@upyo/core", link: "https://jsr.io/@upyo/core" },
+      { text: "@upyo/smtp", link: "https://jsr.io/@upyo/smtp" },
+      { text: "@upyo/mailgun", link: "https://jsr.io/@upyo/mailgun" },
+    ],
+  },
 ];
 
 // https://vitepress.dev/reference/site-config
