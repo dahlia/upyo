@@ -178,6 +178,102 @@ The project prioritizes cross-runtime compatibility and dual ecosystem support
  -  Write comprehensive tests for new features
  -  Use TypeScript strictly — all code should be properly typed
 
+### TypeScript coding conventions
+
+ -  **Interface immutability**: Always use `readonly` modifiers for interface fields unless mutability is explicitly required. This promotes immutability and prevents accidental modifications:
+
+```typescript
+// Preferred: All fields are readonly
+export interface SendGridConfig {
+  readonly apiKey: string;
+  readonly timeout?: number;
+  readonly retries?: number;
+}
+
+// Avoid: Mutable fields (unless intentionally needed)
+export interface BadConfig {
+  apiKey: string;
+  timeout?: number;
+  retries?: number;
+}
+```
+
+ -  **Array immutability**: Use `readonly` arrays (`readonly T[]`) for interface properties that contain arrays:
+
+```typescript
+export interface Message {
+  readonly recipients: readonly Address[];
+  readonly tags: readonly string[];
+  readonly attachments: readonly Attachment[];
+}
+```
+
+ -  **Nested object immutability**: Apply `readonly` to nested object properties consistently:
+
+```typescript
+export interface ApiError {
+  readonly message: string;
+  readonly errors?: readonly {
+    readonly message: string;
+    readonly field?: string;
+    readonly help?: string;
+  }[];
+}
+```
+
+This convention helps prevent runtime mutations, makes code more predictable, and aligns with functional programming principles used throughout the codebase.
+
+### Testing with Deno and `node:test` API
+
+When writing tests using the `node:test` API in Deno, be aware of these limitations and solutions:
+
+#### Limitations
+
+ -  **Missing lifecycle hooks**: `beforeEach`, `afterEach`, `before`, and `after` are not implemented in Deno's Node.js compatibility layer
+ -  **Fetch mocking challenges**: `globalThis.fetch` mocking can be unreliable in some test scenarios
+ -  **Test isolation**: Global state can leak between tests without proper cleanup
+
+#### Solutions and best practices
+
+ -  **Use `try`/`finally` for cleanup**: Replace `beforeEach`/`afterEach` with explicit setup and cleanup in each test:
+
+```typescript
+it("should handle mocked fetch", async () => {
+  const originalFetch = globalThis.fetch;
+  
+  try {
+    // Setup mock
+    globalThis.fetch = () => Promise.resolve(new Response("mock"));
+    
+    // Test logic here
+    const result = await someFunction();
+    assert.equal(result, "expected");
+  } finally {
+    // Always restore original
+    globalThis.fetch = originalFetch;
+  }
+});
+```
+
+ -  **Separate unit and integration tests**: For complex mocking scenarios, prefer unit tests for logic and E2E tests for network calls
+ -  **Use AbortController for network test isolation**: Immediately abort requests to prevent actual network calls in unit tests:
+
+```typescript
+it("should validate request structure", async () => {
+  const controller = new AbortController();
+  controller.abort();
+  
+  try {
+    await transport.send(message, { signal: controller.signal });
+    assert.fail("Should have thrown AbortError");
+  } catch (error) {
+    assert.ok(error.name === "AbortError");
+  }
+});
+```
+
+ -  **Test configuration and interfaces**: Focus unit tests on configuration validation, type checking, and error handling rather than network behavior
+
 ### Common tasks for agents
 
  -  **Adding new transport**: Follow the pattern established by existing transports (SMTP, Mailgun)
