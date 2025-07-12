@@ -1,5 +1,5 @@
 import type { Message, Receipt, Transport, TransportOptions } from "@upyo/core";
-import type { SendGridConfig } from "./config.ts";
+import type { ResolvedSendGridConfig, SendGridConfig } from "./config.ts";
 import { createSendGridConfig } from "./config.ts";
 import { SendGridHttpClient } from "./http-client.ts";
 import { convertMessage } from "./message-converter.ts";
@@ -29,7 +29,7 @@ import { convertMessage } from "./message-converter.ts";
  * ```
  */
 export class SendGridTransport implements Transport {
-  config: ReturnType<typeof createSendGridConfig>;
+  config: ResolvedSendGridConfig;
   httpClient: SendGridHttpClient;
 
   /**

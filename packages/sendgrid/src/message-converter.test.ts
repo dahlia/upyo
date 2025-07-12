@@ -1,13 +1,14 @@
 import type { Message } from "@upyo/core";
+import { SendGridTransport } from "@upyo/sendgrid";
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { convertMessage } from "./message-converter.ts";
-import { createSendGridConfig } from "./config.ts";
 
 describe("convertMessage", () => {
-  const config = createSendGridConfig({
+  const transport = new SendGridTransport({
     apiKey: "SG.test-key",
   });
+  const config = (transport as any).config;
 
   it("should convert a basic text message", async () => {
     const message: Message = {
@@ -196,13 +197,14 @@ describe("convertMessage", () => {
   });
 
   it("should handle tracking settings", async () => {
-    const configWithTracking = createSendGridConfig({
+    const transportWithTracking = new SendGridTransport({
       apiKey: "SG.test-key",
       clickTracking: false,
       openTracking: true,
       subscriptionTracking: true,
       googleAnalytics: true,
     });
+    const configWithTracking = (transportWithTracking as any).config;
 
     const message: Message = {
       sender: { address: "from@example.com" },

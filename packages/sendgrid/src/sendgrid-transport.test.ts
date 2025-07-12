@@ -1,7 +1,7 @@
 import type { Message } from "@upyo/core";
+import { SendGridTransport } from "@upyo/sendgrid";
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { SendGridTransport } from "./sendgrid-transport.ts";
 
 describe("SendGridTransport", () => {
   const basicMessage: Message = {

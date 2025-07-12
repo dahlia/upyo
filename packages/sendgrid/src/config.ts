@@ -98,20 +98,11 @@ export type ResolvedSendGridConfig = Required<SendGridConfig>;
  *
  * This function takes a partial SendGrid configuration and returns a complete
  * configuration with all optional fields filled with sensible defaults.
+ * It is used internally by the SendGrid transport.
  *
  * @param config - The SendGrid configuration with optional fields
  * @returns A resolved configuration with all defaults applied
- *
- * @example
- * ```typescript
- * const resolved = createSendGridConfig({
- *   apiKey: 'your-api-key'
- * });
- *
- * // resolved.baseUrl will be 'https://api.sendgrid.com/v3' (default)
- * // resolved.timeout will be 30000 (default)
- * // resolved.retries will be 3 (default)
- * ```
+ * @internal
  */
 export function createSendGridConfig(
   config: SendGridConfig,
