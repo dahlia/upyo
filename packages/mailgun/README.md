@@ -32,22 +32,31 @@ Usage
 -----
 
 ~~~~ typescript
-import { MailgunTransport } from '@upyo/mailgun';
+import { createMessage } from "@upyo/core";
+import { MailgunTransport } from "@upyo/mailgun";
+import fs from "node:fs/promises";
+import process from "node:process";
 
-const transport = new MailgunTransport({
-  apiKey: 'your-api-key',
-  domain: 'your-domain.com'
+const message = createMessage({
+  from: "sender@example.com",
+  to: "recipient@example.net",
+  subject: "Hello from Upyo!",
+  content: { text: "This is a test email." },
+  attachments: [
+    new File(
+      [await fs.readFile("image.jpg"), "image.jpg", { type: "image/jpeg" }]
+    )
+  ],
 });
 
-const message = {
-  sender: { address: 'sender@example.com' },
-  recipients: [{ address: 'recipient@example.com' }],
-  subject: 'Hello from Mailgun!',
-  content: { text: 'Hello, World!' }
-};
+const transport = new MailgunTransport({
+  apiKey: process.env.MAILGUN_KEY!,
+  domain: process.env.MAILGUN_DOMAIN!,
+  region: process.env.MAILGUN_REGION as "us" | "eu",
+});
 
 const receipt = await transport.send(message);
-console.log('Message sent:', receipt.messageId);
+console.log("Email sent:", receipt.successful);
 ~~~~
 
 

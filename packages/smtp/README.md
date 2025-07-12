@@ -56,8 +56,8 @@ Usage
 ### Basic Email Sending
 
 ~~~~ typescript
+import { createMessage } from "@upyo/core";
 import { SmtpTransport } from "@upyo/smtp";
-import { type Message } from "@upyo/core";
 
 const transport = new SmtpTransport({
   host: "smtp.example.com",
@@ -69,53 +69,15 @@ const transport = new SmtpTransport({
   },
 });
 
-const message: Message = {
-  sender: { name: "John Doe", address: "john@example.com" },
-  recipients: [{ name: "Jane Doe", address: "jane@example.com" }],
-  ccRecipients: [],
-  bccRecipients: [],
-  replyRecipients: [],
+const message = createMessage({
+  from: "sender@example.com",
+  to: "recipient@example.net",
   subject: "Hello from Upyo!",
   content: { text: "This is a test email." },
-  attachments: [],
-  priority: "normal",
-  tags: [],
-  headers: new Headers(),
-};
+});
 
 const receipt = await transport.send(message);
 console.log("Email sent:", receipt.successful);
-~~~~
-
-### HTML Email with Attachments
-
-~~~~ typescript
-const message: Message = {
-  sender: { address: "sender@example.com" },
-  recipients: [{ address: "recipient@example.com" }],
-  ccRecipients: [],
-  bccRecipients: [],
-  replyRecipients: [],
-  subject: "HTML Email with Attachment",
-  content: {
-    html: "<h1>Hello!</h1><p>This is an <strong>HTML</strong> email.</p>",
-    text: "Hello!\nThis is an HTML email.",
-  },
-  attachments: [
-    {
-      filename: "document.pdf",
-      content: new Uint8Array(pdfBytes),
-      contentType: "application/pdf",
-      contentId: "doc1",
-      inline: false,
-    },
-  ],
-  priority: "high",
-  tags: ["newsletter"],
-  headers: new Headers([["X-Campaign-ID", "12345"]]),
-};
-
-const receipt = await transport.send(message);
 ~~~~
 
 ### Sending Multiple Emails

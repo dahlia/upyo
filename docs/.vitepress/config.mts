@@ -64,6 +64,41 @@ export default defineConfig({
   },
 
   head: [
+    [
+      "link",
+      {
+        rel: "icon",
+        type: "image/png",
+        sizes: "192x192",
+        href: "/favicon-192x192.png",
+      },
+    ],
+    [
+      "link",
+      {
+        rel: "icon",
+        type: "image/png",
+        sizes: "32x32",
+        href: "/favicon-32x32.png",
+      },
+    ],
+    [
+      "link",
+      {
+        rel: "icon",
+        type: "image/png",
+        sizes: "16x16",
+        href: "/favicon-16x16.png",
+      },
+    ],
+    [
+      "meta",
+      {
+        property: "og:image",
+        content:
+          "https://repository-images.githubusercontent.com/1017771339/9f298803-20fb-4a3a-875b-63858a325ba6",
+      },
+    ],
     ...plausibleScript,
   ],
 
@@ -79,7 +114,7 @@ export default defineConfig({
         twoslashOptions: {
           compilerOptions: {
             lib: ["dom", "dom.iterable", "esnext"],
-            types: ["dom", "dom.iterable", "esnext"],
+            types: ["dom", "dom.iterable", "esnext", "node"],
           },
         },
       }),

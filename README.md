@@ -33,9 +33,9 @@ const message = createMessage({
 });
 
 const transport = new MailgunTransport({
-  apiKey: process.env.MAILGUN_KEY,
-  domain: process.env.MAILGUN_DOMAIN,
-  region: process.env.MAILGUN_REGION,
+  apiKey: process.env.MAILGUN_KEY!,
+  domain: process.env.MAILGUN_DOMAIN!,
+  region: process.env.MAILGUN_REGION as "us" | "eu",
 });
 
 const receipt = await transport.send(message);

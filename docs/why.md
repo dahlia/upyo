@@ -33,3 +33,27 @@ send emails with just a few lines of code, without needing to understand
 complex configurations or setups. The API is designed to be easy to use, so you
 can focus on building your application rather than dealing with email
 sending intricacies.
+
+See the below example for a quick demo of sending an email using Upyo:
+
+~~~~ typescript twoslash
+import { createMessage } from "@upyo/core";
+import { MailgunTransport } from "@upyo/mailgun";
+import process from "node:process";
+
+const message = createMessage({
+  from: "sender@example.com",
+  to: "recipient@example.net",
+  subject: "Hello from Upyo!",
+  content: { text: "This is a test email." },
+});
+
+const transport = new MailgunTransport({
+  apiKey: process.env.MAILGUN_KEY!,
+  domain: process.env.MAILGUN_DOMAIN!,
+  region: process.env.MAILGUN_REGION as "us" | "eu",
+});
+
+const receipt = await transport.send(message);
+console.log("Email sent:", receipt.successful);
+~~~~
