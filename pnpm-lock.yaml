@@ -32,6 +32,9 @@ importers:
       '@upyo/mailgun':
         specifier: 'workspace:'
         version: link:../packages/mailgun
+      '@upyo/mock':
+        specifier: 'workspace:'
+        version: link:../packages/mock
       '@upyo/sendgrid':
         specifier: 'workspace:'
         version: link:../packages/sendgrid
@@ -70,6 +73,22 @@ importers:
         version: 5.8.3
 
   packages/mailgun:
+    dependencies:
+      '@upyo/core':
+        specifier: workspace:*
+        version: link:../core
+    devDependencies:
+      '@dotenvx/dotenvx':
+        specifier: 'catalog:'
+        version: 1.47.3
+      tsdown:
+        specifier: 'catalog:'
+        version: 0.12.9(typescript@5.8.3)
+      typescript:
+        specifier: 'catalog:'
+        version: 5.8.3
+
+  packages/mock:
     dependencies:
       '@upyo/core':
         specifier: workspace:*

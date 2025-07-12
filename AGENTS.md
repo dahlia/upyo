@@ -100,6 +100,45 @@ Architecture
  -  `Receipt` type: Discriminated union for type-safe delivery confirmation (success with messageId or failure with errorMessages)
  -  Address validation and priority handling built into core
 
+### Transport abstraction pattern
+
+The `Transport` interface provides a unified API for all email providers, enabling seamless switching between services without changing application code:
+
+#### Core interface (packages/core/src/transport.ts)
+
+```typescript
+export interface Transport {
+  send(message: Message, options?: TransportOptions): Promise<Receipt>;
+  sendMany(
+    messages: Iterable<Message> | AsyncIterable<Message>,
+    options?: TransportOptions,
+  ): AsyncIterable<Receipt>;
+}
+```
+
+#### Key abstraction principles
+
+ -  **Unified API**: All transports implement identical interface regardless of underlying protocol (SMTP, HTTP API)
+ -  **Message normalization**: Single `Message` type works across all providers with readonly properties for immutability
+ -  **Error standardization**: All failures converted to standardized `Receipt` discriminated union format
+ -  **Cancellation support**: Consistent `AbortSignal` support via `TransportOptions` across all implementations
+ -  **Bulk operations**: `sendMany()` uses async iteration for memory-efficient batch processing
+
+#### Implementation patterns
+
+ -  **SMTP transport**: Connection pooling, resource management with `AsyncDisposable`, protocol-specific optimizations
+ -  **HTTP-based transports** (Mailgun): Stateless HTTP clients, simpler implementation without connection management
+ -  **Configuration factories**: `createXConfig()` functions apply provider-specific defaults and validation
+ -  **Provider-specific optimization**: Each transport optimizes for its protocol while maintaining API consistency
+
+#### Type safety features
+
+ -  **Discriminated unions**: `Receipt` type ensures compile-time handling of success/failure cases
+ -  **Readonly interfaces**: Prevents accidental mutations with comprehensive readonly modifiers
+ -  **Generic iteration**: `sendMany()` accepts both sync and async iterables for flexible batch processing
+
+This abstraction allows switching email providers by only changing the transport constructor while maintaining identical usage patterns throughout the application.
+
 ### Build system
 
  -  **tsdown**: Primary build tool that generates npm-compatible packages from Deno code

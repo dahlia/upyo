@@ -61,6 +61,7 @@ sending messages.  The following is a list of the available packages:
 | [@upyo/smtp](/packages/smtp/)        | [JSR][jsr:@upyo/smtp]     | [npm][npm:@upyo/smtp]     | SMTP transport                                 |
 | [@upyo/mailgun](/packages/mailgun)   | [JSR][jsr:@upyo/mailgun]  | [npm][npm:@upyo/mailgun]  | [Mailgun] transport                            |
 | [@upyo/sendgrid](/packages/sendgrid) | [JSR][jsr:@upyo/sendgrid] | [npm][npm:@upyo/sendgrid] | [SendGrid] transport                           |
+| [@upyo/mock](/packages/mock/)        | [JSR][jsr:@upyo/mock]     | [npm][npm:@upyo/mock]     | Mock transport for testing                     |
 
 [jsr:@upyo/core]: https://jsr.io/@upyo/core
 [npm:@upyo/core]: https://www.npmjs.com/package/@upyo/core
@@ -70,6 +71,8 @@ sending messages.  The following is a list of the available packages:
 [npm:@upyo/mailgun]: https://www.npmjs.com/package/@upyo/mailgun
 [jsr:@upyo/sendgrid]: https://jsr.io/@upyo/sendgrid
 [npm:@upyo/sendgrid]: https://www.npmjs.com/package/@upyo/sendgrid
+[jsr:@upyo/mock]: https://jsr.io/@upyo/mock
+[npm:@upyo/mock]: https://www.npmjs.com/package/@upyo/mock
 [Mailgun]: https://www.mailgun.com/
 [SendGrid]: https://sendgrid.com/
 
