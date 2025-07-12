@@ -17,10 +17,20 @@ for (const pkg of packages) {
   jsrRefPlugins.push(
     await jsrRef({
       package: `@upyo/${pkg}`,
-      version: "unstable",
+      version: process.env.JSR_REF_VERSION ?? "unstable",
       cachePath: `.jsr-cache-${pkg}.json`,
     }),
   );
+}
+
+let extraNav: { text: string; link: string }[] = [];
+if (process.env.EXTRA_NAV_TEXT && process.env.EXTRA_NAV_LINK) {
+  extraNav = [
+    {
+      text: process.env.EXTRA_NAV_TEXT,
+      link: process.env.EXTRA_NAV_LINK,
+    },
+  ];
 }
 
 let plausibleScript: [string, Record<string, string>][] = [];
@@ -48,6 +58,7 @@ export default defineConfig({
     nav: [
       { text: "Why", link: "/why" },
       { text: "Start", link: "/start" },
+      ...extraNav,
     ],
 
     sidebar: [
