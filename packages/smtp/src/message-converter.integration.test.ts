@@ -1,6 +1,6 @@
+import type { Message } from "@upyo/core";
 import assert from "node:assert/strict";
 import { describe, test } from "node:test";
-import type { Message } from "@upyo/core";
 import { convertMessage } from "./message-converter.ts";
 
 describe("Message Converter Integration Tests", () => {

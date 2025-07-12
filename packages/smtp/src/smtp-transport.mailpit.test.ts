@@ -1,6 +1,6 @@
+import { SmtpTransport } from "@upyo/smtp";
 import assert from "node:assert/strict";
 import { describe, test } from "node:test";
-import { SmtpTransport } from "./smtp-transport.ts";
 import { MailpitClient } from "./test-utils/mailpit-client.ts";
 import {
   validateMailpitAttachments,

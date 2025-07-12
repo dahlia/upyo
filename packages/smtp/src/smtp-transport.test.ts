@@ -1,7 +1,7 @@
 import type { Message } from "@upyo/core";
+import { SmtpTransport } from "@upyo/smtp";
 import assert from "node:assert/strict";
 import { describe, test } from "node:test";
-import { SmtpTransport } from "./smtp-transport.ts";
 
 describe("SmtpTransport", () => {
   const mockConfig = {

@@ -177,21 +177,11 @@ export type ResolvedSmtpConfig = Omit<Required<SmtpConfig>, "auth" | "tls"> & {
  *
  * This function takes a partial SMTP configuration and returns a complete
  * configuration with all optional fields filled with sensible defaults.
+ * It is used internally by the SMTP transport.
  *
  * @param config - The SMTP configuration with optional fields
  * @returns A resolved configuration with all defaults applied
- *
- * @example
- * ```typescript
- * const resolved = createSmtpConfig({
- *   host: 'smtp.example.com',
- *   auth: { user: 'user', pass: 'pass' }
- * });
- *
- * // resolved.port will be 587 (default)
- * // resolved.secure will be true (default)
- * // resolved.poolSize will be 5 (default)
- * ```
+ * @internal
  */
 export function createSmtpConfig(config: SmtpConfig): ResolvedSmtpConfig {
   return {
