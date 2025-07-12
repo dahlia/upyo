@@ -67,11 +67,11 @@ const NAV = [
   {
     text: "References",
     items: [
-      { text: "@upyo/core", link: "https://jsr.io/@upyo/core" },
-      { text: "@upyo/smtp", link: "https://jsr.io/@upyo/smtp" },
-      { text: "@upyo/mailgun", link: "https://jsr.io/@upyo/mailgun" },
-      { text: "@upyo/sendgrid", link: "https://jsr.io/@upyo/sendgrid" },
-      { text: "@upyo/mock", link: "https://jsr.io/@upyo/mock" },
+      { text: "@upyo/core", link: "https://jsr.io/@upyo/core/doc" },
+      { text: "@upyo/smtp", link: "https://jsr.io/@upyo/smtp/doc" },
+      { text: "@upyo/mailgun", link: "https://jsr.io/@upyo/mailgun/doc" },
+      { text: "@upyo/sendgrid", link: "https://jsr.io/@upyo/sendgrid/doc" },
+      { text: "@upyo/mock", link: "https://jsr.io/@upyo/mock/doc" },
     ],
   },
 ];
