@@ -21,7 +21,11 @@ import { convertMessage } from "./message-converter.ts";
  * });
  *
  * const receipt = await transport.send(message);
- * console.log('Message sent:', receipt.messageId);
+ * if (receipt.successful) {
+ *   console.log('Message sent with ID:', receipt.messageId);
+ * } else {
+ *   console.error('Send failed:', receipt.errorMessages.join(', '));
+ * }
  * ```
  */
 export class SendGridTransport implements Transport {
@@ -89,9 +93,8 @@ export class SendGridTransport implements Transport {
       const messageId = this.extractMessageId(response);
 
       return {
-        messageId,
-        errorMessages: [],
         successful: true,
+        messageId,
       };
     } catch (error) {
       const errorMessage = error instanceof Error
@@ -99,9 +102,8 @@ export class SendGridTransport implements Transport {
         : String(error);
 
       return {
-        messageId: "",
-        errorMessages: [errorMessage],
         successful: false,
+        errorMessages: [errorMessage],
       };
     }
   }

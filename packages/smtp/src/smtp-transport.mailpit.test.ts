@@ -47,8 +47,9 @@ describe(
         const receipt = await transport.send(message);
 
         assert.strictEqual(receipt.successful, true);
-        assert.strictEqual(receipt.errorMessages.length, 0);
-        assert.ok(receipt.messageId.length > 0);
+        if (receipt.successful) {
+          assert.ok(receipt.messageId.length > 0);
+        }
 
         // Wait for email to be received by Mailpit
         const mailpitMessage = await waitForMailpitDelivery(

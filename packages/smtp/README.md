@@ -77,7 +77,11 @@ const message = createMessage({
 });
 
 const receipt = await transport.send(message);
-console.log("Email sent:", receipt.successful);
+if (receipt.successful) {
+  console.log("Message sent with ID:", receipt.messageId);
+} else {
+  console.error("Send failed:", receipt.errorMessages.join(", "));
+}
 ~~~~
 
 ### Sending Multiple Emails
@@ -86,7 +90,11 @@ console.log("Email sent:", receipt.successful);
 const messages = [message1, message2, message3];
 
 for await (const receipt of transport.sendMany(messages)) {
-  console.log(`Email ${receipt.messageId}: ${receipt.successful ? "sent" : "failed"}`);
+  if (receipt.successful) {
+    console.log(`Email sent with ID: ${receipt.messageId}`);
+  } else {
+    console.error(`Email failed: ${receipt.errorMessages.join(", ")}`);
+  }
 }
 ~~~~
 

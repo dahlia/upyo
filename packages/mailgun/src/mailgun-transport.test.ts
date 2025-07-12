@@ -50,8 +50,9 @@ describe("MailgunTransport - Send Message", () => {
       const receipt = await transport.send(message);
 
       assert.equal(receipt.successful, true);
-      assert.equal(receipt.messageId, "test-message-id");
-      assert.equal(receipt.errorMessages.length, 0);
+      if (receipt.successful) {
+        assert.equal(receipt.messageId, "test-message-id");
+      }
     } finally {
       globalThis.fetch = originalFetch;
     }
@@ -98,9 +99,10 @@ describe("MailgunTransport - API Errors", () => {
       const receipt = await transport.send(message);
 
       assert.equal(receipt.successful, false);
-      assert.equal(receipt.messageId, "");
-      assert.equal(receipt.errorMessages.length, 1);
-      assert.equal(receipt.errorMessages[0], "Bad Request");
+      if (!receipt.successful) {
+        assert.equal(receipt.errorMessages.length, 1);
+        assert.equal(receipt.errorMessages[0], "Bad Request");
+      }
     } finally {
       globalThis.fetch = originalFetch;
     }
@@ -139,9 +141,10 @@ describe("MailgunTransport - Network Errors", () => {
       const receipt = await transport.send(message);
 
       assert.equal(receipt.successful, false);
-      assert.equal(receipt.messageId, "");
-      assert.equal(receipt.errorMessages.length, 1);
-      assert.equal(receipt.errorMessages[0], "Network error");
+      if (!receipt.successful) {
+        assert.equal(receipt.errorMessages.length, 1);
+        assert.equal(receipt.errorMessages[0], "Network error");
+      }
     } finally {
       globalThis.fetch = originalFetch;
     }

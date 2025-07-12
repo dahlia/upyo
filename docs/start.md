@@ -101,7 +101,11 @@ const message = createMessage({
 });
 
 const receipt = await transport.send(message);
-console.log("Email sent:", receipt.successful);
+if (receipt.successful) {
+  console.log("Message sent with ID:", receipt.messageId);
+} else {
+  console.error("Send failed:", receipt.errorMessages.join(", "));
+}
 ~~~~
 
 That's it! You have sent your first email using Upyo. You can customize

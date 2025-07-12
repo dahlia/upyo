@@ -44,8 +44,9 @@ describe("SmtpTransport", () => {
       const receipt = await transport.send(message);
       // If we got here, the message was successfully sent
       assert.strictEqual(receipt.successful, true);
-      assert.strictEqual(receipt.messageId.length > 0, true);
-      assert.strictEqual(receipt.errorMessages.length, 0);
+      if (receipt.successful) {
+        assert.strictEqual(receipt.messageId.length > 0, true);
+      }
     } catch (error) {
       // Expected to fail without a real SMTP server
       assert.strictEqual(error instanceof Error, true);

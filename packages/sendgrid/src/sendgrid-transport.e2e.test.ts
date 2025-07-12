@@ -1,3 +1,4 @@
+import type { Receipt } from "@upyo/core";
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { SendGridTransport } from "./sendgrid-transport.ts";
@@ -27,15 +28,14 @@ describeE2E("SendGridTransport E2E", () => {
 
     const receipt = await transport.send(message);
 
-    assert.equal(
-      receipt.successful,
-      true,
-      `Send failed: ${receipt.errorMessages.join(", ")}`,
-    );
-    assert.ok(receipt.messageId, "Should have a message ID");
-    assert.equal(receipt.errorMessages.length, 0);
+    assert.equal(receipt.successful, true, "Send should be successful");
+    if (receipt.successful) {
+      assert.ok(receipt.messageId, "Should have a message ID");
+    }
 
-    console.log(`Sent email with ID: ${receipt.messageId}`);
+    if (receipt.successful) {
+      console.log(`Sent email with ID: ${receipt.messageId}`);
+    }
   });
 
   it("should send an HTML email", async () => {
@@ -50,14 +50,14 @@ describeE2E("SendGridTransport E2E", () => {
 
     const receipt = await transport.send(message);
 
-    assert.equal(
-      receipt.successful,
-      true,
-      `Send failed: ${receipt.errorMessages.join(", ")}`,
-    );
-    assert.ok(receipt.messageId, "Should have a message ID");
+    assert.equal(receipt.successful, true, "Send should be successful");
+    if (receipt.successful) {
+      assert.ok(receipt.messageId, "Should have a message ID");
+    }
 
-    console.log(`Sent HTML email with ID: ${receipt.messageId}`);
+    if (receipt.successful) {
+      console.log(`Sent HTML email with ID: ${receipt.messageId}`);
+    }
   });
 
   it("should send an email with attachments", async () => {
@@ -79,14 +79,14 @@ describeE2E("SendGridTransport E2E", () => {
 
     const receipt = await transport.send(message);
 
-    assert.equal(
-      receipt.successful,
-      true,
-      `Send failed: ${receipt.errorMessages.join(", ")}`,
-    );
-    assert.ok(receipt.messageId, "Should have a message ID");
+    assert.equal(receipt.successful, true, "Send should be successful");
+    if (receipt.successful) {
+      assert.ok(receipt.messageId, "Should have a message ID");
+    }
 
-    console.log(`Sent email with attachment, ID: ${receipt.messageId}`);
+    if (receipt.successful) {
+      console.log(`Sent email with attachment, ID: ${receipt.messageId}`);
+    }
   });
 
   it("should send an email with high priority", async () => {
@@ -98,14 +98,14 @@ describeE2E("SendGridTransport E2E", () => {
 
     const receipt = await transport.send(message);
 
-    assert.equal(
-      receipt.successful,
-      true,
-      `Send failed: ${receipt.errorMessages.join(", ")}`,
-    );
-    assert.ok(receipt.messageId, "Should have a message ID");
+    assert.equal(receipt.successful, true, "Send should be successful");
+    if (receipt.successful) {
+      assert.ok(receipt.messageId, "Should have a message ID");
+    }
 
-    console.log(`Sent high priority email with ID: ${receipt.messageId}`);
+    if (receipt.successful) {
+      console.log(`Sent high priority email with ID: ${receipt.messageId}`);
+    }
   });
 
   it("should send an email with custom headers and tags", async () => {
@@ -122,16 +122,16 @@ describeE2E("SendGridTransport E2E", () => {
 
     const receipt = await transport.send(message);
 
-    assert.equal(
-      receipt.successful,
-      true,
-      `Send failed: ${receipt.errorMessages.join(", ")}`,
-    );
-    assert.ok(receipt.messageId, "Should have a message ID");
+    assert.equal(receipt.successful, true, "Send should be successful");
+    if (receipt.successful) {
+      assert.ok(receipt.messageId, "Should have a message ID");
+    }
 
-    console.log(
-      `Sent email with custom headers/tags, ID: ${receipt.messageId}`,
-    );
+    if (receipt.successful) {
+      console.log(
+        `Sent email with custom headers/tags, ID: ${receipt.messageId}`,
+      );
+    }
   });
 
   it("should send multiple emails via sendMany", async () => {
@@ -150,11 +150,7 @@ describeE2E("SendGridTransport E2E", () => {
       }),
     ];
 
-    const receipts: {
-      successful: boolean;
-      messageId: string;
-      errorMessages: string[];
-    }[] = [];
+    const receipts: Receipt[] = [];
     for await (const receipt of transport.sendMany(messages)) {
       receipts.push(receipt);
     }
@@ -162,19 +158,23 @@ describeE2E("SendGridTransport E2E", () => {
     assert.equal(receipts.length, 3);
 
     for (let i = 0; i < receipts.length; i++) {
+      const receipt = receipts[i];
       assert.equal(
-        receipts[i].successful,
+        receipt.successful,
         true,
-        `Batch email ${i + 1} failed: ${receipts[i].errorMessages.join(", ")}`,
-      );
-      assert.ok(
-        receipts[i].messageId,
-        `Batch email ${i + 1} should have a message ID`,
+        `Batch email ${i + 1} should be successful`,
       );
 
-      console.log(
-        `Sent batch email ${i + 1} with ID: ${receipts[i].messageId}`,
-      );
+      if (receipt.successful) {
+        assert.ok(
+          receipt.messageId,
+          `Batch email ${i + 1} should have a message ID`,
+        );
+
+        console.log(
+          `Sent batch email ${i + 1} with ID: ${receipt.messageId}`,
+        );
+      }
     }
   });
 

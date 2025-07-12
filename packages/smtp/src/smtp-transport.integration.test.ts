@@ -55,8 +55,9 @@ describe("SmtpTransport Integration Tests", () => {
       const receipt = await transport.send(message);
 
       assert.strictEqual(receipt.successful, true);
-      assert.strictEqual(receipt.errorMessages.length, 0);
-      assert.ok(receipt.messageId.length > 0);
+      if (receipt.successful) {
+        assert.ok(receipt.messageId.length > 0);
+      }
 
       const receivedMessages = server.getReceivedMessages();
       assert.strictEqual(receivedMessages.length, 1);
@@ -210,8 +211,10 @@ describe("SmtpTransport Integration Tests", () => {
       const receipt = await transport.send(message);
 
       assert.strictEqual(receipt.successful, false);
-      assert.ok(receipt.errorMessages.length > 0);
-      assert.ok(receipt.errorMessages[0].includes("MAIL FROM failed"));
+      if (!receipt.successful) {
+        assert.ok(receipt.errorMessages.length > 0);
+        assert.ok(receipt.errorMessages[0].includes("MAIL FROM failed"));
+      }
     } finally {
       await teardownTest(server, transport);
     }

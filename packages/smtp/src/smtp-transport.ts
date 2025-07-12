@@ -98,17 +98,15 @@ export class SmtpTransport implements Transport, AsyncDisposable {
       await this.returnConnection(connection);
 
       return {
-        messageId,
-        errorMessages: [],
         successful: true,
+        messageId,
       };
     } catch (error) {
       await this.discardConnection(connection);
 
       return {
-        messageId: "",
-        errorMessages: [error instanceof Error ? error.message : String(error)],
         successful: false,
+        errorMessages: [error instanceof Error ? error.message : String(error)],
       };
     }
   }
@@ -159,9 +157,8 @@ export class SmtpTransport implements Transport, AsyncDisposable {
 
           if (!connectionValid) {
             yield {
-              messageId: "",
-              errorMessages: ["Connection is no longer valid"],
               successful: false,
+              errorMessages: ["Connection is no longer valid"],
             };
             continue;
           }
@@ -176,20 +173,18 @@ export class SmtpTransport implements Transport, AsyncDisposable {
             );
 
             yield {
-              messageId,
-              errorMessages: [],
               successful: true,
+              messageId,
             };
           } catch (error) {
             // Mark connection as invalid on any error
             connectionValid = false;
 
             yield {
-              messageId: "",
+              successful: false,
               errorMessages: [
                 error instanceof Error ? error.message : String(error),
               ],
-              successful: false,
             };
           }
         }
@@ -199,9 +194,8 @@ export class SmtpTransport implements Transport, AsyncDisposable {
 
           if (!connectionValid) {
             yield {
-              messageId: "",
-              errorMessages: ["Connection is no longer valid"],
               successful: false,
+              errorMessages: ["Connection is no longer valid"],
             };
             continue;
           }
@@ -216,20 +210,18 @@ export class SmtpTransport implements Transport, AsyncDisposable {
             );
 
             yield {
-              messageId,
-              errorMessages: [],
               successful: true,
+              messageId,
             };
           } catch (error) {
             // Mark connection as invalid on any error
             connectionValid = false;
 
             yield {
-              messageId: "",
+              successful: false,
               errorMessages: [
                 error instanceof Error ? error.message : String(error),
               ],
-              successful: false,
             };
           }
         }

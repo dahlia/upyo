@@ -97,7 +97,7 @@ Architecture
 
  -  `Transport` interface: Abstract base for all email transports
  -  `Message` type: Standardized email message format with attachments, HTML/text content
- -  `Receipt` interface: Delivery confirmation with success/failure details
+ -  `Receipt` type: Discriminated union for type-safe delivery confirmation (success with messageId or failure with errorMessages)
  -  Address validation and priority handling built into core
 
 ### Build system

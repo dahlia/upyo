@@ -16,12 +16,6 @@ export function validateMailgunReceipt(receipt: Receipt): void {
     throw new Error("No message ID returned from Mailgun");
   }
 
-  if (receipt.errorMessages.length > 0) {
-    throw new Error(
-      `Email delivery had errors: ${receipt.errorMessages.join(", ")}`,
-    );
-  }
-
   // Mailgun message IDs typically start with < and end with >
   if (!receipt.messageId.startsWith("<") || !receipt.messageId.endsWith(">")) {
     console.warn(
@@ -48,7 +42,9 @@ export function validateBatchReceipts(
 
   const failedReceipts = receipts.filter((r) => !r.successful);
   if (failedReceipts.length > 0) {
-    const errors = failedReceipts.map((r) => r.errorMessages.join(", "));
+    const errors = failedReceipts.map((r) =>
+      !r.successful ? r.errorMessages.join(", ") : "Unknown error"
+    );
     throw new Error(
       `${failedReceipts.length} out of ${receipts.length} emails failed: ${
         errors.join("; ")
@@ -56,7 +52,9 @@ export function validateBatchReceipts(
     );
   }
 
-  const receiptsWithoutIds = receipts.filter((r) => !r.messageId);
+  const receiptsWithoutIds = receipts.filter((r) =>
+    r.successful && !r.messageId
+  );
   if (receiptsWithoutIds.length > 0) {
     throw new Error(
       `${receiptsWithoutIds.length} receipts missing message IDs`,
@@ -83,6 +81,10 @@ export function waitForEmailProcessing(
  * @returns The message ID without angle brackets.
  */
 export function extractMessageId(receipt: Receipt): string {
+  if (!receipt.successful) {
+    throw new Error("Cannot extract message ID from failed receipt");
+  }
+
   if (!receipt.messageId) {
     throw new Error("No message ID in receipt");
   }
@@ -109,10 +111,6 @@ export function validateErrorReceipt(
 
   if (receipt.errorMessages.length === 0) {
     throw new Error("Expected error messages in failed receipt");
-  }
-
-  if (receipt.messageId) {
-    throw new Error("Did not expect message ID in failed receipt");
   }
 
   // Check for expected error keywords
@@ -157,7 +155,9 @@ export function validateMessageDelivery(
     }
   }
 
-  console.info(
-    `Message "${message.subject}" sent successfully with ID: ${receipt.messageId}`,
-  );
+  if (receipt.successful) {
+    console.info(
+      `Message "${message.subject}" sent successfully with ID: ${receipt.messageId}`,
+    );
+  }
 }

@@ -56,7 +56,11 @@ const transport = new MailgunTransport({
 });
 
 const receipt = await transport.send(message);
-console.log("Email sent:", receipt.successful);
+if (receipt.successful) {
+  console.log("Message sent with ID:", receipt.messageId);
+} else {
+  console.error("Send failed:", receipt.errorMessages.join(", "));
+}
 ~~~~
 
 

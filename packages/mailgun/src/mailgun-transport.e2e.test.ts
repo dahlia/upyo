@@ -39,7 +39,9 @@ describe(
       const receipt = await transport.send(message);
       validateMessageDelivery(message, receipt, "[E2E Test] Basic Email");
 
-      console.log(`✓ Email sent successfully with ID: ${receipt.messageId}`);
+      if (receipt.successful) {
+        console.log(`✓ Email sent successfully with ID: ${receipt.messageId}`);
+      }
 
       // Wait for email processing
       await waitForEmailProcessing();
@@ -60,9 +62,11 @@ describe(
       const receipt = await transport.send(message);
       validateMessageDelivery(message, receipt, "[E2E Test] HTML Email");
 
-      console.log(
-        `✓ HTML email sent successfully with ID: ${receipt.messageId}`,
-      );
+      if (receipt.successful) {
+        console.log(
+          `✓ HTML email sent successfully with ID: ${receipt.messageId}`,
+        );
+      }
 
       await waitForEmailProcessing();
     });
@@ -88,9 +92,11 @@ describe(
         "[E2E Test] Multiple Recipients",
       );
 
-      console.log(
-        `✓ Multi-recipient email sent successfully with ID: ${receipt.messageId}`,
-      );
+      if (receipt.successful) {
+        console.log(
+          `✓ Multi-recipient email sent successfully with ID: ${receipt.messageId}`,
+        );
+      }
 
       await waitForEmailProcessing();
     });
@@ -129,9 +135,11 @@ describe(
         "[E2E Test] Email with Attachments",
       );
 
-      console.log(
-        `✓ Email with attachments sent successfully with ID: ${receipt.messageId}`,
-      );
+      if (receipt.successful) {
+        console.log(
+          `✓ Email with attachments sent successfully with ID: ${receipt.messageId}`,
+        );
+      }
 
       await waitForEmailProcessing();
     });
@@ -152,9 +160,11 @@ describe(
       const receipt = await transport.send(message);
       validateMessageDelivery(message, receipt, "[E2E Test] Custom Headers");
 
-      console.log(
-        `✓ Email with custom headers sent successfully with ID: ${receipt.messageId}`,
-      );
+      if (receipt.successful) {
+        console.log(
+          `✓ Email with custom headers sent successfully with ID: ${receipt.messageId}`,
+        );
+      }
 
       await waitForEmailProcessing();
     });
@@ -175,9 +185,11 @@ describe(
         "[E2E Test] High Priority Email",
       );
 
-      console.log(
-        `✓ High priority email sent successfully with ID: ${receipt.messageId}`,
-      );
+      if (receipt.successful) {
+        console.log(
+          `✓ High priority email sent successfully with ID: ${receipt.messageId}`,
+        );
+      }
 
       await waitForEmailProcessing();
     });
@@ -194,9 +206,11 @@ describe(
       const receipt = await transport.send(message);
       validateMessageDelivery(message, receipt, "[E2E Test] Tagged Email");
 
-      console.log(
-        `✓ Tagged email sent successfully with ID: ${receipt.messageId}`,
-      );
+      if (receipt.successful) {
+        console.log(
+          `✓ Tagged email sent successfully with ID: ${receipt.messageId}`,
+        );
+      }
 
       await waitForEmailProcessing();
     });
@@ -215,9 +229,11 @@ describe(
       const receipt = await transport.send(message);
       validateMessageDelivery(message, receipt, "[E2E Test] Reply-To Email");
 
-      console.log(
-        `✓ Reply-to email sent successfully with ID: ${receipt.messageId}`,
-      );
+      if (receipt.successful) {
+        console.log(
+          `✓ Reply-to email sent successfully with ID: ${receipt.messageId}`,
+        );
+      }
 
       await waitForEmailProcessing();
     });
@@ -240,9 +256,11 @@ describe(
         "[E2E Test] Unicode Test - 한글 테스트 🌍",
       );
 
-      console.log(
-        `✓ Unicode email sent successfully with ID: ${receipt.messageId}`,
-      );
+      if (receipt.successful) {
+        console.log(
+          `✓ Unicode email sent successfully with ID: ${receipt.messageId}`,
+        );
+      }
 
       await waitForEmailProcessing();
     });
@@ -274,7 +292,9 @@ describe(
 
       console.log(`✓ Batch of ${receipts.length} emails sent successfully`);
       receipts.forEach((receipt, index) => {
-        console.log(`  Email ${index + 1}: ${receipt.messageId}`);
+        if (receipt.successful) {
+          console.log(`  Email ${index + 1}: ${receipt.messageId}`);
+        }
       });
 
       await waitForEmailProcessing();
@@ -296,9 +316,11 @@ describe(
       const receipt = await transport.send(message);
       validateErrorReceipt(receipt, ["forbidden"]);
 
-      console.log(
-        `✓ Invalid API key handled correctly: ${receipt.errorMessages[0]}`,
-      );
+      if (!receipt.successful) {
+        console.log(
+          `✓ Invalid API key handled correctly: ${receipt.errorMessages[0]}`,
+        );
+      }
     });
 
     test("should handle invalid domain gracefully", async () => {
@@ -317,9 +339,11 @@ describe(
       const receipt = await transport.send(message);
       validateErrorReceipt(receipt, ["forbidden"]);
 
-      console.log(
-        `✓ Invalid domain handled correctly: ${receipt.errorMessages[0]}`,
-      );
+      if (!receipt.successful) {
+        console.log(
+          `✓ Invalid domain handled correctly: ${receipt.errorMessages[0]}`,
+        );
+      }
     });
 
     test("should handle network timeout gracefully", async () => {
@@ -338,9 +362,11 @@ describe(
       const receipt = await transport.send(message);
       validateErrorReceipt(receipt, ["aborted"]);
 
-      console.log(
-        `✓ Network timeout handled correctly: ${receipt.errorMessages[0]}`,
-      );
+      if (!receipt.successful) {
+        console.log(
+          `✓ Network timeout handled correctly: ${receipt.errorMessages[0]}`,
+        );
+      }
     });
 
     test("should handle abort signal during send", async () => {
