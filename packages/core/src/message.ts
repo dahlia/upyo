@@ -273,7 +273,7 @@ export function createMessage(constructor: MessageConstructor): Message {
           contentType: attachment.type == null || attachment.type === ""
             ? "application/octet-stream"
             : attachment.type as `${string}/${string}`,
-          contentId: "",
+          contentId: "", // TODO: Automatically generate a content ID if needed
         };
       } else if (isAttachment(attachment)) {
         return attachment;

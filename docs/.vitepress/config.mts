@@ -47,6 +47,16 @@ if (process.env.PLAUSIBLE_DOMAIN) {
   ];
 }
 
+const NAV = [
+  {
+    text: "Messages",
+    items: [
+      { text: "Composing messages", link: "/messages/compose" },
+      { text: "Attachments", link: "/messages/attachments" },
+    ],
+  },
+];
+
 // https://vitepress.dev/reference/site-config
 export default defineConfig({
   title: "Upyo",
@@ -58,12 +68,14 @@ export default defineConfig({
     nav: [
       { text: "Why", link: "/why" },
       { text: "Start", link: "/start" },
+      ...NAV,
       ...extraNav,
     ],
 
     sidebar: [
       { text: "Why Upyo?", link: "/why" },
       { text: "Getting started", link: "/start" },
+      ...NAV,
       { text: "Changelog", link: "/changelog" },
     ],
 
