@@ -14,7 +14,7 @@ Attaching files
 
 The simplest way to add attachments to your email is by using JavaScript
 [`File`] objects.  This is particularly useful when working with file uploads
-in web applications or when you have file data available as `File` instances:
+in web applications or when you have file data available as [`File`] instances:
 
 ~~~~ typescript twoslash
 import { createMessage } from "@upyo/core";
