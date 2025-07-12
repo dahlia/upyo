@@ -60,6 +60,7 @@ const NAV = [
     items: [
       { text: "SMTP", link: "/transports/smtp" },
       { text: "Mailgun", link: "/transports/mailgun" },
+      { text: "SendGrid", link: "/transports/sendgrid" },
     ],
   },
   {
@@ -68,6 +69,7 @@ const NAV = [
       { text: "@upyo/core", link: "https://jsr.io/@upyo/core" },
       { text: "@upyo/smtp", link: "https://jsr.io/@upyo/smtp" },
       { text: "@upyo/mailgun", link: "https://jsr.io/@upyo/mailgun" },
+      { text: "@upyo/sendgrid", link: "https://jsr.io/@upyo/sendgrid" },
     ],
   },
 ];

@@ -51,11 +51,12 @@ Upyo is a monorepo which contains several packages.  The main package is
 sending email messages.  Other packages implement specific transports for
 sending messages.  The following is a list of the available packages:
 
-| Package                            | JSR                      | npm                      | Description                                    |
-| ---------------------------------- | ------------------------ | ------------------------ | ---------------------------------------------- |
-| [@upyo/core](/packages/core/)      | [JSR][jsr:@upyo/core]    | [npm][npm:@upyo/core]    | Shared types and interfaces for email messages |
-| [@upyo/smtp](/packages/smtp/)      | [JSR][jsr:@upyo/smtp]    | [npm][npm:@upyo/smtp]    | SMTP transport                                 |
-| [@upyo/mailgun](/packages/mailgun) | [JSR][jsr:@upyo/mailgun] | [npm][npm:@upyo/mailgun] | Mailgun transport                              |
+| Package                              | JSR                       | npm                       | Description                                    |
+| ------------------------------------ | ------------------------- | ------------------------- | ---------------------------------------------- |
+| [@upyo/core](/packages/core/)        | [JSR][jsr:@upyo/core]     | [npm][npm:@upyo/core]     | Shared types and interfaces for email messages |
+| [@upyo/smtp](/packages/smtp/)        | [JSR][jsr:@upyo/smtp]     | [npm][npm:@upyo/smtp]     | SMTP transport                                 |
+| [@upyo/mailgun](/packages/mailgun)   | [JSR][jsr:@upyo/mailgun]  | [npm][npm:@upyo/mailgun]  | [Mailgun] transport                            |
+| [@upyo/sendgrid](/packages/sendgrid) | [JSR][jsr:@upyo/sendgrid] | [npm][npm:@upyo/sendgrid] | [SendGrid] transport                           |
 
 [jsr:@upyo/core]: https://jsr.io/@upyo/core
 [npm:@upyo/core]: https://www.npmjs.com/package/@upyo/core
@@ -63,6 +64,10 @@ sending messages.  The following is a list of the available packages:
 [npm:@upyo/smtp]: https://www.npmjs.com/package/@upyo/smtp
 [jsr:@upyo/mailgun]: https://jsr.io/@upyo/mailgun
 [npm:@upyo/mailgun]: https://www.npmjs.com/package/@upyo/mailgun
+[jsr:@upyo/sendgrid]: https://jsr.io/@upyo/sendgrid
+[npm:@upyo/sendgrid]: https://www.npmjs.com/package/@upyo/sendgrid
+[Mailgun]: https://www.mailgun.com/
+[SendGrid]: https://sendgrid.com/
 
 
 Etymology

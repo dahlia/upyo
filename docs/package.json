@@ -4,6 +4,7 @@
     "@types/node": "^24.0.13",
     "@upyo/core": "workspace:",
     "@upyo/mailgun": "workspace:",
+    "@upyo/sendgrid": "workspace:",
     "@upyo/smtp": "workspace:",
     "markdown-it-deflist": "^3.0.0",
     "markdown-it-footnote": "^4.0.0",

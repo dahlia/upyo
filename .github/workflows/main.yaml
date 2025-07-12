@@ -29,6 +29,9 @@ jobs:
       MAILGUN_TO: ${{ secrets.MAILGUN_TO }}
       MAILGUN_DOMAIN: ${{ secrets.MAILGUN_DOMAIN }}
       MAILGUN_REGION: ${{ secrets.MAILGUN_REGION }}
+      SENDGRID_API_KEY: ${{ secrets.SENDGRID_API_KEY }}
+      SENDGRID_FROM: ${{ secrets.SENDGRID_FROM }}
+      SENDGRID_TO: ${{ secrets.SENDGRID_TO }}
     steps:
     - uses: actions/checkout@v4
     - uses: pnpm/action-setup@v4
@@ -67,6 +70,9 @@ jobs:
       MAILGUN_TO: ${{ secrets.MAILGUN_TO }}
       MAILGUN_DOMAIN: ${{ secrets.MAILGUN_DOMAIN }}
       MAILGUN_REGION: ${{ secrets.MAILGUN_REGION }}
+      SENDGRID_API_KEY: ${{ secrets.SENDGRID_API_KEY }}
+      SENDGRID_FROM: ${{ secrets.SENDGRID_FROM }}
+      SENDGRID_TO: ${{ secrets.SENDGRID_TO }}
     steps:
     - uses: actions/checkout@v4
     - uses: denoland/setup-deno@v2
@@ -110,6 +116,9 @@ jobs:
       MAILGUN_TO: ${{ secrets.MAILGUN_TO }}
       MAILGUN_DOMAIN: ${{ secrets.MAILGUN_DOMAIN }}
       MAILGUN_REGION: ${{ secrets.MAILGUN_REGION }}
+      SENDGRID_API_KEY: ${{ secrets.SENDGRID_API_KEY }}
+      SENDGRID_FROM: ${{ secrets.SENDGRID_FROM }}
+      SENDGRID_TO: ${{ secrets.SENDGRID_TO }}
     steps:
     - uses: actions/checkout@v4
     - uses: pnpm/action-setup@v4
