@@ -47,6 +47,13 @@ if (receipt.successful) {
 ~~~~
 
 
+Docs
+----
+
+Upyo provides comprehensive documentation to help you get started quickly:
+<https://upyo.org/>.
+
+
 Packages
 --------
 
@@ -80,6 +87,7 @@ sending messages.  The following is a list of the available packages:
 Etymology
 ---------
 
-The name <q>Upyo</q> is derived from the Korean word <q>郵票</q> (upyo),
-which means *postage stamp*.  It reflects the library's purpose of sending
-email messages, similar to how a postage stamp is used to send physical mail.
+The name <q>Upyo</q> (pronounced /oo-pee-oh/) is derived from the Korean word
+<q>郵票</q> (upyo), which means *postage stamp*.  It reflects the library's
+purpose of sending email messages, similar to how a postage stamp is used to
+send physical mail.
