@@ -14,7 +14,11 @@ import {
  * behavior simulation, and async utilities.
  */
 export class MockTransport implements Transport {
-  private config: ResolvedMockConfig;
+  /**
+   * The resolved configuration used by this mock transport.
+   */
+  config: ResolvedMockConfig;
+
   private sentMessages: Message[] = [];
   private nextResponse: Receipt | null = null;
   private messageIdCounter: number = 1;

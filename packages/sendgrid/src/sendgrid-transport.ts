@@ -29,8 +29,12 @@ import { convertMessage } from "./message-converter.ts";
  * ```
  */
 export class SendGridTransport implements Transport {
+  /**
+   * The resolved SendGrid configuration used by this transport.
+   */
   config: ResolvedSendGridConfig;
-  httpClient: SendGridHttpClient;
+
+  private httpClient: SendGridHttpClient;
 
   /**
    * Creates a new SendGrid transport instance.

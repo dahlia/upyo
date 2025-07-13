@@ -8,7 +8,7 @@ describe("convertMessage", () => {
   const transport = new SendGridTransport({
     apiKey: "SG.test-key",
   });
-  const config = (transport as any).config;
+  const config = (transport as SendGridTransport).config;
 
   it("should convert a basic text message", async () => {
     const message: Message = {
@@ -204,7 +204,8 @@ describe("convertMessage", () => {
       subscriptionTracking: true,
       googleAnalytics: true,
     });
-    const configWithTracking = (transportWithTracking as any).config;
+    const configWithTracking =
+      (transportWithTracking as SendGridTransport).config;
 
     const message: Message = {
       sender: { address: "from@example.com" },

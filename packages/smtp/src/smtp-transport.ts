@@ -37,9 +37,17 @@ import { convertMessage } from "./message-converter.ts";
  * ```
  */
 export class SmtpTransport implements Transport, AsyncDisposable {
+  /**
+   * The SMTP configuration used by this transport.
+   */
   config: SmtpConfig;
-  connectionPool: SmtpConnection[] = [];
+
+  /**
+   * The maximum number of connections in the pool.
+   */
   poolSize: number;
+
+  private connectionPool: SmtpConnection[] = [];
 
   /**
    * Creates a new SMTP transport instance.
@@ -240,7 +248,7 @@ export class SmtpTransport implements Transport, AsyncDisposable {
     }
   }
 
-  async getConnection(signal?: AbortSignal): Promise<SmtpConnection> {
+  private async getConnection(signal?: AbortSignal): Promise<SmtpConnection> {
     signal?.throwIfAborted();
 
     // Try to get a connection from the pool
@@ -254,7 +262,7 @@ export class SmtpTransport implements Transport, AsyncDisposable {
     return connection;
   }
 
-  async connectAndSetup(
+  private async connectAndSetup(
     connection: SmtpConnection,
     signal?: AbortSignal,
   ): Promise<void> {
@@ -281,7 +289,7 @@ export class SmtpTransport implements Transport, AsyncDisposable {
     await connection.authenticate(signal);
   }
 
-  async returnConnection(connection: SmtpConnection): Promise<void> {
+  private async returnConnection(connection: SmtpConnection): Promise<void> {
     if (!this.config.pool) {
       await connection.quit();
       return;
@@ -300,7 +308,7 @@ export class SmtpTransport implements Transport, AsyncDisposable {
     }
   }
 
-  async discardConnection(connection: SmtpConnection): Promise<void> {
+  private async discardConnection(connection: SmtpConnection): Promise<void> {
     try {
       await connection.quit();
     } catch {

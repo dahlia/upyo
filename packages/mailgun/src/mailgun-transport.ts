@@ -29,8 +29,12 @@ import { convertMessage } from "./message-converter.ts";
  * ```
  */
 export class MailgunTransport implements Transport {
+  /**
+   * The resolved Mailgun configuration used by this transport.
+   */
   config: ResolvedMailgunConfig;
-  httpClient: MailgunHttpClient;
+
+  private httpClient: MailgunHttpClient;
 
   /**
    * Creates a new Mailgun transport instance.

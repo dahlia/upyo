@@ -9,7 +9,7 @@ describe("convertMessage", () => {
     apiKey: "test-key",
     domain: "test-domain.com",
   });
-  const config = (transport as any).config;
+  const config = (transport as MailgunTransport).config;
 
   it("should convert a simple message", async () => {
     const message: Message = {
@@ -190,7 +190,8 @@ describe("convertMessage", () => {
       clickTracking: false,
       openTracking: false,
     });
-    const configWithTracking = (transportWithTracking as any).config;
+    const configWithTracking =
+      (transportWithTracking as MailgunTransport).config;
 
     const message: Message = {
       sender: { address: "sender@example.com" },
