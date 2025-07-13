@@ -1,6 +1,6 @@
 {
   "name": "@upyo/core",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Simple email sending library for Node.js, Deno, Bun, and edge functions",
   "keywords": [
     "email",

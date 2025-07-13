@@ -1,6 +1,6 @@
 {
   "name": "@upyo/mock",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Mock transport for Upyo email library—useful for testing",
   "keywords": [
     "email",
