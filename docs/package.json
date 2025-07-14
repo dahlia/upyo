@@ -6,6 +6,7 @@
     "@upyo/mailgun": "workspace:",
     "@upyo/mock": "workspace:",
     "@upyo/sendgrid": "workspace:",
+    "@upyo/ses": "workspace:",
     "@upyo/smtp": "workspace:",
     "markdown-it-deflist": "^3.0.0",
     "markdown-it-footnote": "^4.0.0",

@@ -50,6 +50,9 @@ strengths and use cases:
 [SendGrid](./transports/sendgrid.md)
 :    Popular email API with deliverability focus
 
+[Amazon SES](./transports/ses.md)
+:    Cost-effective email service for AWS users
+
 [Mock transport](./transports/mock.md)
 :    Testing utility that captures emails without sending
 

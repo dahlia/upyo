@@ -38,7 +38,7 @@ for (const member of workspaceMembers) {
         mismatched++;
         console.error(
           "Version mismatch in %o: expected %o, found %o",
-          join(member, "deno.json"),
+          denoJsonPath,
           version,
           deno.version,
         );
@@ -68,7 +68,7 @@ for (const member of workspaceMembers) {
         mismatched++;
         console.error(
           "Version mismatch in %o: expected %o, found %o",
-          join(member, "package.json"),
+          pkgJsonPath,
           version,
           pkg.version,
         );

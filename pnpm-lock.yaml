@@ -38,6 +38,9 @@ importers:
       '@upyo/sendgrid':
         specifier: 'workspace:'
         version: link:../packages/sendgrid
+      '@upyo/ses':
+        specifier: 'workspace:'
+        version: link:../packages/ses
       '@upyo/smtp':
         specifier: 'workspace:'
         version: link:../packages/smtp
@@ -105,6 +108,22 @@ importers:
         version: 5.8.3
 
   packages/sendgrid:
+    dependencies:
+      '@upyo/core':
+        specifier: workspace:*
+        version: link:../core
+    devDependencies:
+      '@dotenvx/dotenvx':
+        specifier: 'catalog:'
+        version: 1.47.3
+      tsdown:
+        specifier: 'catalog:'
+        version: 0.12.9(typescript@5.8.3)
+      typescript:
+        specifier: 'catalog:'
+        version: 5.8.3
+
+  packages/ses:
     dependencies:
       '@upyo/core':
         specifier: workspace:*
