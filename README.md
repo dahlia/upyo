@@ -8,9 +8,12 @@ Upyo
 > [!CAUTION]
 > This project is in early development and subject to change without notice.
 
-Upyo is a simple and cross-runtime library for sending email messages using
-SMTP and various email providers.  It works on Node.js, Deno, Bun, and edge
-functions.
+Upyo is a cross-runtime email library that provides a unified, type-safe API
+for sending emails across Node.js, Deno, Bun, and edge functions. Switch
+between SMTP and HTTP-based providers (Mailgun, SendGrid, Amazon SES) without
+changing your application code, while enjoying full TypeScript support,
+consistent error handling, and built-in testing capabilities with mock
+transports across all runtimes.
 
 Here's a quick demo of sending an email using the Mailgun transport:
 
@@ -53,6 +56,8 @@ Docs
 Upyo provides comprehensive documentation to help you get started quickly:
 <https://upyo.org/>.
 
+API reference documentation for each package is available on JSR (see below).
+
 
 Packages
 --------
@@ -81,6 +86,8 @@ sending messages.  The following is a list of the available packages:
 [npm:@upyo/sendgrid]: https://www.npmjs.com/package/@upyo/sendgrid
 [jsr:@upyo/mock]: https://jsr.io/@upyo/mock
 [npm:@upyo/mock]: https://www.npmjs.com/package/@upyo/mock
+[jsr:@upyo/ses]: https://jsr.io/@upyo/ses
+[npm:@upyo/ses]: https://www.npmjs.com/package/@upyo/ses
 [Mailgun]: https://www.mailgun.com/
 [SendGrid]: https://sendgrid.com/
 [Amazon SES]: https://aws.amazon.com/ses/
