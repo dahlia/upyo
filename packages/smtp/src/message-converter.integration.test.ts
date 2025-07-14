@@ -246,6 +246,95 @@ describe("Message Converter Integration Tests", () => {
       assert.ok(result.raw.includes("From: John Doe <john@example.com>"));
       assert.ok(!result.raw.includes("=?UTF-8?B?"));
     });
+
+    test("should handle very long Korean subject lines", async () => {
+      const longSubject = "이것은 매우 긴 한국어 제목입니다. ".repeat(5) +
+        "테스트 메시지입니다.";
+      const message = createTestMessage({
+        subject: longSubject,
+      });
+
+      const result = await convertMessage(message);
+
+      // Should encode with RFC 2047 and handle long lines
+      assert.ok(result.raw.includes("Subject: =?UTF-8?B?"));
+
+      // Should not exceed recommended line length
+      const subjectLines = result.raw.split("\r\n").filter((line) =>
+        line.startsWith("Subject:")
+      );
+      assert.ok(subjectLines.length >= 1);
+    });
+
+    test("should handle mixed CJK characters in sender names", async () => {
+      const message = createTestMessage({
+        sender: {
+          name: "田中太郎 김철수 Wang Wei",
+          address: "mixed@example.com",
+        },
+        subject: "Mixed CJK Test",
+      });
+
+      const result = await convertMessage(message);
+
+      // Should encode sender name with mixed CJK characters
+      assert.ok(result.raw.includes("From: =?UTF-8?B?"));
+      assert.ok(result.raw.includes("Subject: Mixed CJK Test"));
+    });
+
+    test("should handle Japanese characters in headers", async () => {
+      const message = createTestMessage({
+        sender: { name: "田中太郎", address: "tanaka@example.com" },
+        subject: "こんにちは、世界！",
+      });
+
+      const result = await convertMessage(message);
+
+      // Should encode Japanese characters
+      assert.ok(result.raw.includes("From: =?UTF-8?B?"));
+      assert.ok(result.raw.includes("Subject: =?UTF-8?B?"));
+    });
+
+    test("should handle Chinese characters in headers", async () => {
+      const message = createTestMessage({
+        sender: { name: "王伟", address: "wang@example.com" },
+        subject: "你好，世界！",
+      });
+
+      const result = await convertMessage(message);
+
+      // Should encode Chinese characters
+      assert.ok(result.raw.includes("From: =?UTF-8?B?"));
+      assert.ok(result.raw.includes("Subject: =?UTF-8?B?"));
+    });
+
+    test("should handle emoji in headers", async () => {
+      const message = createTestMessage({
+        sender: { name: "John Doe 😀", address: "john@example.com" },
+        subject: "Hello 👋 World 🌍",
+      });
+
+      const result = await convertMessage(message);
+
+      // Should encode emoji characters
+      assert.ok(result.raw.includes("From: =?UTF-8?B?"));
+      assert.ok(result.raw.includes("Subject: =?UTF-8?B?"));
+    });
+
+    test("should handle custom headers with ASCII characters", async () => {
+      const headers = new Headers();
+      headers.set("X-Custom-Header", "Custom Value");
+      headers.set("X-Mailer", "Test Mailer");
+      headers.set("X-Custom-Info", "ASCII Info");
+
+      const message = createTestMessage({ headers });
+      const result = await convertMessage(message);
+
+      // Should include all custom headers without encoding (ASCII only)
+      assert.ok(result.raw.includes("x-custom-header: Custom Value"));
+      assert.ok(result.raw.includes("x-mailer: Test Mailer"));
+      assert.ok(result.raw.includes("x-custom-info: ASCII Info"));
+    });
   });
 
   describe("Content Encoding", () => {
@@ -273,6 +362,112 @@ describe("Message Converter Integration Tests", () => {
 
       // Should escape equals at end of line
       assert.ok(result.raw.includes("=3D")); // Escaped equals
+    });
+
+    test("should properly encode Korean characters in content", async () => {
+      const message = createTestMessage({
+        content: { text: "안녕하세요! 이것은 한국어 테스트입니다." },
+      });
+
+      const result = await convertMessage(message);
+
+      assert.ok(
+        result.raw.includes("Content-Transfer-Encoding: quoted-printable"),
+      );
+
+      // Should encode Korean characters as UTF-8 quoted-printable
+      // 안녕하세요! = EC=95=88=EB=85=95=ED=95=98=EC=84=B8=EC=9A=94!
+      assert.ok(
+        result.raw.includes("=EC=95=88=EB=85=95=ED=95=98=EC=84=B8=EC=9A=94!"),
+      );
+    });
+
+    test("should handle mixed ASCII and CJK characters", async () => {
+      const message = createTestMessage({
+        content: {
+          text: "Hello 안녕하세요! This is a mixed text 한국어 test.",
+        },
+      });
+
+      const result = await convertMessage(message);
+
+      // Should contain both ASCII and encoded CJK characters
+      assert.ok(result.raw.includes("Hello "));
+      assert.ok(
+        result.raw.includes("=EC=95=88=EB=85=95=ED=95=98=EC=84=B8=EC=9A=94!"),
+      );
+      assert.ok(result.raw.includes(" This is a mixed text "));
+      assert.ok(result.raw.includes("=ED=95=9C=EA=B5=AD=EC=96=B4"));
+      assert.ok(result.raw.includes(" test."));
+    });
+
+    test("should handle long lines with CJK characters", async () => {
+      const longKoreanText = "이것은 매우 긴 한국어 텍스트입니다. ".repeat(10);
+      const message = createTestMessage({
+        content: { text: longKoreanText },
+      });
+
+      const result = await convertMessage(message);
+
+      // Should contain soft line breaks for long lines
+      assert.ok(result.raw.includes("=\r\n"));
+
+      // Should properly encode Korean characters
+      assert.ok(result.raw.includes("=EC=9D=B4=EA=B2=83=EC=9D=80")); // 이것은
+    });
+
+    test("should handle Japanese and Chinese characters", async () => {
+      const message = createTestMessage({
+        content: { text: "こんにちは 你好 안녕하세요" },
+      });
+
+      const result = await convertMessage(message);
+
+      // Should encode Japanese hiragana (こんにちは)
+      assert.ok(
+        result.raw.includes("=E3=81=93=E3=82=93=E3=81=AB=E3=81=A1=E3=81=AF"),
+      );
+
+      // Should encode Chinese characters (你好)
+      assert.ok(result.raw.includes("=E4=BD=A0=E5=A5=BD"));
+
+      // Should encode Korean characters (안녕하세요) - may be split across lines due to line length
+      const rawWithoutLineBreaks = result.raw.replace(/=\r\n/g, "");
+      assert.ok(
+        rawWithoutLineBreaks.includes(
+          "=EC=95=88=EB=85=95=ED=95=98=EC=84=B8=EC=9A=94",
+        ),
+      );
+    });
+
+    test("should handle emoji and special Unicode characters", async () => {
+      const message = createTestMessage({
+        content: { text: "Hello 👋 世界 🌍 한국어 💬" },
+      });
+
+      const result = await convertMessage(message);
+
+      // Should encode emoji properly
+      assert.ok(result.raw.includes("=F0=9F=91=8B")); // 👋
+      assert.ok(result.raw.includes("=F0=9F=8C=8D")); // 🌍
+      assert.ok(result.raw.includes("=F0=9F=92=AC")); // 💬
+    });
+
+    test("should handle line breaks with CJK characters", async () => {
+      const message = createTestMessage({
+        content: { text: "첫 번째 줄\n두 번째 줄\r\n세 번째 줄" },
+      });
+
+      const result = await convertMessage(message);
+
+      // Should preserve line breaks
+      assert.ok(result.raw.includes("\n"));
+      assert.ok(result.raw.includes("\r\n"));
+
+      // Should encode Korean characters properly
+      assert.ok(result.raw.includes("=EC=B2=AB")); // 첫
+      assert.ok(result.raw.includes("=EB=91=90")); // 두
+      assert.ok(result.raw.includes("=EC=84=B8")); // 세
     });
   });
 
@@ -478,8 +673,12 @@ describe("Message Converter Integration Tests", () => {
         result.raw.includes("Content-Transfer-Encoding: quoted-printable"),
       );
 
-      // Long lines should be present (quoted-printable doesn't break long ASCII lines)
-      assert.ok(result.raw.includes(longLine));
+      // Long lines should be broken with soft line breaks (RFC 2045 requirement)
+      assert.ok(result.raw.includes("=\r\n"));
+
+      // When soft line breaks are removed, should contain the original long line
+      const rawWithoutSoftBreaks = result.raw.replace(/=\r\n/g, "");
+      assert.ok(rawWithoutSoftBreaks.includes(longLine));
     });
   });
 });
