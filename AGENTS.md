@@ -13,6 +13,8 @@ Project overview
 Upyo is a cross-runtime email library for Node.js, Deno, Bun, and edge
 functions. It's structured as a monorepo with multiple packages:
 
+**Repository**: https://github.com/dahlia/upyo
+
  -  **@upyo/core**: Shared types and interfaces for email messages
  -  **@upyo/smtp**: SMTP transport implementation  
  -  **@upyo/mailgun**: Mailgun transport implementation
