@@ -99,11 +99,19 @@ export default defineConfig({
       { text: "Changelog", link: "/changelog" },
     ],
 
+    search: {
+      provider: "local",
+    },
+
     socialLinks: [
       { icon: "jsr", link: "https://jsr.io/@upyo/core" },
       { icon: "npm", link: "https://www.npmjs.com/package/@upyo/core" },
       { icon: "github", link: "https://github.com/dahlia/upyo" },
     ],
+
+    editLink: {
+      pattern: "https://github.com/dahlia/upyo/edit/main/docs/:path",
+    },
   },
 
   head: [
