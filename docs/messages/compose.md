@@ -1,3 +1,9 @@
+---
+description: >-
+  Learn how to create email messages with Upyo's createMessage() function,
+  including multiple recipients, rich content, priority settings, and custom headers.
+---
+
 Composing messages
 ==================
 

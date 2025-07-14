@@ -1,3 +1,9 @@
+---
+description: >-
+  Testing utility transport that simulates email sending without delivery,
+  featuring message inspection, failure simulation, and async testing patterns.
+---
+
 Mock transport
 ==============
 

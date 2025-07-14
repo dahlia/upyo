@@ -1,3 +1,9 @@
+---
+description: >-
+  A quick guide to getting started with Upyo, including installation,
+  choosing a transport, and sending your first email.
+---
+
 Getting started
 ===============
 

@@ -1,3 +1,9 @@
+---
+description: >-
+  Guide to adding file attachments to emails using JavaScript File objects
+  or custom Attachment objects, including inline attachments and binary content.
+---
+
 Attachments
 ===========
 

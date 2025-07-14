@@ -1,4 +1,8 @@
-<!-- deno-fmt-ignore-file -->
+---
+description: >-
+  Guide to creating custom email transports for Upyo, covering the Transport
+  interface, HTTP patterns, resource management, and best practices.
+---
 
 Custom transport
 ================

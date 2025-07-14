@@ -1,3 +1,9 @@
+---
+description: >-
+  Complete SendGrid transport guide covering email tracking, analytics,
+  message tagging, bulk sending, and advanced configuration for reliable delivery.
+---
+
 SendGrid
 ========
 

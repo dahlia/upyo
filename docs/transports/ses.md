@@ -1,3 +1,9 @@
+---
+description: >-
+  Amazon SES transport guide with AWS authentication, regional configuration,
+  IAM roles, rich message features, bulk sending, and configuration sets.
+---
+
 Amazon SES
 ==========
 

@@ -2,6 +2,12 @@
 # https://vitepress.dev/reference/default-theme-home-page
 layout: home
 
+description: >-
+  Upyo is a simple and modern email sending library with a universal interface
+  for emailing across runtimes like Node.js, Deno, Bun, and edge functions.
+  It provides type-safe APIs, dead simple usage, and supports multiple email
+  providers.
+
 hero:
   name: "Upyo"
   text: "Simple and modern email sending library"

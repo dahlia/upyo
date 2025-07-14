@@ -1,3 +1,9 @@
+---
+description: >-
+  Complete guide to using Upyo's SMTP transport for universal email delivery,
+  including connection pooling, TLS security, authentication methods, and bulk sending.
+---
+
 SMTP
 ====
 

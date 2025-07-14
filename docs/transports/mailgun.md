@@ -1,3 +1,9 @@
+---
+description: >-
+  Learn how to send emails with Mailgun transport, including regional configuration,
+  tracking and analytics, message tagging, and bulk email sending with retry logic.
+---
+
 Mailgun
 =======
 

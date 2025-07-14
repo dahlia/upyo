@@ -1,3 +1,10 @@
+---
+description: >-
+  Learn why Upyo is the ideal choice for email sending: cross-runtime
+  compatibility, zero dependencies, simple API, built-in testing tools,
+  and provider independence.
+---
+
 Why Upyo?
 =========
 
