@@ -34,16 +34,26 @@ async function buildRawMessage(message: Message): Promise<string> {
   const isMultipart = hasAttachments || (hasHtml && hasText);
 
   // Standard headers
-  lines.push(`From: ${formatAddress(message.sender)}`);
-  lines.push(`To: ${message.recipients.map(formatAddress).join(", ")}`);
+  lines.push(`From: ${encodeHeaderValue(formatAddress(message.sender))}`);
+  lines.push(
+    `To: ${
+      encodeHeaderValue(message.recipients.map(formatAddress).join(", "))
+    }`,
+  );
 
   if (message.ccRecipients.length > 0) {
-    lines.push(`Cc: ${message.ccRecipients.map(formatAddress).join(", ")}`);
+    lines.push(
+      `Cc: ${
+        encodeHeaderValue(message.ccRecipients.map(formatAddress).join(", "))
+      }`,
+    );
   }
 
   if (message.replyRecipients.length > 0) {
     lines.push(
-      `Reply-To: ${message.replyRecipients.map(formatAddress).join(", ")}`,
+      `Reply-To: ${
+        encodeHeaderValue(message.replyRecipients.map(formatAddress).join(", "))
+      }`,
     );
   }
 
@@ -173,26 +183,89 @@ function encodeHeaderValue(value: string): string {
     // Convert to UTF-8 bytes then to base64
     const utf8Bytes = new TextEncoder().encode(value);
     const base64 = btoa(String.fromCharCode(...utf8Bytes));
-    return `=?UTF-8?B?${base64}?=`;
+
+    // Handle long headers by splitting into multiple encoded words
+    const maxEncodedLength = 75; // RFC 2047 recommends max 75 chars per encoded word
+    const encodedWord = `=?UTF-8?B?${base64}?=`;
+
+    if (encodedWord.length <= maxEncodedLength) {
+      return encodedWord;
+    }
+
+    // Split into multiple encoded words if too long
+    const words = [];
+    let currentBase64 = "";
+
+    for (let i = 0; i < base64.length; i += 4) {
+      const chunk = base64.slice(i, i + 4);
+      const testWord = `=?UTF-8?B?${currentBase64}${chunk}?=`;
+
+      if (testWord.length <= maxEncodedLength) {
+        currentBase64 += chunk;
+      } else {
+        if (currentBase64) {
+          words.push(`=?UTF-8?B?${currentBase64}?=`);
+        }
+        currentBase64 = chunk;
+      }
+    }
+
+    if (currentBase64) {
+      words.push(`=?UTF-8?B?${currentBase64}?=`);
+    }
+
+    return words.join(" ");
   }
   return value;
 }
 
 function encodeQuotedPrintable(text: string): string {
-  return text
-    .replace(/[^\x20-\x7E]/g, (char) => {
-      const code = char.charCodeAt(0);
-      if (code < 256) {
-        return `=${code.toString(16).toUpperCase().padStart(2, "0")}`;
-      }
-      // For characters > 255, encode as UTF-8 bytes
-      const utf8 = new TextEncoder().encode(char);
-      return Array.from(utf8)
-        .map((byte) => `=${byte.toString(16).toUpperCase().padStart(2, "0")}`)
-        .join("");
-    })
-    .replace(/=$/gm, "=3D")
-    .replace(/^\./, "=2E");
+  // First encode the entire string as UTF-8 bytes
+  const utf8Bytes = new TextEncoder().encode(text);
+
+  let result = "";
+  let lineLength = 0;
+  const maxLineLength = 76;
+
+  for (let i = 0; i < utf8Bytes.length; i++) {
+    const byte = utf8Bytes[i];
+    let encoded = "";
+
+    // Check if byte needs encoding
+    if (
+      byte < 32 || // Control characters
+      byte > 126 || // Non-ASCII
+      byte === 61 || // '=' character
+      (byte === 46 && lineLength === 0) // '.' at start of line
+    ) {
+      encoded = `=${byte.toString(16).toUpperCase().padStart(2, "0")}`;
+    } else {
+      encoded = String.fromCharCode(byte);
+    }
+
+    // Check if adding this encoded sequence would exceed line length
+    if (lineLength + encoded.length > maxLineLength) {
+      // Add soft line break (= followed by CRLF)
+      result += "=\r\n";
+      lineLength = 0;
+    }
+
+    result += encoded;
+    lineLength += encoded.length;
+
+    // Handle line breaks in the original text
+    if (byte === 13 && i + 1 < utf8Bytes.length && utf8Bytes[i + 1] === 10) {
+      // CRLF sequence - add LF and reset line length
+      i++; // Skip the LF byte since we're handling it here
+      result += String.fromCharCode(10);
+      lineLength = 0;
+    } else if (byte === 10 && (i === 0 || utf8Bytes[i - 1] !== 13)) {
+      // Standalone LF - reset line length
+      lineLength = 0;
+    }
+  }
+
+  return result;
 }
 
 function encodeBase64(data: Uint8Array): string {

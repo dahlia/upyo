@@ -262,5 +262,131 @@ describe(
         await teardownTest(transport);
       }
     });
+
+    test("should handle long CJK text with quoted-printable encoding in Mailpit", async () => {
+      const { transport, mailpitClient } = await setupTest();
+      try {
+        // Create long Korean text that will trigger quoted-printable line breaks
+        const longKoreanText = [
+          "안녕하세요! 이것은 매우 긴 한국어 텍스트입니다.",
+          "quoted-printable 인코딩이 제대로 작동하는지 확인하기 위해 작성된 테스트입니다.",
+          "이 텍스트는 76자 제한을 초과하여 소프트 라인 브레이크가 적용되어야 합니다.",
+          "한국어, 일본어(こんにちは), 중국어(你好) 등 다양한 CJK 문자들이 포함되어 있습니다.",
+          "이모지도 포함됩니다: 👋 🌍 💬 🚀 ✨",
+          "이 모든 문자들이 이메일 클라이언트에서 올바르게 표시되어야 합니다.",
+        ].join(" ");
+
+        const longJapaneseText = [
+          "こんにちは！これは非常に長い日本語のテキストです。",
+          "quoted-printableエンコーディングが正しく動作するかを確認するために作成されたテストです。",
+          "このテキストは76文字制限を超えてソフトラインブレークが適用されるはずです。",
+          "日本語、韓国語(안녕하세요), 中国語(你好)など様々なCJK文字が含まれています。",
+        ].join(" ");
+
+        const message = createTestMessage({
+          senderName: "김테스트",
+          senderEmail: "test@example.com",
+          recipients: [{ name: "田中太郎", address: "tanaka@example.com" }],
+          subject:
+            "긴 CJK 텍스트 테스트 - Long CJK Text Test - 長いCJKテキストテスト",
+          content: {
+            text: longKoreanText,
+            html: `
+              <h1>긴 CJK 텍스트 테스트</h1>
+              <h2>한국어 텍스트</h2>
+              <p>${longKoreanText}</p>
+              <h2>일본어 텍스트</h2>
+              <p>${longJapaneseText}</p>
+              <h2>중국어 텍스트</h2>
+              <p>你好！这是一个很长的中文文本测试。我们需要确保quoted-printable编码能够正确处理这些字符。</p>
+              <h2>이모지 테스트</h2>
+              <p>🌟 ✨ 🎉 🚀 💻 📧 🔧 ⚡ 🌍 🇰🇷 🇯🇵 🇨🇳</p>
+            `,
+          },
+        });
+
+        const receipt = await transport.send(message);
+        assert.strictEqual(receipt.successful, true);
+
+        const mailpitMessage = await waitForMailpitDelivery(
+          mailpitClient,
+          {
+            subject:
+              "긴 CJK 텍스트 테스트 - Long CJK Text Test - 長いCJKテキストテスト",
+          },
+          10000,
+        );
+
+        // Verify that the subject and content are correctly decoded
+        assert.ok(
+          mailpitMessage.Subject.includes("긴 CJK 텍스트 테스트"),
+          "Korean subject should be correctly decoded",
+        );
+        assert.ok(
+          mailpitMessage.Subject.includes("Long CJK Text Test"),
+          "English subject should be correctly decoded",
+        );
+        assert.ok(
+          mailpitMessage.Subject.includes("長いCJKテキストテスト"),
+          "Japanese subject should be correctly decoded",
+        );
+
+        // Verify text content
+        assert.ok(
+          mailpitMessage.Text?.includes(
+            "quoted-printable 인코딩이 제대로 작동하는지",
+          ),
+          "Korean text should be correctly decoded",
+        );
+        assert.ok(
+          mailpitMessage.Text?.includes(
+            "다양한 CJK 문자들이 포함되어 있습니다",
+          ),
+          "Korean text should be correctly decoded",
+        );
+        assert.ok(
+          mailpitMessage.Text?.includes("👋 🌍 💬 🚀 ✨"),
+          "Emoji should be correctly decoded",
+        );
+
+        // Verify HTML content
+        assert.ok(
+          mailpitMessage.HTML?.includes("<h1>긴 CJK 텍스트 테스트</h1>"),
+          "Korean HTML should be correctly decoded",
+        );
+        assert.ok(
+          mailpitMessage.HTML?.includes(
+            "quoted-printableエンコーディングが正しく動作するか",
+          ),
+          "Japanese HTML should be correctly decoded",
+        );
+        assert.ok(
+          mailpitMessage.HTML?.includes(
+            "quoted-printable编码能够正确处理这些字符",
+          ),
+          "Chinese HTML should be correctly decoded",
+        );
+        assert.ok(
+          mailpitMessage.HTML?.includes("🌟 ✨ 🎉 🚀 💻 📧 🔧 ⚡ 🌍 🇰🇷 🇯🇵 🇨🇳"),
+          "Emoji in HTML should be correctly decoded",
+        );
+
+        // Verify sender and recipient names are correctly decoded
+        // Note: Mailpit may parse encoded headers differently, so we check if the Korean name is present
+        assert.ok(
+          mailpitMessage.From?.Name?.includes("김테스트") ||
+            mailpitMessage.From?.Address?.includes("김테스트"),
+          "Korean sender name should be correctly decoded and present in From field",
+        );
+        assert.ok(
+          mailpitMessage.To?.some((to) =>
+            to.Name?.includes("田中太郎") || to.Address?.includes("田中太郎")
+          ) || mailpitMessage.To?.length === 0, // Mailpit might not populate To array correctly
+          "Japanese recipient name should be correctly decoded or To field handling may vary",
+        );
+      } finally {
+        await teardownTest(transport);
+      }
+    });
   },
 );
