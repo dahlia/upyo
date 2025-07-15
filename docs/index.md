@@ -22,6 +22,9 @@ hero:
   - theme: alt
     text: Why Upyo?
     link: /why
+  - theme: alt
+    text: GitHub
+    link: https://github.com/dahlia/upyo
 
 features:
 - title: Cross-runtime
