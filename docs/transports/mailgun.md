@@ -58,7 +58,7 @@ import { MailgunTransport } from "@upyo/mailgun";
 import { createMessage } from "@upyo/core";
 
 const transport = new MailgunTransport({
-  apiKey: "key-1234567890abcdef1234567890abcdef",
+  apiKey: "1234567890abcdef1234567890abcdef",
   domain: "mg.example.com",
   region: "us",
 });
@@ -95,21 +95,21 @@ import { MailgunTransport } from "@upyo/mailgun";
 
 // US region (default)
 const usTransport = new MailgunTransport({
-  apiKey: "key-1234567890abcdef1234567890abcdef",
+  apiKey: "1234567890abcdef1234567890abcdef",
   domain: "mg.example.com",
   region: "us",
 });
 
 // EU region for GDPR compliance
 const euTransport = new MailgunTransport({
-  apiKey: "key-1234567890abcdef1234567890abcdef",
+  apiKey: "1234567890abcdef1234567890abcdef",
   domain: "mg.eu.example.com",
   region: "eu",
 });
 
 // Custom endpoint for special configurations
 const customTransport = new MailgunTransport({
-  apiKey: "key-1234567890abcdef1234567890abcdef",
+  apiKey: "1234567890abcdef1234567890abcdef",
   domain: "mg.example.com",
   baseUrl: "https://api.mailgun.net/v3",
 });
@@ -131,7 +131,7 @@ behavior based on your needs:
 import { MailgunTransport } from "@upyo/mailgun";
 
 const transport = new MailgunTransport({
-  apiKey: "key-1234567890abcdef1234567890abcdef",
+  apiKey: "1234567890abcdef1234567890abcdef",
   domain: "mg.example.com",
   tracking: true,
   clickTracking: true,
@@ -157,7 +157,7 @@ import { MailgunTransport } from "@upyo/mailgun";
 import { createMessage } from "@upyo/core";
 
 const transport = new MailgunTransport({
-  apiKey: "key-1234567890abcdef1234567890abcdef",
+  apiKey: "1234567890abcdef1234567890abcdef",
   domain: "mg.example.com",
 });
 
@@ -192,7 +192,7 @@ import { MailgunTransport } from "@upyo/mailgun";
 import { createMessage } from "@upyo/core";
 
 const transport = new MailgunTransport({
-  apiKey: "key-1234567890abcdef1234567890abcdef",
+  apiKey: "1234567890abcdef1234567890abcdef",
   domain: "mg.example.com",
   retries: 3,
   timeout: 30000,
@@ -242,7 +242,7 @@ handling, retry behavior, and SSL validation to ensure reliable email delivery:
 import { MailgunTransport } from "@upyo/mailgun";
 
 const transport = new MailgunTransport({
-  apiKey: "key-1234567890abcdef1234567890abcdef",
+  apiKey: "1234567890abcdef1234567890abcdef",
   domain: "mg.example.com",
   region: "us",
   timeout: 15000,
@@ -276,7 +276,7 @@ import { MailgunTransport } from "@upyo/mailgun";
 
 // Development configuration with sandbox domain
 const devTransport = new MailgunTransport({
-  apiKey: "key-test1234567890abcdef1234567890ab",
+  apiKey: "test1234567890abcdef1234567890ab",
   domain: "sandbox-abc123.mailgun.org", // Mailgun sandbox domain
   region: "us",
   timeout: 5000, // Shorter timeout for development
@@ -284,7 +284,7 @@ const devTransport = new MailgunTransport({
 
 // Testing configuration with reduced retries
 const testTransport = new MailgunTransport({
-  apiKey: process.env.MAILGUN_TEST_API_KEY ?? "key-test123",
+  apiKey: process.env.MAILGUN_TEST_API_KEY ?? "test123",
   domain: process.env.MAILGUN_TEST_DOMAIN ?? "test.example.com",
   retries: 1, // Fewer retries for faster test execution
   timeout: 10000,
