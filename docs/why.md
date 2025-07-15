@@ -8,10 +8,17 @@ description: >-
 Why Upyo?
 =========
 
-Upyo (pronounced /oo-pee-oh/) is a simple and modern email library
-that works across multiple runtimes
+Upyo[^1] is a simple and modern email library that works across multiple runtimes
 including Node.js, Deno, Bun, and edge functions. It provides a universal
 interface for email delivery, making it easy to send emails with minimal setup.
+
+[^1]: Upyo (pronounced /oo-pee-oh/) comes from the Sino-Korean word
+      [郵票] (upyo), meaning *postage stamp*.
+      The name reflects the library's purpose: just as postage stamps enable
+      mail delivery across different postal systems, Upyo enables email delivery
+      across different runtime environments and service providers.
+
+[郵票]: https://en.wiktionary.org/wiki/%E9%83%B5%E7%A5%A8#Noun_2
 
 
 Cross-runtime compatibility
