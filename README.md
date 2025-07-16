@@ -67,14 +67,15 @@ Upyo is a monorepo which contains several packages.  The main package is
 sending email messages.  Other packages implement specific transports for
 sending messages.  The following is a list of the available packages:
 
-| Package                              | JSR                       | npm                       | Description                                    |
-| ------------------------------------ | ------------------------- | ------------------------- | ---------------------------------------------- |
-| [@upyo/core](/packages/core/)        | [JSR][jsr:@upyo/core]     | [npm][npm:@upyo/core]     | Shared types and interfaces for email messages |
-| [@upyo/smtp](/packages/smtp/)        | [JSR][jsr:@upyo/smtp]     | [npm][npm:@upyo/smtp]     | SMTP transport                                 |
-| [@upyo/mailgun](/packages/mailgun)   | [JSR][jsr:@upyo/mailgun]  | [npm][npm:@upyo/mailgun]  | [Mailgun] transport                            |
-| [@upyo/sendgrid](/packages/sendgrid) | [JSR][jsr:@upyo/sendgrid] | [npm][npm:@upyo/sendgrid] | [SendGrid] transport                           |
-| [@upyo/ses](/packages/ses)           | [JSR][jsr:@upyo/ses]      | [npm][npm:@upyo/ses]      | [Amazon SES] transport                         |
-| [@upyo/mock](/packages/mock/)        | [JSR][jsr:@upyo/mock]     | [npm][npm:@upyo/mock]     | Mock transport for testing                     |
+| Package                                         | JSR                            | npm                            | Description                                        |
+| ----------------------------------------------- | ------------------------------ | ------------------------------ | -------------------------------------------------- |
+| [@upyo/core](/packages/core/)                   | [JSR][jsr:@upyo/core]          | [npm][npm:@upyo/core]          | Shared types and interfaces for email messages     |
+| [@upyo/smtp](/packages/smtp/)                   | [JSR][jsr:@upyo/smtp]          | [npm][npm:@upyo/smtp]          | SMTP transport                                     |
+| [@upyo/mailgun](/packages/mailgun/)             | [JSR][jsr:@upyo/mailgun]       | [npm][npm:@upyo/mailgun]       | [Mailgun] transport                                |
+| [@upyo/sendgrid](/packages/sendgrid/)           | [JSR][jsr:@upyo/sendgrid]      | [npm][npm:@upyo/sendgrid]      | [SendGrid] transport                               |
+| [@upyo/ses](/packages/ses/)                     | [JSR][jsr:@upyo/ses]           | [npm][npm:@upyo/ses]           | [Amazon SES] transport                             |
+| [@upyo/opentelemetry](/packages/opentelemetry/) | [JSR][jsr:@upyo/opentelemetry] | [npm][npm:@upyo/opentelemetry] | [OpenTelemetry] observability  for Upyo transports |
+| [@upyo/mock](/packages/mock/)                   | [JSR][jsr:@upyo/mock]          | [npm][npm:@upyo/mock]          | Mock transport for testing                         |
 
 [jsr:@upyo/core]: https://jsr.io/@upyo/core
 [npm:@upyo/core]: https://www.npmjs.com/package/@upyo/core
@@ -84,10 +85,12 @@ sending messages.  The following is a list of the available packages:
 [npm:@upyo/mailgun]: https://www.npmjs.com/package/@upyo/mailgun
 [jsr:@upyo/sendgrid]: https://jsr.io/@upyo/sendgrid
 [npm:@upyo/sendgrid]: https://www.npmjs.com/package/@upyo/sendgrid
-[jsr:@upyo/mock]: https://jsr.io/@upyo/mock
-[npm:@upyo/mock]: https://www.npmjs.com/package/@upyo/mock
 [jsr:@upyo/ses]: https://jsr.io/@upyo/ses
 [npm:@upyo/ses]: https://www.npmjs.com/package/@upyo/ses
+[jsr:@upyo/opentelemetry]: https://jsr.io/@upyo/opentelemetry
+[npm:@upyo/opentelemetry]: https://www.npmjs.com/package/@upyo/opentelemetry
+[jsr:@upyo/mock]: https://jsr.io/@upyo/mock
+[npm:@upyo/mock]: https://www.npmjs.com/package/@upyo/mock
 [Mailgun]: https://www.mailgun.com/
 [SendGrid]: https://sendgrid.com/
 [Amazon SES]: https://aws.amazon.com/ses/
