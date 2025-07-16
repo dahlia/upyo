@@ -182,3 +182,11 @@ main dt,
 main dd {
     line-height: 28px;
 }
+
+main dt {
+    font-weight: 500;
+}
+
+main dd {
+    margin-bottom: 10px;
+}

@@ -123,8 +123,9 @@ Provider independence
 Upyo's transport abstraction means you're never locked into a single email
 service provider. Whether you use [SMTP](./transports/smtp.md),
 [Mailgun](./transports/mailgun.md), [SendGrid](./transports/sendgrid.md),
-or any future provider, your application code stays exactly the same.
-Switch providers in minutes, not days:
+[Amazon SES](./transports/ses.md), or any future provider,
+your application code stays exactly the same.  Switch providers in minutes,
+not days:
 
 ~~~~ typescript twoslash
 import { createMessage } from "@upyo/core";
@@ -160,3 +161,63 @@ async function sendEmail(transport: any) {
 await sendEmail(smtpTransport);   // ✅ Works
 await sendEmail(mailgunTransport); // ✅ Works
 ~~~~
+
+
+Observability
+-------------
+
+Upyo integrates seamlessly with [OpenTelemetry](./transports/opentelemetry.md)
+to provide comprehensive observability for your email operations. Monitor
+delivery rates, track performance, and debug issues with distributed tracing—all
+without changing your existing code:
+
+~~~~ typescript twoslash
+import { createMessage } from "@upyo/core";
+import { SmtpTransport } from "@upyo/smtp";
+import { createOpenTelemetryTransport } from "@upyo/opentelemetry";
+
+// Wrap any transport with OpenTelemetry instrumentation
+const baseTransport = new SmtpTransport({ host: "smtp.example.com" });
+const transport = createOpenTelemetryTransport(baseTransport, {
+  serviceName: "email-service",
+  tracing: { enabled: true },
+  metrics: { enabled: true },
+});
+
+// Your email code stays exactly the same
+const message = createMessage({
+  from: "sender@example.com",
+  to: "recipient@example.net",
+  subject: "Production Email",
+  content: { text: "Now with full observability!" },
+});
+
+await transport.send(message);
+// Automatically creates traces and records metrics:
+// - Email delivery success/failure rates
+// - Send operation latency histograms
+// - Error classification by type
+// - Distributed tracing for debugging
+~~~~
+
+Key observability features:
+
+Zero-code instrumentation
+:   Add observability to any transport without modifying your email logic
+
+Comprehensive metric
+:   Track delivery rates, latency, batch sizes, and error distributions
+
+Distributed tracing
+:   Follow email operations across your entire system with OpenTelemetry spans
+
+Smart error classification
+:   Automatically categorize failures (auth, network, validation, etc.)
+    for better alerting
+
+Production-tested
+:   Built on OpenTelemetry standards used by major observability platforms
+
+Whether you're using Jaeger, Prometheus, Grafana, or commercial APM solutions,
+Upyo's OpenTelemetry support ensures you have the insights needed to run email
+services reliably at scale.
