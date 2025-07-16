@@ -18,6 +18,10 @@ functions. It's structured as a monorepo with multiple packages:
  -  **@upyo/core**: Shared types and interfaces for email messages
  -  **@upyo/smtp**: SMTP transport implementation  
  -  **@upyo/mailgun**: Mailgun transport implementation
+ -  **@upyo/sendgrid**: SendGrid transport implementation
+ -  **@upyo/ses**: Amazon SES transport implementation
+ -  **@upyo/mock**: Mock transport for testing
+ -  **@upyo/opentelemetry**: OpenTelemetry observability transport
  -  **docs**: VitePress documentation site
 
 
@@ -129,7 +133,9 @@ export interface Transport {
 #### Implementation patterns
 
  -  **SMTP transport**: Connection pooling, resource management with `AsyncDisposable`, protocol-specific optimizations
- -  **HTTP-based transports** (Mailgun): Stateless HTTP clients, simpler implementation without connection management
+ -  **HTTP-based transports** (Mailgun, SendGrid, SES): Stateless HTTP clients, simpler implementation without connection management
+ -  **Mock transport**: In-memory testing implementation with comprehensive inspection capabilities
+ -  **OpenTelemetry transport**: Decorator pattern for adding observability to any transport
  -  **Configuration factories**: `createXConfig()` functions apply provider-specific defaults and validation
  -  **Provider-specific optimization**: Each transport optimizes for its protocol while maintaining API consistency
 
@@ -141,6 +147,27 @@ export interface Transport {
 
 This abstraction allows switching email providers by only changing the transport constructor while maintaining identical usage patterns throughout the application.
 
+### Available transports
+
+#### Core transports
+
+ -  **@upyo/smtp**: Full-featured SMTP client with connection pooling, TLS support, and authentication
+ -  **@upyo/mailgun**: Mailgun HTTP API transport with support for US/EU regions and batch operations
+ -  **@upyo/sendgrid**: SendGrid HTTP API transport with template support and webhook handling
+ -  **@upyo/ses**: Amazon SES HTTP API transport with AWS authentication and regional endpoints
+
+#### Utility transports
+
+ -  **@upyo/mock**: Testing transport that captures sent messages for inspection without external dependencies
+ -  **@upyo/opentelemetry**: Decorator transport that adds OpenTelemetry observability to any base transport
+
+#### Transport characteristics
+
+ -  **SMTP**: Direct protocol implementation, works with any SMTP server, supports connection reuse
+ -  **HTTP-based** (Mailgun, SendGrid, SES): Stateless, simpler configuration, provider-specific features
+ -  **Mock**: In-memory storage, failure simulation, comprehensive testing utilities
+ -  **OpenTelemetry**: Transparent wrapper, metrics collection, distributed tracing, error classification
+
 ### Build system
 
  -  **tsdown**: Primary build tool that generates npm-compatible packages from Deno code
@@ -151,7 +178,9 @@ This abstraction allows switching email providers by only changing the transport
 
  -  **Multi-runtime testing**: Unit tests run on Deno, Node.js, and Bun
  -  **Integration tests**: SMTP uses Docker Compose with Mailpit for local testing
- -  **E2E tests**: External services like Mailgun with environment-based configuration
+ -  **E2E tests**: External services like Mailgun, SendGrid, and SES with environment-based configuration
+ -  **Mock testing**: Comprehensive mock transport for testing email workflows without external dependencies
+ -  **Observability testing**: OpenTelemetry transport includes integration tests with real OpenTelemetry SDK
  -  **Environment isolation**: .env files for test configuration with dotenvx loading
 
 
@@ -317,8 +346,10 @@ it("should validate request structure", async () => {
 
 ### Common tasks for agents
 
- -  **Adding new transport**: Follow the pattern established by existing transports (SMTP, Mailgun)
+ -  **Adding new transport**: Follow the pattern established by existing transports (SMTP, Mailgun, SendGrid, SES)
  -  **Writing tests**: Use the testing utilities provided in each package's test-utils directory
  -  **Updating documentation**: Follow the documentation style guide above
  -  **Bug fixes**: Ensure fixes work across all supported runtimes
  -  **Feature additions**: Maintain backward compatibility and update relevant documentation
+ -  **Adding observability**: Use OpenTelemetry transport as decorator for any transport
+ -  **Testing workflows**: Use mock transport for comprehensive testing without external dependencies

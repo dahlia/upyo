@@ -94,6 +94,7 @@ sending messages.  The following is a list of the available packages:
 [Mailgun]: https://www.mailgun.com/
 [SendGrid]: https://sendgrid.com/
 [Amazon SES]: https://aws.amazon.com/ses/
+[OpenTelemetry]: https://opentelemetry.io/
 
 
 Etymology
