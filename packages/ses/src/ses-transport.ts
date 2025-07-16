@@ -37,6 +37,8 @@ import { convertMessage } from "./message-converter.ts";
  *   console.log("Email sent with ID:", receipt.messageId);
  * }
  * ```
+ *
+ * @since 0.2.0
  */
 export class SesTransport implements Transport {
   /** Resolved configuration with defaults applied */

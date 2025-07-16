@@ -28,6 +28,8 @@
  *   sessionToken: "FwoGZXIvYXdzE...",
  * };
  * ```
+ *
+ * @since 0.2.0
  */
 export type SesAuthentication =
   | {
@@ -70,6 +72,8 @@ export type SesAuthentication =
  *   },
  * };
  * ```
+ *
+ * @since 0.2.0
  */
 export interface SesConfig {
   /** AWS authentication configuration. */
