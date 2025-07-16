@@ -16,7 +16,7 @@
     "email": "hong@minhee.org",
     "url": "https://hongminhee.org/"
   },
-  "homepage": "https://upyo.org/",
+  "homepage": "https://upyo.org/transports/ses",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/dahlia/upyo.git",
