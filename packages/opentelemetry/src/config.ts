@@ -2,6 +2,7 @@ import type { MeterProvider, TracerProvider } from "@opentelemetry/api";
 
 /**
  * Configuration options for OpenTelemetry observability features.
+ * @since 0.2.0
  */
 export interface ObservabilityConfig {
   /**
@@ -19,6 +20,7 @@ export interface ObservabilityConfig {
 
 /**
  * Configuration options for metrics collection.
+ * @since 0.2.0
  */
 export interface MetricsConfig extends ObservabilityConfig {
   /**
@@ -36,6 +38,7 @@ export interface MetricsConfig extends ObservabilityConfig {
 
 /**
  * Configuration options for tracing.
+ * @since 0.2.0
  */
 export interface TracingConfig extends ObservabilityConfig {
   /**
@@ -54,6 +57,7 @@ export interface TracingConfig extends ObservabilityConfig {
 
 /**
  * Custom attribute extractor function type.
+ * @since 0.2.0
  */
 export type AttributeExtractor = (
   operation: "send" | "send_batch",
@@ -64,6 +68,7 @@ export type AttributeExtractor = (
 
 /**
  * Custom error classifier function type.
+ * @since 0.2.0
  */
 export type ErrorClassifier = (
   error: unknown,
@@ -71,6 +76,7 @@ export type ErrorClassifier = (
 
 /**
  * Configuration options for auto-setup scenarios.
+ * @since 0.2.0
  */
 export interface AutoConfig {
   /**
@@ -103,6 +109,7 @@ export interface AutoConfig {
 
 /**
  * Configuration for the OpenTelemetry transport.
+ * @since 0.2.0
  */
 export interface OpenTelemetryConfig {
   /**
@@ -150,6 +157,7 @@ export interface OpenTelemetryConfig {
 
 /**
  * Resolved configuration with all defaults applied.
+ * @since 0.2.0
  */
 export interface ResolvedOpenTelemetryConfig {
   readonly tracerProvider?: TracerProvider;
@@ -195,6 +203,7 @@ const DEFAULT_CONFIG = {
  * @returns A resolved configuration with all defaults applied.
  * @throws {Error} When tracing is enabled but no TracerProvider is provided.
  * @throws {Error} When metrics are enabled but no MeterProvider is provided.
+ * @since 0.2.0
  */
 export function createOpenTelemetryConfig(
   config: OpenTelemetryConfig = {},
@@ -235,8 +244,22 @@ export function createOpenTelemetryConfig(
 /**
  * Default error classifier that categorizes errors into standard types.
  *
+ * @example
+ * ```typescript
+ * import { defaultErrorClassifier } from "@upyo/opentelemetry";
+ *
+ * console.log(defaultErrorClassifier(new Error("401 Unauthorized"))); // "auth"
+ * console.log(defaultErrorClassifier(new Error("Rate limit exceeded"))); // "rate_limit"
+ * console.log(defaultErrorClassifier(new Error("Connection timeout"))); // "network"
+ * console.log(defaultErrorClassifier(new Error("Invalid email format"))); // "validation"
+ * console.log(defaultErrorClassifier(new Error("500 Internal Server Error"))); // "server_error"
+ * console.log(defaultErrorClassifier(new Error("Something else"))); // "unknown"
+ * ```
+ *
  * @param error The error to classify.
- * @returns A string category for the error.
+ * @returns A string category such as `"auth"`, `"rate_limit"`, `"network"`,
+ *          `"validation"`, `"server_error"`, or `"unknown"`.
+ * @since 0.2.0
  */
 export function defaultErrorClassifier(
   error: unknown,

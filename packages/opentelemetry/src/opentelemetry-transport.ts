@@ -20,26 +20,52 @@ import { TracingCollector } from "./tracing.ts";
  * AsyncDisposable and properly disposing wrapped transports that support
  * either Disposable or AsyncDisposable interfaces.
  *
- * @example
+ * @example Basic usage with explicit providers
  * ```typescript
- * import { MailgunTransport } from "@upyo/mailgun";
  * import { OpenTelemetryTransport } from "@upyo/opentelemetry";
+ * import { createSmtpTransport } from "@upyo/smtp";
  * import { trace, metrics } from "@opentelemetry/api";
  *
- * const baseTransport = new MailgunTransport({
- *   apiKey: "your-api-key",
- *   domain: "your-domain.com"
+ * const baseTransport = createSmtpTransport({
+ *   host: "smtp.example.com",
+ *   port: 587,
  * });
  *
  * const transport = new OpenTelemetryTransport(baseTransport, {
  *   tracerProvider: trace.getTracerProvider(),
  *   meterProvider: metrics.getMeterProvider(),
- *   metrics: { enabled: true },
- *   tracing: { enabled: true, recordSensitiveData: false }
+ *   tracing: {
+ *     enabled: true,
+ *     samplingRate: 1.0,
+ *     recordSensitiveData: false,
+ *   },
+ *   metrics: {
+ *     enabled: true,
+ *   },
  * });
  *
- * const receipt = await transport.send(message);
+ * // Use the transport normally - it will automatically create spans and metrics
+ * await transport.send(message);
  * ```
+ *
+ * @example With custom error classification and attribute extraction
+ * ```typescript
+ * const transport = new OpenTelemetryTransport(baseTransport, {
+ *   tracerProvider: trace.getTracerProvider(),
+ *   meterProvider: metrics.getMeterProvider(),
+ *   errorClassifier: (error) => {
+ *     if (error.message.includes("spam")) return "spam";
+ *     if (error.message.includes("bounce")) return "bounce";
+ *     return "unknown";
+ *   },
+ *   attributeExtractor: (operation, transportName) => ({
+ *     "service.environment": process.env.NODE_ENV,
+ *     "transport.type": transportName,
+ *   }),
+ * });
+ * ```
+ *
+ * @since 0.2.0
  */
 export class OpenTelemetryTransport implements Transport, AsyncDisposable {
   /**

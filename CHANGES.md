@@ -16,6 +16,26 @@ To be released.
 
 [#3]: https://github.com/dahlia/upyo/issues/3
 
+### @upyo/opentelemetry
+
+ -  Added OpenTelemetry observability support.  [[#5]]
+
+     -  Added `OpenTelemetryTransport` class.
+     -  Added `OpenTelemetryConfig` interface.
+     -  Added `ObservabilityConfig` interface.
+     -  Added `MetricsConfig` interface.
+     -  Added `TracingConfig` interface.
+     -  Added `AttributeExtractor` type.
+     -  Added `ErrorClassifier` type.
+     -  Added `createErrorClassifier()` function.
+     -  Added `defaultErrorClassifier()` function.
+     -  Added `AutoConfig` interface.
+     -  Added `createOpenTelemetryTransport()` function.
+     -  Added `CreateOpenTelemetryTransportConfig` interface.
+     -  Added `createEmailAttributeExtractor()` function.
+
+[#5]: https://github.com/dahlia/upyo/issues/5
+
 
 Version 0.1.1
 -------------

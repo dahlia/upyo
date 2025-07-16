@@ -7,6 +7,8 @@ description: >-
 Amazon SES
 ==========
 
+*This transport is introduced in Upyo 0.2.0.*
+
 [Amazon SES] (Simple Email Service) is AWS's reliable, scalable email sending
 service designed for high-volume transactional and marketing emails. Built on
 Amazon's proven infrastructure, SES provides excellent deliverability rates,

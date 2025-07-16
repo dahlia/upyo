@@ -1,9 +1,35 @@
 import type { Message } from "@upyo/core";
 
 /**
- * Extracts OpenTelemetry semantic attributes from an email message.
- * Follows OpenTelemetry conventions where applicable and creates
- * email-specific attributes in appropriate namespaces.
+ * Email attribute extractor class for generating OpenTelemetry attributes.
+ * Handles extraction of message metadata, error information, and transport details
+ * while respecting privacy settings for sensitive data.
+ *
+ * This class provides methods for extracting attributes from email messages,
+ * batch operations, and errors, making them suitable for use in OpenTelemetry
+ * spans and metrics.
+ *
+ * @example
+ * ```typescript
+ * import { EmailAttributeExtractor } from "@upyo/opentelemetry";
+ *
+ * const extractor = new EmailAttributeExtractor(
+ *   "smtp",           // transport name
+ *   false,            // don't record sensitive data
+ *   "2.1.0"          // transport version
+ * );
+ *
+ * // Extract attributes from a message
+ * const messageAttrs = extractor.extractMessageAttributes(message);
+ *
+ * // Extract attributes from batch operations
+ * const batchAttrs = extractor.extractBatchAttributes(messages, batchSize);
+ *
+ * // Extract attributes from errors
+ * const errorAttrs = extractor.extractErrorAttributes(error, "network");
+ * ```
+ *
+ * @since 0.2.0
  */
 export class EmailAttributeExtractor {
   private readonly recordSensitiveData: boolean;

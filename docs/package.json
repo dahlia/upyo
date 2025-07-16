@@ -1,10 +1,16 @@
 {
   "devDependencies": {
+    "@opentelemetry/api": "catalog:",
+    "@opentelemetry/resources": "catalog:",
+    "@opentelemetry/sdk-metrics": "catalog:",
+    "@opentelemetry/sdk-trace-base": "catalog:",
+    "@opentelemetry/semantic-conventions": "catalog:",
     "@shikijs/vitepress-twoslash": "^3.7.0",
     "@types/node": "^24.0.13",
     "@upyo/core": "workspace:",
     "@upyo/mailgun": "workspace:",
     "@upyo/mock": "workspace:",
+    "@upyo/opentelemetry": "workspace:",
     "@upyo/sendgrid": "workspace:",
     "@upyo/ses": "workspace:",
     "@upyo/smtp": "workspace:",

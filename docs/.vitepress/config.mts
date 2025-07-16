@@ -62,6 +62,7 @@ const NAV = [
       { text: "Mailgun", link: "/transports/mailgun" },
       { text: "SendGrid", link: "/transports/sendgrid" },
       { text: "Amazon SES", link: "/transports/ses" },
+      { text: "OpenTelemetry", link: "/transports/opentelemetry" },
       { text: "Mock transport", link: "/transports/mock" },
       { text: "Custom transport", link: "/transports/custom" },
     ],
@@ -74,6 +75,10 @@ const NAV = [
       { text: "@upyo/mailgun", link: "https://jsr.io/@upyo/mailgun/doc" },
       { text: "@upyo/sendgrid", link: "https://jsr.io/@upyo/sendgrid/doc" },
       { text: "@upyo/ses", link: "https://jsr.io/@upyo/ses/doc" },
+      {
+        text: "@upyo/opentelemetry",
+        link: "https://jsr.io/@upyo/opentelemetry/doc",
+      },
       { text: "@upyo/mock", link: "https://jsr.io/@upyo/mock/doc" },
     ],
   },

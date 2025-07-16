@@ -7,6 +7,7 @@ import {
 import type { Message } from "@upyo/core";
 import type { TracingConfig } from "./config.ts";
 import { EmailAttributeExtractor } from "./attributes.ts";
+import metadata from "../package.json" with { type: "json" };
 
 /**
  * Manages OpenTelemetry tracing for email operations.
@@ -23,7 +24,7 @@ export class TracingCollector {
     transportVersion?: string,
   ) {
     this.config = config;
-    this.tracer = tracerProvider.getTracer("@upyo/opentelemetry", "0.1.0");
+    this.tracer = tracerProvider.getTracer(metadata.name, metadata.version);
     this.attributeExtractor = new EmailAttributeExtractor(
       transportName,
       config.recordSensitiveData,

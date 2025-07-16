@@ -7,6 +7,7 @@ import type {
 } from "@opentelemetry/api";
 import type { Message } from "@upyo/core";
 import type { MetricsConfig } from "./config.ts";
+import metadata from "../package.json" with { type: "json" };
 
 /**
  * Manages OpenTelemetry metrics collection for email operations.
@@ -29,7 +30,7 @@ export class MetricsCollector {
 
   constructor(meterProvider: MeterProvider, config: Required<MetricsConfig>) {
     this.config = config;
-    this.meter = meterProvider.getMeter("@upyo/opentelemetry", "0.1.0");
+    this.meter = meterProvider.getMeter(metadata.name, metadata.version);
 
     // Initialize counters
     this.attemptCounter = this.meter.createCounter(
