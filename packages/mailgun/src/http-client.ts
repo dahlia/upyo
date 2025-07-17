@@ -80,22 +80,39 @@ export class MailgunHttpClient {
       try {
         const response = await this.fetchWithAuth(url, options);
         const text = await response.text();
-        // deno-lint-ignore no-explicit-any
-        let data: any;
-        try {
-          data = JSON.parse(text);
-        } catch {
-          throw new Error(text);
-        }
 
         if (!response.ok) {
+          let errorMessage: string | undefined;
+          try {
+            // Try to parse the error message from the JSON body
+            errorMessage = JSON.parse(text)?.message;
+          } catch {
+            // Ignore if JSON parsing fails, as the body may be non-JSON
+          }
+
+          // Fallback logic for creating a meaningful error message.
+          // 1. Use the parsed `errorMessage` if available.
+          // 2. Otherwise, use the raw `text` response.
+          // 3. If the raw `text` is also empty, fall back to the HTTP status.
+          // Using `||` is intentional here to treat empty strings as falsy
+          // and ensure a non-empty error message for the tests.
           throw new MailgunApiError(
-            data.message ?? `HTTP ${response.status}`,
+            errorMessage || text || `HTTP ${response.status}`,
             response.status,
           );
         }
 
-        return data as MailgunResponse;
+        try {
+          return JSON.parse(text) as MailgunResponse;
+        } catch (jsonError) {
+          // This handles cases where the request was successful (e.g., 2xx status)
+          // but the response body is not valid JSON.
+          throw new Error(
+            `Successfully received response but failed to parse JSON: ${
+              (jsonError as Error).message
+            }`,
+          );
+        }
       } catch (error) {
         lastError = error instanceof Error ? error : new Error(String(error));
 
