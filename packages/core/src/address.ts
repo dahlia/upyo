@@ -1,4 +1,10 @@
 /**
+ * A type alias for email address strings that must contain an @ symbol.
+ * @since 0.2.0
+ */
+export type EmailAddress = `${string}@${string}`;
+
+/**
  * A pair of name (which is optional) and email address.
  */
 export interface Address {
@@ -10,7 +16,7 @@ export interface Address {
   /**
    * The email address itself.
    */
-  readonly address: string;
+  readonly address: EmailAddress;
 }
 
 /**
@@ -91,7 +97,7 @@ export function parseAddress(address: string): Address | undefined {
 
     // Remove quotes from name if present
     const cleanName = name.replace(/^"(.+)"$/, "$1");
-    return { name: cleanName, address: email };
+    return { name: cleanName, address: email as EmailAddress };
   }
 
   // Check for angle bracket format without name: "<email@domain.com>"
@@ -103,12 +109,12 @@ export function parseAddress(address: string): Address | undefined {
       return undefined;
     }
 
-    return { address: email };
+    return { address: email as EmailAddress };
   }
 
   // Check for plain email format: "email@domain.com"
   if (isValidEmail(trimmed)) {
-    return { address: trimmed };
+    return { address: trimmed as EmailAddress };
   }
 
   return undefined;
@@ -211,4 +217,25 @@ function isValidDomainPart(domainPart: string): boolean {
   } catch {
     return false;
   }
+}
+
+/**
+ * Type guard function that checks if a given value is a valid email address.
+ *
+ * @example
+ * ```ts
+ * import { isEmailAddress } from "@upyo/core/address";
+ *
+ * const userInput = "user@example.com";
+ * if (isEmailAddress(userInput)) {
+ *   // TypeScript now knows userInput is EmailAddress type
+ *   console.log(userInput); // Type: `${string}@${string}`
+ * }
+ * ```
+ *
+ * @param email The value to check
+ * @returns `true` if the value is a valid email address, `false` otherwise
+ */
+export function isEmailAddress(email: unknown): email is EmailAddress {
+  return typeof email === "string" && isValidEmail(email);
 }

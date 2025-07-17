@@ -1,4 +1,5 @@
 import type { Message, Receipt } from "@upyo/core";
+import { isEmailAddress } from "@upyo/core";
 
 /**
  * Validates that a receipt indicates a successful send operation.
@@ -90,6 +91,9 @@ export function validateMessageContent(
     const actualTo = message.recipients.map((r) => r.address);
 
     for (const expectedAddr of expectedTo) {
+      if (!isEmailAddress(expectedAddr)) {
+        throw new Error(`Invalid expected email address: ${expectedAddr}`);
+      }
       if (!actualTo.includes(expectedAddr)) {
         throw new Error(
           `Expected recipient ${expectedAddr}, but not found in [${

@@ -5,6 +5,7 @@ import type {
   MessageContent,
   Priority,
 } from "@upyo/core";
+import { isEmailAddress } from "@upyo/core";
 import process from "node:process";
 import type { MailgunConfig } from "../config.ts";
 
@@ -52,14 +53,24 @@ export function createTestMessage(
   const timestamp = Date.now();
   const randomId = Math.random().toString(36).substr(2, 9);
 
+  const senderEmail = options.senderEmail ?? config.testEmails.from;
+  const recipientEmail = options.recipientEmail ?? config.testEmails.to;
+
+  if (!isEmailAddress(senderEmail)) {
+    throw new Error(`Invalid sender email address: ${senderEmail}`);
+  }
+  if (!isEmailAddress(recipientEmail)) {
+    throw new Error(`Invalid recipient email address: ${recipientEmail}`);
+  }
+
   return {
     sender: {
       name: options.senderName ?? "Mailgun E2E Test Sender",
-      address: options.senderEmail ?? config.testEmails.from,
+      address: senderEmail,
     },
     recipients: options.recipients ?? [{
       name: "E2E Test Recipient",
-      address: options.recipientEmail ?? config.testEmails.to,
+      address: recipientEmail,
     }],
     ccRecipients: options.ccRecipients ?? [],
     bccRecipients: options.bccRecipients ?? [],

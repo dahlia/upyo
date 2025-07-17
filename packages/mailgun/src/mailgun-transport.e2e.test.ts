@@ -1,4 +1,5 @@
 import { MailgunTransport } from "@upyo/mailgun";
+import { isEmailAddress } from "@upyo/core";
 import assert from "node:assert/strict";
 import { describe, test } from "node:test";
 import {
@@ -73,6 +74,10 @@ describe(
 
     test("should send email with multiple recipients", async () => {
       const { transport, config } = setupTest();
+
+      if (!isEmailAddress(config.testEmails.to)) {
+        throw new Error(`Invalid test email address: ${config.testEmails.to}`);
+      }
 
       const message = createTestMessage({
         subject: "[E2E Test] Multiple Recipients",
@@ -217,6 +222,12 @@ describe(
 
     test("should send email with reply-to address", async () => {
       const { transport, config } = setupTest();
+
+      if (!isEmailAddress(config.testEmails.from)) {
+        throw new Error(
+          `Invalid test email address: ${config.testEmails.from}`,
+        );
+      }
 
       const message = createTestMessage({
         subject: "[E2E Test] Reply-To Email",

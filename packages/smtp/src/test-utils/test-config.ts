@@ -5,6 +5,7 @@ import type {
   MessageContent,
   Priority,
 } from "@upyo/core";
+import { isEmailAddress } from "@upyo/core";
 import process from "node:process";
 import type { SmtpConfig } from "../config.ts";
 import type { MailpitConfig } from "./mailpit-client.ts";
@@ -46,14 +47,24 @@ export function createTestMessage(
   const timestamp = Date.now();
   const randomId = Math.random().toString(36).substr(2, 9);
 
+  const senderEmail = options.senderEmail ?? "sender@example.com";
+  const recipientEmail = options.recipientEmail ?? "recipient@example.com";
+
+  if (!isEmailAddress(senderEmail)) {
+    throw new Error(`Invalid sender email address: ${senderEmail}`);
+  }
+  if (!isEmailAddress(recipientEmail)) {
+    throw new Error(`Invalid recipient email address: ${recipientEmail}`);
+  }
+
   return {
     sender: {
       name: options.senderName ?? "Test Sender",
-      address: options.senderEmail ?? "sender@example.com",
+      address: senderEmail,
     },
     recipients: options.recipients ?? [{
       name: "Test Recipient",
-      address: options.recipientEmail ?? "recipient@example.com",
+      address: recipientEmail,
     }],
     ccRecipients: options.ccRecipients ?? [],
     bccRecipients: options.bccRecipients ?? [],

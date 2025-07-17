@@ -23,6 +23,13 @@ To be released.
      -  Changed the type of `Message.tags` property from `string[]` to
         `readonly string[]`.
 
+ -  Enhanced email address type safety with template literal types.
+
+     -  Added `EmailAddress` type.
+     -  Changed `Address.address` property type from `string` to `EmailAddress`.
+     -  Added `isEmailAddress()` type guard function for runtime email
+        validation.
+
 ### @upyo/ses
 
  -  Added Amazon SES transport.  [[#3]]
