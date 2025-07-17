@@ -200,7 +200,7 @@ export async function convertMessage(
 
   // Tags (categories in SendGrid)
   if (message.tags.length > 0) {
-    sendGridMail.categories = message.tags;
+    sendGridMail.categories = [...message.tags];
   }
 
   // Custom headers

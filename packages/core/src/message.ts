@@ -19,22 +19,22 @@ export interface Message {
   /**
    * The email addresses of the recipient of the message.
    */
-  readonly recipients: Address[];
+  readonly recipients: readonly Address[];
 
   /**
    * The email addresses of the carbon copy (CC) recipients of the message.
    */
-  readonly ccRecipients: Address[];
+  readonly ccRecipients: readonly Address[];
 
   /**
    * The email addresses of the blind carbon copy (BCC) recipients of the message.
    */
-  readonly bccRecipients: Address[];
+  readonly bccRecipients: readonly Address[];
 
   /**
    * The email addresses of the reply-to recipients of the message.
    */
-  readonly replyRecipients: Address[];
+  readonly replyRecipients: readonly Address[];
 
   /**
    * The attachments included in the email message.  These are files that
@@ -44,7 +44,7 @@ export interface Message {
    * filename, content type, and content ID.
    */
 
-  readonly attachments: Attachment[];
+  readonly attachments: readonly Attachment[];
 
   /**
    * The subject of the email message.  This is typically a brief summary
@@ -75,7 +75,7 @@ export interface Message {
   /**
    * The tags associated with the email message.
    */
-  readonly tags: string[];
+  readonly tags: readonly string[];
 
   /**
    * The headers of the email message.  This is represented by

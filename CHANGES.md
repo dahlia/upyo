@@ -6,6 +6,23 @@ Version 0.2.0
 
 To be released.
 
+### @upyo/core
+
+ -  Improved type safety by making array fields readonly.
+
+     -  Changed the type of `Message.recipients` property from `Address[]` to
+        `readonly Address[]`.
+     -  Changed the type of `Message.ccRecipients` property from `Address[]` to
+        `readonly Address[]`.
+     -  Changed the type of `Message.bccRecipients` property from `Address[]` to
+        `readonly Address[]`.
+     -  Changed the type of `Message.replyRecipients` property from `Address[]`
+        to `readonly Address[]`.
+     -  Changed the type of `Message.attachments` property from `Attachment[]`
+        to `readonly Attachment[]`.
+     -  Changed the type of `Message.tags` property from `string[]` to
+        `readonly string[]`.
+
 ### @upyo/ses
 
  -  Added Amazon SES transport.  [[#3]]
