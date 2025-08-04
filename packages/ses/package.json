@@ -1,6 +1,6 @@
 {
   "name": "@upyo/ses",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "description": "Amazon SES transport for Upyo email library",
   "keywords": [
     "email",
