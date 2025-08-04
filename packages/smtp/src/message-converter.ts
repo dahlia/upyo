@@ -1,4 +1,5 @@
-import { formatAddress, type Message } from "@upyo/core";
+import type { Address, Message } from "@upyo/core";
+import { Buffer } from "node:buffer";
 
 export interface SmtpMessage {
   readonly envelope: SmtpEnvelope;
@@ -34,26 +35,16 @@ async function buildRawMessage(message: Message): Promise<string> {
   const isMultipart = hasAttachments || (hasHtml && hasText);
 
   // Standard headers
-  lines.push(`From: ${encodeHeaderValue(formatAddress(message.sender))}`);
-  lines.push(
-    `To: ${
-      encodeHeaderValue(message.recipients.map(formatAddress).join(", "))
-    }`,
-  );
+  lines.push(`From: ${encodeAddress(message.sender)}`);
+  lines.push(`To: ${message.recipients.map(encodeAddress).join(", ")}`);
 
   if (message.ccRecipients.length > 0) {
-    lines.push(
-      `Cc: ${
-        encodeHeaderValue(message.ccRecipients.map(formatAddress).join(", "))
-      }`,
-    );
+    lines.push(`Cc: ${message.ccRecipients.map(encodeAddress).join(", ")}`);
   }
 
   if (message.replyRecipients.length > 0) {
     lines.push(
-      `Reply-To: ${
-        encodeHeaderValue(message.replyRecipients.map(formatAddress).join(", "))
-      }`,
+      `Reply-To: ${message.replyRecipients.map(encodeAddress).join(", ")}`,
     );
   }
 
@@ -177,12 +168,23 @@ function generateMessageId(): string {
   return `${timestamp}.${random}@upyo.local`;
 }
 
+function encodeAddress(address: Address): string {
+  if (address.name == null) {
+    // No display name, just return the email address
+    return address.address;
+  }
+
+  // Encode only the display name part, leave email address as-is
+  const encodedDisplayName = encodeHeaderValue(address.name);
+  return `${encodedDisplayName} <${address.address}>`;
+}
+
 function encodeHeaderValue(value: string): string {
   // RFC 2047 encoding for non-ASCII characters in headers
   if (!/^[\x20-\x7E]*$/.test(value)) {
     // Convert to UTF-8 bytes then to base64
     const utf8Bytes = new TextEncoder().encode(value);
-    const base64 = btoa(String.fromCharCode(...utf8Bytes));
+    const base64 = Buffer.from(utf8Bytes).toString("base64");
 
     // Handle long headers by splitting into multiple encoded words
     const maxEncodedLength = 75; // RFC 2047 recommends max 75 chars per encoded word
@@ -270,6 +272,6 @@ function encodeQuotedPrintable(text: string): string {
 
 function encodeBase64(data: Uint8Array): string {
   // Convert Uint8Array to base64 with proper line breaks
-  const base64 = btoa(String.fromCharCode(...data));
+  const base64 = Buffer.from(data).toString("base64");
   return base64.replace(/(.{76})/g, "$1\r\n").trim();
 }

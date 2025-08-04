@@ -1,5 +1,6 @@
 import type { Message } from "@upyo/core";
 import assert from "node:assert/strict";
+import { Buffer } from "node:buffer";
 import { describe, test } from "node:test";
 import { convertMessage } from "./message-converter.ts";
 
@@ -335,6 +336,48 @@ describe("Message Converter Integration Tests", () => {
       assert.ok(result.raw.includes("x-mailer: Test Mailer"));
       assert.ok(result.raw.includes("x-custom-info: ASCII Info"));
     });
+
+    test("should encode only display name in German umlaut addresses", async () => {
+      const message = createTestMessage({
+        sender: { name: "German ÄÖÜ", address: "info@example.com" },
+        recipients: [{ name: "Müller Ümlauts", address: "user@example.com" }],
+        ccRecipients: [{ name: "Größer", address: "cc@example.com" }],
+        replyRecipients: [{
+          name: "Straße Info",
+          address: "reply@example.com",
+        }],
+      });
+
+      const result = await convertMessage(message);
+
+      // Should encode display names but leave email addresses unencoded
+      assert.ok(result.raw.includes("From: =?UTF-8?B?"));
+      assert.ok(result.raw.includes("<info@example.com>"));
+      assert.ok(result.raw.includes("To: =?UTF-8?B?"));
+      assert.ok(result.raw.includes("<user@example.com>"));
+      assert.ok(result.raw.includes("Cc: =?UTF-8?B?"));
+      assert.ok(result.raw.includes("<cc@example.com>"));
+      assert.ok(result.raw.includes("Reply-To: =?UTF-8?B?"));
+      assert.ok(result.raw.includes("<reply@example.com>"));
+
+      // Email addresses should NOT be encoded
+      assert.ok(!result.raw.includes("=?UTF-8?B?aW5mb0BleGFtcGxlLmNvbQ==?=")); // base64 of "info@example.com"
+      assert.ok(!result.raw.includes("=?UTF-8?B?dXNlckBleGFtcGxlLmNvbQ==?=")); // base64 of "user@example.com"
+    });
+
+    test("should not encode addresses without display names", async () => {
+      const message = createTestMessage({
+        sender: { address: "sender@example.com" },
+        recipients: [{ address: "recipient@example.com" }],
+      });
+
+      const result = await convertMessage(message);
+
+      // Should not use any encoding for plain email addresses
+      assert.ok(result.raw.includes("From: sender@example.com"));
+      assert.ok(result.raw.includes("To: recipient@example.com"));
+      assert.ok(!result.raw.includes("=?UTF-8?B?"));
+    });
   });
 
   describe("Content Encoding", () => {
@@ -607,7 +650,7 @@ describe("Message Converter Integration Tests", () => {
       const result = await convertMessage(message);
 
       // Should contain base64 encoded content
-      const expectedBase64 = btoa(String.fromCharCode(...binaryContent));
+      const expectedBase64 = Buffer.from(binaryContent).toString("base64");
       assert.ok(result.raw.includes(expectedBase64));
 
       // Should have proper line breaks (76 chars max per line)
@@ -623,6 +666,60 @@ describe("Message Converter Integration Tests", () => {
           );
         });
       }
+    });
+
+    test("should handle large attachments without stack overflow", async () => {
+      // Create a large attachment (500KB) to test the fixed encodeBase64 function
+      const largeContent = new Uint8Array(500 * 1024); // 500KB
+      // Fill with some pattern to make it realistic
+      for (let i = 0; i < largeContent.length; i++) {
+        largeContent[i] = i % 256;
+      }
+
+      const message = createTestMessage({
+        attachments: [
+          {
+            filename: "large-file.pdf",
+            content: largeContent,
+            contentType: "application/pdf",
+            contentId: "large-pdf",
+            inline: false,
+          },
+        ],
+      });
+
+      // This should not throw a "Maximum call stack size exceeded" error
+      const result = await convertMessage(message);
+
+      // Should contain multipart structure
+      assert.ok(result.raw.includes("Content-Type: multipart/mixed"));
+      assert.ok(
+        result.raw.includes(
+          'Content-Type: application/pdf; name="large-file.pdf"',
+        ),
+      );
+      assert.ok(result.raw.includes("Content-Transfer-Encoding: base64"));
+
+      // Should have proper line breaks in base64 content (76 chars max per line)
+      const base64Lines = result.raw.split("\r\n").filter((line) =>
+        /^[A-Za-z0-9+/]+=*$/.test(line)
+      );
+
+      // Large file should result in many base64 lines
+      assert.ok(
+        base64Lines.length > 100,
+        "Should have many base64 lines for large file",
+      );
+
+      // Each line should be 76 characters or less (except possibly the last line)
+      base64Lines.forEach((line, index) => {
+        if (index < base64Lines.length - 1) {
+          assert.ok(
+            line.length <= 76,
+            `Base64 line ${index} too long: ${line.length} chars`,
+          );
+        }
+      });
     });
   });
 

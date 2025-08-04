@@ -7,6 +7,32 @@ Version 0.3.0
 To be released.
 
 
+Version 0.2.1
+-------------
+
+Released on August 4, 2025.
+
+### @upyo/smtp
+
+ -  Fixed “Maximum call stack size exceeded” error when sending large
+    attachments.  [[#6]]
+
+    The SMTP transport now uses `Buffer.from().toString('base64')` instead of
+    the legacy `btoa()` function for base64 encoding, which resolves stack
+    overflow issues with large attachments (e.g., 500KB+ files).
+
+ -  Fixed UTF-8 encoding issue where email addresses were incorrectly encoded
+    in SMTP headers.  [[#7]]
+
+    Only display names are now encoded using RFC 2047 encoding, while email
+    addresses remain unencoded. For example, `German ÄÖÜ <info@example.com>`
+    now correctly becomes `=?UTF-8?B?...?= <info@example.com>` instead of
+    encoding the entire string including the email address.
+
+[#6]: https://github.com/dahlia/upyo/issues/6
+[#7]: https://github.com/dahlia/upyo/issues/7
+
+
 Version 0.2.0
 -------------
 
