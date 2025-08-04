@@ -6,6 +6,17 @@ Version 0.2.1
 
 To be released.
 
+### @upyo/smtp
+
+ -  Fixed “Maximum call stack size exceeded” error when sending large
+    attachments.  [[#6]]
+
+    The SMTP transport now uses `Buffer.from().toString('base64')` instead of
+    the legacy `btoa()` function for base64 encoding, which resolves stack
+    overflow issues with large attachments (e.g., 500KB+ files).
+
+[#6]: https://github.com/dahlia/upyo/issues/6
+
 
 Version 0.2.0
 -------------

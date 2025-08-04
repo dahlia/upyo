@@ -1,4 +1,5 @@
 import { formatAddress, type Message } from "@upyo/core";
+import { Buffer } from "node:buffer";
 
 export interface SmtpMessage {
   readonly envelope: SmtpEnvelope;
@@ -182,7 +183,7 @@ function encodeHeaderValue(value: string): string {
   if (!/^[\x20-\x7E]*$/.test(value)) {
     // Convert to UTF-8 bytes then to base64
     const utf8Bytes = new TextEncoder().encode(value);
-    const base64 = btoa(String.fromCharCode(...utf8Bytes));
+    const base64 = Buffer.from(utf8Bytes).toString("base64");
 
     // Handle long headers by splitting into multiple encoded words
     const maxEncodedLength = 75; // RFC 2047 recommends max 75 chars per encoded word
@@ -270,6 +271,6 @@ function encodeQuotedPrintable(text: string): string {
 
 function encodeBase64(data: Uint8Array): string {
   // Convert Uint8Array to base64 with proper line breaks
-  const base64 = btoa(String.fromCharCode(...data));
+  const base64 = Buffer.from(data).toString("base64");
   return base64.replace(/(.{76})/g, "$1\r\n").trim();
 }

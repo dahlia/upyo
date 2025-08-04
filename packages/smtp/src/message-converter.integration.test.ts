@@ -1,5 +1,6 @@
 import type { Message } from "@upyo/core";
 import assert from "node:assert/strict";
+import { Buffer } from "node:buffer";
 import { describe, test } from "node:test";
 import { convertMessage } from "./message-converter.ts";
 
@@ -607,7 +608,7 @@ describe("Message Converter Integration Tests", () => {
       const result = await convertMessage(message);
 
       // Should contain base64 encoded content
-      const expectedBase64 = btoa(String.fromCharCode(...binaryContent));
+      const expectedBase64 = Buffer.from(binaryContent).toString("base64");
       assert.ok(result.raw.includes(expectedBase64));
 
       // Should have proper line breaks (76 chars max per line)
@@ -623,6 +624,60 @@ describe("Message Converter Integration Tests", () => {
           );
         });
       }
+    });
+
+    test("should handle large attachments without stack overflow", async () => {
+      // Create a large attachment (500KB) to test the fixed encodeBase64 function
+      const largeContent = new Uint8Array(500 * 1024); // 500KB
+      // Fill with some pattern to make it realistic
+      for (let i = 0; i < largeContent.length; i++) {
+        largeContent[i] = i % 256;
+      }
+
+      const message = createTestMessage({
+        attachments: [
+          {
+            filename: "large-file.pdf",
+            content: largeContent,
+            contentType: "application/pdf",
+            contentId: "large-pdf",
+            inline: false,
+          },
+        ],
+      });
+
+      // This should not throw a "Maximum call stack size exceeded" error
+      const result = await convertMessage(message);
+
+      // Should contain multipart structure
+      assert.ok(result.raw.includes("Content-Type: multipart/mixed"));
+      assert.ok(
+        result.raw.includes(
+          'Content-Type: application/pdf; name="large-file.pdf"',
+        ),
+      );
+      assert.ok(result.raw.includes("Content-Transfer-Encoding: base64"));
+
+      // Should have proper line breaks in base64 content (76 chars max per line)
+      const base64Lines = result.raw.split("\r\n").filter((line) =>
+        /^[A-Za-z0-9+/]+=*$/.test(line)
+      );
+
+      // Large file should result in many base64 lines
+      assert.ok(
+        base64Lines.length > 100,
+        "Should have many base64 lines for large file",
+      );
+
+      // Each line should be 76 characters or less (except possibly the last line)
+      base64Lines.forEach((line, index) => {
+        if (index < base64Lines.length - 1) {
+          assert.ok(
+            line.length <= 76,
+            `Base64 line ${index} too long: ${line.length} chars`,
+          );
+        }
+      });
     });
   });
 
