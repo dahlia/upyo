@@ -1,4 +1,4 @@
-import { formatAddress, type Message } from "@upyo/core";
+import type { Address, Message } from "@upyo/core";
 import { Buffer } from "node:buffer";
 
 export interface SmtpMessage {
@@ -35,26 +35,16 @@ async function buildRawMessage(message: Message): Promise<string> {
   const isMultipart = hasAttachments || (hasHtml && hasText);
 
   // Standard headers
-  lines.push(`From: ${encodeHeaderValue(formatAddress(message.sender))}`);
-  lines.push(
-    `To: ${
-      encodeHeaderValue(message.recipients.map(formatAddress).join(", "))
-    }`,
-  );
+  lines.push(`From: ${encodeAddress(message.sender)}`);
+  lines.push(`To: ${message.recipients.map(encodeAddress).join(", ")}`);
 
   if (message.ccRecipients.length > 0) {
-    lines.push(
-      `Cc: ${
-        encodeHeaderValue(message.ccRecipients.map(formatAddress).join(", "))
-      }`,
-    );
+    lines.push(`Cc: ${message.ccRecipients.map(encodeAddress).join(", ")}`);
   }
 
   if (message.replyRecipients.length > 0) {
     lines.push(
-      `Reply-To: ${
-        encodeHeaderValue(message.replyRecipients.map(formatAddress).join(", "))
-      }`,
+      `Reply-To: ${message.replyRecipients.map(encodeAddress).join(", ")}`,
     );
   }
 
@@ -176,6 +166,17 @@ function generateMessageId(): string {
   const timestamp = Date.now();
   const random = Math.random().toString(36).substr(2, 9);
   return `${timestamp}.${random}@upyo.local`;
+}
+
+function encodeAddress(address: Address): string {
+  if (address.name == null) {
+    // No display name, just return the email address
+    return address.address;
+  }
+
+  // Encode only the display name part, leave email address as-is
+  const encodedDisplayName = encodeHeaderValue(address.name);
+  return `${encodedDisplayName} <${address.address}>`;
 }
 
 function encodeHeaderValue(value: string): string {

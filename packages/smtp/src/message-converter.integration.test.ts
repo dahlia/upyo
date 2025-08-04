@@ -336,6 +336,48 @@ describe("Message Converter Integration Tests", () => {
       assert.ok(result.raw.includes("x-mailer: Test Mailer"));
       assert.ok(result.raw.includes("x-custom-info: ASCII Info"));
     });
+
+    test("should encode only display name in German umlaut addresses", async () => {
+      const message = createTestMessage({
+        sender: { name: "German ÄÖÜ", address: "info@example.com" },
+        recipients: [{ name: "Müller Ümlauts", address: "user@example.com" }],
+        ccRecipients: [{ name: "Größer", address: "cc@example.com" }],
+        replyRecipients: [{
+          name: "Straße Info",
+          address: "reply@example.com",
+        }],
+      });
+
+      const result = await convertMessage(message);
+
+      // Should encode display names but leave email addresses unencoded
+      assert.ok(result.raw.includes("From: =?UTF-8?B?"));
+      assert.ok(result.raw.includes("<info@example.com>"));
+      assert.ok(result.raw.includes("To: =?UTF-8?B?"));
+      assert.ok(result.raw.includes("<user@example.com>"));
+      assert.ok(result.raw.includes("Cc: =?UTF-8?B?"));
+      assert.ok(result.raw.includes("<cc@example.com>"));
+      assert.ok(result.raw.includes("Reply-To: =?UTF-8?B?"));
+      assert.ok(result.raw.includes("<reply@example.com>"));
+
+      // Email addresses should NOT be encoded
+      assert.ok(!result.raw.includes("=?UTF-8?B?aW5mb0BleGFtcGxlLmNvbQ==?=")); // base64 of "info@example.com"
+      assert.ok(!result.raw.includes("=?UTF-8?B?dXNlckBleGFtcGxlLmNvbQ==?=")); // base64 of "user@example.com"
+    });
+
+    test("should not encode addresses without display names", async () => {
+      const message = createTestMessage({
+        sender: { address: "sender@example.com" },
+        recipients: [{ address: "recipient@example.com" }],
+      });
+
+      const result = await convertMessage(message);
+
+      // Should not use any encoding for plain email addresses
+      assert.ok(result.raw.includes("From: sender@example.com"));
+      assert.ok(result.raw.includes("To: recipient@example.com"));
+      assert.ok(!result.raw.includes("=?UTF-8?B?"));
+    });
   });
 
   describe("Content Encoding", () => {
