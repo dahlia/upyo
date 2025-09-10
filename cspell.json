@@ -11,6 +11,7 @@
     "STARTTLS",
     "healthcheck",
     "axllent",
-    "mailgun"
+    "mailgun",
+    "sendgrid"
   ]
 }

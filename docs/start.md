@@ -53,6 +53,9 @@ strengths and use cases:
 [Mailgun](./transports/mailgun.md)
 :   HTTP API service with advanced features and analytics
 
+[Resend](./transports/resend.md)
+:   Modern email service provider that offers a developer-friendly API
+
 [SendGrid](./transports/sendgrid.md)
 :    Popular email API with deliverability focus
 

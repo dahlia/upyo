@@ -122,10 +122,10 @@ Provider independence
 
 Upyo's transport abstraction means you're never locked into a single email
 service provider. Whether you use [SMTP](./transports/smtp.md),
-[Mailgun](./transports/mailgun.md), [SendGrid](./transports/sendgrid.md),
-[Amazon SES](./transports/ses.md), or any future provider,
-your application code stays exactly the same.  Switch providers in minutes,
-not days:
+[Mailgun](./transports/mailgun.md), [Resend](./transports/resend.md),
+[SendGrid](./transports/sendgrid.md), [Amazon SES](./transports/ses.md),
+or any future provider, your application code stays exactly the same.
+Switch providers in minutes, not days:
 
 ~~~~ typescript twoslash
 import { createMessage } from "@upyo/core";

@@ -10,8 +10,8 @@ Upyo
 
 Upyo is a cross-runtime email library that provides a unified, type-safe API
 for sending emails across Node.js, Deno, Bun, and edge functions. Switch
-between SMTP and HTTP-based providers (Mailgun, SendGrid, Amazon SES) without
-changing your application code, while enjoying full TypeScript support,
+between SMTP and HTTP-based providers (Mailgun, Resend, SendGrid, Amazon SES)
+without changing your application code, while enjoying full TypeScript support,
 consistent error handling, and built-in testing capabilities with mock
 transports across all runtimes.
 
@@ -72,6 +72,7 @@ sending messages.  The following is a list of the available packages:
 | [@upyo/core](/packages/core/)                   | [JSR][jsr:@upyo/core]          | [npm][npm:@upyo/core]          | Shared types and interfaces for email messages     |
 | [@upyo/smtp](/packages/smtp/)                   | [JSR][jsr:@upyo/smtp]          | [npm][npm:@upyo/smtp]          | SMTP transport                                     |
 | [@upyo/mailgun](/packages/mailgun/)             | [JSR][jsr:@upyo/mailgun]       | [npm][npm:@upyo/mailgun]       | [Mailgun] transport                                |
+| [@upyo/resend](/packages/resend/)               | [JSR][jsr:@upyo/resend]        | [npm][npm:@upyo/resend]        | [Resend] transport                                 |
 | [@upyo/sendgrid](/packages/sendgrid/)           | [JSR][jsr:@upyo/sendgrid]      | [npm][npm:@upyo/sendgrid]      | [SendGrid] transport                               |
 | [@upyo/ses](/packages/ses/)                     | [JSR][jsr:@upyo/ses]           | [npm][npm:@upyo/ses]           | [Amazon SES] transport                             |
 | [@upyo/opentelemetry](/packages/opentelemetry/) | [JSR][jsr:@upyo/opentelemetry] | [npm][npm:@upyo/opentelemetry] | [OpenTelemetry] observability  for Upyo transports |
@@ -83,6 +84,8 @@ sending messages.  The following is a list of the available packages:
 [npm:@upyo/smtp]: https://www.npmjs.com/package/@upyo/smtp
 [jsr:@upyo/mailgun]: https://jsr.io/@upyo/mailgun
 [npm:@upyo/mailgun]: https://www.npmjs.com/package/@upyo/mailgun
+[jsr:@upyo/resend]: https://jsr.io/@upyo/resend
+[npm:@upyo/resend]: https://www.npmjs.com/package/@upyo
 [jsr:@upyo/sendgrid]: https://jsr.io/@upyo/sendgrid
 [npm:@upyo/sendgrid]: https://www.npmjs.com/package/@upyo/sendgrid
 [jsr:@upyo/ses]: https://jsr.io/@upyo/ses
@@ -92,6 +95,7 @@ sending messages.  The following is a list of the available packages:
 [jsr:@upyo/mock]: https://jsr.io/@upyo/mock
 [npm:@upyo/mock]: https://www.npmjs.com/package/@upyo/mock
 [Mailgun]: https://www.mailgun.com/
+[Resend]: https://resend.com/
 [SendGrid]: https://sendgrid.com/
 [Amazon SES]: https://aws.amazon.com/ses/
 [OpenTelemetry]: https://opentelemetry.io/

@@ -6,6 +6,21 @@ Version 0.3.0
 
 To be released.
 
+### @upyo/resend
+
+ -  Added [Resend] transport.  [[#9]]
+
+     -  Added `ResendTransport` class.
+     -  Added `ResendConfig` interface.
+     -  Added `ResolvedResendConfig` interface.
+     -  Added `ResendApiError` interface.
+     -  Added `ResendBatchResponse` interface.
+     -  Added `ResendError` interface.
+     -  Added `ResendResponse` interface.
+
+[Resend]: https://resend.com/
+[#9]: https://github.com/dahlia/upyo/issues/9
+
 
 Version 0.2.1
 -------------

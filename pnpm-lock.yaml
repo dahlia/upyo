@@ -68,6 +68,9 @@ importers:
       '@upyo/opentelemetry':
         specifier: 'workspace:'
         version: link:../packages/opentelemetry
+      '@upyo/resend':
+        specifier: 'workspace:'
+        version: link:../packages/resend
       '@upyo/sendgrid':
         specifier: 'workspace:'
         version: link:../packages/sendgrid
@@ -167,6 +170,22 @@ importers:
       '@opentelemetry/semantic-conventions':
         specifier: 'catalog:'
         version: 1.36.0
+      tsdown:
+        specifier: 'catalog:'
+        version: 0.12.9(typescript@5.8.3)
+      typescript:
+        specifier: 'catalog:'
+        version: 5.8.3
+
+  packages/resend:
+    dependencies:
+      '@upyo/core':
+        specifier: workspace:*
+        version: link:../core
+    devDependencies:
+      '@dotenvx/dotenvx':
+        specifier: 'catalog:'
+        version: 1.47.3
       tsdown:
         specifier: 'catalog:'
         version: 0.12.9(typescript@5.8.3)

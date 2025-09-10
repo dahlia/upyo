@@ -50,7 +50,7 @@ features:
   icon: 🧪
 - title: Provider independence
   details: >-
-    Switch between SMTP, Mailgun, SendGrid, Amazon SES, and other
+    Switch between SMTP, Mailgun, Resend, SendGrid, Amazon SES, and other
     providers without code changes.
   icon: 🔄
 ---
