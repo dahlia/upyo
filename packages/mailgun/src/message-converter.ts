@@ -129,7 +129,15 @@ async function appendAttachment(
   formData: FormData,
   attachment: Attachment,
 ): Promise<void> {
-  const blob = new Blob([await attachment.content], {
+  const content = await attachment.content;
+  // Ensure ArrayBuffer type compatibility for Blob constructor
+  const buffer = content.buffer instanceof ArrayBuffer
+    ? content.buffer.slice(
+      content.byteOffset,
+      content.byteOffset + content.byteLength,
+    )
+    : content.slice(); // fallback to create new Uint8Array if SharedArrayBuffer
+  const blob = new Blob([buffer], {
     type: attachment.contentType,
   });
 
