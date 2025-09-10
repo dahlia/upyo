@@ -213,4 +213,62 @@ describe("convertMessage", () => {
     assert.equal(formData.get("o:tracking-clicks"), "no");
     assert.equal(formData.get("o:tracking-opens"), "no");
   });
+
+  it("should handle attachments", async () => {
+    const textContent = "Hello, this is test content!";
+    const textBytes = new TextEncoder().encode(textContent);
+
+    const message: Message = {
+      sender: { address: "sender@example.com" },
+      recipients: [{ address: "recipient@example.com" }],
+      ccRecipients: [],
+      bccRecipients: [],
+      replyRecipients: [],
+      subject: "Test Subject with Attachment",
+      content: { text: "This message has an attachment" },
+      attachments: [
+        {
+          filename: "test.txt",
+          contentType: "text/plain",
+          content: textBytes,
+          contentId: "",
+          inline: false,
+        },
+        {
+          filename: "data.json",
+          contentType: "application/json",
+          content: new TextEncoder().encode(JSON.stringify({ key: "value" })),
+          contentId: "json-attachment",
+          inline: true,
+        },
+      ],
+      priority: "normal",
+      tags: [],
+      headers: new Headers(),
+    };
+
+    const formData = await convertMessage(message, config);
+
+    // Check basic message fields
+    assert.equal(formData.get("subject"), "Test Subject with Attachment");
+    assert.equal(formData.get("text"), "This message has an attachment");
+
+    // Check attachments were properly added to FormData
+    // The actual Blob content testing is limited in unit tests,
+    // but we can verify the FormData structure
+    const attachmentEntries = Array.from(formData.entries()).filter(
+      ([key]) => key === "attachment" || key === "inline",
+    );
+
+    // We should have 2 attachments (1 regular, 1 inline)
+    assert.equal(attachmentEntries.length, 2);
+
+    // Check that we have both attachment types
+    const hasAttachment = attachmentEntries.some(([key]) =>
+      key === "attachment"
+    );
+    const hasInline = attachmentEntries.some(([key]) => key === "inline");
+    assert.ok(hasAttachment, "Should have regular attachment");
+    assert.ok(hasInline, "Should have inline attachment");
+  });
 });
