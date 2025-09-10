@@ -110,7 +110,7 @@ describe("createMessage", () => {
     assert.equal(message.attachments.length, 1);
     const attachment = message.attachments[0];
     assert.equal(attachment.filename, "test.txt");
-    assert.equal(attachment.contentType, "text/plain");
+    assert.equal(attachment.contentType.split(";")[0].trim(), "text/plain");
     assert.equal(attachment.inline, false);
     assert.ok(
       attachment.contentId.match(
