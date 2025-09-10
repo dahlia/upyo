@@ -6,6 +6,17 @@ Version 0.3.0
 
 To be released.
 
+### @upyo/plunk
+
+ -  Added [Plunk] transport.  [[#11]]
+
+     -  Added `PlunkTransport` class.
+     -  Added `PlunkConfig` interface.
+     -  Added `ResolvedPlunkConfig` interface.
+     -  Added `PlunkError` interface.
+     -  Added `PlunkResponse` interface.
+     -  Support for both cloud-hosted and self-hosted Plunk instances.
+
 ### @upyo/resend
 
  -  Added [Resend] transport.  [[#9]]
@@ -18,8 +29,10 @@ To be released.
      -  Added `ResendError` interface.
      -  Added `ResendResponse` interface.
 
+[Plunk]: https://www.useplunk.com/
 [Resend]: https://resend.com/
 [#9]: https://github.com/dahlia/upyo/issues/9
+[#11]: https://github.com/dahlia/upyo/issues/11
 
 
 Version 0.2.1

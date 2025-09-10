@@ -1,0 +1,18 @@
+{
+  "name": "@upyo/plunk",
+  "version": "0.3.0",
+  "exports": "./src/index.ts",
+  "exclude": [
+    "dist/"
+  ],
+  "imports": {
+    "@upyo/core": "../core/src/index.ts"
+  },
+  "tasks": {
+    "build": "tsdown",
+    "test": "deno test --allow-env --allow-net --env-file=.env",
+    "test:node": "tsdown && dotenvx run --ignore=MISSING_ENV_FILE -- node --experimental-transform-types --test",
+    "test:bun": "tsdown && bun test --timeout=30000 --env-file=.env",
+    "test-all": "deno task test && deno task test:node && deno task test:bun"
+  }
+}

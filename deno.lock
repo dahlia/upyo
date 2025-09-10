@@ -11,6 +11,7 @@
     "npm:@opentelemetry/sdk-trace-base@^1.25.1": "1.30.1_@opentelemetry+api@1.9.0",
     "npm:@opentelemetry/semantic-conventions@^1.25.1": "1.34.0",
     "npm:@types/node@*": "22.15.15",
+    "npm:tsdown@0.12.9": "0.12.9_rolldown@1.0.0-beta.24",
     "npm:tsdown@~0.12.7": "0.12.9_rolldown@1.0.0-beta.24"
   },
   "jsr": {

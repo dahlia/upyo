@@ -72,6 +72,7 @@ sending messages.  The following is a list of the available packages:
 | [@upyo/core](/packages/core/)                   | [JSR][jsr:@upyo/core]          | [npm][npm:@upyo/core]          | Shared types and interfaces for email messages     |
 | [@upyo/smtp](/packages/smtp/)                   | [JSR][jsr:@upyo/smtp]          | [npm][npm:@upyo/smtp]          | SMTP transport                                     |
 | [@upyo/mailgun](/packages/mailgun/)             | [JSR][jsr:@upyo/mailgun]       | [npm][npm:@upyo/mailgun]       | [Mailgun] transport                                |
+| [@upyo/plunk](/packages/plunk/)                 | [JSR][jsr:@upyo/plunk]         | [npm][npm:@upyo/plunk]         | [Plunk] transport                                  |
 | [@upyo/resend](/packages/resend/)               | [JSR][jsr:@upyo/resend]        | [npm][npm:@upyo/resend]        | [Resend] transport                                 |
 | [@upyo/sendgrid](/packages/sendgrid/)           | [JSR][jsr:@upyo/sendgrid]      | [npm][npm:@upyo/sendgrid]      | [SendGrid] transport                               |
 | [@upyo/ses](/packages/ses/)                     | [JSR][jsr:@upyo/ses]           | [npm][npm:@upyo/ses]           | [Amazon SES] transport                             |
@@ -84,6 +85,8 @@ sending messages.  The following is a list of the available packages:
 [npm:@upyo/smtp]: https://www.npmjs.com/package/@upyo/smtp
 [jsr:@upyo/mailgun]: https://jsr.io/@upyo/mailgun
 [npm:@upyo/mailgun]: https://www.npmjs.com/package/@upyo/mailgun
+[jsr:@upyo/plunk]: https://jsr.io/@upyo/plunk
+[npm:@upyo/plunk]: https://www.npmjs.com/package/@upyo
 [jsr:@upyo/resend]: https://jsr.io/@upyo/resend
 [npm:@upyo/resend]: https://www.npmjs.com/package/@upyo
 [jsr:@upyo/sendgrid]: https://jsr.io/@upyo/sendgrid
@@ -95,6 +98,7 @@ sending messages.  The following is a list of the available packages:
 [jsr:@upyo/mock]: https://jsr.io/@upyo/mock
 [npm:@upyo/mock]: https://www.npmjs.com/package/@upyo/mock
 [Mailgun]: https://www.mailgun.com/
+[Plunk]: https://www.useplunk.com/
 [Resend]: https://resend.com/
 [SendGrid]: https://sendgrid.com/
 [Amazon SES]: https://aws.amazon.com/ses/

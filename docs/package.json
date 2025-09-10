@@ -11,6 +11,7 @@
     "@upyo/mailgun": "workspace:",
     "@upyo/mock": "workspace:",
     "@upyo/opentelemetry": "workspace:",
+    "@upyo/plunk": "workspace:",
     "@upyo/resend": "workspace:",
     "@upyo/sendgrid": "workspace:",
     "@upyo/ses": "workspace:",
