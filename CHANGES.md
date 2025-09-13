@@ -6,6 +6,30 @@ Version 0.3.0
 
 To be released.
 
+### @upyo/pool
+
+ -  Added pool transport for combining multiple email providers with load
+    balancing and failover strategies.  [[#8]]
+
+     -  Added `PoolTransport` class with `AsyncDisposable` support.
+     -  Added `PoolConfig` interface.
+     -  Added `ResolvedPoolConfig` type.
+     -  Added `TransportEntry` interface.
+     -  Added `ResolvedTransportEntry` type.
+     -  Added `PoolStrategy` type for built-in strategies.
+     -  Added `Strategy` interface for custom routing logic.
+     -  Added `TransportSelection` interface.
+     -  Added `RoundRobinStrategy` class for equal distribution.
+     -  Added `WeightedStrategy` class for proportional distribution.
+     -  Added `PriorityStrategy` class for failover-based routing.
+     -  Added `SelectorBasedStrategy` class for content-based routing.
+     -  Support for round-robin, weighted, priority, and selector-based
+        strategies.
+     -  Automatic failover and retry logic with configurable limits.
+     -  Comprehensive error aggregation across multiple providers.
+
+[#8]: https://github.com/dahlia/upyo/issues/8
+
 ### @upyo/plunk
 
  -  Added [Plunk] transport.  [[#11]]
@@ -16,6 +40,9 @@ To be released.
      -  Added `PlunkError` interface.
      -  Added `PlunkResponse` interface.
      -  Support for both cloud-hosted and self-hosted Plunk instances.
+
+[Plunk]: https://www.useplunk.com/
+[#11]: https://github.com/dahlia/upyo/issues/11
 
 ### @upyo/resend
 
@@ -29,10 +56,8 @@ To be released.
      -  Added `ResendError` interface.
      -  Added `ResendResponse` interface.
 
-[Plunk]: https://www.useplunk.com/
 [Resend]: https://resend.com/
 [#9]: https://github.com/dahlia/upyo/issues/9
-[#11]: https://github.com/dahlia/upyo/issues/11
 
 
 Version 0.2.1

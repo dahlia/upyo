@@ -71,6 +71,9 @@ importers:
       '@upyo/plunk':
         specifier: 'workspace:'
         version: link:../packages/plunk
+      '@upyo/pool':
+        specifier: 'workspace:'
+        version: link:../packages/pool
       '@upyo/resend':
         specifier: 'workspace:'
         version: link:../packages/resend
@@ -189,6 +192,25 @@ importers:
       '@dotenvx/dotenvx':
         specifier: 'catalog:'
         version: 1.47.3
+      tsdown:
+        specifier: 'catalog:'
+        version: 0.12.9(typescript@5.8.3)
+      typescript:
+        specifier: 'catalog:'
+        version: 5.8.3
+
+  packages/pool:
+    dependencies:
+      '@upyo/core':
+        specifier: workspace:*
+        version: link:../core
+    devDependencies:
+      '@dotenvx/dotenvx':
+        specifier: 'catalog:'
+        version: 1.47.3
+      '@upyo/mock':
+        specifier: workspace:*
+        version: link:../mock
       tsdown:
         specifier: 'catalog:'
         version: 0.12.9(typescript@5.8.3)

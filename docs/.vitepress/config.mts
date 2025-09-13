@@ -10,7 +10,15 @@ import {
 } from "vitepress-plugin-group-icons";
 import llmstxt from "vitepress-plugin-llms";
 
-const packages: string[] = ["core", "mailgun", "plunk", "resend", "smtp"];
+const packages: readonly string[] = [
+  "core",
+  "mailgun",
+  "plunk",
+  "resend",
+  "smtp",
+  "pool",
+  "mock",
+];
 const jsrRefPlugins: any[] = [];
 
 for (const pkg of packages) {
@@ -65,6 +73,7 @@ const NAV = [
       { text: "SendGrid", link: "/transports/sendgrid" },
       { text: "Amazon SES", link: "/transports/ses" },
       { text: "OpenTelemetry", link: "/transports/opentelemetry" },
+      { text: "Pool transport", link: "/transports/pool" },
       { text: "Mock transport", link: "/transports/mock" },
       { text: "Custom transport", link: "/transports/custom" },
     ],
@@ -83,6 +92,7 @@ const NAV = [
         text: "@upyo/opentelemetry",
         link: "https://jsr.io/@upyo/opentelemetry/doc",
       },
+      { text: "@upyo/pool", link: "https://jsr.io/@upyo/pool/doc" },
       { text: "@upyo/mock", link: "https://jsr.io/@upyo/mock/doc" },
     ],
   },

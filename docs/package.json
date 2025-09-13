@@ -12,6 +12,7 @@
     "@upyo/mock": "workspace:",
     "@upyo/opentelemetry": "workspace:",
     "@upyo/plunk": "workspace:",
+    "@upyo/pool": "workspace:",
     "@upyo/resend": "workspace:",
     "@upyo/sendgrid": "workspace:",
     "@upyo/ses": "workspace:",
