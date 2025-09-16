@@ -59,6 +59,10 @@ strengths and use cases:
 [SendGrid](./transports/sendgrid.md)
 :    Popular email API with deliverability focus
 
+[Plunk](./transports/plunk.md)
+:    Modern, developer-friendly email service that offers both cloud-based
+     and self-hosted solutions for transactional email delivery
+
 [Amazon SES](./transports/ses.md)
 :    Cost-effective email service for AWS users
 

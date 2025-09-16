@@ -5,9 +5,6 @@
 Upyo
 ====
 
-> [!CAUTION]
-> This project is in early development and subject to change without notice.
-
 Upyo is a cross-runtime email library that provides a unified, type-safe API
 for sending emails across Node.js, Deno, Bun, and edge functions. Switch
 between SMTP and HTTP-based providers (Mailgun, Resend, SendGrid, Amazon SES)

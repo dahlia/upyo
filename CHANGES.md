@@ -4,7 +4,7 @@ Upyo changelog
 Version 0.3.0
 -------------
 
-To be released.
+Released on September 16, 2025.
 
 ### @upyo/pool
 
