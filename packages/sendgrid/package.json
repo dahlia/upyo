@@ -1,6 +1,6 @@
 {
   "name": "@upyo/sendgrid",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "SendGrid transport for Upyo email library",
   "keywords": [
     "email",
