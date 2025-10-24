@@ -241,31 +241,31 @@ export function createMessage(constructor: MessageConstructor): Message {
     : constructor.from;
   return {
     sender,
-    recipients: esureArray(constructor.to).map((to) =>
+    recipients: ensureArray(constructor.to).map((to) =>
       typeof to === "string"
         ? parseAddress(to) ??
           throwTypeError(`Invalid recipient address: ${JSON.stringify(to)}`)
         : to
     ),
-    ccRecipients: esureArray(constructor.cc).map((cc) =>
+    ccRecipients: ensureArray(constructor.cc).map((cc) =>
       typeof cc === "string"
         ? parseAddress(cc) ??
           throwTypeError(`Invalid CC address: ${JSON.stringify(cc)}`)
         : cc
     ),
-    bccRecipients: esureArray(constructor.bcc).map((bcc) =>
+    bccRecipients: ensureArray(constructor.bcc).map((bcc) =>
       typeof bcc === "string"
         ? parseAddress(bcc) ??
           throwTypeError(`Invalid BCC address: ${JSON.stringify(bcc)}`)
         : bcc
     ),
-    replyRecipients: esureArray(constructor.replyTo).map((replyTo) =>
+    replyRecipients: ensureArray(constructor.replyTo).map((replyTo) =>
       typeof replyTo === "string"
         ? parseAddress(replyTo) ??
           throwTypeError(`Invalid reply-to address: ${JSON.stringify(replyTo)}`)
         : replyTo
     ),
-    attachments: esureArray(constructor.attachments).map((attachment) => {
+    attachments: ensureArray(constructor.attachments).map((attachment) => {
       if (attachment instanceof File) {
         return {
           inline: false,
@@ -287,7 +287,7 @@ export function createMessage(constructor: MessageConstructor): Message {
     subject: constructor.subject,
     content: constructor.content,
     priority: constructor.priority ?? "normal",
-    tags: esureArray(constructor.tags),
+    tags: ensureArray(constructor.tags),
     headers: new Headers(constructor.headers ?? {}),
   };
 }
@@ -296,7 +296,7 @@ function throwTypeError(message: string): never {
   throw new TypeError(message);
 }
 
-function esureArray<T>(
+function ensureArray<T>(
   value: T | T[] | null | undefined,
 ): T[] {
   return Array.isArray(value) ? value : value == null ? [] : [value];
