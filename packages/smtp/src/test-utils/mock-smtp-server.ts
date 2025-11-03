@@ -42,6 +42,10 @@ export class MockSmtpServer extends EventEmitter {
     });
     this.responses.set("RSET", { code: 250, message: "OK" });
     this.responses.set("QUIT", { code: 221, message: "Bye" });
+    this.responses.set("STARTTLS", {
+      code: 220,
+      message: "Ready to start TLS",
+    });
   }
 
   private setupServerHandlers(): void {
@@ -102,7 +106,9 @@ export class MockSmtpServer extends EventEmitter {
               const ehloResponse = this.responses.get("EHLO")!;
               socket.write(`${ehloResponse.code}-${ehloResponse.message}\r\n`);
               socket.write("250-AUTH PLAIN LOGIN\r\n");
-              socket.write("250-STARTTLS\r\n");
+              // Note: STARTTLS removed from default capabilities
+              // Mock server doesn't actually perform TLS upgrade
+              // Tests can manually send STARTTLS command if needed
               socket.write("250 HELP\r\n");
               break;
 
@@ -149,12 +155,22 @@ export class MockSmtpServer extends EventEmitter {
               socket.write(`${rsetResponse.code} ${rsetResponse.message}\r\n`);
               break;
 
-              // deno-lint-ignore no-case-declarations
-            case "QUIT":
+            case "STARTTLS": {
+              // Note: This is a simplified mock that doesn't actually upgrade to TLS
+              // For real TLS testing, use integration tests with actual SMTP servers
+              const starttlsResponse = this.responses.get("STARTTLS")!;
+              socket.write(
+                `${starttlsResponse.code} ${starttlsResponse.message}\r\n`,
+              );
+              break;
+            }
+
+            case "QUIT": {
               const quitResponse = this.responses.get("QUIT")!;
               socket.write(`${quitResponse.code} ${quitResponse.message}\r\n`);
               socket.end();
               break;
+            }
 
             default:
               // Handle base64 encoded username/password for AUTH LOGIN
