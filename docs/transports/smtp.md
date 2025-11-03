@@ -243,11 +243,40 @@ while `rejectUnauthorized: true` ensures certificate validation.
 You can specify custom certificate authorities, client certificates,
 and acceptable TLS versions based on your security requirements.
 
-> [!CAUTION]
-> The SMTP transport does not currently support STARTTLS (upgrading from plain
-> to encrypted connections).  You must use direct TLS connections by setting
-> `secure: true` and using the appropriate secure port (typically 465)
-> for encrypted email transmission.
+### STARTTLS support
+
+The SMTP transport automatically supports STARTTLS, which allows upgrading
+a plain connection to an encrypted TLS connection.  When `secure` is set to
+`false` and the server advertises STARTTLS capability, the transport will
+automatically upgrade the connection before authentication:
+
+~~~~ typescript twoslash
+import { SmtpTransport } from "@upyo/smtp";
+
+// STARTTLS will be used automatically with port 587
+const transport = new SmtpTransport({
+  host: "smtp.example.com",
+  port: 587,  // Standard submission port with STARTTLS
+  secure: false,  // Start with plain connection
+  auth: {
+    user: "user@example.com",
+    pass: "password",
+  },
+});
+~~~~
+
+This configuration is commonly used with port 587 (mail submission port)
+and is required by many modern email providers including Protonmail, Office 365,
+and others that enforce encryption via STARTTLS.  The transport follows
+[RFC 3207] for STARTTLS negotiation and automatically re-negotiates
+capabilities after the connection is upgraded.
+
+> [!TIP]
+> Use `secure: false` with port 587 for STARTTLS, or `secure: true` with
+> port 465 for direct TLS connections.  The transport will handle the
+> encryption appropriately in both cases.
+
+[RFC 3207]: https://datatracker.ietf.org/doc/html/rfc3207
 
 
 Bulk email sending
