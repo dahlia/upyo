@@ -30,12 +30,7 @@ Features
  -  Comprehensive testing utilities
  -  TypeScript support
  -  Cross-runtime compatibility (Node.js, Bun, Deno)
-
-
-TODO
-----
-
-- [ ] STARTTLS support (currently only supports direct TLS)
+ -  STARTTLS support for secure connection upgrade
 
 
 Installation

@@ -263,6 +263,53 @@ describe(
       }
     });
 
+    test("should automatically use STARTTLS when available", async () => {
+      const { transport, mailpitClient, config } = await setupTest();
+      try {
+        // Mailpit supports STARTTLS on port 1025 by default
+        // The transport should automatically detect and use it
+        const message = createTestMessage({
+          subject: "Test Email Mailpit - STARTTLS",
+          content: {
+            text:
+              "This email was sent using STARTTLS for secure connection upgrade",
+          },
+        });
+
+        const receipt = await transport.send(message);
+
+        assert.strictEqual(receipt.successful, true);
+        if (receipt.successful) {
+          assert.ok(receipt.messageId.length > 0);
+        }
+
+        // Wait for email to be received by Mailpit
+        const mailpitMessage = await waitForMailpitDelivery(
+          mailpitClient,
+          { subject: "Test Email Mailpit - STARTTLS" },
+          5000,
+        );
+
+        validateMailpitEmailContent(mailpitMessage, {
+          from: "sender@example.com",
+          to: "recipient@example.com",
+          subject: "Test Email Mailpit - STARTTLS",
+          textBody:
+            "This email was sent using STARTTLS for secure connection upgrade",
+        });
+
+        // Verify that the connection config doesn't have secure=true
+        // (meaning it started as plaintext and upgraded via STARTTLS)
+        assert.strictEqual(
+          config.smtp.secure,
+          false,
+          "Connection should start as plaintext before STARTTLS upgrade",
+        );
+      } finally {
+        await teardownTest(transport);
+      }
+    });
+
     test("should handle long CJK text with quoted-printable encoding in Mailpit", async () => {
       const { transport, mailpitClient } = await setupTest();
       try {

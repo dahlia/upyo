@@ -1,5 +1,5 @@
 import { Socket } from "node:net";
-import { connect as tlsConnect, type TLSSocket } from "node:tls";
+import { connect as tlsConnect, TLSSocket } from "node:tls";
 import {
   createSmtpConfig,
   type ResolvedSmtpConfig,
@@ -183,6 +183,68 @@ export class SmtpConnection {
       .filter((line) => line.startsWith("250-") || line.startsWith("250 "))
       .map((line) => line.substring(4))
       .filter((line) => line.length > 0);
+  }
+
+  async starttls(signal?: AbortSignal): Promise<void> {
+    if (!this.socket) {
+      throw new Error("Not connected");
+    }
+
+    if (this.socket instanceof TLSSocket) {
+      throw new Error("Connection is already using TLS");
+    }
+
+    signal?.throwIfAborted();
+
+    // Send STARTTLS command
+    const response = await this.sendCommand("STARTTLS", signal);
+    if (response.code !== 220) {
+      throw new Error(`STARTTLS failed: ${response.message}`);
+    }
+
+    signal?.throwIfAborted();
+
+    // Upgrade the socket to TLS
+    return new Promise((resolve, reject) => {
+      const timeout = setTimeout(() => {
+        this.socket?.destroy();
+        reject(new Error("STARTTLS upgrade timeout"));
+      }, this.config.connectionTimeout);
+
+      const plainSocket = this.socket as Socket;
+
+      const tlsSocket = tlsConnect({
+        socket: plainSocket,
+        host: this.config.host,
+        rejectUnauthorized: this.config.tls?.rejectUnauthorized ?? true,
+        ca: this.config.tls?.ca,
+        key: this.config.tls?.key,
+        cert: this.config.tls?.cert,
+        minVersion: this.config.tls?.minVersion,
+        maxVersion: this.config.tls?.maxVersion,
+      });
+
+      const onSecureConnect = () => {
+        clearTimeout(timeout);
+        this.socket = tlsSocket;
+        this.socket.setTimeout(this.config.socketTimeout);
+        resolve();
+      };
+
+      const onError = (error: Error) => {
+        clearTimeout(timeout);
+        tlsSocket.destroy();
+        reject(error);
+      };
+
+      tlsSocket.once("secureConnect", onSecureConnect);
+      tlsSocket.once("error", onError);
+      tlsSocket.once("timeout", () => {
+        clearTimeout(timeout);
+        tlsSocket.destroy();
+        reject(new Error("TLS upgrade timeout"));
+      });
+    });
   }
 
   async authenticate(signal?: AbortSignal): Promise<void> {
