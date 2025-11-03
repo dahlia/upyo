@@ -285,6 +285,27 @@ export class SmtpTransport implements Transport, AsyncDisposable {
 
     signal?.throwIfAborted();
 
+    // Perform STARTTLS if needed
+    // STARTTLS should be used when:
+    // 1. Connection is not already secure (secure = false)
+    // 2. Server advertises STARTTLS capability
+    if (
+      !this.config.secure &&
+      connection.capabilities.some((cap) =>
+        cap.toUpperCase().startsWith("STARTTLS")
+      )
+    ) {
+      await connection.starttls(signal);
+
+      signal?.throwIfAborted();
+
+      // RFC 3207: Client SHOULD send EHLO after successful TLS negotiation
+      // to get updated capabilities (including AUTH)
+      await connection.ehlo(signal);
+
+      signal?.throwIfAborted();
+    }
+
     // Authenticate if needed
     await connection.authenticate(signal);
   }

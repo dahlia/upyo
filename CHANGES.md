@@ -6,6 +6,14 @@ Version 0.2.2
 
 To be released.
 
+### @upyo/smtp
+
+ -  Added STARTTLS support for secure connection upgrade.  The SMTP transport
+    now automatically detects and uses STARTTLS when connecting to servers
+    that advertise this capability (such as Protonmail, Office 365, and others).
+    This allows using port 587 with `secure: false` for automatic encryption
+    upgrade.  [[#14]]
+
 
 Version 0.2.1
 -------------
@@ -91,6 +99,22 @@ Released on July 17, 2025.
      -  Added `createEmailAttributeExtractor()` function.
 
 [#5]: https://github.com/dahlia/upyo/issues/5
+
+
+Version 0.1.2
+-------------
+
+Released on Nowember 3, 2025.
+
+### @upyo/smtp
+
+ -  Added STARTTLS support for secure connection upgrade.  The SMTP transport
+    now automatically detects and uses STARTTLS when connecting to servers
+    that advertise this capability (such as Protonmail, Office 365, and others).
+    This allows using port 587 with `secure: false` for automatic encryption
+    upgrade.  [[#14]]
+
+[#14]: https://github.com/dahlia/upyo/issues/14
 
 
 Version 0.1.1
