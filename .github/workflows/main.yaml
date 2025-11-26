@@ -136,7 +136,7 @@ jobs:
         run_install: true
     - uses: oven-sh/setup-bun@v2
       with:
-        bun-version: latest
+        bun-version: 1.2.22
     - run: pnpm run -r test:bun
 
   check:
