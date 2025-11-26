@@ -221,3 +221,111 @@ Production-tested
 Whether you're using Jaeger, Prometheus, Grafana, or commercial APM solutions,
 Upyo's OpenTelemetry support ensures you have the insights needed to run email
 services reliably at scale.
+
+
+Comparison with alternatives
+----------------------------
+
+Upyo is not trying to replace every email library out there. Different tools
+excel in different scenarios. Here's an honest comparison to help you decide
+if Upyo is the right choice for your project.
+
+### Feature comparison
+
+The following tables compare Upyo with other popular JavaScript/TypeScript
+email libraries.
+
+Legend:
+
+✅
+:   Supported
+
+❌
+:   Not supported
+
+🔜
+:   Planned for future release
+
+N/A
+:   Not applicable (architecture doesn't require this feature)
+
+#### Runtime support
+
+| Runtime        | Upyo | [Nodemailer] | [Resend] | [SendGrid] | [Mailgun] |
+|----------------|:----:|:------------:|:--------:|:----------:|:---------:|
+| Node.js        |  ✅  |      ✅      |    ✅    |     ✅     |     ✅    |
+| Deno           |  ✅  |      ❌      |    ✅    |     ✅     |     ✅    |
+| Bun            |  ✅  |      ❌      |    ✅    |     ✅     |     ✅    |
+| Edge functions |  ✅  |      ❌      |    ✅    |     ✅     |     ✅    |
+
+[Nodemailer]: https://nodemailer.com/
+[Resend]: https://resend.com/
+[SendGrid]: https://sendgrid.com/
+[Mailgun]: https://www.mailgun.com/
+
+#### Transport options
+
+| Transport | Upyo | [Nodemailer] | [Resend] | [SendGrid] | [Mailgun] |
+|-----------|:----:|:------------:|:--------:|:----------:|:---------:|
+| SMTP      |  ✅  |      ✅      |    ❌    |     ❌     |     ❌    |
+| HTTP API  |  ✅  |      ❌[^2]  |    ✅    |     ✅     |     ✅    |
+
+[^2]: Available via community plugins.
+
+#### Core features
+
+| Feature             | Upyo | [Nodemailer] | [Resend] | [SendGrid] | [Mailgun] |
+|---------------------|:----:|:------------:|:--------:|:----------:|:---------:|
+| Connection pooling  |  ✅  |      ✅      |    N/A   |     N/A    |    N/A    |
+| Attachments         |  ✅  |      ✅      |    ✅    |     ✅     |    ✅     |
+| Inline images       |  ✅  |      ✅      |    ✅    |     ✅     |    ✅     |
+| HTML and plain text |  ✅  |      ✅      |    ✅    |     ✅     |    ✅     |
+| Batch sending       |  ✅  |      ❌      |    ✅    |     ✅     |    ✅     |
+
+#### Advanced features
+
+| Feature               | Upyo | [Nodemailer] | [Resend] | [SendGrid] | [Mailgun] |
+|-----------------------|:----:|:------------:|:--------:|:----------:|:---------:|
+| DKIM signing          |  🔜  |      ✅      |    N/A   |     N/A    |    N/A    |
+| OAuth2 authentication |  🔜  |      ✅      |    N/A   |     N/A    |    N/A    |
+| Template engine       |  ❌  |      ❌[^2]  |    ✅    |     ✅     |    ✅     |
+
+#### Developer experience
+
+| Feature                   | Upyo | [Nodemailer] | [Resend] | [SendGrid] | [Mailgun] |
+|---------------------------|:----:|:------------:|:--------:|:----------:|:---------:|
+| Built-in mock transport   |  ✅  |      ❌[^3]  |    ❌    |     ❌     |     ❌    |
+| OpenTelemetry integration |  ✅  |      ❌      |    ❌    |     ❌     |     ❌    |
+| Provider abstraction      |  ✅  |      ❌      |    ❌    |     ❌     |     ❌    |
+| Zero dependencies         |  ✅  |      ✅      |    ❌    |     ❌     |     ❌    |
+| Native TypeScript         |  ✅  |      ❌[^4]  |    ✅    |     ✅     |     ✅    |
+
+[^3]: Stream transport can be used for similar purposes.
+[^4]: Requires `@types/nodemailer` package.
+
+### When to use Upyo
+
+Upyo is a great choice when you need:
+
+ -  *Cross-runtime compatibility*: Your code runs on Node.js, Deno, Bun,
+    or edge functions.
+ -  *Provider flexibility*: You want to switch between email providers without
+    changing application code.
+ -  *Testing-first development*: Built-in mock transport makes testing
+    straightforward.
+ -  *Observability*: OpenTelemetry integration for monitoring and debugging.
+ -  *Minimal footprint*: Zero dependencies keep your bundle size small.
+
+### When to consider alternatives
+
+Consider other libraries when you need:
+
+ -  *DKIM signing or OAuth2*: Nodemailer has mature support for these features
+    (Upyo support is planned).
+ -  *Built-in templating*: Resend (React), SendGrid, and Mailgun offer
+    integrated template engines.
+ -  *Node.js-only deployment*: Nodemailer's extensive plugin ecosystem may
+    offer more flexibility.
+ -  *Provider-specific features*: Official SDKs (Resend, SendGrid, Mailgun)
+    expose provider-specific capabilities that Upyo's unified interface may
+    not cover.
