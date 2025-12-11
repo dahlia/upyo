@@ -1,6 +1,6 @@
 {
   "name": "@upyo/mailgun",
-  "version": "0.3.2",
+  "version": "0.3.3",
   "description": "Mailgun transport for Upyo email library",
   "keywords": [
     "email",
