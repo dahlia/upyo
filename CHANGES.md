@@ -4,7 +4,7 @@ Upyo changelog
 Version 0.2.3
 -------------
 
-To be released.
+Released on December 12, 2025.
 
 ### @upyo/ses
 
