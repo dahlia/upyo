@@ -128,7 +128,7 @@ export class SesHttpClient {
     try {
       return await globalThis.fetch(url, {
         ...options,
-        headers: signedHeaders,
+        headers: this.headersToRecord(signedHeaders),
         signal,
       });
     } finally {

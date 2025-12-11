@@ -6,6 +6,17 @@ Version 0.2.3
 
 To be released.
 
+### @upyo/ses
+
+ -  Fixed headers serialization issue on edge runtimes.  [[#15]]
+
+    The SES transport now converts the `Headers` object to a plain object
+    before passing to `fetch()`, which resolves “Missing Authentication Token”
+    errors on edge runtimes like Bunny CDN Edge that don't properly serialize
+    `Headers` objects.
+
+[#15]: https://github.com/dahlia/upyo/issues/15
+
 
 Version 0.2.2
 -------------
