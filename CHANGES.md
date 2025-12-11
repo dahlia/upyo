@@ -7,6 +7,21 @@ Version 0.4.0
 To be released.
 
 
+Version 0.3.2
+-------------
+
+Released on December 12, 2025.
+
+### @upyo/ses
+
+ -  Fixed headers serialization issue on edge runtimes.  [[#15]]
+
+    The SES transport now converts the `Headers` object to a plain object
+    before passing to `fetch()`, which resolves “Missing Authentication Token”
+    errors on edge runtimes like Bunny CDN Edge that don't properly serialize
+    `Headers` objects.
+
+
 Version 0.3.1
 -------------
 
@@ -78,6 +93,23 @@ Released on September 16, 2025.
 
 [Resend]: https://resend.com/
 [#9]: https://github.com/dahlia/upyo/issues/9
+
+
+Version 0.2.3
+-------------
+
+Released on December 12, 2025.
+
+### @upyo/ses
+
+ -  Fixed headers serialization issue on edge runtimes.  [[#15]]
+
+    The SES transport now converts the `Headers` object to a plain object
+    before passing to `fetch()`, which resolves “Missing Authentication Token”
+    errors on edge runtimes like Bunny CDN Edge that don't properly serialize
+    `Headers` objects.
+
+[#15]: https://github.com/dahlia/upyo/issues/15
 
 
 Version 0.2.2
