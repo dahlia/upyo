@@ -125,6 +125,11 @@ function isValidEmail(email: string): boolean {
     return false;
   }
 
+  // Prevent SMTP command injection by disallowing newlines
+  if (email.includes("\r") || email.includes("\n")) {
+    return false;
+  }
+
   // Find the @ symbol that separates local and domain parts
   // If the local part is quoted, we need to find the @ after the closing quote
   let atIndex = -1;
