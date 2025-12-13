@@ -1,6 +1,6 @@
 {
   "name": "@upyo/smtp",
-  "version": "0.3.3",
+  "version": "0.3.4",
   "description": "SMTP transport for Upyo email library",
   "keywords": [
     "email",
