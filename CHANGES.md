@@ -6,6 +6,13 @@ Version 0.2.4
 
 To be released.
 
+### @upyo/core
+
+ -  Fixed a potential SMTP command injection vulnerability.
+
+    Email addresses are now validated to prevent newline characters (`\r` or
+    `\n`), which could be used to inject malicious SMTP commands.
+
 
 Version 0.2.3
 -------------
