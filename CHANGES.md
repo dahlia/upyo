@@ -7,6 +7,19 @@ Version 0.4.0
 To be released.
 
 
+Version 0.3.3
+-------------
+
+Released on December 13, 2025.
+
+### @upyo/core
+
+ -  Fixed a potential SMTP command injection vulnerability.
+
+    Email addresses are now validated to prevent newline characters (`\r` or
+    `\n`), which could be used to inject malicious SMTP commands.
+
+
 Version 0.3.2
 -------------
 
@@ -93,6 +106,19 @@ Released on September 16, 2025.
 
 [Resend]: https://resend.com/
 [#9]: https://github.com/dahlia/upyo/issues/9
+
+
+Version 0.2.4
+-------------
+
+Released on December 13, 2025.
+
+### @upyo/core
+
+ -  Fixed a potential SMTP command injection vulnerability.
+
+    Email addresses are now validated to prevent newline characters (`\r` or
+    `\n`), which could be used to inject malicious SMTP commands.
 
 
 Version 0.2.3

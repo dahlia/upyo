@@ -291,4 +291,16 @@ test("parseAddress() - boundary and malformed cases", () => {
   assert.ok(invalidIp === undefined || typeof invalidIp === "object");
 });
 
+test("parseAddress() - should not allow newlines", () => {
+  // Test for SMTP command injection vulnerabilities
+  assert.strictEqual(parseAddress("test@example.com\r\nVRFY root"), undefined);
+  assert.strictEqual(parseAddress("test@example.com\nVRFY root"), undefined);
+  assert.strictEqual(parseAddress("test@example.com\rVRFY root"), undefined);
+  assert.strictEqual(
+    parseAddress("sender@example.com>\r\nVRFY root"),
+    undefined,
+  );
+  assert.strictEqual(parseAddress('"test\r\n"@example.com'), undefined);
+});
+
 // cSpell: ignore reparsed punycode
