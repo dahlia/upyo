@@ -1,6 +1,6 @@
 {
   "name": "@upyo/opentelemetry",
-  "version": "0.2.4",
+  "version": "0.2.5",
   "description": "OpenTelemetry observability transport for Upyo email library",
   "keywords": [
     "email",
