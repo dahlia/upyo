@@ -5,7 +5,7 @@
     "@opentelemetry/sdk-metrics": "catalog:",
     "@opentelemetry/sdk-trace-base": "catalog:",
     "@opentelemetry/semantic-conventions": "catalog:",
-    "@shikijs/vitepress-twoslash": "^3.7.0",
+    "@shikijs/vitepress-twoslash": "^3.20.0",
     "@types/node": "^24.0.13",
     "@upyo/core": "workspace:",
     "@upyo/mailgun": "workspace:",
@@ -21,7 +21,7 @@
     "markdown-it-footnote": "^4.0.0",
     "markdown-it-jsr-ref": "^0.4.2",
     "typescript": "catalog:",
-    "vitepress": "^1.6.3",
+    "vitepress": "^2.0.0-alpha.15",
     "vitepress-plugin-group-icons": "^1.6.1",
     "vitepress-plugin-llms": "^1.7.0"
   },

@@ -177,6 +177,7 @@ export default defineConfig({
   cleanUrls: true,
 
   markdown: {
+    languages: ["typescript", "ts", "javascript", "js", "sh", "shell", "bash", "json"],
     theme: {
       light: "light-plus",
       dark: "monokai",
