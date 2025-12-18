@@ -4,7 +4,7 @@ Upyo changelog
 Version 0.3.4
 -------------
 
-To be released.
+Released on December 18, 2025.
 
 ### @upyo/resend
 
