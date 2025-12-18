@@ -66,19 +66,26 @@ export class ResendHttpClient {
    *
    * @param messageData The JSON data to send to Resend.
    * @param signal Optional AbortSignal for cancellation.
+   * @param idempotencyKey Optional idempotency key for request deduplication.
    * @returns Promise that resolves to the Resend response.
    */
   sendMessage(
     messageData: Record<string, unknown>,
     signal?: AbortSignal,
+    idempotencyKey?: string,
   ): Promise<ResendResponse> {
     const url = `${this.config.baseUrl}/emails`;
+    const headers: Record<string, string> = {
+      "Content-Type": "application/json",
+    };
+
+    if (idempotencyKey) {
+      headers["Idempotency-Key"] = idempotencyKey;
+    }
 
     return this.makeRequest(url, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
+      headers,
       body: JSON.stringify(messageData),
       signal,
     });
@@ -89,19 +96,26 @@ export class ResendHttpClient {
    *
    * @param messagesData Array of message data objects to send.
    * @param signal Optional AbortSignal for cancellation.
+   * @param idempotencyKey Optional idempotency key for request deduplication.
    * @returns Promise that resolves to the Resend batch response.
    */
   sendBatch(
     messagesData: Array<Record<string, unknown>>,
     signal?: AbortSignal,
+    idempotencyKey?: string,
   ): Promise<ResendBatchResponse> {
     const url = `${this.config.baseUrl}/emails/batch`;
+    const headers: Record<string, string> = {
+      "Content-Type": "application/json",
+    };
+
+    if (idempotencyKey) {
+      headers["Idempotency-Key"] = idempotencyKey;
+    }
 
     return this.makeRequest(url, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
+      headers,
       body: JSON.stringify(messagesData),
       signal,
     });

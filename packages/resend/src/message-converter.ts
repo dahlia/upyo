@@ -53,7 +53,7 @@ interface ResendEmail {
 export async function convertMessage(
   message: Message,
   _config: ResolvedResendConfig,
-  options: { idempotencyKey?: string; scheduledAt?: Date } = {},
+  options: { scheduledAt?: Date } = {},
 ): Promise<ResendEmail> {
   const emailData: ResendEmail = {
     from: formatAddress(message.sender),
@@ -125,11 +125,6 @@ export async function convertMessage(
     }
   }
 
-  // Idempotency key (for deduplication)
-  if (options.idempotencyKey) {
-    headers["Idempotency-Key"] = options.idempotencyKey;
-  }
-
   if (Object.keys(headers).length > 0) {
     emailData.headers = headers;
   }
@@ -150,13 +145,11 @@ export async function convertMessage(
  *
  * @param messages - Array of Upyo messages to convert
  * @param config - The resolved Resend configuration
- * @param options - Optional conversion options
  * @returns Array of JSON objects ready for Resend batch API
  */
 export async function convertMessagesBatch(
   messages: Message[],
   _config: ResolvedResendConfig,
-  options: { idempotencyKey?: string } = {},
 ): Promise<ResendEmail[]> {
   // Resend batch API limitations
   if (messages.length > 100) {
@@ -174,15 +167,7 @@ export async function convertMessagesBatch(
   }
 
   const batchData = await Promise.all(
-    messages.map((message, index) =>
-      convertMessage(message, _config, {
-        ...options,
-        // Generate unique idempotency key for each message if provided
-        idempotencyKey: options.idempotencyKey
-          ? `${options.idempotencyKey}-${index}`
-          : undefined,
-      })
-    ),
+    messages.map((message) => convertMessage(message, _config)),
   );
 
   return batchData;

@@ -216,28 +216,6 @@ describe("Message Converter", () => {
       assert.equal(result.headers?.["x-another"], "another-value");
     });
 
-    it("should add idempotency key when provided", async () => {
-      const message: Message = {
-        sender: { address: "sender@example.com" },
-        recipients: [{ address: "recipient@example.com" }],
-        ccRecipients: [],
-        bccRecipients: [],
-        replyRecipients: [],
-        subject: "Test Subject",
-        content: { text: "Test content" },
-        attachments: [],
-        priority: "normal",
-        tags: [],
-        headers: new Headers(),
-      };
-
-      const result = await convertMessage(message, config, {
-        idempotencyKey: "test-key-123",
-      });
-
-      assert.equal(result.headers?.["Idempotency-Key"], "test-key-123");
-    });
-
     it("should handle scheduled sending", async () => {
       const scheduledDate = new Date("2024-12-01T10:00:00Z");
       const message: Message = {
