@@ -401,3 +401,234 @@ describe("ResendTransport - Config Validation", () => {
     assert.equal(transport.config.retries, 5);
   });
 });
+
+// Note: Idempotency key tests are split into separate describe blocks
+// because Deno runs tests within the same describe block concurrently,
+// which causes globalThis.fetch mocking to interfere between tests.
+
+describe("ResendTransport - Idempotency Key Provided", () => {
+  it("should use provided idempotency key in HTTP header", async () => {
+    const originalFetch = globalThis.fetch;
+    const captured: { headers: Headers | null } = { headers: null };
+
+    try {
+      // Mock fetch to capture headers
+      globalThis.fetch = (_url, init) => {
+        captured.headers = new Headers(init?.headers);
+        return Promise.resolve(
+          new Response(
+            JSON.stringify({ id: "test-message-id" }),
+            { status: 200, headers: { "Content-Type": "application/json" } },
+          ),
+        );
+      };
+
+      const transport = new ResendTransport({ apiKey: "test-key" });
+
+      const testKey = `test-key-${Date.now()}`;
+      const message: Message = {
+        sender: { address: "sender@example.com" },
+        recipients: [{ address: "recipient@example.com" }],
+        ccRecipients: [],
+        bccRecipients: [],
+        replyRecipients: [],
+        subject: "Test Subject",
+        content: { text: "Test content" },
+        attachments: [],
+        priority: "normal",
+        tags: [],
+        headers: new Headers(),
+        idempotencyKey: testKey,
+      };
+
+      await transport.send(message);
+
+      assert.ok(captured.headers !== null);
+      assert.equal(captured.headers.get("Idempotency-Key"), testKey);
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+  });
+});
+
+describe("ResendTransport - Idempotency Key Auto-generated", () => {
+  it("should generate idempotency key when not provided", async () => {
+    const originalFetch = globalThis.fetch;
+    const captured: { headers: Headers | null } = { headers: null };
+
+    try {
+      globalThis.fetch = (_url, init) => {
+        captured.headers = new Headers(init?.headers);
+        return Promise.resolve(
+          new Response(
+            JSON.stringify({ id: "test-message-id" }),
+            { status: 200, headers: { "Content-Type": "application/json" } },
+          ),
+        );
+      };
+
+      const transport = new ResendTransport({ apiKey: "test-key" });
+
+      const message: Message = {
+        sender: { address: "sender@example.com" },
+        recipients: [{ address: "recipient@example.com" }],
+        ccRecipients: [],
+        bccRecipients: [],
+        replyRecipients: [],
+        subject: "Test Subject",
+        content: { text: "Test content" },
+        attachments: [],
+        priority: "normal",
+        tags: [],
+        headers: new Headers(),
+      };
+
+      await transport.send(message);
+
+      assert.ok(captured.headers !== null);
+      const idempotencyKey = captured.headers.get("Idempotency-Key");
+      assert.ok(idempotencyKey, "Idempotency-Key header should be present");
+      assert.ok(
+        idempotencyKey.length > 10,
+        "Auto-generated key should have reasonable length",
+      );
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+  });
+});
+
+describe("ResendTransport - Idempotency Key Retry", () => {
+  it("should allow retry with same idempotency key", async () => {
+    const originalFetch = globalThis.fetch;
+    const capturedKeys: string[] = [];
+
+    try {
+      let callCount = 0;
+      globalThis.fetch = (_url, init) => {
+        const headers = new Headers(init?.headers);
+        const key = headers.get("Idempotency-Key");
+        if (key) capturedKeys.push(key);
+
+        callCount++;
+        if (callCount === 1) {
+          // First call fails
+          return Promise.resolve(
+            new Response(
+              JSON.stringify({ message: "Server error" }),
+              { status: 500, headers: { "Content-Type": "application/json" } },
+            ),
+          );
+        }
+        // Second call succeeds
+        return Promise.resolve(
+          new Response(
+            JSON.stringify({ id: "test-message-id" }),
+            { status: 200, headers: { "Content-Type": "application/json" } },
+          ),
+        );
+      };
+
+      const transport = new ResendTransport({ apiKey: "test-key", retries: 0 });
+
+      const idempotencyKey = `retry-key-${Date.now()}`;
+      const message: Message = {
+        sender: { address: "sender@example.com" },
+        recipients: [{ address: "recipient@example.com" }],
+        ccRecipients: [],
+        bccRecipients: [],
+        replyRecipients: [],
+        subject: "Test Subject",
+        content: { text: "Test content" },
+        attachments: [],
+        priority: "normal",
+        tags: [],
+        headers: new Headers(),
+        idempotencyKey,
+      };
+
+      // First attempt fails
+      const receipt1 = await transport.send(message);
+      assert.equal(receipt1.successful, false);
+
+      // Retry with same message (same idempotency key)
+      const receipt2 = await transport.send(message);
+      assert.equal(receipt2.successful, true);
+
+      // Both calls should use the same key
+      assert.equal(capturedKeys.length, 2);
+      assert.equal(capturedKeys[0], idempotencyKey);
+      assert.equal(capturedKeys[1], idempotencyKey);
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+  });
+});
+
+describe("ResendTransport - Idempotency Key Batch", () => {
+  it("should use provided idempotency key in batch API", async () => {
+    const originalFetch = globalThis.fetch;
+    const captured: { headers: Headers | null } = { headers: null };
+
+    try {
+      globalThis.fetch = (url, init) => {
+        if (typeof url === "string" && url.includes("/emails/batch")) {
+          captured.headers = new Headers(init?.headers);
+          return Promise.resolve(
+            new Response(
+              JSON.stringify({
+                data: [{ id: "message-1" }, { id: "message-2" }],
+              }),
+              { status: 200, headers: { "Content-Type": "application/json" } },
+            ),
+          );
+        }
+        return Promise.reject(new Error("Unexpected URL called"));
+      };
+
+      const transport = new ResendTransport({ apiKey: "test-key" });
+
+      const batchKey = `batch-key-${Date.now()}`;
+      const messages: Message[] = [
+        {
+          sender: { address: "sender@example.com" },
+          recipients: [{ address: "recipient1@example.com" }],
+          ccRecipients: [],
+          bccRecipients: [],
+          replyRecipients: [],
+          subject: "Test Subject 1",
+          content: { text: "Test content 1" },
+          attachments: [],
+          priority: "normal",
+          tags: [],
+          headers: new Headers(),
+          idempotencyKey: batchKey, // First message's key is used for batch
+        },
+        {
+          sender: { address: "sender@example.com" },
+          recipients: [{ address: "recipient2@example.com" }],
+          ccRecipients: [],
+          bccRecipients: [],
+          replyRecipients: [],
+          subject: "Test Subject 2",
+          content: { text: "Test content 2" },
+          attachments: [],
+          priority: "normal",
+          tags: [],
+          headers: new Headers(),
+        },
+      ];
+
+      const receipts = [];
+      for await (const receipt of transport.sendMany(messages)) {
+        receipts.push(receipt);
+      }
+
+      assert.ok(captured.headers !== null);
+      assert.equal(captured.headers.get("Idempotency-Key"), batchKey);
+      assert.equal(receipts.length, 2);
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+  });
+});

@@ -89,8 +89,8 @@ export class ResendTransport implements Transport {
     try {
       options?.signal?.throwIfAborted();
 
-      // Generate idempotency key for reliable delivery
-      const idempotencyKey = generateIdempotencyKey();
+      // Use provided idempotency key or generate one for reliable delivery
+      const idempotencyKey = message.idempotencyKey ?? generateIdempotencyKey();
 
       const emailData = await convertMessage(message, this.config);
 
@@ -250,8 +250,9 @@ export class ResendTransport implements Transport {
     options?.signal?.throwIfAborted();
 
     try {
-      // Generate batch idempotency key
-      const idempotencyKey = generateIdempotencyKey();
+      // Use first message's idempotency key or generate one for reliable delivery
+      const idempotencyKey = messages[0]?.idempotencyKey ??
+        generateIdempotencyKey();
 
       const batchData = await convertMessagesBatch(messages, this.config);
 

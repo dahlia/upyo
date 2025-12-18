@@ -44,5 +44,5 @@ export interface TransportOptions {
   /**
    * The abort signal to cancel the send operation if needed.
    */
-  signal?: AbortSignal;
+  readonly signal?: AbortSignal;
 }

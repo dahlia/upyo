@@ -6,6 +6,26 @@ Version 0.4.0
 
 To be released.
 
+### @upyo/core
+
+ -  Added `idempotencyKey` property to `Message` interface.  [[#16]]
+
+    This allows users to provide their own idempotency key for request
+    deduplication when retrying failed send operations.  By including the key
+    in the message itself, retries become simpler—just resend the same message
+    object.  If not provided, transports may generate their own key internally
+    (behavior varies by transport implementation).
+
+### @upyo/resend
+
+ -  Added support for user-provided idempotency keys via `Message.idempotencyKey`.
+    [[#16]]
+
+    Each message can now include an `idempotencyKey` to ensure it is not sent
+    multiple times during retries.  For batch operations via `sendMany()`, the
+    first message's key is used for the entire batch request.  If not provided,
+    a unique key is automatically generated for each request.
+
 
 Version 0.3.4
 -------------

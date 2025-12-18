@@ -86,6 +86,25 @@ export interface Message {
    * the headers, such as `append`, `delete`, or `set`.
    */
   readonly headers: ImmutableHeaders;
+
+  /**
+   * An idempotency key to ensure that the same message is not sent multiple
+   * times.  This is useful for retrying failed send operations without
+   * risking duplicate delivery.
+   *
+   * If provided, the transport will use this key to deduplicate requests.
+   * If not provided, the transport may generate its own key internally
+   * (behavior varies by transport implementation).
+   *
+   * The key should be unique for each distinct message you want to send.
+   * When retrying the same message, use the same idempotency key.
+   *
+   * Note: Not all transports support idempotency keys.  Check the specific
+   * transport documentation for details.
+   *
+   * @since 0.4.0
+   */
+  readonly idempotencyKey?: string;
 }
 
 /**
@@ -207,6 +226,25 @@ export interface MessageConstructor {
    * @default `{}`
    */
   readonly headers?: ImmutableHeaders | Record<string, string>;
+
+  /**
+   * An idempotency key to ensure that the same message is not sent multiple
+   * times.  This is useful for retrying failed send operations without
+   * risking duplicate delivery.
+   *
+   * If provided, the transport will use this key to deduplicate requests.
+   * If not provided, the transport may generate its own key internally
+   * (behavior varies by transport implementation).
+   *
+   * The key should be unique for each distinct message you want to send.
+   * When retrying the same message, use the same idempotency key.
+   *
+   * Note: Not all transports support idempotency keys.  Check the specific
+   * transport documentation for details.
+   *
+   * @since 0.4.0
+   */
+  readonly idempotencyKey?: string;
 }
 
 /**
@@ -289,6 +327,7 @@ export function createMessage(constructor: MessageConstructor): Message {
     priority: constructor.priority ?? "normal",
     tags: ensureArray(constructor.tags),
     headers: new Headers(constructor.headers ?? {}),
+    idempotencyKey: constructor.idempotencyKey,
   };
 }
 
