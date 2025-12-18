@@ -7,6 +7,23 @@ Version 0.4.0
 To be released.
 
 
+Version 0.3.4
+-------------
+
+Released on December 18, 2025.
+
+### @upyo/resend
+
+ -  Fixed idempotency key not being sent as an HTTP request header.  [[#16]]
+
+    The Resend transport was incorrectly adding the `Idempotency-Key` to the
+    email's custom headers inside the JSON payload, but the Resend API expects
+    it as an HTTP request header.  This fix moves the idempotency key to the
+    proper location.
+
+[#16]: https://github.com/dahlia/upyo/issues/16
+
+
 Version 0.3.3
 -------------
 

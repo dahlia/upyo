@@ -92,15 +92,14 @@ export class ResendTransport implements Transport {
       // Generate idempotency key for reliable delivery
       const idempotencyKey = generateIdempotencyKey();
 
-      const emailData = await convertMessage(message, this.config, {
-        idempotencyKey,
-      });
+      const emailData = await convertMessage(message, this.config);
 
       options?.signal?.throwIfAborted();
 
       const response = await this.httpClient.sendMessage(
         emailData as unknown as Record<string, unknown>,
         options?.signal,
+        idempotencyKey,
       );
 
       return {
@@ -254,15 +253,14 @@ export class ResendTransport implements Transport {
       // Generate batch idempotency key
       const idempotencyKey = generateIdempotencyKey();
 
-      const batchData = await convertMessagesBatch(messages, this.config, {
-        idempotencyKey,
-      });
+      const batchData = await convertMessagesBatch(messages, this.config);
 
       options?.signal?.throwIfAborted();
 
       const response = await this.httpClient.sendBatch(
         batchData as unknown as Array<Record<string, unknown>>,
         options?.signal,
+        idempotencyKey,
       );
 
       // Yield receipt for each message
