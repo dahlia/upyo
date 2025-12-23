@@ -31,6 +31,7 @@ Features
  -  TypeScript support
  -  Cross-runtime compatibility (Node.js, Bun, Deno)
  -  STARTTLS support for secure connection upgrade
+ -  DKIM signing support (RSA-SHA256 and Ed25519-SHA256)
 
 
 Installation
@@ -111,6 +112,7 @@ Configuration options
 | `localName`         | `string`         | `"localhost"` | Local hostname for `HELO`/`EHLO` |
 | `pool`              | `boolean`        | `true`        | Enable connection pooling        |
 | `poolSize`          | `number`         | `5`           | Maximum pool connections         |
+| `dkim`              | `DkimConfig`     |               | DKIM signing configuration       |
 
 ### `SmtpAuth`
 
@@ -119,6 +121,51 @@ Configuration options
 | `user`   | `string`                           |           | Username    |
 | `pass`   | `string`                           |           | Password    |
 | `method` | `"plain" \| "login" \| "cram-md5"` | `"plain"` | Auth method |
+
+
+DKIM signing
+------------
+
+DKIM (DomainKeys Identified Mail) signing is supported for improved email
+deliverability and authentication:
+
+~~~~ typescript
+import { createMessage } from "@upyo/core";
+import { SmtpTransport } from "@upyo/smtp";
+import { readFileSync } from "node:fs";
+
+const transport = new SmtpTransport({
+  host: "smtp.example.com",
+  port: 587,
+  secure: false,
+  auth: { user: "user@example.com", pass: "password" },
+  dkim: {
+    signatures: [{
+      signingDomain: "example.com",
+      selector: "mail",
+      privateKey: readFileSync("./dkim-private.pem", "utf8"),
+    }],
+  },
+});
+~~~~
+
+### `DkimConfig`
+
+| Option             | Type                           | Default   | Description                           |
+|--------------------|--------------------------------|-----------|---------------------------------------|
+| `signatures`       | `DkimSignature[]`              |           | Array of DKIM signature configs       |
+| `onSigningFailure` | `"throw" \| "send-unsigned"`   | `"throw"` | Action when signing fails             |
+
+### `DkimSignature`
+
+| Option             | Type                               | Default             | Description                             |
+|--------------------|------------------------------------|---------------------|-----------------------------------------|
+| `signingDomain`    | `string`                           |                     | Domain for DKIM key (d= tag)            |
+| `selector`         | `string`                           |                     | DKIM selector (s= tag)                  |
+| `privateKey`       | `string \| CryptoKey`              |                     | Private key (PEM string or `CryptoKey`) |
+| `algorithm`        | `"rsa-sha256" \| "ed25519-sha256"` | `"rsa-sha256"`      | Signing algorithm                       |
+| `canonicalization` | `string`                           | `"relaxed/relaxed"` | Header/body canonicalization            |
+| `headerFields`     | `string[]`                         | From, To, ...       | Headers to sign                         |
 
 
 Testing

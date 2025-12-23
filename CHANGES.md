@@ -16,6 +16,26 @@ To be released.
     object.  If not provided, transports may generate their own key internally
     (behavior varies by transport implementation).
 
+### @upyo/smtp
+
+ -  Added DKIM (DomainKeys Identified Mail) signing support.  [[#18]]
+
+    Outgoing emails can now be signed with DKIM for improved deliverability
+    and authentication.  The implementation uses the standard Web Crypto API
+    for cross-runtime compatibility (Node.js, Deno, Bun, edge functions).
+
+     -  Added `DkimConfig` interface for configuring DKIM signing.
+     -  Added `DkimSignature` interface for individual signature settings.
+     -  Added `DkimAlgorithm` type supporting `rsa-sha256` (RFC 6376) and
+        `ed25519-sha256` (RFC 8463).
+     -  Added `DkimCanonicalization` type for header/body canonicalization.
+     -  Added `DkimSigningFailureAction` type (`throw` or `send-unsigned`).
+     -  Supports multiple DKIM signatures per message.
+     -  Configurable failure handling: throw error or send unsigned.
+     -  Accepts both PEM strings and `CryptoKey` objects for private keys.
+
+[#18]: https://github.com/dahlia/upyo/issues/18
+
 ### @upyo/resend
 
  -  Added support for user-provided idempotency keys via `Message.idempotencyKey`.

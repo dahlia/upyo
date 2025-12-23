@@ -286,8 +286,8 @@ N/A
 
 | Feature               | Upyo | [Nodemailer] | [Resend] | [SendGrid] | [Mailgun] |
 |-----------------------|:----:|:------------:|:--------:|:----------:|:---------:|
-| DKIM signing          |  🔜  |      ✅      |    N/A   |     N/A    |    N/A    |
-| OAuth2 authentication |  🔜  |      ✅      |    N/A   |     N/A    |    N/A    |
+| DKIM signing          |  ✅  |      ✅      |    N/A   |     N/A    |    N/A    |
+| OAuth 2.0 authentication | 🔜 |     ✅      |    N/A   |     N/A    |    N/A    |
 | Template engine       |  ❌  |      ❌[^2]  |    ✅    |     ✅     |    ✅     |
 
 #### Developer experience
@@ -320,7 +320,7 @@ Upyo is a great choice when you need:
 
 Consider other libraries when you need:
 
- -  *DKIM signing or OAuth2*: Nodemailer has mature support for these features
+ -  *OAuth 2.0 authentication*: Nodemailer has mature support for this feature
     (Upyo support is planned).
  -  *Built-in templating*: Resend (React), SendGrid, and Mailgun offer
     integrated template engines.

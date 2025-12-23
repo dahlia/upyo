@@ -1,5 +1,6 @@
 import type { Address, Message } from "@upyo/core";
 import { Buffer } from "node:buffer";
+import { type DkimConfig, signMessage } from "./dkim/index.ts";
 
 export interface SmtpMessage {
   readonly envelope: SmtpEnvelope;
@@ -11,7 +12,10 @@ export interface SmtpEnvelope {
   readonly to: string[];
 }
 
-export async function convertMessage(message: Message): Promise<SmtpMessage> {
+export async function convertMessage(
+  message: Message,
+  dkimConfig?: DkimConfig,
+): Promise<SmtpMessage> {
   const envelope: SmtpEnvelope = {
     from: message.sender.address,
     to: [
@@ -21,7 +25,23 @@ export async function convertMessage(message: Message): Promise<SmtpMessage> {
     ],
   };
 
-  const raw = await buildRawMessage(message);
+  let raw = await buildRawMessage(message);
+
+  // Apply DKIM signing if configured
+  if (dkimConfig) {
+    try {
+      for (const sig of dkimConfig.signatures) {
+        const result = await signMessage(raw, sig);
+        raw = `${result.headerName}: ${result.signature}\r\n${raw}`;
+      }
+    } catch (error) {
+      if (dkimConfig.onSigningFailure === "send-unsigned") {
+        console.warn("DKIM signing failed, sending unsigned:", error);
+      } else {
+        throw error;
+      }
+    }
+  }
 
   return { envelope, raw };
 }

@@ -215,4 +215,59 @@ export class MailpitClient {
 
     return await response.json();
   }
+
+  /**
+   * Gets the raw source of a message including all headers.
+   * This is useful for verifying DKIM-Signature and other headers.
+   *
+   * @param messageId The Mailpit message ID
+   * @returns The raw message source as a string
+   */
+  async getMessageSource(messageId: string): Promise<string> {
+    const response = await fetch(
+      `${this.baseUrl}/api/v1/message/${messageId}/raw`,
+      {
+        headers: {
+          "Content-Type": "text/plain",
+        },
+        signal: AbortSignal.timeout(this.timeout),
+      },
+    );
+
+    if (!response.ok) {
+      throw new Error(
+        `Failed to fetch message source: ${response.status} ${response.statusText}`,
+      );
+    }
+
+    return await response.text();
+  }
+
+  /**
+   * Gets the headers of a message.
+   *
+   * @param messageId The Mailpit message ID
+   * @returns The message headers as an object
+   */
+  async getMessageHeaders(
+    messageId: string,
+  ): Promise<Record<string, string[]>> {
+    const response = await fetch(
+      `${this.baseUrl}/api/v1/message/${messageId}/headers`,
+      {
+        headers: {
+          "Content-Type": "application/json",
+        },
+        signal: AbortSignal.timeout(this.timeout),
+      },
+    );
+
+    if (!response.ok) {
+      throw new Error(
+        `Failed to fetch message headers: ${response.status} ${response.statusText}`,
+      );
+    }
+
+    return await response.json();
+  }
 }

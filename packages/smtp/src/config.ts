@@ -1,3 +1,5 @@
+import type { DkimConfig } from "./dkim/index.ts";
+
 /**
  * Configuration interface for SMTP transport connection settings.
  *
@@ -76,6 +78,13 @@ export interface SmtpConfig {
    * @default 5
    */
   readonly poolSize?: number;
+
+  /**
+   * DKIM signing configuration.
+   * When provided, all outgoing emails will be signed with DKIM.
+   * @since 0.4.0
+   */
+  readonly dkim?: DkimConfig;
 }
 
 /**
@@ -167,10 +176,16 @@ export interface SmtpTlsOptions {
  * This type represents the final configuration after applying defaults,
  * used internally by the SMTP transport implementation.
  */
-export type ResolvedSmtpConfig = Omit<Required<SmtpConfig>, "auth" | "tls"> & {
-  readonly auth?: SmtpAuth;
-  readonly tls?: SmtpTlsOptions;
-};
+export type ResolvedSmtpConfig =
+  & Omit<
+    Required<SmtpConfig>,
+    "auth" | "tls" | "dkim"
+  >
+  & {
+    readonly auth?: SmtpAuth;
+    readonly tls?: SmtpTlsOptions;
+    readonly dkim?: DkimConfig;
+  };
 
 /**
  * Creates a resolved SMTP configuration by applying default values to optional fields.
@@ -195,5 +210,6 @@ export function createSmtpConfig(config: SmtpConfig): ResolvedSmtpConfig {
     localName: config.localName ?? "localhost",
     pool: config.pool ?? true,
     poolSize: config.poolSize ?? 5,
+    dkim: config.dkim,
   };
 }

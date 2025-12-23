@@ -94,7 +94,7 @@ export class SmtpTransport implements Transport, AsyncDisposable {
     try {
       options?.signal?.throwIfAborted();
 
-      const smtpMessage = await convertMessage(message);
+      const smtpMessage = await convertMessage(message, this.config.dkim);
 
       options?.signal?.throwIfAborted();
 
@@ -172,7 +172,7 @@ export class SmtpTransport implements Transport, AsyncDisposable {
           }
 
           try {
-            const smtpMessage = await convertMessage(message);
+            const smtpMessage = await convertMessage(message, this.config.dkim);
             options?.signal?.throwIfAborted();
 
             const messageId = await connection.sendMessage(
@@ -209,7 +209,7 @@ export class SmtpTransport implements Transport, AsyncDisposable {
           }
 
           try {
-            const smtpMessage = await convertMessage(message);
+            const smtpMessage = await convertMessage(message, this.config.dkim);
             options?.signal?.throwIfAborted();
 
             const messageId = await connection.sendMessage(

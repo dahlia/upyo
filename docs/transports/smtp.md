@@ -285,6 +285,200 @@ capabilities after the connection is upgraded.
 [RFC 3207]: https://datatracker.ietf.org/doc/html/rfc3207
 
 
+DKIM signing
+------------
+
+*This feature is introduced in Upyo 0.4.0.*
+
+DKIM (DomainKeys Identified Mail) is an email authentication method that allows
+the sender to attach a digital signature to outgoing emails.  This helps
+recipients verify that the email was actually sent from the claimed domain
+and hasn't been modified in transit, improving deliverability and reducing
+the chance of emails being marked as spam.
+
+The SMTP transport supports DKIM signing through the `~SmtpConfig.dkim`
+configuration option.  DKIM signatures are generated using the standard
+Web Crypto API, ensuring cross-runtime compatibility (Node.js, Deno, Bun).
+
+> [!NOTE]
+> The DKIM implementation follows [RFC 6376] and [RFC 8463], supporting both
+> `rsa-sha256` (most widely used) and `ed25519-sha256` (shorter keys) algorithms.
+
+[RFC 6376]: https://www.rfc-editor.org/rfc/rfc6376
+[RFC 8463]: https://www.rfc-editor.org/rfc/rfc8463
+
+### Basic DKIM configuration
+
+To enable DKIM signing, provide a `dkim` configuration with your private key
+and domain information:
+
+~~~~ typescript twoslash
+import { SmtpTransport } from "@upyo/smtp";
+import { readFileSync } from "node:fs";
+
+const transport = new SmtpTransport({
+  host: "smtp.example.com",
+  port: 587,
+  secure: false,
+  auth: {
+    user: "user@example.com",
+    pass: "password",
+  },
+  dkim: {
+    signatures: [{
+      signingDomain: "example.com",
+      selector: "mail",
+      privateKey: readFileSync("./dkim-private.pem", "utf8"),
+    }],
+  },
+});
+~~~~
+
+The `signingDomain` should match your email's From address domain, and the
+`selector` is used to look up the public key in DNS
+(e.g., `mail._domainkey.example.com`).
+
+### DkimSignature options
+
+Each signature in the `signatures` array can have the following options:
+
+| Option             | Type                               | Default                             | Description                           |
+|--------------------|------------------------------------|-------------------------------------|---------------------------------------|
+| `signingDomain`    | `string`                           | (required)                          | Domain for DKIM key (d= tag)          |
+| `selector`         | `string`                           | (required)                          | DKIM selector (s= tag)                |
+| `privateKey`       | `string \| CryptoKey`              | (required)                          | Private key (PEM string or CryptoKey) |
+| `algorithm`        | `"rsa-sha256" \| "ed25519-sha256"` | `"rsa-sha256"`                      | Signing algorithm (a= tag)            |
+| `canonicalization` | `string`                           | `"relaxed/relaxed"`                 | Header/body canonicalization (c= tag) |
+| `headerFields`     | `string[]`                         | `["from", "to", "subject", "date"]` | Headers to sign (h= tag)              |
+
+### Using Ed25519 keys
+
+Ed25519 offers shorter keys than RSA while providing equivalent security.
+This is particularly useful when DNS TXT record size is a concern:
+
+~~~~ typescript twoslash
+import { SmtpTransport } from "@upyo/smtp";
+import { readFileSync } from "node:fs";
+
+const transport = new SmtpTransport({
+  host: "smtp.example.com",
+  port: 587,
+  secure: false,
+  auth: {
+    user: "user@example.com",
+    pass: "password",
+  },
+  dkim: {
+    signatures: [{
+      signingDomain: "example.com",
+      selector: "ed25519",
+      privateKey: readFileSync("./dkim-ed25519.pem", "utf8"),
+      algorithm: "ed25519-sha256",
+    }],
+  },
+});
+~~~~
+
+### Using `CryptoKey`
+
+If you already have a [`CryptoKey`] object (from Web Crypto API),
+you can pass it directly instead of a PEM string:
+
+~~~~ typescript twoslash
+import { SmtpTransport } from "@upyo/smtp";
+
+// Import a private key using Web Crypto API
+const privateKey = await crypto.subtle.importKey(
+  "pkcs8",
+  new Uint8Array([/* ... key bytes ... */]),
+  { name: "Ed25519" },
+  false,
+  ["sign"],
+);
+
+const transport = new SmtpTransport({
+  host: "smtp.example.com",
+  port: 587,
+  secure: false,
+  dkim: {
+    signatures: [{
+      signingDomain: "example.com",
+      selector: "mykey",
+      privateKey: privateKey,  // CryptoKey object
+      algorithm: "ed25519-sha256",
+    }],
+  },
+});
+~~~~
+
+[`CryptoKey`]: https://developer.mozilla.org/en-US/docs/Web/API/CryptoKey
+
+### Multiple DKIM signatures
+
+You can add multiple DKIM signatures to a single email, which is useful when
+sending on behalf of multiple domains or when rotating keys:
+
+~~~~ typescript twoslash
+import { SmtpTransport } from "@upyo/smtp";
+import { readFileSync } from "node:fs";
+
+const transport = new SmtpTransport({
+  host: "smtp.example.com",
+  port: 587,
+  secure: false,
+  auth: {
+    user: "user@example.com",
+    pass: "password",
+  },
+  dkim: {
+    signatures: [
+      {
+        signingDomain: "example.com",
+        selector: "mail2024",
+        privateKey: readFileSync("./dkim-2024.pem", "utf8"),
+      },
+      {
+        signingDomain: "example.com",
+        selector: "mail2025",
+        privateKey: readFileSync("./dkim-2025.pem", "utf8"),
+      },
+    ],
+  },
+});
+~~~~
+
+### Error handling
+
+By default, if DKIM signing fails (e.g., due to an invalid private key),
+the transport throws an error.  You can change this behavior using the
+`onSigningFailure` option:
+
+~~~~ typescript twoslash
+import { SmtpTransport } from "@upyo/smtp";
+
+const transport = new SmtpTransport({
+  host: "smtp.example.com",
+  port: 587,
+  secure: false,
+  auth: {
+    user: "user@example.com",
+    pass: "password",
+  },
+  dkim: {
+    signatures: [{
+      signingDomain: "example.com",
+      selector: "mail",
+      privateKey: "-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----",
+    }],
+    onSigningFailure: "send-unsigned", // or "throw" (default)
+  },
+});
+~~~~
+
+With `onSigningFailure: "send-unsigned"`, the email will be sent without
+a DKIM signature if signing fails, rather than failing the entire send operation.
+
+
 Bulk email sending
 ------------------
 
