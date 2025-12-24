@@ -13,3 +13,4 @@ export {
 } from "./config.ts";
 export { isCapabilityError, JMAP_ERROR_TYPES, JmapApiError } from "./errors.ts";
 export type { JmapAccount, JmapIdentity, JmapSession } from "./session.ts";
+export { type BlobUploadResponse, uploadBlob } from "./blob-uploader.ts";
