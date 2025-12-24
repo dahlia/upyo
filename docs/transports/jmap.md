@@ -355,6 +355,76 @@ if (!receipt.successful) {
 ~~~~
 
 
+Attachments
+-----------
+
+The JMAP transport supports file attachments via blob upload. Attachments
+are uploaded to the server before being referenced in the email:
+
+~~~~ typescript twoslash
+// @noErrors: 2322
+import { JmapTransport } from "@upyo/jmap";
+import { createMessage } from "@upyo/core";
+
+const transport = new JmapTransport({
+  sessionUrl: "https://mail.example.com/.well-known/jmap",
+  bearerToken: "your-bearer-token",
+});
+
+const message = createMessage({
+  from: "sender@example.com",
+  to: "recipient@example.net",
+  subject: "Document attached",
+  content: { text: "Please find the document attached." },
+  attachments: [
+    new File(
+      [await fetch("https://example.com/doc.pdf").then(r => r.arrayBuffer())],
+      "document.pdf",
+      { type: "application/pdf" }
+    ),
+  ],
+});
+
+await transport.send(message);
+~~~~
+
+### Inline attachments
+
+For inline images in HTML emails, use the `inline` property and reference
+the attachment via `cid:` URL in the HTML content:
+
+~~~~ typescript twoslash
+// @noErrors: 2322
+import { JmapTransport } from "@upyo/jmap";
+import { createMessage } from "@upyo/core";
+
+const transport = new JmapTransport({
+  sessionUrl: "https://mail.example.com/.well-known/jmap",
+  bearerToken: "your-bearer-token",
+});
+
+const message = createMessage({
+  from: "sender@example.com",
+  to: "recipient@example.net",
+  subject: "Email with inline image",
+  content: {
+    html: '<p>Here is an image:</p><img src="cid:logo">',
+  },
+  attachments: [
+    {
+      filename: "logo.png",
+      content: await fetch("https://example.com/logo.png").then(r => r.arrayBuffer()),
+      contentType: "image/png",
+      contentId: "logo",
+      inline: true,
+    },
+  ],
+});
+
+await transport.send(message);
+~~~~
+
+
 Compatible servers
 ------------------
 
