@@ -179,4 +179,82 @@ describe("convertMessage", () => {
     assert.ok(customHeader);
     assert.equal(customHeader.value, "custom-value");
   });
+
+  it("should convert a message with attachments", () => {
+    const message: Message = {
+      ...baseMessage,
+      attachments: [
+        {
+          inline: false,
+          filename: "document.pdf",
+          content: new Uint8Array([0x25, 0x50, 0x44, 0x46]),
+          contentType: "application/pdf" as `${string}/${string}`,
+          contentId: "attachment-1",
+        },
+      ],
+    };
+
+    const uploadedBlobs = new Map<string, string>();
+    uploadedBlobs.set("attachment-1", "blob-uploaded-123");
+
+    const result = convertMessage(message, "drafts-123", uploadedBlobs);
+
+    // Should be multipart/mixed when attachments are present
+    assert.equal(result.bodyStructure?.type, "multipart/mixed");
+    assert.ok(result.bodyStructure?.subParts);
+    assert.equal(result.bodyStructure.subParts.length, 2);
+
+    // First part should be the text content
+    const textPart = result.bodyStructure.subParts[0];
+    assert.equal(textPart.type, "text/plain");
+
+    // Second part should be the attachment
+    const attachmentPart = result.bodyStructure.subParts[1];
+    assert.equal(attachmentPart.type, "application/pdf");
+    assert.equal(attachmentPart.blobId, "blob-uploaded-123");
+    assert.equal(attachmentPart.name, "document.pdf");
+    assert.equal(attachmentPart.disposition, "attachment");
+  });
+
+  it("should convert a message with multiple attachments", () => {
+    const message: Message = {
+      ...baseMessage,
+      content: { text: "Hello", html: "<p>Hello</p>" },
+      attachments: [
+        {
+          inline: false,
+          filename: "doc1.pdf",
+          content: new Uint8Array([0x25, 0x50, 0x44, 0x46]),
+          contentType: "application/pdf" as `${string}/${string}`,
+          contentId: "att-1",
+        },
+        {
+          inline: false,
+          filename: "image.png",
+          content: new Uint8Array([0x89, 0x50, 0x4e, 0x47]),
+          contentType: "image/png" as `${string}/${string}`,
+          contentId: "att-2",
+        },
+      ],
+    };
+
+    const uploadedBlobs = new Map<string, string>();
+    uploadedBlobs.set("att-1", "blob-1");
+    uploadedBlobs.set("att-2", "blob-2");
+
+    const result = convertMessage(message, "drafts-123", uploadedBlobs);
+
+    // multipart/mixed with alternative body + 2 attachments
+    assert.equal(result.bodyStructure?.type, "multipart/mixed");
+    assert.ok(result.bodyStructure?.subParts);
+    assert.equal(result.bodyStructure.subParts.length, 3);
+
+    // First part should be multipart/alternative for text+html
+    const alternativePart = result.bodyStructure.subParts[0];
+    assert.equal(alternativePart.type, "multipart/alternative");
+
+    // Second and third parts are attachments
+    assert.equal(result.bodyStructure.subParts[1].blobId, "blob-1");
+    assert.equal(result.bodyStructure.subParts[2].blobId, "blob-2");
+  });
 });

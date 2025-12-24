@@ -1,4 +1,4 @@
-import type { Address, Message, Priority } from "@upyo/core";
+import type { Address, Attachment, Message, Priority } from "@upyo/core";
 
 /**
  * JMAP email address structure.
@@ -19,6 +19,10 @@ export interface JmapBodyPart {
   readonly type: string;
   readonly charset?: string;
   readonly subParts?: readonly JmapBodyPart[];
+  readonly name?: string;
+  readonly disposition?: "inline" | "attachment";
+  readonly cid?: string;
+  readonly size?: number;
 }
 
 /**
@@ -118,13 +122,13 @@ export function extractCustomHeaders(message: Message): readonly JmapHeader[] {
 /**
  * Builds body structure for the message content.
  * @param message The message to build body structure for.
- * @param _uploadedBlobs Map of contentId to blobId for attachments.
+ * @param uploadedBlobs Map of contentId to blobId for attachments.
  * @returns Object containing bodyStructure and bodyValues.
  * @since 0.4.0
  */
 export function buildBodyStructure(
   message: Message,
-  _uploadedBlobs: Map<string, string>,
+  uploadedBlobs: Map<string, string>,
 ): { bodyStructure: JmapBodyPart; bodyValues: Record<string, JmapBodyValue> } {
   const bodyValues: Record<string, JmapBodyValue> = {};
   const parts: JmapBodyPart[] = [];
@@ -141,24 +145,70 @@ export function buildBodyStructure(
     parts.push({ partId: "html", type: "text/html", charset: "utf-8" });
   }
 
-  let bodyStructure: JmapBodyPart;
+  let contentPart: JmapBodyPart;
 
   if (parts.length === 1) {
     // Simple single-part message
-    bodyStructure = parts[0];
+    contentPart = parts[0];
   } else if (parts.length > 1) {
     // multipart/alternative for text + HTML
-    bodyStructure = {
+    contentPart = {
       type: "multipart/alternative",
       subParts: parts,
     };
   } else {
     // Fallback to empty text
     bodyValues["text"] = { value: "" };
-    bodyStructure = { partId: "text", type: "text/plain", charset: "utf-8" };
+    contentPart = { partId: "text", type: "text/plain", charset: "utf-8" };
+  }
+
+  // Build attachment parts (non-inline only for now)
+  const attachmentParts = buildAttachmentParts(message.attachments, uploadedBlobs);
+
+  let bodyStructure: JmapBodyPart;
+
+  if (attachmentParts.length > 0) {
+    // Wrap in multipart/mixed with content + attachments
+    bodyStructure = {
+      type: "multipart/mixed",
+      subParts: [contentPart, ...attachmentParts],
+    };
+  } else {
+    bodyStructure = contentPart;
   }
 
   return { bodyStructure, bodyValues };
+}
+
+/**
+ * Build attachment parts from uploaded blobs.
+ * @param attachments Array of attachments from the message.
+ * @param uploadedBlobs Map of contentId to blobId.
+ * @returns Array of JmapBodyPart for attachments.
+ * @since 0.4.0
+ */
+function buildAttachmentParts(
+  attachments: readonly Attachment[],
+  uploadedBlobs: Map<string, string>,
+): JmapBodyPart[] {
+  const parts: JmapBodyPart[] = [];
+
+  for (const attachment of attachments) {
+    const blobId = uploadedBlobs.get(attachment.contentId);
+    if (!blobId) continue;
+
+    // Only handle non-inline attachments in this phase
+    if (!attachment.inline) {
+      parts.push({
+        type: attachment.contentType,
+        blobId,
+        name: attachment.filename,
+        disposition: "attachment",
+      });
+    }
+  }
+
+  return parts;
 }
 
 /**

@@ -26,6 +26,7 @@ Features
  -  Bearer token authentication
  -  Automatic session discovery and caching
  -  Automatic identity resolution from sender email
+ -  File attachment support (blob upload)
  -  Exponential backoff retry with configurable attempts
  -  Request timeout support
  -  AbortSignal support for cancellation
@@ -34,7 +35,6 @@ Features
 TODO
 ----
 
- -  [ ] Attachment support (blob upload)
  -  [ ] Inline attachments (multipart/related)
 
 

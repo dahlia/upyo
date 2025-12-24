@@ -1,4 +1,11 @@
-import type { Message, Receipt, Transport, TransportOptions } from "@upyo/core";
+import type {
+  Attachment,
+  Message,
+  Receipt,
+  Transport,
+  TransportOptions,
+} from "@upyo/core";
+import { uploadBlob } from "./blob-uploader.ts";
 import {
   createJmapConfig,
   type JmapConfig,
@@ -82,8 +89,16 @@ export class JmapTransport implements Transport {
       );
       signal?.throwIfAborted();
 
+      // Upload attachments
+      const uploadedBlobs = await this.uploadAttachments(
+        session,
+        accountId,
+        message.attachments,
+        signal,
+      );
+      signal?.throwIfAborted();
+
       // Convert message and send
-      const uploadedBlobs = new Map<string, string>();
       const emailCreate = convertMessage(
         message,
         draftsMailboxId,
@@ -318,6 +333,46 @@ export class JmapTransport implements Transport {
 
     // Fall back to first identity
     return identities[0].id;
+  }
+
+  /**
+   * Uploads all attachments and returns a map of contentId to blobId.
+   * @param session The JMAP session.
+   * @param accountId The account ID.
+   * @param attachments Array of attachments to upload.
+   * @param signal Optional abort signal.
+   * @returns Map of contentId to blobId.
+   * @since 0.4.0
+   */
+  private async uploadAttachments(
+    session: JmapSession,
+    accountId: string,
+    attachments: readonly Attachment[],
+    signal?: AbortSignal,
+  ): Promise<Map<string, string>> {
+    const uploadedBlobs = new Map<string, string>();
+
+    for (const attachment of attachments) {
+      signal?.throwIfAborted();
+
+      // Resolve content if it's a promise
+      const content = await attachment.content;
+
+      // Create a Blob from the Uint8Array
+      const blob = new Blob([content], { type: attachment.contentType });
+
+      const result = await uploadBlob(
+        this.config,
+        session.uploadUrl,
+        accountId,
+        blob,
+        signal,
+      );
+
+      uploadedBlobs.set(attachment.contentId, result.blobId);
+    }
+
+    return uploadedBlobs;
   }
 
   /**

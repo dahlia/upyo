@@ -347,13 +347,5 @@ Limitations
 
 The current JMAP transport implementation has the following limitations:
 
- -  *Attachments*: File attachments are not yet supported. This feature
-    requires implementing the blob upload API and is planned for a future
-    release.
  -  *Inline attachments*: Inline images and other embedded content
     (multipart/related) are not yet supported.
-
-> [!TIP]
-> If your use case requires attachments, consider using the SMTP transport
-> or one of the HTTP-based transports (SendGrid, Mailgun, SES) which fully
-> support attachments.
