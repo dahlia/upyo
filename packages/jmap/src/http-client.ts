@@ -177,14 +177,27 @@ export class JmapHttpClient {
     const timeoutId = setTimeout(() => controller.abort(), this.config.timeout);
 
     // Combine with external signal if provided
-    let combinedSignal = controller.signal;
+    let combinedSignal: AbortSignal = controller.signal;
     if (signal) {
-      if (signal.aborted) {
-        clearTimeout(timeoutId);
-        signal.throwIfAborted();
+      // Prefer AbortSignal.any() when available for robust signal combination
+      const AbortSignalAny = (
+        AbortSignal as unknown as {
+          any?: (signals: AbortSignal[]) => AbortSignal;
+        }
+      ).any;
+      if (typeof AbortSignalAny === "function") {
+        combinedSignal = AbortSignalAny([signal, controller.signal]);
+      } else {
+        // Fallback: mirror external signal abort state into the controller
+        if (signal.aborted) {
+          clearTimeout(timeoutId);
+          signal.throwIfAborted();
+        }
+        signal.addEventListener("abort", () => {
+          controller.abort(signal.reason);
+        });
+        combinedSignal = controller.signal;
       }
-      signal.addEventListener("abort", () => controller.abort());
-      combinedSignal = controller.signal;
     }
 
     try {
