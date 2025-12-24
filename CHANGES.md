@@ -52,9 +52,8 @@ To be released.
      -  Text and HTML message content (multipart/alternative)
      -  Priority headers (X-Priority, Importance)
      -  Custom headers
-
-    Note: File attachments are not yet supported and are planned for a future
-    release.
+     -  File attachments via blob upload
+     -  Inline attachments (multipart/related)
 
 [#10]: https://github.com/dahlia/upyo/issues/10
 
