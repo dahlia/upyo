@@ -191,14 +191,20 @@ export class JmapTransport implements Transport {
       return;
     }
 
+    // Track processing stage for better error messages
+    let processingStage = "initialization";
+    let attachmentsUploadedCount = 0;
+
     try {
       signal?.throwIfAborted();
 
       // Get or refresh session (once)
+      processingStage = "session fetch";
       const session = await this.getSession(signal);
       signal?.throwIfAborted();
 
       // Get account ID (once)
+      processingStage = "account discovery";
       const accountId = this.config.accountId ?? findMailAccount(session);
       if (!accountId) {
         for (let i = 0; i < messageArray.length; i++) {
@@ -211,6 +217,7 @@ export class JmapTransport implements Transport {
       }
 
       // Get drafts mailbox ID (once)
+      processingStage = "mailbox discovery";
       const draftsMailboxId = await this.getDraftsMailboxId(
         session,
         accountId,
@@ -219,10 +226,12 @@ export class JmapTransport implements Transport {
       signal?.throwIfAborted();
 
       // Get identities (once) and build a map
+      processingStage = "identity resolution";
       const identityMap = await this.getIdentityMap(session, accountId, signal);
       signal?.throwIfAborted();
 
       // Upload all attachments for all messages
+      processingStage = "attachment upload";
       const allUploadedBlobs = new Map<number, Map<string, string>>();
       for (let i = 0; i < messageArray.length; i++) {
         const message = messageArray[i];
@@ -233,10 +242,12 @@ export class JmapTransport implements Transport {
           signal,
         );
         allUploadedBlobs.set(i, uploadedBlobs);
+        attachmentsUploadedCount = i + 1;
         signal?.throwIfAborted();
       }
 
       // Build batch Email/set and EmailSubmission/set create objects
+      processingStage = "message conversion";
       const emailCreates: Record<string, unknown> = {};
       const submissionCreates: Record<string, unknown> = {};
 
@@ -262,6 +273,7 @@ export class JmapTransport implements Transport {
       }
 
       // Execute batch request
+      processingStage = "batch request execution";
       const response = await this.httpClient.executeRequest(
         session.apiUrl,
         {
@@ -298,7 +310,8 @@ export class JmapTransport implements Transport {
       }
     } catch (error) {
       // For any error during batch processing, yield failure for all messages
-      const errorMessage = error instanceof Error && error.name === "AbortError"
+      // with detailed stage information
+      const baseMessage = error instanceof Error && error.name === "AbortError"
         ? `Request aborted: ${error.message}`
         : error instanceof JmapApiError
         ? error.message
@@ -306,10 +319,19 @@ export class JmapTransport implements Transport {
         ? error.message
         : String(error);
 
+      // Build detailed error message with stage and progress info
+      let detailedMessage = `Failed during ${processingStage}: ${baseMessage}`;
+      if (
+        processingStage === "attachment upload" && attachmentsUploadedCount > 0
+      ) {
+        detailedMessage +=
+          ` (${attachmentsUploadedCount}/${messageArray.length} messages had attachments uploaded before failure)`;
+      }
+
       for (let i = 0; i < messageArray.length; i++) {
         yield {
           successful: false,
-          errorMessages: [errorMessage],
+          errorMessages: [detailedMessage],
         };
       }
     }
