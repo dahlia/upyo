@@ -187,7 +187,7 @@ Bulk email sending
 ------------------
 
 For sending multiple emails, the JMAP transport provides efficient
-sequential processing with comprehensive error handling:
+batch processing that combines all messages into a single HTTP request:
 
 ~~~~ typescript twoslash
 import { JmapTransport } from "@upyo/jmap";
@@ -224,10 +224,10 @@ for await (const receipt of transport.sendMany(messages)) {
 }
 ~~~~
 
-The `~JmapTransport.sendMany()` method processes emails sequentially,
-yielding a receipt for each message. Failed emails don't prevent
-subsequent emails from being sent, and the session is efficiently
-reused across all messages.
+The `~JmapTransport.sendMany()` method batches all emails into a single
+JMAP request, significantly reducing HTTP round-trips. Each message
+gets its own receipt, and partial failures are handled gracefully—if
+some emails fail, others in the batch can still succeed.
 
 
 Error handling

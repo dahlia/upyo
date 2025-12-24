@@ -230,7 +230,7 @@ describe(
       assert.ok(receipt.successful);
     });
 
-    it("should send multiple emails with sendMany", async () => {
+    it("should send multiple emails with sendMany in a single batch", async () => {
       const config = getTestConfig();
       const transport = new JmapTransport(config.jmap);
 
@@ -243,12 +243,79 @@ describe(
           subject: "E2E Test - Batch 2",
           content: { text: "Second email in batch" },
         }),
+        createTestMessage({
+          subject: "E2E Test - Batch 3",
+          content: { text: "Third email in batch" },
+        }),
       ];
 
       const receipts = [];
       for await (const receipt of transport.sendMany(messages)) {
         if (!receipt.successful) {
           console.error("sendMany test failed:", receipt.errorMessages);
+        }
+        receipts.push(receipt);
+      }
+
+      assert.equal(receipts.length, 3);
+      assert.ok(receipts.every((r) => r.successful));
+
+      // Verify each message has a unique submission ID
+      if (receipts.every((r) => r.successful)) {
+        const messageIds = receipts.map((r) =>
+          r.successful ? r.messageId : null
+        );
+        const uniqueIds = new Set(messageIds);
+        assert.equal(
+          uniqueIds.size,
+          3,
+          "Each message should have a unique submission ID",
+        );
+      }
+    });
+
+    it("should batch emails with attachments via sendMany", async () => {
+      const config = getTestConfig();
+      const transport = new JmapTransport(config.jmap);
+
+      const textBytes = new TextEncoder().encode("Attachment content");
+
+      const messages = [
+        createTestMessage({
+          subject: "E2E Test - Batch with Attachment 1",
+          content: { text: "First email with attachment" },
+          attachments: [
+            {
+              filename: "file1.txt",
+              contentType: "text/plain" as const,
+              content: textBytes,
+              contentId: "attachment-1",
+              inline: false,
+            },
+          ],
+        }),
+        createTestMessage({
+          subject: "E2E Test - Batch with Attachment 2",
+          content: { text: "Second email with attachment" },
+          attachments: [
+            {
+              filename: "file2.txt",
+              contentType: "text/plain" as const,
+              content: textBytes,
+              contentId: "attachment-2",
+              inline: false,
+            },
+          ],
+        }),
+      ];
+
+      const receipts = [];
+      for await (const receipt of transport.sendMany(messages)) {
+        if (!receipt.successful) {
+          console.error(
+            "sendMany with attachments failed:",
+            receipt.errorMessages,
+          );
         }
         receipts.push(receipt);
       }

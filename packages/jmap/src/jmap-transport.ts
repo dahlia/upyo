@@ -168,7 +168,7 @@ export class JmapTransport implements Transport {
   }
 
   /**
-   * Sends multiple messages sequentially.
+   * Sends multiple messages in a single batched JMAP request.
    * @param messages The messages to send.
    * @param options Optional transport options.
    * @yields Receipts for each message.
@@ -178,8 +178,140 @@ export class JmapTransport implements Transport {
     messages: Iterable<Message> | AsyncIterable<Message>,
     options?: TransportOptions,
   ): AsyncIterable<Receipt> {
+    const signal = options?.signal;
+
+    // Collect all messages into an array first
+    const messageArray: Message[] = [];
     for await (const message of messages) {
-      yield await this.send(message, options);
+      messageArray.push(message);
+    }
+
+    // If no messages, return early
+    if (messageArray.length === 0) {
+      return;
+    }
+
+    try {
+      signal?.throwIfAborted();
+
+      // Get or refresh session (once)
+      const session = await this.getSession(signal);
+      signal?.throwIfAborted();
+
+      // Get account ID (once)
+      const accountId = this.config.accountId ?? findMailAccount(session);
+      if (!accountId) {
+        for (let i = 0; i < messageArray.length; i++) {
+          yield {
+            successful: false,
+            errorMessages: ["No mail-capable account found in JMAP session"],
+          };
+        }
+        return;
+      }
+
+      // Get drafts mailbox ID (once)
+      const draftsMailboxId = await this.getDraftsMailboxId(
+        session,
+        accountId,
+        signal,
+      );
+      signal?.throwIfAborted();
+
+      // Get identities (once) and build a map
+      const identityMap = await this.getIdentityMap(session, accountId, signal);
+      signal?.throwIfAborted();
+
+      // Upload all attachments for all messages
+      const allUploadedBlobs = new Map<number, Map<string, string>>();
+      for (let i = 0; i < messageArray.length; i++) {
+        const message = messageArray[i];
+        const uploadedBlobs = await this.uploadAttachments(
+          session,
+          accountId,
+          message.attachments,
+          signal,
+        );
+        allUploadedBlobs.set(i, uploadedBlobs);
+        signal?.throwIfAborted();
+      }
+
+      // Build batch Email/set and EmailSubmission/set create objects
+      const emailCreates: Record<string, unknown> = {};
+      const submissionCreates: Record<string, unknown> = {};
+
+      for (let i = 0; i < messageArray.length; i++) {
+        const message = messageArray[i];
+        const uploadedBlobs = allUploadedBlobs.get(i)!;
+        const emailCreate = convertMessage(
+          message,
+          draftsMailboxId,
+          uploadedBlobs,
+        );
+
+        // Find identity for this sender
+        const senderEmail = message.sender.address.toLowerCase();
+        const identityId = identityMap.get(senderEmail) ??
+          identityMap.values().next().value;
+
+        emailCreates[`draft${i}`] = emailCreate;
+        submissionCreates[`sub${i}`] = {
+          identityId,
+          emailId: `#draft${i}`,
+        };
+      }
+
+      // Execute batch request
+      const response = await this.httpClient.executeRequest(
+        session.apiUrl,
+        {
+          using: [
+            JMAP_CAPABILITIES.core,
+            JMAP_CAPABILITIES.mail,
+            JMAP_CAPABILITIES.submission,
+          ],
+          methodCalls: [
+            [
+              "Email/set",
+              {
+                accountId,
+                create: emailCreates,
+              },
+              "c0",
+            ],
+            [
+              "EmailSubmission/set",
+              {
+                accountId,
+                create: submissionCreates,
+              },
+              "c1",
+            ],
+          ],
+        },
+        signal,
+      );
+
+      // Parse batch response and yield individual receipts
+      for (let i = 0; i < messageArray.length; i++) {
+        yield this.parseBatchResponseForIndex(response, i);
+      }
+    } catch (error) {
+      // For any error during batch processing, yield failure for all messages
+      const errorMessage = error instanceof Error && error.name === "AbortError"
+        ? `Request aborted: ${error.message}`
+        : error instanceof JmapApiError
+        ? error.message
+        : error instanceof Error
+        ? error.message
+        : String(error);
+
+      for (let i = 0; i < messageArray.length; i++) {
+        yield {
+          successful: false,
+          errorMessages: [errorMessage],
+        };
+      }
     }
   }
 
@@ -328,6 +460,34 @@ export class JmapTransport implements Transport {
       return this.config.identityId;
     }
 
+    const identityMap = await this.getIdentityMap(session, accountId, signal);
+    const matching = identityMap.get(senderEmail.toLowerCase());
+    if (matching) {
+      return matching;
+    }
+
+    // Fall back to first identity
+    return identityMap.values().next().value!;
+  }
+
+  /**
+   * Gets all identities and builds a map of email to identity ID.
+   * @param session The JMAP session.
+   * @param accountId The account ID.
+   * @param signal Optional abort signal.
+   * @returns Map of lowercase email to identity ID.
+   * @since 0.4.0
+   */
+  private async getIdentityMap(
+    session: JmapSession,
+    accountId: string,
+    signal?: AbortSignal,
+  ): Promise<Map<string, string>> {
+    // If identity ID is configured, return a map with just that
+    if (this.config.identityId) {
+      return new Map([["*", this.config.identityId]]);
+    }
+
     const response = await this.httpClient.executeRequest(
       session.apiUrl,
       {
@@ -361,17 +521,12 @@ export class JmapTransport implements Transport {
       throw new JmapApiError("No identities found");
     }
 
-    // Find matching identity by email
-    const matching = identities.find(
-      (i) => i.email.toLowerCase() === senderEmail.toLowerCase(),
-    );
-
-    if (matching) {
-      return matching.id;
+    const identityMap = new Map<string, string>();
+    for (const identity of identities) {
+      identityMap.set(identity.email.toLowerCase(), identity.id);
     }
 
-    // Fall back to first identity
-    return identities[0].id;
+    return identityMap;
   }
 
   /**
@@ -483,6 +638,82 @@ export class JmapTransport implements Transport {
     }
 
     // If no errors but no success either, something is wrong
+    if (errors.length === 0) {
+      errors.push("Unknown error: No submission result received");
+    }
+
+    return {
+      successful: false,
+      errorMessages: errors,
+    };
+  }
+
+  /**
+   * Parses the JMAP batch response to extract receipt for a specific index.
+   * @param response The JMAP response.
+   * @param index The message index in the batch.
+   * @returns A receipt indicating success or failure for that message.
+   * @since 0.4.0
+   */
+  private parseBatchResponseForIndex(
+    response: JmapResponse,
+    index: number,
+  ): Receipt {
+    const errors: string[] = [];
+    const draftKey = `draft${index}`;
+    const subKey = `sub${index}`;
+
+    // Check Email/set response
+    const emailResponse = response.methodResponses.find(
+      (r) => r[0] === "Email/set",
+    );
+
+    if (emailResponse) {
+      const emailResult = emailResponse[1] as {
+        created?: Record<string, { id: string }>;
+        notCreated?: Record<string, { type: string; description?: string }>;
+      };
+
+      if (emailResult.notCreated?.[draftKey]) {
+        const error = emailResult.notCreated[draftKey];
+        errors.push(
+          `Email creation failed: ${error.type}${
+            error.description ? ` - ${error.description}` : ""
+          }`,
+        );
+      }
+    }
+
+    // Check EmailSubmission/set response
+    const submissionResponse = response.methodResponses.find(
+      (r) => r[0] === "EmailSubmission/set",
+    );
+
+    if (submissionResponse) {
+      const submissionResult = submissionResponse[1] as {
+        created?: Record<string, { id: string }>;
+        notCreated?: Record<string, { type: string; description?: string }>;
+      };
+
+      if (submissionResult.notCreated?.[subKey]) {
+        const error = submissionResult.notCreated[subKey];
+        errors.push(
+          `Email submission failed: ${error.type}${
+            error.description ? ` - ${error.description}` : ""
+          }`,
+        );
+      }
+
+      // Success case
+      if (submissionResult.created?.[subKey]) {
+        return {
+          successful: true,
+          messageId: submissionResult.created[subKey].id,
+        };
+      }
+    }
+
+    // If no errors but no success either
     if (errors.length === 0) {
       errors.push("Unknown error: No submission result received");
     }
