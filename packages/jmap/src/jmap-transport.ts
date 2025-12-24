@@ -398,7 +398,12 @@ export class JmapTransport implements Transport {
       const content = await attachment.content;
 
       // Create a Blob from the Uint8Array
-      const blob = new Blob([content], { type: attachment.contentType });
+      // Extract the ArrayBuffer portion to ensure TypeScript compatibility
+      const arrayBuffer = content.buffer.slice(
+        content.byteOffset,
+        content.byteOffset + content.byteLength,
+      ) as ArrayBuffer;
+      const blob = new Blob([arrayBuffer], { type: attachment.contentType });
 
       const result = await uploadBlob(
         this.config,
