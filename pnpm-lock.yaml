@@ -59,6 +59,9 @@ importers:
       '@upyo/core':
         specifier: 'workspace:'
         version: link:../packages/core
+      '@upyo/jmap':
+        specifier: 'workspace:'
+        version: link:../packages/jmap
       '@upyo/mailgun':
         specifier: 'workspace:'
         version: link:../packages/mailgun

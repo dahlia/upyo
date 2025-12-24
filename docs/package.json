@@ -8,6 +8,7 @@
     "@shikijs/vitepress-twoslash": "^3.20.0",
     "@types/node": "^24.0.13",
     "@upyo/core": "workspace:",
+    "@upyo/jmap": "workspace:",
     "@upyo/mailgun": "workspace:",
     "@upyo/mock": "workspace:",
     "@upyo/opentelemetry": "workspace:",
