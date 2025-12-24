@@ -24,6 +24,10 @@ jobs:
       MAILPIT_SMTP_PORT: 1025
       MAILPIT_SMTP_SECURE: "false"
       MAILPIT_API_URL: http://localhost:8025
+      STALWART_SESSION_URL: http://localhost:8080/jmap/session
+      STALWART_USERNAME: test@mail.example.com
+      STALWART_PASSWORD: password123
+      STALWART_BASE_URL: http://localhost:8080
       MAILGUN_KEY: ${{ secrets.MAILGUN_KEY }}
       MAILGUN_FROM: ${{ secrets.MAILGUN_FROM }}
       MAILGUN_TO: ${{ secrets.MAILGUN_TO }}
@@ -44,6 +48,10 @@ jobs:
     - uses: actions/setup-node@v4
       with:
         node-version: latest
+    - name: Start Stalwart
+      run: docker compose -f packages/jmap/docker-compose.yml up -d
+    - name: Setup Stalwart test accounts
+      run: ./packages/jmap/scripts/setup-stalwart.sh
     - run: pnpm run -r test
 
   test-deno:
@@ -68,6 +76,10 @@ jobs:
       MAILPIT_SMTP_PORT: 1025
       MAILPIT_SMTP_SECURE: "false"
       MAILPIT_API_URL: http://localhost:8025
+      STALWART_SESSION_URL: http://localhost:8080/jmap/session
+      STALWART_USERNAME: test@mail.example.com
+      STALWART_PASSWORD: password123
+      STALWART_BASE_URL: http://localhost:8080
       MAILGUN_KEY: ${{ secrets.MAILGUN_KEY }}
       MAILGUN_FROM: ${{ secrets.MAILGUN_FROM }}
       MAILGUN_TO: ${{ secrets.MAILGUN_TO }}
@@ -84,6 +96,10 @@ jobs:
     - uses: denoland/setup-deno@v2
       with:
         deno-version: v2.x
+    - name: Start Stalwart
+      run: docker compose -f packages/jmap/docker-compose.yml up -d
+    - name: Setup Stalwart test accounts
+      run: ./packages/jmap/scripts/setup-stalwart.sh
     - run: deno task test --coverage --junit-path=junit.xml
     - if: ${{ !cancelled() }}
       uses: codecov/test-results-action@v1
@@ -117,6 +133,10 @@ jobs:
       MAILPIT_SMTP_PORT: 1025
       MAILPIT_SMTP_SECURE: "false"
       MAILPIT_API_URL: http://localhost:8025
+      STALWART_SESSION_URL: http://localhost:8080/jmap/session
+      STALWART_USERNAME: test@mail.example.com
+      STALWART_PASSWORD: password123
+      STALWART_BASE_URL: http://localhost:8080
       MAILGUN_KEY: ${{ secrets.MAILGUN_KEY }}
       MAILGUN_FROM: ${{ secrets.MAILGUN_FROM }}
       MAILGUN_TO: ${{ secrets.MAILGUN_TO }}
@@ -137,6 +157,10 @@ jobs:
     - uses: oven-sh/setup-bun@v2
       with:
         bun-version: 1.2.22
+    - name: Start Stalwart
+      run: docker compose -f packages/jmap/docker-compose.yml up -d
+    - name: Setup Stalwart test accounts
+      run: ./packages/jmap/scripts/setup-stalwart.sh
     - run: pnpm run -r test:bun
 
   check:
