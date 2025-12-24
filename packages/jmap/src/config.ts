@@ -112,10 +112,10 @@ export function createJmapConfig(config: JmapConfig): ResolvedJmapConfig {
     basicAuth: config.basicAuth ?? null,
     accountId: config.accountId ?? null,
     identityId: config.identityId ?? null,
-    timeout: config.timeout || 30000,
-    retries: config.retries || 3,
+    timeout: config.timeout ?? 30000,
+    retries: config.retries ?? 3,
     headers: config.headers ?? {},
-    sessionCacheTtl: config.sessionCacheTtl || 300000,
+    sessionCacheTtl: config.sessionCacheTtl ?? 300000,
     baseUrl: config.baseUrl ?? null,
   };
 }
