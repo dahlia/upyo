@@ -50,10 +50,10 @@ describe("createJmapConfig", () => {
       retries: 0,
     });
 
-    // 0 should be treated as falsy and use default
-    // This is intentional behavior - 0 timeout/retries doesn't make sense
-    assert.equal(config.timeout, 30000);
-    assert.equal(config.retries, 3);
+    // 0 is a valid value and should be preserved
+    // e.g., timeout: 0 for immediate timeout, retries: 0 to disable retries
+    assert.equal(config.timeout, 0);
+    assert.equal(config.retries, 0);
   });
 
   it("should create config with basic auth", () => {
