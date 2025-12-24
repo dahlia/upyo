@@ -1,0 +1,72 @@
+{
+  "name": "@upyo/jmap",
+  "version": "0.4.0",
+  "description": "JMAP transport for Upyo email library",
+  "keywords": [
+    "email",
+    "mail",
+    "sendmail",
+    "jmap"
+  ],
+  "license": "MIT",
+  "author": {
+    "name": "Hong Minhee",
+    "email": "hong@minhee.org",
+    "url": "https://hongminhee.org/"
+  },
+  "homepage": "https://upyo.org/transports/jmap",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/dahlia/upyo.git",
+    "directory": "packages/jmap/"
+  },
+  "bugs": {
+    "url": "https://github.com/dahlia/upyo/issues"
+  },
+  "funding": [
+    "https://github.com/sponsors/dahlia"
+  ],
+  "engines": {
+    "node": ">=20.0.0",
+    "bun": ">=1.2.0",
+    "deno": ">=2.3.0"
+  },
+  "files": [
+    "dist/",
+    "package.json",
+    "README.md"
+  ],
+  "type": "module",
+  "module": "./dist/index.js",
+  "main": "./dist/index.cjs",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": {
+        "import": "./dist/index.d.ts",
+        "require": "./dist/index.d.cts"
+      },
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    },
+    "./package.json": "./package.json"
+  },
+  "sideEffects": false,
+  "peerDependencies": {
+    "@upyo/core": "workspace:*"
+  },
+  "devDependencies": {
+    "@dotenvx/dotenvx": "catalog:",
+    "jmap-rfc-types": "^0.1.2",
+    "tsdown": "catalog:",
+    "typescript": "catalog:"
+  },
+  "scripts": {
+    "build": "tsdown",
+    "prepack": "tsdown",
+    "prepublish": "tsdown",
+    "test": "tsdown && dotenvx run --ignore=MISSING_ENV_FILE -- node --experimental-transform-types --test",
+    "test:bun": "tsdown && bun test --timeout=30000 --env-file=.env",
+    "test:deno": "DENO_JOBS=1 deno test --allow-env --allow-net --env-file=.env"
+  }
+}

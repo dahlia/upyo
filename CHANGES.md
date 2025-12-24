@@ -36,6 +36,27 @@ To be released.
 
 [#18]: https://github.com/dahlia/upyo/issues/18
 
+### @upyo/jmap
+
+ -  Added JMAP transport for sending emails via JMAP protocol.  [[#10]]
+
+    JMAP (JSON Meta Application Protocol) is a modern, efficient protocol for
+    email access and submission, defined in RFC 8620 (core) and RFC 8621 (mail).
+    This transport provides:
+
+     -  Automatic session discovery and caching
+     -  Automatic identity resolution from sender email
+     -  Bearer token authentication
+     -  Exponential backoff retry with configurable attempts
+     -  Request timeout and AbortSignal support
+     -  Text and HTML message content (multipart/alternative)
+     -  Priority headers (X-Priority, Importance)
+     -  Custom headers
+     -  File attachments via blob upload
+     -  Inline attachments (multipart/related)
+
+[#10]: https://github.com/dahlia/upyo/issues/10
+
 ### @upyo/resend
 
  -  Added support for user-provided idempotency keys via `Message.idempotencyKey`.

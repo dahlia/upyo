@@ -12,6 +12,7 @@ import llmstxt from "vitepress-plugin-llms";
 
 const packages: readonly string[] = [
   "core",
+  "jmap",
   "mailgun",
   "plunk",
   "resend",
@@ -22,13 +23,17 @@ const packages: readonly string[] = [
 const jsrRefPlugins: any[] = [];
 
 for (const pkg of packages) {
-  jsrRefPlugins.push(
-    await jsrRef({
-      package: `@upyo/${pkg}`,
-      version: process.env.JSR_REF_VERSION ?? "unstable",
-      cachePath: `.jsr-cache-${pkg}.json`,
-    }),
-  );
+  try {
+    jsrRefPlugins.push(
+      await jsrRef({
+        package: `@upyo/${pkg}`,
+        version: process.env.JSR_REF_VERSION ?? "unstable",
+        cachePath: `.jsr-cache-${pkg}.json`,
+      }),
+    );
+  } catch {
+    // Ignore errors for packages not yet published to JSR
+  }
 }
 
 let extraNav: { text: string; link: string }[] = [];
@@ -67,6 +72,7 @@ const NAV = [
     text: "Transports",
     items: [
       { text: "SMTP", link: "/transports/smtp" },
+      { text: "JMAP", link: "/transports/jmap" },
       { text: "Mailgun", link: "/transports/mailgun" },
       { text: "Plunk", link: "/transports/plunk" },
       { text: "Resend", link: "/transports/resend" },
@@ -83,6 +89,7 @@ const NAV = [
     items: [
       { text: "@upyo/core", link: "https://jsr.io/@upyo/core/doc" },
       { text: "@upyo/smtp", link: "https://jsr.io/@upyo/smtp/doc" },
+      { text: "@upyo/jmap", link: "https://jsr.io/@upyo/jmap/doc" },
       { text: "@upyo/mailgun", link: "https://jsr.io/@upyo/mailgun/doc" },
       { text: "@upyo/plunk", link: "https://jsr.io/@upyo/plunk/doc" },
       { text: "@upyo/resend", link: "https://jsr.io/@upyo/resend/doc" },

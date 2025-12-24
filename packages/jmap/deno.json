@@ -1,0 +1,35 @@
+{
+  "name": "@upyo/jmap",
+  "version": "0.4.0",
+  "license": "MIT",
+  "exports": "./src/index.ts",
+  "exclude": [
+    "dist/"
+  ],
+  "tasks": {
+    "build": "pnpm build",
+    "stalwart:up": "docker-compose up -d && ./scripts/setup-stalwart.sh",
+    "stalwart:fresh": "docker-compose down -v && docker-compose up -d && sleep 10 && ./scripts/setup-stalwart.sh",
+    "stalwart:down": "docker-compose down",
+    "test": "DENO_JOBS=1 deno test --allow-env --allow-net --env-file=.env",
+    "test:node": {
+      "dependencies": [
+        "build"
+      ],
+      "command": "pnpm exec dotenvx run --ignore=MISSING_ENV_FILE -- node --experimental-transform-types --test"
+    },
+    "test:bun": {
+      "dependencies": [
+        "build"
+      ],
+      "command": "bun test --timeout=30000 --env-file=.env"
+    },
+    "test-all": {
+      "dependencies": [
+        "test",
+        "test:node",
+        "test:bun"
+      ]
+    }
+  }
+}
