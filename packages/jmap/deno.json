@@ -8,7 +8,10 @@
   ],
   "tasks": {
     "build": "pnpm build",
-    "test": "deno test --allow-env --allow-net --env-file=.env",
+    "stalwart:up": "docker-compose up -d && ./scripts/setup-stalwart.sh",
+    "stalwart:fresh": "docker-compose down -v && docker-compose up -d && sleep 10 && ./scripts/setup-stalwart.sh",
+    "stalwart:down": "docker-compose down",
+    "test": "DENO_JOBS=1 deno test --allow-env --allow-net --env-file=.env",
     "test:node": {
       "dependencies": [
         "build"

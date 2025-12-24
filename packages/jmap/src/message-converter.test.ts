@@ -206,7 +206,7 @@ describe("convertMessage", () => {
 
     // First part should be the text content
     const textPart = result.bodyStructure.subParts[0];
-    assert.equal(textPart.type, "text/plain");
+    assert.equal(textPart.type, "text/plain; charset=utf-8");
 
     // Second part should be the attachment
     const attachmentPart = result.bodyStructure.subParts[1];
@@ -285,7 +285,7 @@ describe("convertMessage", () => {
 
     // First part should be the HTML content
     const htmlPart = result.bodyStructure.subParts[0];
-    assert.equal(htmlPart.type, "text/html");
+    assert.equal(htmlPart.type, "text/html; charset=utf-8");
 
     // Second part should be the inline image
     const inlinePart = result.bodyStructure.subParts[1];

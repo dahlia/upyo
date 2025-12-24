@@ -1,0 +1,24 @@
+services:
+  stalwart:
+    image: stalwartlabs/stalwart:latest
+    container_name: upyo-stalwart
+    ports:
+      - "8080:8080"   # HTTP/JMAP port
+    volumes:
+      - stalwart-data:/opt/stalwart
+    environment:
+      - STALWART_ADMIN_PASSWORD=admin123
+    restart: unless-stopped
+    healthcheck:
+      test:
+        - CMD
+        - curl
+        - -f
+        - http://localhost:8080/
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+volumes:
+  stalwart-data:

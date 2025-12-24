@@ -158,7 +158,14 @@ export class JmapHttpClient {
     signal?: AbortSignal,
   ): Promise<Response> {
     const headers = new Headers(options.headers);
-    headers.set("Authorization", `Bearer ${this.config.bearerToken}`);
+    if (this.config.bearerToken) {
+      headers.set("Authorization", `Bearer ${this.config.bearerToken}`);
+    } else if (this.config.basicAuth) {
+      const credentials = btoa(
+        `${this.config.basicAuth.username}:${this.config.basicAuth.password}`,
+      );
+      headers.set("Authorization", `Basic ${credentials}`);
+    }
 
     // Add custom headers from config
     for (const [key, value] of Object.entries(this.config.headers)) {

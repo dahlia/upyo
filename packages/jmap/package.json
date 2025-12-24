@@ -67,6 +67,6 @@
     "prepublish": "tsdown",
     "test": "tsdown && dotenvx run --ignore=MISSING_ENV_FILE -- node --experimental-transform-types --test",
     "test:bun": "tsdown && bun test --timeout=30000 --env-file=.env",
-    "test:deno": "deno test --allow-env --allow-net --env-file=.env"
+    "test:deno": "DENO_JOBS=1 deno test --allow-env --allow-net --env-file=.env"
   }
 }

@@ -133,16 +133,16 @@ export function buildBodyStructure(
   const bodyValues: Record<string, JmapBodyValue> = {};
   const parts: JmapBodyPart[] = [];
 
-  // Text part
+  // Text part (charset is inferred from bodyValues, not specified with partId)
   if ("text" in message.content && message.content.text) {
     bodyValues["text"] = { value: message.content.text };
-    parts.push({ partId: "text", type: "text/plain", charset: "utf-8" });
+    parts.push({ partId: "text", type: "text/plain; charset=utf-8" });
   }
 
   // HTML part
   if ("html" in message.content && message.content.html) {
     bodyValues["html"] = { value: message.content.html };
-    parts.push({ partId: "html", type: "text/html", charset: "utf-8" });
+    parts.push({ partId: "html", type: "text/html; charset=utf-8" });
   }
 
   let contentPart: JmapBodyPart;
@@ -159,7 +159,7 @@ export function buildBodyStructure(
   } else {
     // Fallback to empty text
     bodyValues["text"] = { value: "" };
-    contentPart = { partId: "text", type: "text/plain", charset: "utf-8" };
+    contentPart = { partId: "text", type: "text/plain; charset=utf-8" };
   }
 
   // Separate inline and regular attachments

@@ -55,4 +55,27 @@ describe("createJmapConfig", () => {
     assert.equal(config.timeout, 30000);
     assert.equal(config.retries, 3);
   });
+
+  it("should create config with basic auth", () => {
+    const config = createJmapConfig({
+      sessionUrl: "https://jmap.example.com/.well-known/jmap",
+      basicAuth: {
+        username: "user",
+        password: "pass",
+      },
+    });
+
+    assert.equal(config.bearerToken, null);
+    assert.deepEqual(config.basicAuth, { username: "user", password: "pass" });
+  });
+
+  it("should throw when neither bearerToken nor basicAuth is provided", () => {
+    assert.throws(
+      () =>
+        createJmapConfig({
+          sessionUrl: "https://jmap.example.com/.well-known/jmap",
+        }),
+      { message: "Either bearerToken or basicAuth must be provided" },
+    );
+  });
 });

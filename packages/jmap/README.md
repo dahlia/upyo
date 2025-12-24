@@ -77,12 +77,15 @@ if (receipt.successful) {
 Configuration
 -------------
 
-### Required Options
+### Authentication Options
+
+Either `bearerToken` or `basicAuth` must be provided:
 
 | Option | Type | Description |
 |--------|------|-------------|
 | `sessionUrl` | `string` | JMAP session URL (e.g., `https://server/.well-known/jmap`) |
 | `bearerToken` | `string` | Bearer token for authentication |
+| `basicAuth` | `{ username: string, password: string }` | Basic authentication credentials |
 
 ### Optional Options
 
@@ -94,6 +97,7 @@ Configuration
 | `retries` | `number` | `3` | Number of retry attempts for failed requests |
 | `sessionCacheTtl` | `number` | `300000` | Session cache TTL in milliseconds (5 minutes) |
 | `headers` | `Record<string, string>` | `{}` | Additional HTTP headers to include in requests |
+| `baseUrl` | `string` | - | Base URL for rewriting session URLs (useful when server returns internal hostnames) |
 
 
 Error Handling

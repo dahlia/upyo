@@ -32,8 +32,20 @@ export async function uploadBlob(
 
   const url = uploadUrl.replace("{accountId}", accountId);
 
+  let authHeader: string;
+  if (config.bearerToken) {
+    authHeader = `Bearer ${config.bearerToken}`;
+  } else if (config.basicAuth) {
+    const credentials = btoa(
+      `${config.basicAuth.username}:${config.basicAuth.password}`,
+    );
+    authHeader = `Basic ${credentials}`;
+  } else {
+    throw new Error("No authentication method configured");
+  }
+
   const headers: Record<string, string> = {
-    Authorization: `Bearer ${config.bearerToken}`,
+    Authorization: authHeader,
     "Content-Type": blob.type || "application/octet-stream",
   };
 

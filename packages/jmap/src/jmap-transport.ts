@@ -201,7 +201,12 @@ export class JmapTransport implements Transport {
     }
 
     // Fetch new session
-    const session = await this.httpClient.fetchSession(signal);
+    let session = await this.httpClient.fetchSession(signal);
+
+    // Rewrite URLs if baseUrl is configured
+    if (this.config.baseUrl) {
+      session = this.rewriteSessionUrls(session);
+    }
 
     // Cache it
     this.cachedSession = {
@@ -210,6 +215,40 @@ export class JmapTransport implements Transport {
     };
 
     return session;
+  }
+
+  /**
+   * Rewrites session URLs to use the configured baseUrl.
+   * @param session The original session from the server.
+   * @returns A new session with rewritten URLs.
+   * @since 0.4.0
+   */
+  private rewriteSessionUrls(session: JmapSession): JmapSession {
+    const baseUrl = this.config.baseUrl!;
+
+    const rewriteUrl = (url: string): string => {
+      try {
+        // Parse just the base URL to get the target protocol and host
+        const base = new URL(baseUrl);
+        // Use regex to replace the protocol and host, preserving templates like {accountId}
+        return url.replace(
+          /^(\w+):\/\/[^/]+/,
+          `${base.protocol}//${base.host}`,
+        );
+      } catch {
+        return url;
+      }
+    };
+
+    return {
+      ...session,
+      apiUrl: rewriteUrl(session.apiUrl),
+      downloadUrl: rewriteUrl(session.downloadUrl),
+      uploadUrl: rewriteUrl(session.uploadUrl),
+      eventSourceUrl: session.eventSourceUrl
+        ? rewriteUrl(session.eventSourceUrl)
+        : undefined,
+    };
   }
 
   /**

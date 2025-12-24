@@ -57,8 +57,10 @@ Getting started
 ---------------
 
 Before using the JMAP transport, you'll need access to a JMAP-compatible
-mail server and a bearer token for authentication. The JMAP session URL
+mail server and authentication credentials. The JMAP session URL
 is typically available at `/.well-known/jmap` on the mail server.
+
+### Bearer token authentication
 
 ~~~~ typescript twoslash
 import { JmapTransport } from "@upyo/jmap";
@@ -67,6 +69,21 @@ import { createMessage } from "@upyo/core";
 const transport = new JmapTransport({
   sessionUrl: "https://mail.example.com/.well-known/jmap",
   bearerToken: "your-bearer-token",
+});
+~~~~
+
+### Basic authentication
+
+~~~~ typescript twoslash
+import { JmapTransport } from "@upyo/jmap";
+import { createMessage } from "@upyo/core";
+
+const transport = new JmapTransport({
+  sessionUrl: "https://mail.example.com/.well-known/jmap",
+  basicAuth: {
+    username: "user@example.com",
+    password: "your-password",
+  },
 });
 
 const message = createMessage({
@@ -279,6 +296,26 @@ const transport = new JmapTransport({
 The transport uses exponential backoff for retries, with delays of 1s,
 2s, 4s, etc. between attempts. Client errors (4xx responses) are not
 retried, as they typically indicate a problem with the request itself.
+
+### URL rewriting
+
+Some JMAP servers may return internal hostnames in session URLs that are
+not accessible from the client. The `baseUrl` option allows you to rewrite
+these URLs:
+
+~~~~ typescript twoslash
+import { JmapTransport } from "@upyo/jmap";
+
+const transport = new JmapTransport({
+  sessionUrl: "https://mail.example.com/.well-known/jmap",
+  bearerToken: "your-bearer-token",
+  // Rewrite URLs returned by the server to use this base URL
+  baseUrl: "https://mail.example.com",
+});
+~~~~
+
+This is useful when connecting to containerized servers or when the server
+returns hostnames that differ from the external access URL.
 
 
 Request cancellation
