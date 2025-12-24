@@ -424,6 +424,13 @@
       "npm:tsdown@~0.12.7"
     ],
     "members": {
+      "packages/jmap": {
+        "packageJson": {
+          "dependencies": [
+            "npm:jmap-rfc-types@~0.1.2"
+          ]
+        }
+      },
       "packages/opentelemetry": {
         "dependencies": [
           "npm:@opentelemetry/api@^1.9.0",
