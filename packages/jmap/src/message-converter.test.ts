@@ -257,4 +257,94 @@ describe("convertMessage", () => {
     assert.equal(result.bodyStructure.subParts[1].blobId, "blob-1");
     assert.equal(result.bodyStructure.subParts[2].blobId, "blob-2");
   });
+
+  it("should convert a message with inline attachments", () => {
+    const message: Message = {
+      ...baseMessage,
+      content: { html: '<p>Hello</p><img src="cid:inline-img">' },
+      attachments: [
+        {
+          inline: true,
+          filename: "logo.png",
+          content: new Uint8Array([0x89, 0x50, 0x4e, 0x47]),
+          contentType: "image/png" as `${string}/${string}`,
+          contentId: "inline-img",
+        },
+      ],
+    };
+
+    const uploadedBlobs = new Map<string, string>();
+    uploadedBlobs.set("inline-img", "blob-inline-123");
+
+    const result = convertMessage(message, "drafts-123", uploadedBlobs);
+
+    // Should be multipart/related for HTML + inline images
+    assert.equal(result.bodyStructure?.type, "multipart/related");
+    assert.ok(result.bodyStructure?.subParts);
+    assert.equal(result.bodyStructure.subParts.length, 2);
+
+    // First part should be the HTML content
+    const htmlPart = result.bodyStructure.subParts[0];
+    assert.equal(htmlPart.type, "text/html");
+
+    // Second part should be the inline image
+    const inlinePart = result.bodyStructure.subParts[1];
+    assert.equal(inlinePart.type, "image/png");
+    assert.equal(inlinePart.blobId, "blob-inline-123");
+    assert.equal(inlinePart.disposition, "inline");
+    assert.equal(inlinePart.cid, "inline-img");
+  });
+
+  it("should convert a message with both inline and regular attachments", () => {
+    const message: Message = {
+      ...baseMessage,
+      content: { text: "Hello", html: '<p>Hello</p><img src="cid:logo">' },
+      attachments: [
+        {
+          inline: true,
+          filename: "logo.png",
+          content: new Uint8Array([0x89, 0x50, 0x4e, 0x47]),
+          contentType: "image/png" as `${string}/${string}`,
+          contentId: "logo",
+        },
+        {
+          inline: false,
+          filename: "document.pdf",
+          content: new Uint8Array([0x25, 0x50, 0x44, 0x46]),
+          contentType: "application/pdf" as `${string}/${string}`,
+          contentId: "att-doc",
+        },
+      ],
+    };
+
+    const uploadedBlobs = new Map<string, string>();
+    uploadedBlobs.set("logo", "blob-logo");
+    uploadedBlobs.set("att-doc", "blob-doc");
+
+    const result = convertMessage(message, "drafts-123", uploadedBlobs);
+
+    // multipart/mixed: [multipart/related, attachment]
+    assert.equal(result.bodyStructure?.type, "multipart/mixed");
+    assert.ok(result.bodyStructure?.subParts);
+    assert.equal(result.bodyStructure.subParts.length, 2);
+
+    // First part should be multipart/related (HTML + inline images)
+    const relatedPart = result.bodyStructure.subParts[0];
+    assert.equal(relatedPart.type, "multipart/related");
+    assert.ok(relatedPart.subParts);
+    assert.equal(relatedPart.subParts.length, 2);
+
+    // Inside related: alternative body + inline attachment
+    const alternativePart = relatedPart.subParts[0];
+    assert.equal(alternativePart.type, "multipart/alternative");
+
+    const inlinePart = relatedPart.subParts[1];
+    assert.equal(inlinePart.disposition, "inline");
+    assert.equal(inlinePart.cid, "logo");
+
+    // Second part should be regular attachment
+    const attachmentPart = result.bodyStructure.subParts[1];
+    assert.equal(attachmentPart.disposition, "attachment");
+    assert.equal(attachmentPart.blobId, "blob-doc");
+  });
 });

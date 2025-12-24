@@ -162,29 +162,78 @@ export function buildBodyStructure(
     contentPart = { partId: "text", type: "text/plain", charset: "utf-8" };
   }
 
-  // Build attachment parts (non-inline only for now)
-  const attachmentParts = buildAttachmentParts(message.attachments, uploadedBlobs);
+  // Separate inline and regular attachments
+  const inlineParts = buildInlineAttachmentParts(
+    message.attachments,
+    uploadedBlobs,
+  );
+  const attachmentParts = buildAttachmentParts(
+    message.attachments,
+    uploadedBlobs,
+  );
+
+  // If there are inline attachments, wrap content in multipart/related
+  let mainBodyPart: JmapBodyPart;
+  if (inlineParts.length > 0) {
+    mainBodyPart = {
+      type: "multipart/related",
+      subParts: [contentPart, ...inlineParts],
+    };
+  } else {
+    mainBodyPart = contentPart;
+  }
 
   let bodyStructure: JmapBodyPart;
 
+  // If there are regular attachments, wrap in multipart/mixed
   if (attachmentParts.length > 0) {
-    // Wrap in multipart/mixed with content + attachments
     bodyStructure = {
       type: "multipart/mixed",
-      subParts: [contentPart, ...attachmentParts],
+      subParts: [mainBodyPart, ...attachmentParts],
     };
   } else {
-    bodyStructure = contentPart;
+    bodyStructure = mainBodyPart;
   }
 
   return { bodyStructure, bodyValues };
 }
 
 /**
- * Build attachment parts from uploaded blobs.
+ * Build inline attachment parts from uploaded blobs.
  * @param attachments Array of attachments from the message.
  * @param uploadedBlobs Map of contentId to blobId.
- * @returns Array of JmapBodyPart for attachments.
+ * @returns Array of JmapBodyPart for inline attachments.
+ * @since 0.4.0
+ */
+function buildInlineAttachmentParts(
+  attachments: readonly Attachment[],
+  uploadedBlobs: Map<string, string>,
+): JmapBodyPart[] {
+  const parts: JmapBodyPart[] = [];
+
+  for (const attachment of attachments) {
+    const blobId = uploadedBlobs.get(attachment.contentId);
+    if (!blobId) continue;
+
+    if (attachment.inline) {
+      parts.push({
+        type: attachment.contentType,
+        blobId,
+        name: attachment.filename,
+        disposition: "inline",
+        cid: attachment.contentId,
+      });
+    }
+  }
+
+  return parts;
+}
+
+/**
+ * Build regular attachment parts from uploaded blobs.
+ * @param attachments Array of attachments from the message.
+ * @param uploadedBlobs Map of contentId to blobId.
+ * @returns Array of JmapBodyPart for regular attachments.
  * @since 0.4.0
  */
 function buildAttachmentParts(
@@ -197,7 +246,6 @@ function buildAttachmentParts(
     const blobId = uploadedBlobs.get(attachment.contentId);
     if (!blobId) continue;
 
-    // Only handle non-inline attachments in this phase
     if (!attachment.inline) {
       parts.push({
         type: attachment.contentType,

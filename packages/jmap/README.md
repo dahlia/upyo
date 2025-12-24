@@ -27,15 +27,10 @@ Features
  -  Automatic session discovery and caching
  -  Automatic identity resolution from sender email
  -  File attachment support (blob upload)
+ -  Inline attachment support (multipart/related)
  -  Exponential backoff retry with configurable attempts
  -  Request timeout support
  -  AbortSignal support for cancellation
-
-
-TODO
-----
-
- -  [ ] Inline attachments (multipart/related)
 
 
 Installation

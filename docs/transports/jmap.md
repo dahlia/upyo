@@ -342,10 +342,3 @@ JMAP implementations include:
 [Apache James]: https://james.apache.org/
 
 
-Limitations
------------
-
-The current JMAP transport implementation has the following limitations:
-
- -  *Inline attachments*: Inline images and other embedded content
-    (multipart/related) are not yet supported.
