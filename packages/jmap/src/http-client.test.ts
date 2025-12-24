@@ -26,30 +26,32 @@ describe("JmapHttpClient", () => {
       try {
         const captured: { headers: Headers | null } = { headers: null };
 
-        globalThis.fetch = async (
+        globalThis.fetch = (
           _input: RequestInfo | URL,
           init?: RequestInit,
-        ) => {
+        ): Promise<Response> => {
           captured.headers = new Headers(init?.headers);
-          return new Response(
-            JSON.stringify({
-              capabilities: {},
-              accounts: {
-                "acc-1": {
-                  name: "Test",
-                  isPersonal: true,
-                  isReadOnly: false,
-                  accountCapabilities: { "urn:ietf:params:jmap:mail": {} },
+          return Promise.resolve(
+            new Response(
+              JSON.stringify({
+                capabilities: {},
+                accounts: {
+                  "acc-1": {
+                    name: "Test",
+                    isPersonal: true,
+                    isReadOnly: false,
+                    accountCapabilities: { "urn:ietf:params:jmap:mail": {} },
+                  },
                 },
-              },
-              primaryAccounts: {},
-              username: "test@example.com",
-              apiUrl: "https://jmap.example.com/api",
-              downloadUrl: "https://jmap.example.com/download/{blobId}",
-              uploadUrl: "https://jmap.example.com/upload/{accountId}",
-              state: "123",
-            }),
-            { status: 200, headers: { "Content-Type": "application/json" } },
+                primaryAccounts: {},
+                username: "test@example.com",
+                apiUrl: "https://jmap.example.com/api",
+                downloadUrl: "https://jmap.example.com/download/{blobId}",
+                uploadUrl: "https://jmap.example.com/upload/{accountId}",
+                state: "123",
+              }),
+              { status: 200, headers: { "Content-Type": "application/json" } },
+            ),
           );
         };
 
@@ -72,8 +74,8 @@ describe("JmapHttpClient", () => {
       const originalFetch = globalThis.fetch;
 
       try {
-        globalThis.fetch = async () => {
-          return new Response("Unauthorized", { status: 401 });
+        globalThis.fetch = (): Promise<Response> => {
+          return Promise.resolve(new Response("Unauthorized", { status: 401 }));
         };
 
         const client = new JmapHttpClient(config);
@@ -99,21 +101,23 @@ describe("JmapHttpClient", () => {
       try {
         let capturedBody: unknown = null;
 
-        globalThis.fetch = async (
-          input: RequestInfo | URL,
+        globalThis.fetch = (
+          _input: RequestInfo | URL,
           init?: RequestInit,
-        ) => {
+        ): Promise<Response> => {
           if (init?.body) {
             capturedBody = JSON.parse(init.body as string);
           }
-          return new Response(
-            JSON.stringify({
-              methodResponses: [["Email/set", {
-                created: { draft: { id: "email-1" } },
-              }, "c0"]],
-              sessionState: "state-1",
-            }),
-            { status: 200 },
+          return Promise.resolve(
+            new Response(
+              JSON.stringify({
+                methodResponses: [["Email/set", {
+                  created: { draft: { id: "email-1" } },
+                }, "c0"]],
+                sessionState: "state-1",
+              }),
+              { status: 200 },
+            ),
           );
         };
 
@@ -141,9 +145,9 @@ describe("JmapHttpClient", () => {
       let fetchCount = 0;
 
       try {
-        globalThis.fetch = async () => {
+        globalThis.fetch = (): Promise<Response> => {
           fetchCount++;
-          return new Response("Bad Request", { status: 400 });
+          return Promise.resolve(new Response("Bad Request", { status: 400 }));
         };
 
         const clientWithRetries = new JmapHttpClient(

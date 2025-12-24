@@ -24,8 +24,8 @@ describe("JmapTransport send error", () => {
     const originalFetch = globalThis.fetch;
 
     try {
-      globalThis.fetch = async () => {
-        return new Response("Unauthorized", { status: 401 });
+      globalThis.fetch = () => {
+        return Promise.resolve(new Response("Unauthorized", { status: 401 }));
       };
 
       const transport = new JmapTransport({

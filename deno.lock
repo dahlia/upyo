@@ -424,13 +424,6 @@
       "npm:tsdown@~0.12.7"
     ],
     "members": {
-      "packages/jmap": {
-        "packageJson": {
-          "dependencies": [
-            "npm:jmap-rfc-types@~0.1.2"
-          ]
-        }
-      },
       "packages/opentelemetry": {
         "dependencies": [
           "npm:@opentelemetry/api@^1.9.0",
@@ -439,12 +432,7 @@
           "npm:@opentelemetry/sdk-metrics@^1.25.1",
           "npm:@opentelemetry/sdk-trace-base@^1.25.1",
           "npm:@opentelemetry/semantic-conventions@^1.25.1"
-        ],
-        "packageJson": {
-          "dependencies": [
-            "npm:@opentelemetry/context-async-hooks@^1.25.1"
-          ]
-        }
+        ]
       }
     }
   }

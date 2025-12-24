@@ -26,7 +26,8 @@ const JMAP_CAPABILITIES = {
 export class JmapTransport implements Transport {
   readonly config: ResolvedJmapConfig;
   private readonly httpClient: JmapHttpClient;
-  private cachedSession: { session: JmapSession; fetchedAt: number } | null = null;
+  private cachedSession: { session: JmapSession; fetchedAt: number } | null =
+    null;
 
   /**
    * Creates a new JMAP transport instance.
@@ -83,7 +84,11 @@ export class JmapTransport implements Transport {
 
       // Convert message and send
       const uploadedBlobs = new Map<string, string>();
-      const emailCreate = convertMessage(message, draftsMailboxId, uploadedBlobs);
+      const emailCreate = convertMessage(
+        message,
+        draftsMailboxId,
+        uploadedBlobs,
+      );
 
       // Execute Email/set + EmailSubmission/set batch request
       const response = await this.httpClient.executeRequest(
@@ -231,8 +236,9 @@ export class JmapTransport implements Transport {
       throw new JmapApiError("No Mailbox/get response received");
     }
 
-    const mailboxes = (mailboxResponse[1] as { list?: { id: string; role?: string }[] })
-      .list;
+    const mailboxes =
+      (mailboxResponse[1] as { list?: { id: string; role?: string }[] })
+        .list;
 
     if (!mailboxes) {
       throw new JmapApiError("No mailboxes found");
@@ -293,8 +299,9 @@ export class JmapTransport implements Transport {
       throw new JmapApiError("No Identity/get response received");
     }
 
-    const identities = (identityResponse[1] as { list?: { id: string; email: string }[] })
-      .list;
+    const identities =
+      (identityResponse[1] as { list?: { id: string; email: string }[] })
+        .list;
 
     if (!identities || identities.length === 0) {
       throw new JmapApiError("No identities found");
@@ -335,7 +342,11 @@ export class JmapTransport implements Transport {
 
       if (emailResult.notCreated) {
         for (const [key, error] of Object.entries(emailResult.notCreated)) {
-          errors.push(`Email creation failed (${key}): ${error.type}${error.description ? ` - ${error.description}` : ""}`);
+          errors.push(
+            `Email creation failed (${key}): ${error.type}${
+              error.description ? ` - ${error.description}` : ""
+            }`,
+          );
         }
       }
     }
@@ -352,8 +363,14 @@ export class JmapTransport implements Transport {
       };
 
       if (submissionResult.notCreated) {
-        for (const [key, error] of Object.entries(submissionResult.notCreated)) {
-          errors.push(`Email submission failed (${key}): ${error.type}${error.description ? ` - ${error.description}` : ""}`);
+        for (
+          const [key, error] of Object.entries(submissionResult.notCreated)
+        ) {
+          errors.push(
+            `Email submission failed (${key}): ${error.type}${
+              error.description ? ` - ${error.description}` : ""
+            }`,
+          );
         }
       }
 

@@ -6,6 +6,10 @@
  */
 
 export { JmapTransport } from "./jmap-transport.ts";
-export { type JmapConfig, type ResolvedJmapConfig, createJmapConfig } from "./config.ts";
-export { JmapApiError, isCapabilityError, JMAP_ERROR_TYPES } from "./errors.ts";
-export type { JmapSession, JmapAccount, JmapIdentity } from "./session.ts";
+export {
+  createJmapConfig,
+  type JmapConfig,
+  type ResolvedJmapConfig,
+} from "./config.ts";
+export { isCapabilityError, JMAP_ERROR_TYPES, JmapApiError } from "./errors.ts";
+export type { JmapAccount, JmapIdentity, JmapSession } from "./session.ts";

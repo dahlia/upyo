@@ -25,10 +25,10 @@ describe("JmapTransport send success", () => {
 
     try {
       const fetchInfo: { count: number } = { count: 0 };
-      globalThis.fetch = async (
+      globalThis.fetch = (
         input: RequestInfo | URL,
         _init?: RequestInit,
-      ) => {
+      ): Promise<Response> => {
         fetchInfo.count++;
         const url = typeof input === "string"
           ? input
@@ -38,89 +38,101 @@ describe("JmapTransport send success", () => {
 
         // First call: session fetch
         if (url.includes(".well-known/jmap")) {
-          return new Response(
-            JSON.stringify({
-              capabilities: {},
-              accounts: {
-                "acc-1": {
-                  name: "Test",
-                  isPersonal: true,
-                  isReadOnly: false,
-                  accountCapabilities: { "urn:ietf:params:jmap:mail": {} },
+          return Promise.resolve(
+            new Response(
+              JSON.stringify({
+                capabilities: {},
+                accounts: {
+                  "acc-1": {
+                    name: "Test",
+                    isPersonal: true,
+                    isReadOnly: false,
+                    accountCapabilities: { "urn:ietf:params:jmap:mail": {} },
+                  },
                 },
-              },
-              primaryAccounts: { "urn:ietf:params:jmap:mail": "acc-1" },
-              username: "test@example.com",
-              apiUrl: "https://jmap.example.com/api",
-              downloadUrl: "https://jmap.example.com/download/{blobId}",
-              uploadUrl: "https://jmap.example.com/upload/{accountId}",
-              state: "123",
-            }),
-            { status: 200 },
+                primaryAccounts: { "urn:ietf:params:jmap:mail": "acc-1" },
+                username: "test@example.com",
+                apiUrl: "https://jmap.example.com/api",
+                downloadUrl: "https://jmap.example.com/download/{blobId}",
+                uploadUrl: "https://jmap.example.com/upload/{accountId}",
+                state: "123",
+              }),
+              { status: 200 },
+            ),
           );
         }
 
         // Second call: Mailbox/get for drafts
         if (fetchInfo.count === 2) {
-          return new Response(
-            JSON.stringify({
-              methodResponses: [
-                [
-                  "Mailbox/get",
-                  {
-                    list: [
-                      { id: "drafts-123", role: "drafts", name: "Drafts" },
-                    ],
-                  },
-                  "c0",
+          return Promise.resolve(
+            new Response(
+              JSON.stringify({
+                methodResponses: [
+                  [
+                    "Mailbox/get",
+                    {
+                      list: [
+                        { id: "drafts-123", role: "drafts", name: "Drafts" },
+                      ],
+                    },
+                    "c0",
+                  ],
                 ],
-              ],
-            }),
-            { status: 200 },
+              }),
+              { status: 200 },
+            ),
           );
         }
 
         // Third call: Identity/get
         if (fetchInfo.count === 3) {
-          return new Response(
-            JSON.stringify({
-              methodResponses: [
-                [
-                  "Identity/get",
-                  {
-                    list: [
-                      { id: "id-1", email: "sender@example.com", name: "Sender" },
-                    ],
-                  },
-                  "c0",
+          return Promise.resolve(
+            new Response(
+              JSON.stringify({
+                methodResponses: [
+                  [
+                    "Identity/get",
+                    {
+                      list: [
+                        {
+                          id: "id-1",
+                          email: "sender@example.com",
+                          name: "Sender",
+                        },
+                      ],
+                    },
+                    "c0",
+                  ],
                 ],
-              ],
-            }),
-            { status: 200 },
+              }),
+              { status: 200 },
+            ),
           );
         }
 
         // Fourth call: Email/set + EmailSubmission/set
-        return new Response(
-          JSON.stringify({
-            methodResponses: [
-              [
-                "Email/set",
-                {
-                  created: { draft: { id: "email-123" } },
-                },
-                "c0",
+        return Promise.resolve(
+          new Response(
+            JSON.stringify({
+              methodResponses: [
+                [
+                  "Email/set",
+                  {
+                    created: { draft: { id: "email-123" } },
+                  },
+                  "c0",
+                ],
+                [
+                  "EmailSubmission/set",
+                  {
+                    created: { submission: { id: "sub-456" } },
+                  },
+                  "c1",
+                ],
               ],
-              [
-                "EmailSubmission/set",
-                {
-                  created: { submission: { id: "sub-456" } },
-                },
-                "c1",
-              ],
-            ],
-          }),
-          { status: 200 },
+            }),
+            { status: 200 },
+          ),
         );
       };
 
