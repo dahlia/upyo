@@ -4,7 +4,7 @@ Upyo changelog
 Version 0.4.0
 -------------
 
-To be released.
+Released on December 25, 2025. Happy Holidays!
 
 ### @upyo/core
 
@@ -48,12 +48,12 @@ To be released.
      -  Automatic identity resolution from sender email
      -  Bearer token authentication
      -  Exponential backoff retry with configurable attempts
-     -  Request timeout and AbortSignal support
-     -  Text and HTML message content (multipart/alternative)
-     -  Priority headers (X-Priority, Importance)
+     -  Request timeout and `AbortSignal` support
+     -  Text and HTML message content (`multipart/alternative`)
+     -  Priority headers (`X-Priority`, `Importance`)
      -  Custom headers
      -  File attachments via blob upload
-     -  Inline attachments (multipart/related)
+     -  Inline attachments (`multipart/related`)
 
 [#10]: https://github.com/dahlia/upyo/issues/10
 
