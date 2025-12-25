@@ -1,6 +1,6 @@
 {
   "name": "@upyo/plunk",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "exports": "./src/index.ts",
   "exclude": [
     "dist/"
