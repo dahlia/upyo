@@ -263,9 +263,8 @@ export class LettermintHttpClient {
 }
 
 function isRetryable(error: LettermintApiError): boolean {
-  if (error.statusCode === 408 || error.statusCode === 429) return true;
-  if (error.statusCode >= 500) return true;
-  return error.statusCode < 400;
+  return error.statusCode === 408 || error.statusCode === 429 ||
+    error.statusCode >= 500;
 }
 
 function calculateRetryDelay(attempt: number): number {

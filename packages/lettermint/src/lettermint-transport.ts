@@ -119,6 +119,13 @@ export class LettermintTransport implements Transport {
   ): AsyncIterable<Receipt> {
     if (messages.length === 0) return;
 
+    if (messages.some(hasIdempotencyKey)) {
+      for (const message of messages) {
+        yield await this.send(message, options);
+      }
+      return;
+    }
+
     const idempotencyKey = normalizeIdempotencyKey(
       messages[0]?.idempotencyKey,
     );
@@ -189,6 +196,10 @@ function normalizeIdempotencyKey(idempotencyKey: string | undefined): string {
   return idempotencyKey != null && idempotencyKey !== ""
     ? idempotencyKey
     : generateIdempotencyKey();
+}
+
+function hasIdempotencyKey(message: Message): boolean {
+  return message.idempotencyKey != null && message.idempotencyKey !== "";
 }
 
 function responseToReceipt(response: LettermintResponse | undefined): Receipt {

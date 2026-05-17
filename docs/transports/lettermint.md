@@ -173,9 +173,10 @@ for await (const receipt of transport.sendMany(messages)) {
 }
 ~~~~
 
-For batch sends, the first message's `idempotencyKey` is used as the
-`Idempotency-Key` request header. If the first message has no key, the
-transport generates one for the batch request.
+For batch sends, messages without `idempotencyKey` values are grouped into
+Lettermint batch requests with generated request idempotency keys. If any
+message has an `idempotencyKey`, `sendMany()` sends that chunk through the
+single-message API instead so each message's key is preserved.
 
 
 Idempotency and reliability

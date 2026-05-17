@@ -220,15 +220,15 @@ async function convertAttachment(
 
 function uint8ArrayToBase64(bytes: Uint8Array): string {
   const chunkSize = 0x8000;
-  let binary = "";
+  const chunks: string[] = [];
 
   for (let offset = 0; offset < bytes.length; offset += chunkSize) {
-    binary += String.fromCharCode(
-      ...bytes.subarray(offset, offset + chunkSize),
+    chunks.push(
+      String.fromCharCode(...bytes.subarray(offset, offset + chunkSize)),
     );
   }
 
-  return btoa(binary);
+  return btoa(chunks.join(""));
 }
 
 function isStandardHeader(headerName: string): boolean {

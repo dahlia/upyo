@@ -348,6 +348,35 @@ describe("LettermintTransport - send", { concurrency: false }, () => {
     );
   });
 
+  it("does not retry redirection responses", async () => {
+    let calls = 0;
+
+    await withMockedFetch(
+      () => {
+        calls++;
+        return Promise.resolve(
+          new Response("", {
+            status: 302,
+            headers: { Location: "https://api.example.com/other" },
+          }),
+        );
+      },
+      async () => {
+        const transport = new LettermintTransport({
+          apiToken: "test-token",
+          retries: 1,
+        });
+        const receipt = await transport.send(createMessage());
+
+        assert.equal(calls, 1);
+        assert.equal(receipt.successful, false);
+        if (!receipt.successful) {
+          assert.deepEqual(receipt.errorMessages, ["HTTP 302"]);
+        }
+      },
+    );
+  });
+
   it("removes abort listeners after retry backoff completes", async () => {
     let calls = 0;
     let addedAbortListeners = 0;
@@ -516,7 +545,6 @@ describe("LettermintTransport - sendMany", { concurrency: false }, () => {
         const messages = [
           createMessage({
             recipients: [{ address: "one@example.com" }],
-            idempotencyKey: "batch-key",
           }),
           createMessage({
             recipients: [{ address: "two@example.com" }],
@@ -529,7 +557,7 @@ describe("LettermintTransport - sendMany", { concurrency: false }, () => {
         }
 
         assert.equal(capturedUrl, "https://api.example.com/v1/send/batch");
-        assert.equal(capturedHeaders.get("Idempotency-Key"), "batch-key");
+        assert.ok(capturedHeaders.get("Idempotency-Key"));
         assert.deepEqual(capturedBody, [
           {
             from: "sender@example.com",
@@ -551,6 +579,75 @@ describe("LettermintTransport - sendMany", { concurrency: false }, () => {
           assert.equal(receipts[0].messageId, "msg_1");
           assert.equal(receipts[1].messageId, "msg_2");
         }
+      },
+    );
+  });
+
+  it("uses per-message idempotency keys outside the batch API", async () => {
+    const capturedUrls: string[] = [];
+    const capturedHeaders: Headers[] = [];
+    const capturedBodies: unknown[] = [];
+
+    await withMockedFetch(
+      (url, init) => {
+        capturedUrls.push(String(url));
+        capturedHeaders.push(new Headers(init?.headers));
+        capturedBodies.push(JSON.parse(String(init?.body)));
+        return Promise.resolve(
+          new Response(
+            JSON.stringify({
+              message_id: `msg_${capturedUrls.length}`,
+              status: "pending",
+            }),
+            { status: 202, headers: { "Content-Type": "application/json" } },
+          ),
+        );
+      },
+      async () => {
+        const transport = new LettermintTransport({
+          apiToken: "test-token",
+          baseUrl: "https://api.example.com",
+        });
+        const receipts: Receipt[] = [];
+        for await (
+          const receipt of transport.sendMany([
+            createMessage({
+              recipients: [{ address: "one@example.com" }],
+              idempotencyKey: "key-1",
+            }),
+            createMessage({
+              recipients: [{ address: "two@example.com" }],
+              idempotencyKey: "key-2",
+            }),
+          ])
+        ) {
+          receipts.push(receipt);
+        }
+
+        assert.deepEqual(capturedUrls, [
+          "https://api.example.com/v1/send",
+          "https://api.example.com/v1/send",
+        ]);
+        assert.deepEqual(
+          capturedHeaders.map((headers) => headers.get("Idempotency-Key")),
+          ["key-1", "key-2"],
+        );
+        assert.deepEqual(capturedBodies, [
+          {
+            from: "sender@example.com",
+            to: ["one@example.com"],
+            subject: "Test Subject",
+            text: "Test content",
+          },
+          {
+            from: "sender@example.com",
+            to: ["two@example.com"],
+            subject: "Test Subject",
+            text: "Test content",
+          },
+        ]);
+        assert.equal(receipts.length, 2);
+        assert.ok(receipts.every((receipt) => receipt.successful));
       },
     );
   });
