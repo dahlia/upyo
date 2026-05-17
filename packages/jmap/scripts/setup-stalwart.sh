@@ -36,13 +36,13 @@ else
 
   # Create domain
   echo "Creating domain mail.example.com..."
-  curl -s -u "admin:${ADMIN_PASSWORD}" -X POST "${STALWART_URL}/api/principal" \
+  curl -fsS -u "admin:${ADMIN_PASSWORD}" -X POST "${STALWART_URL}/api/principal" \
     -H "Content-Type: application/json" \
     -d '{"type": "domain", "name": "mail.example.com"}' > /dev/null || true
 
   # Create test user with "user" role for JMAP access
   echo "Creating test user..."
-  curl -s -u "admin:${ADMIN_PASSWORD}" -X POST "${STALWART_URL}/api/principal" \
+  curl -fsS -u "admin:${ADMIN_PASSWORD}" -X POST "${STALWART_URL}/api/principal" \
     -H "Content-Type: application/json" \
     -d '{
       "type": "individual",
@@ -55,7 +55,7 @@ else
 
   # Create recipient user with "user" role
   echo "Creating recipient user..."
-  curl -s -u "admin:${ADMIN_PASSWORD}" -X POST "${STALWART_URL}/api/principal" \
+  curl -fsS -u "admin:${ADMIN_PASSWORD}" -X POST "${STALWART_URL}/api/principal" \
     -H "Content-Type: application/json" \
     -d '{
       "type": "individual",

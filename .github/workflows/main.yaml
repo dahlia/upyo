@@ -41,13 +41,13 @@ jobs:
       SENDGRID_TO: ${{ secrets.SENDGRID_TO }}
     steps:
     - uses: actions/checkout@v4
+    - uses: actions/setup-node@v4
+      with:
+        node-version: '24'
     - uses: pnpm/action-setup@v4
       with:
         version: latest
         run_install: true
-    - uses: actions/setup-node@v4
-      with:
-        node-version: latest
     - name: Start Stalwart
       run: docker compose -f packages/jmap/docker-compose.yml up -d
     - name: Setup Stalwart test accounts
@@ -150,13 +150,14 @@ jobs:
       SENDGRID_TO: ${{ secrets.SENDGRID_TO }}
     steps:
     - uses: actions/checkout@v4
+    - uses: actions/setup-node@v4
+      with:
+        node-version: '24'
+    - uses: oven-sh/setup-bun@v2
     - uses: pnpm/action-setup@v4
       with:
         version: latest
         run_install: true
-    - uses: oven-sh/setup-bun@v2
-      with:
-        bun-version: 1.2.22
     - name: Start Stalwart
       run: docker compose -f packages/jmap/docker-compose.yml up -d
     - name: Setup Stalwart test accounts
@@ -181,6 +182,9 @@ jobs:
       id-token: write
     steps:
     - uses: actions/checkout@v4
+    - uses: actions/setup-node@v4
+      with:
+        node-version: '24'
     - uses: denoland/setup-deno@v2
       with:
         deno-version: v2.x
@@ -236,13 +240,13 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
     - uses: actions/checkout@v4
+    - uses: actions/setup-node@v4
+      with:
+        node-version: "24"
     - uses: pnpm/action-setup@v4
       with:
         version: latest
         run_install: true
-    - uses: actions/setup-node@v4
-      with:
-        node-version: "24"
     - run: |
         set -ex
         if [[ "$GITHUB_REF_TYPE" = "tag" ]]; then
