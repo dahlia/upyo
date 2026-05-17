@@ -232,6 +232,34 @@ describe("convertMessage", () => {
       "text/calendar; method=REQUEST",
     );
   });
+
+  it("uses native Uint8Array base64 conversion when available", async () => {
+    const content = new Uint8Array([1, 2, 3]);
+    Object.defineProperty(content, "toBase64", {
+      configurable: true,
+      value(this: Uint8Array) {
+        assert.deepEqual([...this], [1, 2, 3]);
+        return "native-base64";
+      },
+    });
+
+    const result = await convertMessage(
+      createBaseMessage({
+        attachments: [
+          {
+            filename: "native.bin",
+            content,
+            contentType: "application/octet-stream",
+            inline: false,
+            contentId: "",
+          },
+        ],
+      }),
+      baseConfig,
+    );
+
+    assert.equal(result.attachments?.[0]?.content, "native-base64");
+  });
 });
 
 describe("generateIdempotencyKey", () => {

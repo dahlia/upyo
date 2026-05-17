@@ -118,7 +118,7 @@ export function createLettermintConfig(
 ): ResolvedLettermintConfig {
   return {
     apiToken: config.apiToken,
-    baseUrl: config.baseUrl ?? "https://api.lettermint.co",
+    baseUrl: normalizeBaseUrl(config.baseUrl ?? "https://api.lettermint.co"),
     timeout: config.timeout ?? 30000,
     retries: config.retries ?? 3,
     headers: config.headers ?? {},
@@ -127,4 +127,8 @@ export function createLettermintConfig(
     metadata: config.metadata == null ? undefined : { ...config.metadata },
     settings: config.settings == null ? undefined : { ...config.settings },
   };
+}
+
+function normalizeBaseUrl(baseUrl: string): string {
+  return baseUrl.replace(/\/+$/, "");
 }

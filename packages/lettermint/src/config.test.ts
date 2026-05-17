@@ -63,4 +63,13 @@ describe("createLettermintConfig", () => {
     assert.equal(resolved.timeout, 0);
     assert.equal(resolved.retries, 0);
   });
+
+  it("normalizes trailing slashes from the base URL", () => {
+    const resolved = createLettermintConfig({
+      apiToken: "test-token",
+      baseUrl: "https://lettermint.example.com///",
+    });
+
+    assert.equal(resolved.baseUrl, "https://lettermint.example.com");
+  });
 });

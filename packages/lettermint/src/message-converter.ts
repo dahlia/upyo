@@ -164,6 +164,15 @@ type MutableLettermintEmail = {
   -readonly [Key in keyof LettermintEmail]: LettermintEmail[Key];
 };
 
+interface Base64Uint8Array extends Uint8Array {
+  toBase64(options?: Base64Options): string;
+}
+
+interface Base64Options {
+  readonly alphabet?: "base64" | "base64url";
+  readonly omitPadding?: boolean;
+}
+
 function convertSettings(
   config: ResolvedLettermintConfig,
 ): LettermintSettingsPayload | undefined {
@@ -219,6 +228,10 @@ async function convertAttachment(
 }
 
 function uint8ArrayToBase64(bytes: Uint8Array): string {
+  if (hasNativeToBase64(bytes)) {
+    return bytes.toBase64();
+  }
+
   const chunkSize = 0x8000;
   const chunks: string[] = [];
 
@@ -229,6 +242,11 @@ function uint8ArrayToBase64(bytes: Uint8Array): string {
   }
 
   return btoa(chunks.join(""));
+}
+
+function hasNativeToBase64(bytes: Uint8Array): bytes is Base64Uint8Array {
+  const candidate: Uint8Array & { readonly toBase64?: unknown } = bytes;
+  return typeof candidate.toBase64 === "function";
 }
 
 function isStandardHeader(headerName: string): boolean {
