@@ -52,6 +52,23 @@ describe("convertMessage", () => {
     ]);
   });
 
+  it("escapes backslashes in address display names", async () => {
+    const result = await convertMessage(
+      createBaseMessage({
+        sender: {
+          address: "sender@example.com",
+          name: String.raw`Sender \ "Name"`,
+        },
+      }),
+      baseConfig,
+    );
+
+    assert.equal(
+      result.from,
+      String.raw`"Sender \\ \"Name\"" <sender@example.com>`,
+    );
+  });
+
   it("converts HTML content with text alternative", async () => {
     const result = await convertMessage(
       createBaseMessage({

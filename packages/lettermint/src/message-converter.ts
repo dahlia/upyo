@@ -1,6 +1,21 @@
 import type { Address, Attachment, Message } from "@upyo/core";
 import type { ResolvedLettermintConfig } from "./config.ts";
 
+const STANDARD_HEADERS = new Set([
+  "from",
+  "to",
+  "cc",
+  "bcc",
+  "reply-to",
+  "subject",
+  "date",
+  "message-id",
+  "content-type",
+  "content-transfer-encoding",
+  "mime-version",
+  "x-priority",
+]);
+
 /**
  * Lettermint attachment object structure.
  *
@@ -172,7 +187,10 @@ function convertSettings(
 
 function formatAddress(address: Address): string {
   if (address.name) {
-    const escapedName = address.name.replace(/"/g, '\\"');
+    const escapedName = address.name.replace(/\\/g, "\\\\").replace(
+      /"/g,
+      '\\"',
+    );
     return `"${escapedName}" <${address.address}>`;
   }
   return address.address;
@@ -221,22 +239,7 @@ function uint8ArrayToBase64(bytes: Uint8Array): string {
 }
 
 function isStandardHeader(headerName: string): boolean {
-  const standardHeaders = new Set([
-    "from",
-    "to",
-    "cc",
-    "bcc",
-    "reply-to",
-    "subject",
-    "date",
-    "message-id",
-    "content-type",
-    "content-transfer-encoding",
-    "mime-version",
-    "x-priority",
-  ]);
-
-  return standardHeaders.has(headerName.toLowerCase());
+  return STANDARD_HEADERS.has(headerName.toLowerCase());
 }
 
 /**

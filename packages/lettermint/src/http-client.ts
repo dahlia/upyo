@@ -191,7 +191,8 @@ export class LettermintHttpClient {
         if (
           error instanceof LettermintApiError &&
           error.statusCode >= 400 &&
-          error.statusCode < 500
+          error.statusCode < 500 &&
+          error.statusCode !== 429
         ) {
           throw error;
         }

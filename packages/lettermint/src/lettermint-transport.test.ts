@@ -209,6 +209,43 @@ describe("LettermintTransport - send", { concurrency: false }, () => {
       },
     );
   });
+
+  it("retries 429 rate limit responses", async () => {
+    let calls = 0;
+
+    await withMockedFetch(
+      () => {
+        calls++;
+        if (calls === 1) {
+          return Promise.resolve(
+            new Response(
+              JSON.stringify({ message: "Too many requests" }),
+              { status: 429, headers: { "Content-Type": "application/json" } },
+            ),
+          );
+        }
+        return Promise.resolve(
+          new Response(
+            JSON.stringify({ message_id: "msg_rate_limit", status: "pending" }),
+            { status: 202, headers: { "Content-Type": "application/json" } },
+          ),
+        );
+      },
+      async () => {
+        const transport = new LettermintTransport({
+          apiToken: "test-token",
+          retries: 1,
+        });
+        const receipt = await transport.send(createMessage());
+
+        assert.equal(calls, 2);
+        assert.equal(receipt.successful, true);
+        if (receipt.successful) {
+          assert.equal(receipt.messageId, "msg_rate_limit");
+        }
+      },
+    );
+  });
 });
 
 describe("LettermintTransport - sendMany", { concurrency: false }, () => {

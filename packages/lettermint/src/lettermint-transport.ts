@@ -95,29 +95,16 @@ export class LettermintTransport implements Transport {
   ): AsyncIterable<Receipt> {
     options?.signal?.throwIfAborted();
 
-    if (Symbol.asyncIterator in messages) {
-      let chunk: Message[] = [];
-      for await (const message of messages as AsyncIterable<Message>) {
-        options?.signal?.throwIfAborted();
-        chunk.push(message);
-        if (chunk.length === MAX_BATCH_SIZE) {
-          yield* this.sendBatch(chunk, options);
-          chunk = [];
-        }
+    let chunk: Message[] = [];
+    for await (const message of messages) {
+      options?.signal?.throwIfAborted();
+      chunk.push(message);
+      if (chunk.length === MAX_BATCH_SIZE) {
+        yield* this.sendBatch(chunk, options);
+        chunk = [];
       }
-      yield* this.sendBatch(chunk, options);
-    } else {
-      let chunk: Message[] = [];
-      for (const message of messages as Iterable<Message>) {
-        options?.signal?.throwIfAborted();
-        chunk.push(message);
-        if (chunk.length === MAX_BATCH_SIZE) {
-          yield* this.sendBatch(chunk, options);
-          chunk = [];
-        }
-      }
-      yield* this.sendBatch(chunk, options);
     }
+    yield* this.sendBatch(chunk, options);
   }
 
   private async *sendBatch(
