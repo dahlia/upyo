@@ -251,8 +251,8 @@ function isStandardHeader(headerName: string): boolean {
  * @since 0.5.0
  */
 export function generateIdempotencyKey(): string {
-  if (typeof crypto.randomUUID === "function") {
-    return crypto.randomUUID();
+  if (typeof globalThis.crypto?.randomUUID === "function") {
+    return globalThis.crypto.randomUUID();
   }
 
   const timestamp = Date.now().toString(36);

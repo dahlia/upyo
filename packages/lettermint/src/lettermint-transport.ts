@@ -62,7 +62,7 @@ export class LettermintTransport implements Transport {
       options?.signal?.throwIfAborted();
 
       const emailData = await convertMessage(message, this.config);
-      const idempotencyKey = message.idempotencyKey ?? generateIdempotencyKey();
+      const idempotencyKey = normalizeIdempotencyKey(message.idempotencyKey);
 
       options?.signal?.throwIfAborted();
 
@@ -118,8 +118,9 @@ export class LettermintTransport implements Transport {
     if (messages.length === 0) return;
 
     try {
-      const idempotencyKey = messages[0]?.idempotencyKey ??
-        generateIdempotencyKey();
+      const idempotencyKey = normalizeIdempotencyKey(
+        messages[0]?.idempotencyKey,
+      );
       const batchData: LettermintEmail[] = [];
       const receipts: (Receipt | undefined)[] = [];
 
@@ -189,4 +190,10 @@ export class LettermintTransport implements Transport {
       }
     }
   }
+}
+
+function normalizeIdempotencyKey(idempotencyKey: string | undefined): string {
+  return idempotencyKey != null && idempotencyKey !== ""
+    ? idempotencyKey
+    : generateIdempotencyKey();
 }

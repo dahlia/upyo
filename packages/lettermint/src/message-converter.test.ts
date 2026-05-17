@@ -239,4 +239,23 @@ describe("generateIdempotencyKey", () => {
     const key = generateIdempotencyKey();
     assert.ok(key.length > 10);
   });
+
+  it("falls back when global crypto is unavailable", () => {
+    const descriptor = Object.getOwnPropertyDescriptor(globalThis, "crypto");
+
+    Object.defineProperty(globalThis, "crypto", {
+      value: undefined,
+      configurable: true,
+    });
+    try {
+      const key = generateIdempotencyKey();
+      assert.ok(key.length > 10);
+    } finally {
+      if (descriptor == null) {
+        delete (globalThis as { crypto?: Crypto }).crypto;
+      } else {
+        Object.defineProperty(globalThis, "crypto", descriptor);
+      }
+    }
+  });
 });

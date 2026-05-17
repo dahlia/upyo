@@ -171,6 +171,30 @@ describe("LettermintTransport - send", { concurrency: false }, () => {
     );
   });
 
+  it("generates an idempotency key when the provided key is empty", async () => {
+    let capturedHeaders = new Headers();
+
+    await withMockedFetch(
+      (_url, init) => {
+        capturedHeaders = new Headers(init?.headers);
+        return Promise.resolve(
+          new Response(
+            JSON.stringify({ message_id: "msg_123", status: "pending" }),
+            { status: 202, headers: { "Content-Type": "application/json" } },
+          ),
+        );
+      },
+      async () => {
+        const transport = new LettermintTransport({ apiToken: "test-token" });
+        await transport.send(createMessage({ idempotencyKey: "" }));
+
+        const idempotencyKey = capturedHeaders.get("Idempotency-Key");
+        assert.ok(idempotencyKey);
+        assert.notEqual(idempotencyKey, "");
+      },
+    );
+  });
+
   it("retries request timeouts from the transport config", async () => {
     let calls = 0;
 
@@ -450,6 +474,42 @@ describe("LettermintTransport - sendMany", { concurrency: false }, () => {
           assert.equal(receipts[0].messageId, "msg_1");
           assert.equal(receipts[1].messageId, "msg_2");
         }
+      },
+    );
+  });
+
+  it("generates a batch idempotency key when the first key is empty", async () => {
+    let capturedHeaders = new Headers();
+
+    await withMockedFetch(
+      (_url, init) => {
+        capturedHeaders = new Headers(init?.headers);
+        return Promise.resolve(
+          new Response(
+            JSON.stringify([
+              { message_id: "msg_1", status: "pending" },
+              { message_id: "msg_2", status: "pending" },
+            ]),
+            { status: 202, headers: { "Content-Type": "application/json" } },
+          ),
+        );
+      },
+      async () => {
+        const transport = new LettermintTransport({ apiToken: "test-token" });
+        const receipts: Receipt[] = [];
+        for await (
+          const receipt of transport.sendMany([
+            createMessage({ idempotencyKey: "" }),
+            createMessage(),
+          ])
+        ) {
+          receipts.push(receipt);
+        }
+
+        const idempotencyKey = capturedHeaders.get("Idempotency-Key");
+        assert.ok(idempotencyKey);
+        assert.notEqual(idempotencyKey, "");
+        assert.ok(receipts.every((receipt) => receipt.successful));
       },
     );
   });
