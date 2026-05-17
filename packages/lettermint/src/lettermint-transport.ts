@@ -2,7 +2,11 @@ import type { Message, Receipt, Transport, TransportOptions } from "@upyo/core";
 import type { LettermintConfig, ResolvedLettermintConfig } from "./config.ts";
 import { createLettermintConfig } from "./config.ts";
 import { LettermintHttpClient } from "./http-client.ts";
-import { convertMessage, generateIdempotencyKey } from "./message-converter.ts";
+import {
+  convertMessage,
+  generateIdempotencyKey,
+  type LettermintEmail,
+} from "./message-converter.ts";
 
 const MAX_BATCH_SIZE = 500;
 
@@ -116,9 +120,29 @@ export class LettermintTransport implements Transport {
     try {
       const idempotencyKey = messages[0]?.idempotencyKey ??
         generateIdempotencyKey();
-      const batchData = await Promise.all(
-        messages.map((message) => convertMessage(message, this.config)),
-      );
+      const batchData: LettermintEmail[] = [];
+      const receipts: (Receipt | undefined)[] = [];
+
+      for (const message of messages) {
+        try {
+          batchData.push(await convertMessage(message, this.config));
+          receipts.push(undefined);
+        } catch (error) {
+          receipts.push({
+            successful: false,
+            errorMessages: [
+              error instanceof Error ? error.message : String(error),
+            ],
+          });
+        }
+      }
+
+      if (batchData.length === 0) {
+        for (const receipt of receipts) {
+          if (receipt !== undefined) yield receipt;
+        }
+        return;
+      }
 
       options?.signal?.throwIfAborted();
 
@@ -128,21 +152,30 @@ export class LettermintTransport implements Transport {
         idempotencyKey,
       );
 
-      for (let index = 0; index < messages.length; index++) {
-        const result = response[index];
+      let responseIndex = 0;
+      for (let index = 0; index < receipts.length; index++) {
+        const receipt = receipts[index];
+        if (receipt !== undefined) {
+          yield receipt;
+          continue;
+        }
+
+        const result = response[responseIndex++];
+        let responseReceipt: Receipt;
         if (result?.message_id) {
-          yield {
+          responseReceipt = {
             successful: true,
             messageId: result.message_id,
           };
         } else {
-          yield {
+          responseReceipt = {
             successful: false,
             errorMessages: [
               "Lettermint batch response is missing a message ID.",
             ],
           };
         }
+        yield responseReceipt;
       }
     } catch (error) {
       const errorMessage = error instanceof Error

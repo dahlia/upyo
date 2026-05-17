@@ -246,7 +246,7 @@ export class LettermintHttpClient {
         method: "POST",
         headers,
         body: JSON.stringify(body),
-        signal: requestSignal,
+        signal: requestSignal.signal,
       });
     } catch (error) {
       if (
@@ -259,6 +259,7 @@ export class LettermintHttpClient {
       }
       throw error;
     } finally {
+      requestSignal.cleanup();
       if (timeoutId !== undefined) {
         clearTimeout(timeoutId);
       }
@@ -285,15 +286,43 @@ function parseErrorMessage(text: string, statusCode: number): string {
   return text || `HTTP ${statusCode}`;
 }
 
+interface CombinedSignal {
+  readonly signal: AbortSignal;
+  cleanup(): void;
+}
+
 function combineSignals(
   timeoutSignal: AbortSignal,
   externalSignal?: AbortSignal,
-): AbortSignal {
+): CombinedSignal {
   if (externalSignal == null) {
-    return timeoutSignal;
+    return { signal: timeoutSignal, cleanup: () => {} };
   }
 
-  return AbortSignal.any([timeoutSignal, externalSignal]);
+  if (typeof AbortSignal.any === "function") {
+    return {
+      signal: AbortSignal.any([timeoutSignal, externalSignal]),
+      cleanup: () => {},
+    };
+  }
+
+  const controller = new AbortController();
+  const abort = () => controller.abort();
+
+  timeoutSignal.addEventListener("abort", abort, { once: true });
+  externalSignal.addEventListener("abort", abort, { once: true });
+
+  if (timeoutSignal.aborted || externalSignal.aborted) {
+    controller.abort();
+  }
+
+  return {
+    signal: controller.signal,
+    cleanup: () => {
+      timeoutSignal.removeEventListener("abort", abort);
+      externalSignal.removeEventListener("abort", abort);
+    },
+  };
 }
 
 function sleep(ms: number, signal?: AbortSignal): Promise<void> {

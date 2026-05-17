@@ -314,6 +314,76 @@ describe("LettermintTransport - send", { concurrency: false }, () => {
       },
     );
   });
+
+  it("falls back when AbortSignal.any is unavailable", async () => {
+    const originalAny = AbortSignal.any;
+    let addedAbortListeners = 0;
+    let removedAbortListeners = 0;
+    const controller = new AbortController();
+    const addEventListener = controller.signal.addEventListener.bind(
+      controller.signal,
+    );
+    const removeEventListener = controller.signal.removeEventListener.bind(
+      controller.signal,
+    );
+
+    Object.defineProperty(controller.signal, "addEventListener", {
+      value: (
+        type: string,
+        listener: EventListenerOrEventListenerObject,
+        options?: boolean | AddEventListenerOptions,
+      ) => {
+        if (type === "abort") addedAbortListeners++;
+        addEventListener(type, listener, options);
+      },
+    });
+    Object.defineProperty(controller.signal, "removeEventListener", {
+      value: (
+        type: string,
+        listener: EventListenerOrEventListenerObject,
+        options?: boolean | EventListenerOptions,
+      ) => {
+        if (type === "abort") removedAbortListeners++;
+        removeEventListener(type, listener, options);
+      },
+    });
+
+    await withMockedFetch(
+      () =>
+        Promise.resolve(
+          new Response(
+            JSON.stringify({ message_id: "msg_fallback", status: "pending" }),
+            { status: 202, headers: { "Content-Type": "application/json" } },
+          ),
+        ),
+      async () => {
+        Object.defineProperty(AbortSignal, "any", {
+          value: undefined,
+          configurable: true,
+          writable: true,
+        });
+        try {
+          const transport = new LettermintTransport({
+            apiToken: "test-token",
+          });
+          const receipt = await transport.send(
+            createMessage(),
+            { signal: controller.signal },
+          );
+
+          assert.equal(receipt.successful, true);
+          assert.ok(addedAbortListeners > 0);
+          assert.equal(removedAbortListeners, addedAbortListeners);
+        } finally {
+          Object.defineProperty(AbortSignal, "any", {
+            value: originalAny,
+            configurable: true,
+            writable: true,
+          });
+        }
+      },
+    );
+  });
 });
 
 describe("LettermintTransport - sendMany", { concurrency: false }, () => {
@@ -479,6 +549,73 @@ describe("LettermintTransport - sendMany", { concurrency: false }, () => {
     }
 
     assert.equal(receipts.length, 0);
+  });
+
+  it("returns per-message failures for batch conversion errors", async () => {
+    let capturedBody: unknown;
+
+    await withMockedFetch(
+      (_url, init) => {
+        capturedBody = JSON.parse(String(init?.body));
+        return Promise.resolve(
+          new Response(
+            JSON.stringify([
+              { message_id: "msg_1", status: "pending" },
+              { message_id: "msg_2", status: "pending" },
+            ]),
+            { status: 202, headers: { "Content-Type": "application/json" } },
+          ),
+        );
+      },
+      async () => {
+        const transport = new LettermintTransport({ apiToken: "test-token" });
+        const receipts: Receipt[] = [];
+        for await (
+          const receipt of transport.sendMany([
+            createMessage({
+              recipients: [{ address: "one@example.com" }],
+            }),
+            createMessage({
+              recipients: [{ address: "bad@example.com" }],
+              tags: ["one", "two"],
+            }),
+            createMessage({
+              recipients: [{ address: "two@example.com" }],
+            }),
+          ])
+        ) {
+          receipts.push(receipt);
+        }
+
+        assert.deepEqual(capturedBody, [
+          {
+            from: "sender@example.com",
+            to: ["one@example.com"],
+            subject: "Test Subject",
+            text: "Test content",
+          },
+          {
+            from: "sender@example.com",
+            to: ["two@example.com"],
+            subject: "Test Subject",
+            text: "Test content",
+          },
+        ]);
+        assert.equal(receipts.length, 3);
+        assert.equal(receipts[0].successful, true);
+        assert.equal(receipts[1].successful, false);
+        assert.equal(receipts[2].successful, true);
+        if (receipts[0].successful && receipts[2].successful) {
+          assert.equal(receipts[0].messageId, "msg_1");
+          assert.equal(receipts[2].messageId, "msg_2");
+        }
+        if (!receipts[1].successful) {
+          assert.deepEqual(receipts[1].errorMessages, [
+            "Lettermint supports at most one tag per message.",
+          ]);
+        }
+      },
+    );
   });
 
   it("returns one failed receipt per message when a batch fails", async () => {
