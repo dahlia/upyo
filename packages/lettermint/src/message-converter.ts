@@ -164,13 +164,13 @@ type MutableLettermintEmail = {
   -readonly [Key in keyof LettermintEmail]: LettermintEmail[Key];
 };
 
-interface Base64Uint8Array extends Uint8Array {
-  toBase64(options?: Base64Options): string;
-}
-
 interface Base64Options {
   readonly alphabet?: "base64" | "base64url";
   readonly omitPadding?: boolean;
+}
+
+interface NativeBase64Converter {
+  toBase64?: (options?: Base64Options) => string;
 }
 
 function convertSettings(
@@ -228,8 +228,9 @@ async function convertAttachment(
 }
 
 function uint8ArrayToBase64(bytes: Uint8Array): string {
-  if (hasNativeToBase64(bytes)) {
-    return bytes.toBase64();
+  const nativeToBase64 = getNativeToBase64(bytes);
+  if (nativeToBase64 != null) {
+    return nativeToBase64();
   }
 
   const chunkSize = 0x8000;
@@ -244,9 +245,13 @@ function uint8ArrayToBase64(bytes: Uint8Array): string {
   return btoa(chunks.join(""));
 }
 
-function hasNativeToBase64(bytes: Uint8Array): bytes is Base64Uint8Array {
-  const candidate: Uint8Array & { readonly toBase64?: unknown } = bytes;
-  return typeof candidate.toBase64 === "function";
+function getNativeToBase64(
+  bytes: Uint8Array,
+): (() => string) | undefined {
+  const candidate: Uint8Array & NativeBase64Converter = bytes;
+  const toBase64 = candidate.toBase64;
+  if (typeof toBase64 !== "function") return undefined;
+  return () => toBase64.call(bytes);
 }
 
 function isStandardHeader(headerName: string): boolean {
