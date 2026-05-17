@@ -147,6 +147,34 @@ describe("LettermintTransport - send", { concurrency: false }, () => {
     );
   });
 
+  it("returns failure receipts for non-delivery statuses", async () => {
+    await withMockedFetch(
+      () =>
+        Promise.resolve(
+          new Response(
+            JSON.stringify({
+              message_id: "msg_rejected",
+              status: "policy_rejected",
+            }),
+            { status: 202, headers: { "Content-Type": "application/json" } },
+          ),
+        ),
+      async () => {
+        const transport = new LettermintTransport({
+          apiToken: "test-token",
+        });
+        const receipt = await transport.send(createMessage());
+
+        assert.equal(receipt.successful, false);
+        if (!receipt.successful) {
+          assert.deepEqual(receipt.errorMessages, [
+            'Lettermint reported message status "policy_rejected".',
+          ]);
+        }
+      },
+    );
+  });
+
   it("generates an idempotency key when not provided", async () => {
     let capturedHeaders = new Headers();
 
@@ -672,6 +700,51 @@ describe("LettermintTransport - sendMany", { concurrency: false }, () => {
         if (!receipts[1].successful) {
           assert.deepEqual(receipts[1].errorMessages, [
             "Lettermint supports at most one tag per message.",
+          ]);
+        }
+      },
+    );
+  });
+
+  it("returns per-message failures for batch non-delivery statuses", async () => {
+    await withMockedFetch(
+      () =>
+        Promise.resolve(
+          new Response(
+            JSON.stringify([
+              { message_id: "msg_1", status: "queued" },
+              { message_id: "msg_2", status: "suppressed" },
+              { message_id: "msg_3", status: "failed" },
+            ]),
+            { status: 202, headers: { "Content-Type": "application/json" } },
+          ),
+        ),
+      async () => {
+        const transport = new LettermintTransport({ apiToken: "test-token" });
+        const receipts: Receipt[] = [];
+        for await (
+          const receipt of transport.sendMany([
+            createMessage({ recipients: [{ address: "one@example.com" }] }),
+            createMessage({ recipients: [{ address: "two@example.com" }] }),
+            createMessage({ recipients: [{ address: "three@example.com" }] }),
+          ])
+        ) {
+          receipts.push(receipt);
+        }
+
+        assert.equal(receipts.length, 3);
+        assert.equal(receipts[0].successful, true);
+        assert.equal(receipts[1].successful, false);
+        assert.equal(receipts[2].successful, false);
+        if (receipts[0].successful) {
+          assert.equal(receipts[0].messageId, "msg_1");
+        }
+        if (!receipts[1].successful && !receipts[2].successful) {
+          assert.deepEqual(receipts[1].errorMessages, [
+            'Lettermint reported message status "suppressed".',
+          ]);
+          assert.deepEqual(receipts[2].errorMessages, [
+            'Lettermint reported message status "failed".',
           ]);
         }
       },

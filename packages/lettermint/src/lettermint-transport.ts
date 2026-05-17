@@ -1,7 +1,11 @@
 import type { Message, Receipt, Transport, TransportOptions } from "@upyo/core";
 import type { LettermintConfig, ResolvedLettermintConfig } from "./config.ts";
 import { createLettermintConfig } from "./config.ts";
-import { LettermintHttpClient } from "./http-client.ts";
+import {
+  LettermintHttpClient,
+  type LettermintResponse,
+  type LettermintStatus,
+} from "./http-client.ts";
 import {
   convertMessage,
   generateIdempotencyKey,
@@ -72,10 +76,7 @@ export class LettermintTransport implements Transport {
         idempotencyKey,
       );
 
-      return {
-        successful: true,
-        messageId: response.message_id,
-      };
+      return responseToReceipt(response);
     } catch (error) {
       return {
         successful: false,
@@ -162,21 +163,7 @@ export class LettermintTransport implements Transport {
         }
 
         const result = response[responseIndex++];
-        let responseReceipt: Receipt;
-        if (result?.message_id) {
-          responseReceipt = {
-            successful: true,
-            messageId: result.message_id,
-          };
-        } else {
-          responseReceipt = {
-            successful: false,
-            errorMessages: [
-              "Lettermint batch response is missing a message ID.",
-            ],
-          };
-        }
-        yield responseReceipt;
+        yield responseToReceipt(result);
       }
     } catch (error) {
       const errorMessage = error instanceof Error
@@ -196,4 +183,48 @@ function normalizeIdempotencyKey(idempotencyKey: string | undefined): string {
   return idempotencyKey != null && idempotencyKey !== ""
     ? idempotencyKey
     : generateIdempotencyKey();
+}
+
+function responseToReceipt(response: LettermintResponse | undefined): Receipt {
+  if (response?.message_id == null || response.message_id === "") {
+    return {
+      successful: false,
+      errorMessages: ["Lettermint response is missing a message ID."],
+    };
+  }
+
+  if (isSuccessfulStatus(response.status)) {
+    return {
+      successful: true,
+      messageId: response.message_id,
+    };
+  }
+
+  return {
+    successful: false,
+    errorMessages: [
+      `Lettermint reported message status "${response.status}".`,
+    ],
+  };
+}
+
+function isSuccessfulStatus(status: LettermintStatus): boolean {
+  switch (status) {
+    case "pending":
+    case "queued":
+    case "processed":
+    case "delivered":
+    case "opened":
+    case "clicked":
+      return true;
+    case "suppressed":
+    case "soft_bounced":
+    case "hard_bounced":
+    case "spam_complaint":
+    case "failed":
+    case "blocked":
+    case "policy_rejected":
+    case "unsubscribed":
+      return false;
+  }
 }
