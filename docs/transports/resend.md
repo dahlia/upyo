@@ -141,8 +141,8 @@ The transport automatically determines the optimal sending strategy:
     fastest delivery
  -  **>100 messages**: Automatically chunks into multiple batch requests
  -  **Messages with attachments or tags**: Falls back to individual requests
- -  **Mixed scenarios**: Intelligently separates batch-compatible from individual
-    messages
+ -  **Mixed scenarios**: Intelligently separates batch-compatible from
+    individual messages
 
 This optimization happens transparently, ensuring maximum performance while
 maintaining full feature compatibility.

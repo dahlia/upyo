@@ -67,8 +67,8 @@ Released on December 25, 2025. Happy Holidays!
 
 ### @upyo/resend
 
- -  Added support for user-provided idempotency keys via `Message.idempotencyKey`.
-    [[#16]]
+ -  Added support for user-provided idempotency keys via
+    `Message.idempotencyKey`. [[#16]]
 
     Each message can now include an `idempotencyKey` to ensure it is not sent
     multiple times during retries.  For batch operations via `sendMany()`, the

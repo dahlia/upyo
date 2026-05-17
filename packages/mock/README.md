@@ -19,7 +19,7 @@ functionality without actually sending emails.
 Features
 --------
 
- -  *Memory-based storage*: Stores "sent" messages in memory for verification
+ -  *Memory-based storage*: Stores “sent” messages in memory for verification
  -  *Configurable behavior*: Simulate delays, failures, and custom responses
  -  *Rich testing API*: Query, filter, and wait for messages in tests
  -  *Type-safe*: Full TypeScript support with readonly interfaces

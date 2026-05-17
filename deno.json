@@ -29,7 +29,7 @@
     ]
   },
   "tasks": {
-    "hongdown": "deno run -A npm:hongdown@^0.1.0-dev.28",
+    "hongdown": "deno run -A npm:hongdown@^0.3.11",
     "check-versions": "deno run --allow-read --allow-write scripts/check_versions.ts",
     "check": {
       "dependencies": [

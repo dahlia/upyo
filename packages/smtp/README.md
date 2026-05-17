@@ -165,7 +165,7 @@ const transport = new SmtpTransport({
 | `privateKey`       | `string \| CryptoKey`              |                     | Private key (PEM string or `CryptoKey`) |
 | `algorithm`        | `"rsa-sha256" \| "ed25519-sha256"` | `"rsa-sha256"`      | Signing algorithm                       |
 | `canonicalization` | `string`                           | `"relaxed/relaxed"` | Header/body canonicalization            |
-| `headerFields`     | `string[]`                         | From, To, ...       | Headers to sign                         |
+| `headerFields`     | `string[]`                         | From, To, …         | Headers to sign                         |
 
 
 Testing
