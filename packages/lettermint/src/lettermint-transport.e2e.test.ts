@@ -10,21 +10,41 @@ import {
 
 const describeE2E = isE2eTestingEnabled() ? describe : describe.skip;
 
-describeE2E("LettermintTransport E2E", () => {
+describeE2E("LettermintTransport E2E", { concurrency: false }, () => {
+  async function waitForRateLimit(): Promise<void> {
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+  }
+
+  function assertSuccessfulReceipt(
+    receipt: Receipt,
+  ): asserts receipt is Receipt & {
+    readonly successful: true;
+    readonly messageId: string;
+  } {
+    assert.equal(
+      receipt.successful,
+      true,
+      receipt.successful ? undefined : receipt.errorMessages.join(", "),
+    );
+    assert.ok(receipt.messageId);
+  }
+
   it("sends a simple text email", async () => {
+    await waitForRateLimit();
+
     const transport = new LettermintTransport(getTestConfig().lettermint);
     const receipt = await transport.send(createTestMessage({
       subject: "[E2E] Lettermint text email",
       content: { text: "This is a Lettermint E2E test email." },
     }));
 
-    assert.equal(receipt.successful, true);
-    if (receipt.successful) {
-      assert.ok(receipt.messageId);
-    }
+    assertSuccessfulReceipt(receipt);
+    console.log(`Sent Lettermint text email with ID: ${receipt.messageId}`);
   });
 
   it("sends an HTML email", async () => {
+    await waitForRateLimit();
+
     const transport = new LettermintTransport(getTestConfig().lettermint);
     const receipt = await transport.send(createTestMessage({
       subject: "[E2E] Lettermint HTML email",
@@ -34,13 +54,39 @@ describeE2E("LettermintTransport E2E", () => {
       },
     }));
 
-    assert.equal(receipt.successful, true);
-    if (receipt.successful) {
-      assert.ok(receipt.messageId);
-    }
+    assertSuccessfulReceipt(receipt);
+    console.log(`Sent Lettermint HTML email with ID: ${receipt.messageId}`);
+  });
+
+  it("sends an email with an attachment", async () => {
+    await waitForRateLimit();
+
+    const transport = new LettermintTransport(getTestConfig().lettermint);
+    const receipt = await transport.send(createTestMessage({
+      subject: "[E2E] Lettermint attachment email",
+      content: { text: "This Lettermint E2E test email has an attachment." },
+      attachments: [
+        {
+          filename: "lettermint-e2e.txt",
+          contentType: "text/plain",
+          content: new TextEncoder().encode(
+            "This attachment was sent by the Upyo Lettermint E2E test.",
+          ),
+          inline: false,
+          contentId: "",
+        },
+      ],
+    }));
+
+    assertSuccessfulReceipt(receipt);
+    console.log(
+      `Sent Lettermint attachment email with ID: ${receipt.messageId}`,
+    );
   });
 
   it("sends multiple emails with sendMany", async () => {
+    await waitForRateLimit();
+
     const transport = new LettermintTransport(getTestConfig().lettermint);
     const receipts: Receipt[] = [];
 
@@ -58,6 +104,15 @@ describeE2E("LettermintTransport E2E", () => {
     }
 
     assert.equal(receipts.length, 2);
-    assert.ok(receipts.every((receipt) => receipt.successful));
+    for (const receipt of receipts) {
+      assertSuccessfulReceipt(receipt);
+    }
+    console.log(
+      `Sent Lettermint batch emails with IDs: ${
+        receipts.map((receipt) =>
+          receipt.successful ? receipt.messageId : "failed"
+        ).join(", ")
+      }`,
+    );
   });
 });
