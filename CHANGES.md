@@ -6,6 +6,26 @@ Version 0.5.0
 
 To be released.
 
+### @upyo/lettermint
+
+ -  Added [Lettermint] transport.  [[#22], [#23]]
+
+     -  Added `LettermintTransport` class.
+     -  Added `LettermintConfig` interface.
+     -  Added `ResolvedLettermintConfig` type.
+     -  Added `LettermintSettings` interface.
+     -  Added `LettermintApiError` class.
+     -  Added `LettermintBatchResponse` type.
+     -  Added `LettermintError` interface.
+     -  Added `LettermintResponse` interface.
+     -  Added `LettermintStatus` type.
+     -  Supports single sends, batch sends, idempotency keys, attachments,
+        inline images, routes, tags, metadata, and tracking settings.
+
+[Lettermint]: https://lettermint.co/
+[#22]: https://github.com/dahlia/upyo/issues/22
+[#23]: https://github.com/dahlia/upyo/pull/23
+
 
 Version 0.4.0
 -------------

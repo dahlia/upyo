@@ -9,6 +9,7 @@
     "@types/node": "^24.0.13",
     "@upyo/core": "workspace:",
     "@upyo/jmap": "workspace:",
+    "@upyo/lettermint": "workspace:",
     "@upyo/mailgun": "workspace:",
     "@upyo/mock": "workspace:",
     "@upyo/opentelemetry": "workspace:",

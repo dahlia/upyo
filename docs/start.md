@@ -53,6 +53,10 @@ strengths and use cases:
 [Mailgun](./transports/mailgun.md)
 :   HTTP API service with advanced features and analytics
 
+[Lettermint](./transports/lettermint.md)
+:   Transactional email API with routes, metadata, idempotency, and batch
+    sending
+
 [Resend](./transports/resend.md)
 :   Modern email service provider that offers a developer-friendly API
 
