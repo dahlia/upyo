@@ -221,7 +221,7 @@ async function convertAttachment(
 function uint8ArrayToBase64(bytes: Uint8Array): string {
   const chars =
     "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
-  let result = "";
+  const result: string[] = [];
 
   for (let i = 0; i < bytes.length; i += 3) {
     const a = bytes[i];
@@ -229,13 +229,15 @@ function uint8ArrayToBase64(bytes: Uint8Array): string {
     const c = i + 2 < bytes.length ? bytes[i + 2] : 0;
     const bitmap = (a << 16) | (b << 8) | c;
 
-    result += chars.charAt((bitmap >> 18) & 63);
-    result += chars.charAt((bitmap >> 12) & 63);
-    result += i + 1 < bytes.length ? chars.charAt((bitmap >> 6) & 63) : "=";
-    result += i + 2 < bytes.length ? chars.charAt(bitmap & 63) : "=";
+    result.push(chars.charAt((bitmap >> 18) & 63));
+    result.push(chars.charAt((bitmap >> 12) & 63));
+    result.push(
+      i + 1 < bytes.length ? chars.charAt((bitmap >> 6) & 63) : "=",
+    );
+    result.push(i + 2 < bytes.length ? chars.charAt(bitmap & 63) : "=");
   }
 
-  return result;
+  return result.join("");
 }
 
 function isStandardHeader(headerName: string): boolean {
