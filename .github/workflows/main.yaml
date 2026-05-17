@@ -39,6 +39,9 @@ jobs:
       SENDGRID_API_KEY: ${{ secrets.SENDGRID_API_KEY }}
       SENDGRID_FROM: ${{ secrets.SENDGRID_FROM }}
       SENDGRID_TO: ${{ secrets.SENDGRID_TO }}
+      LETTERMINT_API_TOKEN: ${{ secrets.LETTERMINT_API_TOKEN }}
+      LETTERMINT_FROM: ${{ secrets.LETTERMINT_FROM }}
+      LETTERMINT_TO: ${{ secrets.LETTERMINT_TO }}
     steps:
     - uses: actions/checkout@v4
     - uses: actions/setup-node@v4
@@ -91,6 +94,9 @@ jobs:
       SENDGRID_API_KEY: ${{ secrets.SENDGRID_API_KEY }}
       SENDGRID_FROM: ${{ secrets.SENDGRID_FROM }}
       SENDGRID_TO: ${{ secrets.SENDGRID_TO }}
+      LETTERMINT_API_TOKEN: ${{ secrets.LETTERMINT_API_TOKEN }}
+      LETTERMINT_FROM: ${{ secrets.LETTERMINT_FROM }}
+      LETTERMINT_TO: ${{ secrets.LETTERMINT_TO }}
     steps:
     - uses: actions/checkout@v4
     - uses: denoland/setup-deno@v2
@@ -148,6 +154,9 @@ jobs:
       SENDGRID_API_KEY: ${{ secrets.SENDGRID_API_KEY }}
       SENDGRID_FROM: ${{ secrets.SENDGRID_FROM }}
       SENDGRID_TO: ${{ secrets.SENDGRID_TO }}
+      LETTERMINT_API_TOKEN: ${{ secrets.LETTERMINT_API_TOKEN }}
+      LETTERMINT_FROM: ${{ secrets.LETTERMINT_FROM }}
+      LETTERMINT_TO: ${{ secrets.LETTERMINT_TO }}
     steps:
     - uses: actions/checkout@v4
     - uses: actions/setup-node@v4
