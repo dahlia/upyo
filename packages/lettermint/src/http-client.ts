@@ -188,12 +188,7 @@ export class LettermintHttpClient {
       } catch (error) {
         lastError = error instanceof Error ? error : new Error(String(error));
 
-        if (
-          error instanceof LettermintApiError &&
-          error.statusCode >= 400 &&
-          error.statusCode < 500 &&
-          error.statusCode !== 429
-        ) {
+        if (error instanceof LettermintApiError && !isRetryable(error)) {
           throw error;
         }
 
@@ -209,7 +204,7 @@ export class LettermintHttpClient {
           throw lastError;
         }
 
-        await sleep(Math.min(1000 * Math.pow(2, attempt), 10000), signal);
+        await sleep(calculateRetryDelay(attempt), signal);
       }
     }
 
@@ -265,6 +260,17 @@ export class LettermintHttpClient {
       }
     }
   }
+}
+
+function isRetryable(error: LettermintApiError): boolean {
+  if (error.statusCode === 408 || error.statusCode === 429) return true;
+  if (error.statusCode >= 500) return true;
+  return error.statusCode < 400;
+}
+
+function calculateRetryDelay(attempt: number): number {
+  const baseDelay = Math.min(1000 * Math.pow(2, attempt), 10000);
+  return Math.round(baseDelay / 2 + Math.random() * (baseDelay / 2));
 }
 
 function parseErrorMessage(text: string, statusCode: number): string {

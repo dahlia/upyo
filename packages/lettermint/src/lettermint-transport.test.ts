@@ -175,6 +175,18 @@ describe("LettermintTransport - send", { concurrency: false }, () => {
     );
   });
 
+  it("propagates AbortError for aborted sends", async () => {
+    const controller = new AbortController();
+    controller.abort();
+
+    const transport = new LettermintTransport({ apiToken: "test-token" });
+
+    await assert.rejects(
+      () => transport.send(createMessage(), { signal: controller.signal }),
+      { name: "AbortError" },
+    );
+  });
+
   it("generates an idempotency key when not provided", async () => {
     let capturedHeaders = new Headers();
 
@@ -294,6 +306,43 @@ describe("LettermintTransport - send", { concurrency: false }, () => {
         assert.equal(receipt.successful, true);
         if (receipt.successful) {
           assert.equal(receipt.messageId, "msg_rate_limit");
+        }
+      },
+    );
+  });
+
+  it("retries 408 timeout responses", async () => {
+    let calls = 0;
+
+    await withMockedFetch(
+      () => {
+        calls++;
+        if (calls === 1) {
+          return Promise.resolve(
+            new Response(
+              JSON.stringify({ message: "Request timeout" }),
+              { status: 408, headers: { "Content-Type": "application/json" } },
+            ),
+          );
+        }
+        return Promise.resolve(
+          new Response(
+            JSON.stringify({ message_id: "msg_timeout", status: "pending" }),
+            { status: 202, headers: { "Content-Type": "application/json" } },
+          ),
+        );
+      },
+      async () => {
+        const transport = new LettermintTransport({
+          apiToken: "test-token",
+          retries: 1,
+        });
+        const receipt = await transport.send(createMessage());
+
+        assert.equal(calls, 2);
+        assert.equal(receipt.successful, true);
+        if (receipt.successful) {
+          assert.equal(receipt.messageId, "msg_timeout");
         }
       },
     );
@@ -746,6 +795,53 @@ describe("LettermintTransport - sendMany", { concurrency: false }, () => {
           assert.deepEqual(receipts[2].errorMessages, [
             'Lettermint reported message status "failed".',
           ]);
+        }
+      },
+    );
+  });
+
+  it("preserves local batch failures when the request fails", async () => {
+    await withMockedFetch(
+      () =>
+        Promise.resolve(
+          new Response(
+            JSON.stringify({ message: "Batch rejected" }),
+            {
+              status: 422,
+              headers: { "Content-Type": "application/json" },
+            },
+          ),
+        ),
+      async () => {
+        const transport = new LettermintTransport({
+          apiToken: "test-token",
+          retries: 0,
+        });
+        const receipts: Receipt[] = [];
+        for await (
+          const receipt of transport.sendMany([
+            createMessage({ recipients: [{ address: "one@example.com" }] }),
+            createMessage({
+              recipients: [{ address: "bad@example.com" }],
+              tags: ["one", "two"],
+            }),
+            createMessage({ recipients: [{ address: "two@example.com" }] }),
+          ])
+        ) {
+          receipts.push(receipt);
+        }
+
+        assert.equal(receipts.length, 3);
+        assert.ok(receipts.every((receipt) => !receipt.successful));
+        if (
+          !receipts[0].successful && !receipts[1].successful &&
+          !receipts[2].successful
+        ) {
+          assert.deepEqual(receipts[0].errorMessages, ["Batch rejected"]);
+          assert.deepEqual(receipts[1].errorMessages, [
+            "Lettermint supports at most one tag per message.",
+          ]);
+          assert.deepEqual(receipts[2].errorMessages, ["Batch rejected"]);
         }
       },
     );

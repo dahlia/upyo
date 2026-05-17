@@ -78,6 +78,7 @@ export class LettermintTransport implements Transport {
 
       return responseToReceipt(response);
     } catch (error) {
+      if (isAbortError(error)) throw error;
       return {
         successful: false,
         errorMessages: [error instanceof Error ? error.message : String(error)],
@@ -118,34 +119,34 @@ export class LettermintTransport implements Transport {
   ): AsyncIterable<Receipt> {
     if (messages.length === 0) return;
 
+    const idempotencyKey = normalizeIdempotencyKey(
+      messages[0]?.idempotencyKey,
+    );
+    const batchData: LettermintEmail[] = [];
+    const receipts: (Receipt | undefined)[] = [];
+
+    for (const message of messages) {
+      try {
+        batchData.push(await convertMessage(message, this.config));
+        receipts.push(undefined);
+      } catch (error) {
+        receipts.push({
+          successful: false,
+          errorMessages: [
+            error instanceof Error ? error.message : String(error),
+          ],
+        });
+      }
+    }
+
+    if (batchData.length === 0) {
+      for (const receipt of receipts) {
+        if (receipt !== undefined) yield receipt;
+      }
+      return;
+    }
+
     try {
-      const idempotencyKey = normalizeIdempotencyKey(
-        messages[0]?.idempotencyKey,
-      );
-      const batchData: LettermintEmail[] = [];
-      const receipts: (Receipt | undefined)[] = [];
-
-      for (const message of messages) {
-        try {
-          batchData.push(await convertMessage(message, this.config));
-          receipts.push(undefined);
-        } catch (error) {
-          receipts.push({
-            successful: false,
-            errorMessages: [
-              error instanceof Error ? error.message : String(error),
-            ],
-          });
-        }
-      }
-
-      if (batchData.length === 0) {
-        for (const receipt of receipts) {
-          if (receipt !== undefined) yield receipt;
-        }
-        return;
-      }
-
       options?.signal?.throwIfAborted();
 
       const response = await this.httpClient.sendBatch(
@@ -166,10 +167,15 @@ export class LettermintTransport implements Transport {
         yield responseToReceipt(result);
       }
     } catch (error) {
+      if (isAbortError(error)) throw error;
       const errorMessage = error instanceof Error
         ? error.message
         : String(error);
-      for (let i = 0; i < messages.length; i++) {
+      for (const receipt of receipts) {
+        if (receipt !== undefined) {
+          yield receipt;
+          continue;
+        }
         yield {
           successful: false,
           errorMessages: [errorMessage],
@@ -227,4 +233,8 @@ function isSuccessfulStatus(status: LettermintStatus): boolean {
     case "unsubscribed":
       return false;
   }
+}
+
+function isAbortError(error: unknown): boolean {
+  return error instanceof Error && error.name === "AbortError";
 }

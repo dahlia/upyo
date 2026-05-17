@@ -219,25 +219,16 @@ async function convertAttachment(
 }
 
 function uint8ArrayToBase64(bytes: Uint8Array): string {
-  const chars =
-    "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
-  const result: string[] = [];
+  const chunkSize = 0x8000;
+  let binary = "";
 
-  for (let i = 0; i < bytes.length; i += 3) {
-    const a = bytes[i];
-    const b = i + 1 < bytes.length ? bytes[i + 1] : 0;
-    const c = i + 2 < bytes.length ? bytes[i + 2] : 0;
-    const bitmap = (a << 16) | (b << 8) | c;
-
-    result.push(chars.charAt((bitmap >> 18) & 63));
-    result.push(chars.charAt((bitmap >> 12) & 63));
-    result.push(
-      i + 1 < bytes.length ? chars.charAt((bitmap >> 6) & 63) : "=",
+  for (let offset = 0; offset < bytes.length; offset += chunkSize) {
+    binary += String.fromCharCode(
+      ...bytes.subarray(offset, offset + chunkSize),
     );
-    result.push(i + 2 < bytes.length ? chars.charAt(bitmap & 63) : "=");
   }
 
-  return result.join("");
+  return btoa(binary);
 }
 
 function isStandardHeader(headerName: string): boolean {
@@ -251,12 +242,5 @@ function isStandardHeader(headerName: string): boolean {
  * @since 0.5.0
  */
 export function generateIdempotencyKey(): string {
-  if (typeof globalThis.crypto?.randomUUID === "function") {
-    return globalThis.crypto.randomUUID();
-  }
-
-  const timestamp = Date.now().toString(36);
-  const random1 = Math.random().toString(36).slice(2);
-  const random2 = Math.random().toString(36).slice(2);
-  return `${timestamp}-${random1}${random2}`;
+  return globalThis.crypto.randomUUID();
 }
