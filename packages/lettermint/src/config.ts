@@ -64,13 +64,6 @@ export interface LettermintConfig {
   readonly retries?: number;
 
   /**
-   * Whether to validate SSL certificates.
-   *
-   * @default true
-   */
-  readonly validateSsl?: boolean;
-
-  /**
    * Additional HTTP headers to include with requests.
    */
   readonly headers?: Record<string, string>;
@@ -128,7 +121,6 @@ export function createLettermintConfig(
     baseUrl: config.baseUrl ?? "https://api.lettermint.co",
     timeout: config.timeout ?? 30000,
     retries: config.retries ?? 3,
-    validateSsl: config.validateSsl ?? true,
     headers: config.headers ?? {},
     route: config.route,
     tag: config.tag,

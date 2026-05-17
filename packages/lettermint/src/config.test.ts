@@ -14,7 +14,6 @@ describe("createLettermintConfig", () => {
     assert.equal(resolved.baseUrl, "https://api.lettermint.co");
     assert.equal(resolved.timeout, 30000);
     assert.equal(resolved.retries, 3);
-    assert.equal(resolved.validateSsl, true);
     assert.deepEqual(resolved.headers, {});
     assert.equal(resolved.route, undefined);
     assert.equal(resolved.tag, undefined);
@@ -28,7 +27,6 @@ describe("createLettermintConfig", () => {
       baseUrl: "https://lettermint.example.com",
       timeout: 60000,
       retries: 5,
-      validateSsl: false,
       headers: { "X-Custom": "value" },
       route: "transactional",
       tag: "welcome",
@@ -45,7 +43,6 @@ describe("createLettermintConfig", () => {
     assert.equal(resolved.baseUrl, "https://lettermint.example.com");
     assert.equal(resolved.timeout, 60000);
     assert.equal(resolved.retries, 5);
-    assert.equal(resolved.validateSsl, false);
     assert.deepEqual(resolved.headers, { "X-Custom": "value" });
     assert.equal(resolved.route, "transactional");
     assert.equal(resolved.tag, "welcome");

@@ -293,30 +293,26 @@ function combineSignals(
     return timeoutSignal;
   }
 
-  if (typeof AbortSignal.any === "function") {
-    return AbortSignal.any([timeoutSignal, externalSignal]);
-  }
-
-  const controller = new AbortController();
-  const abort = () => controller.abort();
-
-  timeoutSignal.addEventListener("abort", abort, { once: true });
-  externalSignal.addEventListener("abort", abort, { once: true });
-
-  if (timeoutSignal.aborted || externalSignal.aborted) {
-    controller.abort();
-  }
-
-  return controller.signal;
+  return AbortSignal.any([timeoutSignal, externalSignal]);
 }
 
 function sleep(ms: number, signal?: AbortSignal): Promise<void> {
   return new Promise((resolve, reject) => {
-    const timeoutId = setTimeout(resolve, ms);
+    if (signal?.aborted) {
+      reject(new DOMException("The operation was aborted.", "AbortError"));
+      return;
+    }
+
     const onAbort = () => {
       clearTimeout(timeoutId);
+      signal?.removeEventListener("abort", onAbort);
       reject(new DOMException("The operation was aborted.", "AbortError"));
     };
+
+    const timeoutId = setTimeout(() => {
+      signal?.removeEventListener("abort", onAbort);
+      resolve();
+    }, ms);
 
     if (signal?.aborted) {
       onAbort();

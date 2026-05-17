@@ -246,6 +246,74 @@ describe("LettermintTransport - send", { concurrency: false }, () => {
       },
     );
   });
+
+  it("removes abort listeners after retry backoff completes", async () => {
+    let calls = 0;
+    let addedAbortListeners = 0;
+    let removedAbortListeners = 0;
+    const controller = new AbortController();
+    const addEventListener = controller.signal.addEventListener.bind(
+      controller.signal,
+    );
+    const removeEventListener = controller.signal.removeEventListener.bind(
+      controller.signal,
+    );
+
+    Object.defineProperty(controller.signal, "addEventListener", {
+      value: (
+        type: string,
+        listener: EventListenerOrEventListenerObject,
+        options?: boolean | AddEventListenerOptions,
+      ) => {
+        if (type === "abort") addedAbortListeners++;
+        addEventListener(type, listener, options);
+      },
+    });
+    Object.defineProperty(controller.signal, "removeEventListener", {
+      value: (
+        type: string,
+        listener: EventListenerOrEventListenerObject,
+        options?: boolean | EventListenerOptions,
+      ) => {
+        if (type === "abort") removedAbortListeners++;
+        removeEventListener(type, listener, options);
+      },
+    });
+
+    await withMockedFetch(
+      () => {
+        calls++;
+        if (calls === 1) {
+          return Promise.resolve(
+            new Response(
+              JSON.stringify({ message: "Too many requests" }),
+              { status: 429, headers: { "Content-Type": "application/json" } },
+            ),
+          );
+        }
+        return Promise.resolve(
+          new Response(
+            JSON.stringify({ message_id: "msg_rate_limit", status: "pending" }),
+            { status: 202, headers: { "Content-Type": "application/json" } },
+          ),
+        );
+      },
+      async () => {
+        const transport = new LettermintTransport({
+          apiToken: "test-token",
+          retries: 1,
+        });
+        const receipt = await transport.send(
+          createMessage(),
+          { signal: controller.signal },
+        );
+
+        assert.equal(receipt.successful, true);
+        assert.ok(addedAbortListeners > 0);
+        assert.equal(removedAbortListeners, addedAbortListeners);
+      },
+    );
+  });
 });
 
 describe("LettermintTransport - sendMany", { concurrency: false }, () => {

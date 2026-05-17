@@ -98,7 +98,6 @@ See the [Lettermint docs] for more information about configuration options.
     `https://api.lettermint.co`)
  -  `timeout`: Request timeout in milliseconds (default: `30000`)
  -  `retries`: Number of retry attempts (default: `3`)
- -  `validateSsl`: Whether to validate SSL certificates (default: `true`)
  -  `headers`: Additional HTTP headers
  -  `route`: Lettermint route for sent messages
  -  `tag`: Default Lettermint tag when a message has no `Message.tags`
