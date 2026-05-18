@@ -13,6 +13,7 @@ import llmstxt from "vitepress-plugin-llms";
 const packages: readonly string[] = [
   "core",
   "jmap",
+  "lettermint",
   "mailgun",
   "plunk",
   "resend",
@@ -73,6 +74,7 @@ const NAV = [
     items: [
       { text: "SMTP", link: "/transports/smtp" },
       { text: "JMAP", link: "/transports/jmap" },
+      { text: "Lettermint", link: "/transports/lettermint" },
       { text: "Mailgun", link: "/transports/mailgun" },
       { text: "Plunk", link: "/transports/plunk" },
       { text: "Resend", link: "/transports/resend" },
@@ -90,6 +92,7 @@ const NAV = [
       { text: "@upyo/core", link: "https://jsr.io/@upyo/core/doc" },
       { text: "@upyo/smtp", link: "https://jsr.io/@upyo/smtp/doc" },
       { text: "@upyo/jmap", link: "https://jsr.io/@upyo/jmap/doc" },
+      { text: "@upyo/lettermint", link: "https://jsr.io/@upyo/lettermint/doc" },
       { text: "@upyo/mailgun", link: "https://jsr.io/@upyo/mailgun/doc" },
       { text: "@upyo/plunk", link: "https://jsr.io/@upyo/plunk/doc" },
       { text: "@upyo/resend", link: "https://jsr.io/@upyo/resend/doc" },

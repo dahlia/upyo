@@ -7,10 +7,10 @@ Upyo
 
 Upyo is a cross-runtime email library that provides a unified, type-safe API
 for sending emails across Node.js, Deno, Bun, and edge functions. Switch
-between SMTP and HTTP-based providers (Mailgun, Resend, SendGrid, Amazon SES)
-without changing your application code, while enjoying full TypeScript support,
-consistent error handling, and built-in testing capabilities with mock
-transports across all runtimes.
+between SMTP and HTTP-based providers (Lettermint, Mailgun, Resend, SendGrid,
+Amazon SES) without changing your application code, while enjoying full
+TypeScript support, consistent error handling, and built-in testing
+capabilities with mock transports across all runtimes.
 
 Here's a quick demo of sending an email using the Mailgun transport:
 
@@ -69,6 +69,7 @@ sending messages.  The following is a list of the available packages:
 | [@upyo/core](/packages/core/)                   | [JSR][jsr:@upyo/core]          | [npm][npm:@upyo/core]          | Shared types and interfaces for email messages     |
 | [@upyo/smtp](/packages/smtp/)                   | [JSR][jsr:@upyo/smtp]          | [npm][npm:@upyo/smtp]          | SMTP transport                                     |
 | [@upyo/jmap](/packages/jmap/)                   | [JSR][jsr:@upyo/jmap]          | [npm][npm:@upyo/jmap]          | [JMAP] transport (RFC 8620/8621)                   |
+| [@upyo/lettermint](/packages/lettermint/)       | [JSR][jsr:@upyo/lettermint]    | [npm][npm:@upyo/lettermint]    | [Lettermint] transport                             |
 | [@upyo/mailgun](/packages/mailgun/)             | [JSR][jsr:@upyo/mailgun]       | [npm][npm:@upyo/mailgun]       | [Mailgun] transport                                |
 | [@upyo/plunk](/packages/plunk/)                 | [JSR][jsr:@upyo/plunk]         | [npm][npm:@upyo/plunk]         | [Plunk] transport                                  |
 | [@upyo/resend](/packages/resend/)               | [JSR][jsr:@upyo/resend]        | [npm][npm:@upyo/resend]        | [Resend] transport                                 |
@@ -84,6 +85,9 @@ sending messages.  The following is a list of the available packages:
 [jsr:@upyo/jmap]: https://jsr.io/@upyo/jmap
 [npm:@upyo/jmap]: https://www.npmjs.com/package/@upyo/jmap
 [JMAP]: https://jmap.io/
+[jsr:@upyo/lettermint]: https://jsr.io/@upyo/lettermint
+[npm:@upyo/lettermint]: https://www.npmjs.com/package/@upyo/lettermint
+[Lettermint]: https://lettermint.co/
 [jsr:@upyo/mailgun]: https://jsr.io/@upyo/mailgun
 [npm:@upyo/mailgun]: https://www.npmjs.com/package/@upyo/mailgun
 [Mailgun]: https://www.mailgun.com/
