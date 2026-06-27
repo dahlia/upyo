@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { Socket } from "node:net";
 import { describe, test } from "node:test";
 import type { SmtpConfig } from "./config.ts";
 import { SmtpConnection } from "./smtp-connection.ts";
@@ -214,6 +215,30 @@ describe("SMTP OAuth 2.0 authentication", () => {
       assert.ok(command!.startsWith("AUTH XOAUTH2 "));
     } finally {
       await teardown(server, connection);
+    }
+  });
+
+  test("refuses OAuth over a cleartext non-loopback connection", async () => {
+    const connection = new SmtpConnection({
+      host: "smtp.example.com",
+      port: 25,
+      secure: false,
+      auth: { user: "user@example.com", accessToken: "the-access-token" },
+    });
+    // Simulate a post-EHLO plaintext connection without dialing out; the TLS
+    // guard rejects before the socket is used.
+    const socket = new Socket();
+    connection.socket = socket;
+    connection.capabilities = ["AUTH XOAUTH2"];
+    try {
+      await assert.rejects(
+        connection.authenticate(),
+        (error: unknown) =>
+          error instanceof SmtpAuthError && /TLS/.test(error.message),
+      );
+      assert.ok(!connection.authenticated);
+    } finally {
+      socket.destroy();
     }
   });
 });

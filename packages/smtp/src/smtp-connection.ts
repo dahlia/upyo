@@ -25,6 +25,20 @@ const MAX_COMMAND_LINE_LENGTH = 512;
 /** The length of the CRLF terminator appended to every command. */
 const CRLF_LENGTH = 2;
 
+/**
+ * Whether a host refers to the local loopback interface, for which cleartext
+ * OAuth 2.0 authentication is permitted (e.g. local testing and development).
+ *
+ * @param host The host to check.
+ * @returns `true` if the host is a loopback address.
+ */
+function isLoopbackHost(host: string): boolean {
+  return host === "localhost" ||
+    host === "127.0.0.1" ||
+    host === "::1" ||
+    host === "[::1]";
+}
+
 export class SmtpConnection {
   socket: Socket | TLSSocket | null = null;
   config: ResolvedSmtpConfig;
@@ -284,6 +298,19 @@ export class SmtpConnection {
     }
 
     if ("accessToken" in auth || "refreshToken" in auth) {
+      // OAuth 2.0 access tokens are bearer credentials, so refuse to send them
+      // over a cleartext connection.  Loopback hosts are excepted for local
+      // testing and development.
+      if (
+        !(this.socket instanceof TLSSocket) &&
+        !isLoopbackHost(this.config.host)
+      ) {
+        throw new SmtpAuthError(
+          "OAuth 2.0 authentication requires a TLS-secured connection to " +
+            "protect the access token; use `secure: true` or STARTTLS.",
+        );
+      }
+
       const mechanism = auth.method ?? selectOAuth2Mechanism(this.capabilities);
       switch (mechanism) {
         case "xoauth2":

@@ -241,8 +241,9 @@ When `method` is omitted, the transport selects a mechanism advertised by the
 server, preferring *XOAUTH2*.  Set `method: "oauthbearer"` to force OAUTHBEARER.
 
 > [!IMPORTANT]
-> Always use OAuth 2.0 over a secure connection (`secure: true`, or STARTTLS on
-> port 587), since the access token is transmitted to the server.
+> OAuth 2.0 requires a secure connection (`secure: true`, or STARTTLS on port
+> 587), since the access token is transmitted to the server.  Authenticating
+> over a cleartext connection to a non-loopback host is refused.
 
 #### Refreshing tokens automatically
 
