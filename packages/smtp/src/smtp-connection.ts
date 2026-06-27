@@ -4,7 +4,16 @@ import {
   createSmtpConfig,
   type ResolvedSmtpConfig,
   type SmtpConfig,
+  type SmtpOAuth2Auth,
+  type SmtpUserPassAuth,
 } from "./config.ts";
+import {
+  formatOauthbearer,
+  formatXoauth2,
+  OAuth2TokenManager,
+  selectOAuth2Mechanism,
+  SmtpAuthError,
+} from "./oauth2.ts";
 import type { SmtpMessage } from "./message-converter.ts";
 
 export class SmtpConnection {
@@ -12,9 +21,11 @@ export class SmtpConnection {
   config: ResolvedSmtpConfig;
   authenticated = false;
   capabilities: string[] = [];
+  tokenManager: OAuth2TokenManager | null;
 
-  constructor(config: SmtpConfig) {
+  constructor(config: SmtpConfig, tokenManager?: OAuth2TokenManager) {
     this.config = createSmtpConfig(config);
+    this.tokenManager = tokenManager ?? null;
   }
 
   connect(signal?: AbortSignal): Promise<void> {
@@ -248,7 +259,8 @@ export class SmtpConnection {
   }
 
   async authenticate(signal?: AbortSignal): Promise<void> {
-    if (!this.config.auth) {
+    const auth = this.config.auth;
+    if (!auth) {
       return;
     }
 
@@ -256,30 +268,48 @@ export class SmtpConnection {
       return;
     }
 
-    const authMethod = this.config.auth.method ?? "plain";
-
     if (
       !this.capabilities.some((cap) => cap.toUpperCase().startsWith("AUTH"))
     ) {
-      throw new Error("Server does not support authentication");
+      throw new Error("Server does not support authentication.");
     }
 
-    switch (authMethod) {
-      case "plain":
-        await this.authPlain(signal);
-        break;
-      case "login":
-        await this.authLogin(signal);
-        break;
-      default:
-        throw new Error(`Unsupported authentication method: ${authMethod}`);
+    if ("accessToken" in auth || "refreshToken" in auth) {
+      const mechanism = auth.method ?? selectOAuth2Mechanism(this.capabilities);
+      switch (mechanism) {
+        case "xoauth2":
+          await this.authXoauth2(auth, signal);
+          break;
+        case "oauthbearer":
+          await this.authOauthbearer(auth, signal);
+          break;
+        default:
+          throw new SmtpAuthError(
+            `Unsupported authentication method: ${mechanism}`,
+          );
+      }
+    } else {
+      const method = auth.method ?? "plain";
+      switch (method) {
+        case "plain":
+          await this.authPlain(auth, signal);
+          break;
+        case "login":
+          await this.authLogin(auth, signal);
+          break;
+        default:
+          throw new Error(`Unsupported authentication method: ${method}`);
+      }
     }
 
     this.authenticated = true;
   }
 
-  private async authPlain(signal?: AbortSignal): Promise<void> {
-    const { user, pass } = this.config.auth!;
+  private async authPlain(
+    auth: SmtpUserPassAuth,
+    signal?: AbortSignal,
+  ): Promise<void> {
+    const { user, pass } = auth;
     const credentials = btoa(`\0${user}\0${pass}`);
     const response = await this.sendCommand(
       `AUTH PLAIN ${credentials}`,
@@ -291,8 +321,11 @@ export class SmtpConnection {
     }
   }
 
-  async authLogin(signal?: AbortSignal): Promise<void> {
-    const { user, pass } = this.config.auth!;
+  async authLogin(
+    auth: SmtpUserPassAuth,
+    signal?: AbortSignal,
+  ): Promise<void> {
+    const { user, pass } = auth;
 
     let response = await this.sendCommand("AUTH LOGIN", signal);
     if (response.code !== 334) {
@@ -308,6 +341,80 @@ export class SmtpConnection {
     if (response.code !== 235) {
       throw new Error(`Password authentication failed: ${response.message}`);
     }
+  }
+
+  /**
+   * Resolves an OAuth 2.0 access token via the connection's token manager,
+   * creating a standalone manager from the auth config if none was injected.
+   */
+  private async getOAuth2Token(
+    auth: SmtpOAuth2Auth,
+    signal?: AbortSignal,
+  ): Promise<string> {
+    this.tokenManager ??= new OAuth2TokenManager(auth);
+    return await this.tokenManager.getAccessToken(signal);
+  }
+
+  private async authXoauth2(
+    auth: SmtpOAuth2Auth,
+    signal?: AbortSignal,
+  ): Promise<void> {
+    const token = await this.getOAuth2Token(auth, signal);
+    const initialResponse = formatXoauth2(auth.user, token);
+    const response = await this.sendCommand(
+      `AUTH XOAUTH2 ${initialResponse}`,
+      signal,
+    );
+    // On failure XOAUTH2 servers send a 334 challenge; the client replies with
+    // an empty line to receive the final failure response.
+    await this.finishOAuth2(response, "XOAUTH2", "", signal);
+  }
+
+  private async authOauthbearer(
+    auth: SmtpOAuth2Auth,
+    signal?: AbortSignal,
+  ): Promise<void> {
+    const token = await this.getOAuth2Token(auth, signal);
+    const initialResponse = formatOauthbearer(
+      auth.user,
+      token,
+      this.config.host,
+      this.config.port,
+    );
+    const response = await this.sendCommand(
+      `AUTH OAUTHBEARER ${initialResponse}`,
+      signal,
+    );
+    // RFC 7628: on failure the client replies with a single 0x01 ("AQ==") to
+    // receive the final failure response.
+    await this.finishOAuth2(response, "OAUTHBEARER", "AQ==", signal);
+  }
+
+  /**
+   * Interprets the server's reply to an OAuth SASL initial response, draining
+   * the failure challenge continuation when authentication is rejected.
+   *
+   * @throws {SmtpAuthError} If authentication did not succeed.
+   */
+  private async finishOAuth2(
+    response: SmtpResponse,
+    mechanism: string,
+    continuation: string,
+    signal?: AbortSignal,
+  ): Promise<void> {
+    if (response.code === 235) {
+      return;
+    }
+    if (response.code === 334) {
+      const final = await this.sendCommand(continuation, signal);
+      throw new SmtpAuthError(
+        `${mechanism} authentication failed: ` +
+          `${decodeOAuth2Challenge(response.message)} (${final.message})`,
+      );
+    }
+    throw new SmtpAuthError(
+      `${mechanism} authentication failed: ${response.message}`,
+    );
   }
 
   async sendMessage(
@@ -363,17 +470,27 @@ export class SmtpConnection {
   }
 
   async quit(): Promise<void> {
-    if (!this.socket) {
+    const socket = this.socket;
+    if (!socket) {
       return;
     }
 
-    try {
-      await this.sendCommand("QUIT");
-    } catch {
-      // Ignore errors during quit
+    // Only attempt a graceful QUIT on a writable socket; a socket that never
+    // finished connecting (e.g. a refused or timed-out connection) would
+    // otherwise error or leave a dangling command timeout.
+    if (socket.writable) {
+      try {
+        await this.sendCommand("QUIT");
+      } catch {
+        // Ignore errors during quit
+      }
     }
 
-    this.socket.destroy();
+    try {
+      socket.destroy();
+    } catch {
+      // Ignore errors while tearing down the socket
+    }
     this.socket = null;
     this.authenticated = false;
     this.capabilities = [];
@@ -395,4 +512,19 @@ export interface SmtpResponse {
   readonly code: number;
   readonly message: string;
   readonly raw: string;
+}
+
+/**
+ * Decodes the Base64 JSON error challenge a server sends after a failed OAuth
+ * SASL exchange, falling back to the raw message when it is not valid Base64.
+ *
+ * @param message The challenge text from the server's 334 response.
+ * @returns A human-readable description of the failure.
+ */
+function decodeOAuth2Challenge(message: string): string {
+  try {
+    return atob(message.trim());
+  } catch {
+    return message;
+  }
 }

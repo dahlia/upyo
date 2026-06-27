@@ -26,6 +26,43 @@ To be released.
 [#22]: https://github.com/dahlia/upyo/issues/22
 [#23]: https://github.com/dahlia/upyo/pull/23
 
+### @upyo/smtp
+
+ -  Added OAuth 2.0 authentication support to the SMTP transport, using the
+    SASL *XOAUTH2* and *OAUTHBEARER* ([RFC 7628]) mechanisms.  This enables
+    authentication with providers such as Gmail and Outlook that require OAuth
+    2.0 instead of passwords.  [[#19]]
+
+     -  `SmtpAuth` is now a discriminated union of `SmtpUserPassAuth`
+        (username/password, as before) and the OAuth 2.0 variants.  Existing
+        `{ user, pass }` configurations continue to work unchanged.
+     -  Added `SmtpOAuth2Auth`, `SmtpOAuth2TokenAuth`, and
+        `SmtpOAuth2RefreshAuth` interfaces, and the `SmtpUserPassAuth`
+        interface.
+     -  Added the `OAuth2TokenProvider` type.  The `accessToken` field accepts
+        either a static token string or a callback returning a fresh token,
+        which can integrate an external OAuth client (e.g.,
+        `google-auth-library` or `msal-node`) for transparent refresh.
+     -  Added the built-in `refresh_token` grant flow
+        (`SmtpOAuth2RefreshAuth`): provide `clientId`, `refreshToken`, and
+        `tokenEndpoint`, and the transport exchanges them for an access token,
+        caching it across pooled connections until shortly before it expires.
+     -  Added the `SmtpAuthError` class, thrown on OAuth token acquisition and
+        SASL authentication failures.
+
+ -  Changed `SmtpTransport.send()` and `SmtpTransport.sendMany()` to report
+    connection and authentication setup failures as a failed `Receipt` instead
+    of throwing.  Previously, a failure to connect or authenticate (e.g., an
+    invalid host, a refused connection, or rejected credentials) rejected the
+    returned promise, which was inconsistent with message-level failures (such
+    as a rejected recipient) that were already reported as a failed `Receipt`.
+    Now all delivery failures—including setup failures—are reported uniformly
+    as a failed `Receipt`.  Cancellation via `AbortSignal` continues to reject.
+    [[#19]]
+
+[RFC 7628]: https://www.rfc-editor.org/rfc/rfc7628
+[#19]: https://github.com/dahlia/upyo/issues/19
+
 
 Version 0.4.0
 -------------

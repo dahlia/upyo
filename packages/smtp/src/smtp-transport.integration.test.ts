@@ -1,4 +1,4 @@
-import type { Message } from "@upyo/core";
+import type { Message, Receipt } from "@upyo/core";
 import { SmtpTransport } from "@upyo/smtp";
 import assert from "node:assert/strict";
 import { describe, test } from "node:test";
@@ -47,6 +47,42 @@ describe("SmtpTransport Integration Tests", () => {
       ...overrides,
     };
   }
+
+  test("should reject sendMany when aborted after sending has started", async () => {
+    const { server, transport } = await setupTest();
+    try {
+      const controller = new AbortController();
+
+      const messages = async function* () {
+        yield createTestMessage();
+        yield createTestMessage();
+      };
+
+      const receipts: Receipt[] = [];
+      await assert.rejects(
+        (async () => {
+          for await (
+            const receipt of transport.sendMany(messages(), {
+              signal: controller.signal,
+            })
+          ) {
+            receipts.push(receipt);
+            // Cancel once the first message has been delivered.
+            controller.abort();
+          }
+        })(),
+        (error: unknown) =>
+          error instanceof DOMException && error.name === "AbortError",
+      );
+
+      // The first message succeeded; cancellation then rejected rather than
+      // yielding a failed receipt.
+      assert.equal(receipts.length, 1);
+      assert.ok(receipts[0].successful);
+    } finally {
+      await teardownTest(server, transport);
+    }
+  });
 
   test("should send a basic email successfully", async () => {
     const { server, transport } = await setupTest();

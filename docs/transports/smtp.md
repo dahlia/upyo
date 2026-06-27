@@ -216,6 +216,87 @@ rather than using your regular account password.  The transport automatically
 detects server capabilities and chooses the appropriate authentication method
 if you don't specify one.
 
+### OAuth 2.0 authentication
+
+Many providers—including Gmail and Outlook—now require OAuth 2.0 instead of
+passwords.  The transport supports the SASL *XOAUTH2* mechanism (the de-facto
+standard used by Google and Microsoft) and *OAUTHBEARER* ([RFC 7628]).  Instead
+of `pass`, provide an `accessToken`:
+
+~~~~ typescript twoslash
+import { SmtpTransport } from "@upyo/smtp";
+
+const transport = new SmtpTransport({
+  host: "smtp.gmail.com",
+  port: 465,
+  secure: true,
+  auth: {
+    user: "your-email@gmail.com",
+    accessToken: "ya29.a0Af…your-access-token",
+  },
+});
+~~~~
+
+When `method` is omitted, the transport selects a mechanism advertised by the
+server, preferring *XOAUTH2*.  Set `method: "oauthbearer"` to force OAUTHBEARER.
+
+> [!IMPORTANT]
+> Always use OAuth 2.0 over a secure connection (`secure: true`, or STARTTLS on
+> port 587), since the access token is transmitted to the server.
+
+#### Refreshing tokens automatically
+
+Access tokens are short-lived, so a static string is rarely enough.  To refresh
+tokens transparently, pass a callback as `accessToken`.  It is invoked each time
+a new connection authenticates, which lets you delegate to an OAuth client such
+as [google-auth-library] (Gmail) or [msal-node] (Outlook):
+
+~~~~ typescript twoslash
+declare function getFreshAccessToken(): Promise<string>;
+// ---cut-before---
+import { SmtpTransport } from "@upyo/smtp";
+
+const transport = new SmtpTransport({
+  host: "smtp.gmail.com",
+  port: 465,
+  secure: true,
+  auth: {
+    user: "your-email@gmail.com",
+    // Called for every new connection; obtain a fresh token here.
+    accessToken: () => getFreshAccessToken(),
+  },
+});
+~~~~
+
+Alternatively, let the transport run the `refresh_token` grant itself.  Provide
+your client credentials, a refresh token, and the token endpoint; the transport
+exchanges them for an access token and caches it until shortly before it
+expires, sharing the cached token across all pooled connections:
+
+~~~~ typescript twoslash
+import { SmtpTransport } from "@upyo/smtp";
+
+const transport = new SmtpTransport({
+  host: "smtp.gmail.com",
+  port: 465,
+  secure: true,
+  auth: {
+    user: "your-email@gmail.com",
+    clientId: "…apps.googleusercontent.com",
+    clientSecret: "GOCSPX-…",
+    refreshToken: "1//…",
+    tokenEndpoint: "https://oauth2.googleapis.com/token",
+  },
+});
+~~~~
+
+Because a connection authenticates once when it is established, the callback or
+refresh runs per new connection rather than per message.
+
+[RFC 7628]: https://www.rfc-editor.org/rfc/rfc7628
+[google-auth-library]: https://github.com/googleapis/google-auth-library-nodejs
+[msal-node]: https://github.com/AzureAD/microsoft-authentication-library-for-js/tree/dev/lib/msal-node
+
 
 TLS and security configuration
 ------------------------------

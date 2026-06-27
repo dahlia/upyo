@@ -72,7 +72,11 @@ describe("SMTP Connection Integration Tests", () => {
 
         // Should have received capabilities
         assert.ok(connection.capabilities.length > 0);
-        assert.ok(connection.capabilities.includes("AUTH PLAIN LOGIN"));
+        assert.ok(
+          connection.capabilities.includes(
+            "AUTH PLAIN LOGIN XOAUTH2 OAUTHBEARER",
+          ),
+        );
       } finally {
         await teardownTest(server, connection);
       }

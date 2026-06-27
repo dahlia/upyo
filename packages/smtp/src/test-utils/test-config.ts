@@ -7,7 +7,7 @@ import type {
 } from "@upyo/core";
 import { isEmailAddress } from "@upyo/core";
 import process from "node:process";
-import type { SmtpConfig } from "../config.ts";
+import type { SmtpAuth, SmtpConfig } from "../config.ts";
 import type { MailpitConfig } from "./mailpit-client.ts";
 
 export interface TestEnvironmentConfig {
@@ -39,6 +39,84 @@ export function getTestConfig(): TestEnvironmentConfig {
 
 export function isMailpitTestingEnabled(): boolean {
   return !!process.env.MAILPIT_API_URL || !!process.env.MAILPIT_SMTP_HOST;
+}
+
+export interface OAuth2TestConfig {
+  smtp: SmtpConfig;
+  from: string;
+  to: string;
+  usesRefreshFlow: boolean;
+}
+
+/**
+ * Whether the OAuth 2.0 end-to-end tests are configured to run.
+ *
+ * Requires a host, a user, and a token source: either a static access token
+ * (`SMTP_OAUTH2_ACCESS_TOKEN`) or the refresh-token trio
+ * (`SMTP_OAUTH2_REFRESH_TOKEN`, `SMTP_OAUTH2_CLIENT_ID`,
+ * `SMTP_OAUTH2_TOKEN_ENDPOINT`).
+ */
+export function isOAuth2TestingEnabled(): boolean {
+  const hasTokenSource = !!process.env.SMTP_OAUTH2_ACCESS_TOKEN ||
+    (!!process.env.SMTP_OAUTH2_REFRESH_TOKEN &&
+      !!process.env.SMTP_OAUTH2_CLIENT_ID &&
+      !!process.env.SMTP_OAUTH2_TOKEN_ENDPOINT);
+  return !!process.env.SMTP_OAUTH2_HOST && !!process.env.SMTP_OAUTH2_USER &&
+    hasTokenSource;
+}
+
+/**
+ * Builds the OAuth 2.0 SMTP test configuration from environment variables.
+ *
+ * @throws {Error} If OAuth 2.0 testing is not enabled.
+ */
+export function getOAuth2TestConfig(): OAuth2TestConfig {
+  if (!isOAuth2TestingEnabled()) {
+    throw new Error(
+      "OAuth 2.0 testing is not enabled. Set SMTP_OAUTH2_HOST, " +
+        "SMTP_OAUTH2_USER, and a token source (SMTP_OAUTH2_ACCESS_TOKEN, or " +
+        "the SMTP_OAUTH2_REFRESH_TOKEN/SMTP_OAUTH2_CLIENT_ID/" +
+        "SMTP_OAUTH2_TOKEN_ENDPOINT trio).",
+    );
+  }
+
+  const user = process.env.SMTP_OAUTH2_USER!;
+  const mechanism = process.env.SMTP_OAUTH2_MECHANISM;
+  const method = mechanism === "oauthbearer"
+    ? "oauthbearer"
+    : mechanism === "xoauth2"
+    ? "xoauth2"
+    : undefined;
+
+  const accessToken = process.env.SMTP_OAUTH2_ACCESS_TOKEN;
+  const usesRefreshFlow = accessToken == null;
+  const auth: SmtpAuth = usesRefreshFlow
+    ? {
+      user,
+      clientId: process.env.SMTP_OAUTH2_CLIENT_ID!,
+      clientSecret: process.env.SMTP_OAUTH2_CLIENT_SECRET,
+      refreshToken: process.env.SMTP_OAUTH2_REFRESH_TOKEN!,
+      tokenEndpoint: process.env.SMTP_OAUTH2_TOKEN_ENDPOINT!,
+      scope: process.env.SMTP_OAUTH2_SCOPE,
+      method,
+    }
+    : {
+      user,
+      accessToken,
+      method,
+    };
+
+  return {
+    smtp: {
+      host: process.env.SMTP_OAUTH2_HOST!,
+      port: parseInt(process.env.SMTP_OAUTH2_PORT ?? "587", 10),
+      secure: process.env.SMTP_OAUTH2_SECURE === "true",
+      auth,
+    },
+    from: process.env.SMTP_OAUTH2_FROM ?? user,
+    to: process.env.SMTP_OAUTH2_TO ?? user,
+    usesRefreshFlow,
+  };
 }
 
 export function createTestMessage(

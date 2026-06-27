@@ -8,6 +8,7 @@ export class MockSmtpServer extends EventEmitter {
   private responses: Map<string, SmtpResponse> = new Map();
   private receivedMessages: MockSmtpMessage[] = [];
   private timeouts: Set<number | NodeJS.Timeout> = new Set();
+  private lastAuthCommand: string | null = null;
 
   constructor(port: number = 0) {
     super();
@@ -67,6 +68,11 @@ export class MockSmtpServer extends EventEmitter {
       let buffer = "";
       let inDataMode = false;
       let currentMessage: Partial<MockSmtpMessage> = {};
+      // When set, the server has sent a SASL failure challenge (334) for an
+      // OAuth mechanism and is awaiting the client's continuation line (an
+      // empty line for XOAUTH2, or "AQ==" for OAUTHBEARER) before sending the
+      // final failure reply.
+      let awaitingOAuthFailure: "xoauth2" | "oauthbearer" | null = null;
 
       socket.on("data", (data) => {
         buffer += data.toString();
@@ -95,6 +101,15 @@ export class MockSmtpServer extends EventEmitter {
         buffer = lines.pop() || "";
 
         for (const line of lines) {
+          // Drain the OAuth SASL failure continuation (which may be an empty
+          // line for XOAUTH2) before the empty-line skip below.
+          if (awaitingOAuthFailure != null) {
+            const authResponse = this.responses.get("AUTH")!;
+            socket.write(`${authResponse.code} ${authResponse.message}\r\n`);
+            awaitingOAuthFailure = null;
+            continue;
+          }
+
           if (!line.trim()) continue;
 
           const command = line.split(" ")[0].toUpperCase();
@@ -105,7 +120,7 @@ export class MockSmtpServer extends EventEmitter {
             case "HELO":
               const ehloResponse = this.responses.get("EHLO")!;
               socket.write(`${ehloResponse.code}-${ehloResponse.message}\r\n`);
-              socket.write("250-AUTH PLAIN LOGIN\r\n");
+              socket.write("250-AUTH PLAIN LOGIN XOAUTH2 OAUTHBEARER\r\n");
               // Note: STARTTLS removed from default capabilities
               // Mock server doesn't actually perform TLS upgrade
               // Tests can manually send STARTTLS command if needed
@@ -113,7 +128,22 @@ export class MockSmtpServer extends EventEmitter {
               break;
 
             case "AUTH":
-              if (line.includes("PLAIN")) {
+              this.lastAuthCommand = line;
+              if (line.includes("XOAUTH2") || line.includes("OAUTHBEARER")) {
+                const authResponse = this.responses.get("AUTH")!;
+                if (authResponse.code === 235) {
+                  socket.write(
+                    `${authResponse.code} ${authResponse.message}\r\n`,
+                  );
+                } else {
+                  // Send a base64-encoded JSON error challenge and await the
+                  // client's continuation line before the final failure reply.
+                  socket.write("334 eyJzdGF0dXMiOiJpbnZhbGlkX3Rva2VuIn0=\r\n");
+                  awaitingOAuthFailure = line.includes("XOAUTH2")
+                    ? "xoauth2"
+                    : "oauthbearer";
+                }
+              } else if (line.includes("PLAIN")) {
                 const authResponse = this.responses.get("AUTH")!;
                 socket.write(
                   `${authResponse.code} ${authResponse.message}\r\n`,
@@ -253,6 +283,10 @@ export class MockSmtpServer extends EventEmitter {
 
   getReceivedMessages(): MockSmtpMessage[] {
     return [...this.receivedMessages];
+  }
+
+  getLastAuthCommand(): string | null {
+    return this.lastAuthCommand;
   }
 
   clearReceivedMessages(): void {

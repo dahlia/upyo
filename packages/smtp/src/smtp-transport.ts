@@ -1,6 +1,7 @@
 import type { Message, Receipt, Transport, TransportOptions } from "@upyo/core";
 import type { SmtpConfig } from "./config.ts";
 import { SmtpConnection } from "./smtp-connection.ts";
+import { OAuth2TokenManager } from "./oauth2.ts";
 import { convertMessage } from "./message-converter.ts";
 
 /**
@@ -50,6 +51,14 @@ export class SmtpTransport implements Transport, AsyncDisposable {
   private connectionPool: SmtpConnection[] = [];
 
   /**
+   * A token manager shared across all pooled connections, present only when the
+   * configured authentication uses OAuth 2.0.  Sharing it ensures the
+   * refresh-token exchange happens at most once per token lifetime instead of
+   * once per connection.
+   */
+  private readonly tokenManager: OAuth2TokenManager | undefined;
+
+  /**
    * Creates a new SMTP transport instance.
    *
    * @param config SMTP configuration including server details, authentication,
@@ -58,6 +67,11 @@ export class SmtpTransport implements Transport, AsyncDisposable {
   constructor(config: SmtpConfig) {
     this.config = config;
     this.poolSize = config.poolSize ?? 5;
+    const auth = config.auth;
+    this.tokenManager =
+      auth != null && ("accessToken" in auth || "refreshToken" in auth)
+        ? new OAuth2TokenManager(auth)
+        : undefined;
   }
 
   /**
@@ -89,9 +103,16 @@ export class SmtpTransport implements Transport, AsyncDisposable {
   async send(message: Message, options?: TransportOptions): Promise<Receipt> {
     options?.signal?.throwIfAborted();
 
-    const connection = await this.getConnection(options?.signal);
+    let connection: SmtpConnection | undefined;
 
     try {
+      // Establishing the connection—including authentication, e.g. acquiring an
+      // OAuth 2.0 access token—is part of delivery, so setup failures are
+      // reported as a failed receipt rather than thrown.  (Cancellation via the
+      // abort signal still rejects: an already-aborted signal is caught by the
+      // guard above, before this method does any work.)
+      connection = await this.getConnection(options?.signal);
+
       options?.signal?.throwIfAborted();
 
       const smtpMessage = await convertMessage(message, this.config.dkim);
@@ -110,7 +131,12 @@ export class SmtpTransport implements Transport, AsyncDisposable {
         messageId,
       };
     } catch (error) {
-      await this.discardConnection(connection);
+      if (connection != null) {
+        await this.discardConnection(connection);
+      }
+
+      // Cancellation rejects rather than producing a receipt.
+      options?.signal?.throwIfAborted();
 
       return {
         successful: false,
@@ -153,7 +179,29 @@ export class SmtpTransport implements Transport, AsyncDisposable {
   ): AsyncIterable<Receipt> {
     options?.signal?.throwIfAborted();
 
-    const connection = await this.getConnection(options?.signal);
+    let connection: SmtpConnection;
+    try {
+      connection = await this.getConnection(options?.signal);
+    } catch (error) {
+      // Cancellation rejects rather than producing receipts.
+      options?.signal?.throwIfAborted();
+
+      // Connection setup (including authentication) failed, so no message can
+      // be delivered.  Report a failed receipt for each message rather than
+      // throwing.
+      const errorMessage = error instanceof Error
+        ? error.message
+        : String(error);
+      for await (const _ of messages) {
+        options?.signal?.throwIfAborted();
+        yield {
+          successful: false,
+          errorMessages: [errorMessage],
+        };
+      }
+      return;
+    }
+
     let connectionValid = true;
 
     try {
@@ -185,6 +233,9 @@ export class SmtpTransport implements Transport, AsyncDisposable {
               messageId,
             };
           } catch (error) {
+            // Cancellation rejects rather than producing a receipt.
+            options?.signal?.throwIfAborted();
+
             // Mark connection as invalid on any error
             connectionValid = false;
 
@@ -222,6 +273,9 @@ export class SmtpTransport implements Transport, AsyncDisposable {
               messageId,
             };
           } catch (error) {
+            // Cancellation rejects rather than producing a receipt.
+            options?.signal?.throwIfAborted();
+
             // Mark connection as invalid on any error
             connectionValid = false;
 
@@ -257,8 +311,15 @@ export class SmtpTransport implements Transport, AsyncDisposable {
     }
 
     // Create a new connection
-    const connection = new SmtpConnection(this.config);
-    await this.connectAndSetup(connection, signal);
+    const connection = new SmtpConnection(this.config, this.tokenManager);
+    try {
+      await this.connectAndSetup(connection, signal);
+    } catch (error) {
+      // Setup failed after the socket may have opened (e.g. EHLO, STARTTLS, or
+      // authentication failure); discard it so it does not leak.
+      await this.discardConnection(connection);
+      throw error;
+    }
     return connection;
   }
 
