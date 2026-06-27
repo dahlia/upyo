@@ -77,11 +77,23 @@ export function formatOauthbearer(
   host?: string,
   port?: number,
 ): string {
-  let response = `n,a=${user},\x01`;
+  let response = `n,a=${escapeSaslName(user)},\x01`;
   if (host != null) response += `host=${host}\x01`;
   if (port != null) response += `port=${port}\x01`;
   response += `auth=Bearer ${accessToken}\x01\x01`;
   return toBase64(response);
+}
+
+/**
+ * Escapes a SASL name (GS2 `authzid`) per RFC 5801, encoding `,` as `=2C` and
+ * `=` as `=3D` so that identities containing those characters do not corrupt
+ * the GS2 header.
+ *
+ * @param name The SASL name to escape.
+ * @returns The escaped SASL name.
+ */
+function escapeSaslName(name: string): string {
+  return name.replace(/=/g, "=3D").replace(/,/g, "=2C");
 }
 
 /**

@@ -67,6 +67,14 @@ describe("formatOauthbearer()", () => {
     const decoded = decodeBase64(formatOauthbearer("u@e.com", "tok"));
     assert.equal(decoded, "n,a=u@e.com,\x01auth=Bearer tok\x01\x01");
   });
+
+  test("escapes commas and equals signs in the authzid", () => {
+    const decoded = decodeBase64(formatOauthbearer("a,b=c@example.com", "tok"));
+    assert.equal(
+      decoded,
+      "n,a=a=2Cb=3Dc@example.com,\x01auth=Bearer tok\x01\x01",
+    );
+  });
 });
 
 describe("selectOAuth2Mechanism()", () => {
