@@ -200,9 +200,15 @@ function truncateErrorBody(text: string): string {
 function abortable<T>(promise: Promise<T>, signal?: AbortSignal): Promise<T> {
   if (signal == null) return promise;
   return new Promise<T>((resolve, reject) => {
-    const onAbort = () => reject(signal.reason);
+    // Fall back to a standard AbortError when the signal has no reason (e.g.
+    // aborted without one, or a runtime that does not populate `reason`), so the
+    // promise never rejects with `undefined`.
+    const abortReason = () =>
+      signal.reason ??
+        new DOMException("The operation was aborted.", "AbortError");
+    const onAbort = () => reject(abortReason());
     if (signal.aborted) {
-      reject(signal.reason);
+      reject(abortReason());
     } else {
       signal.addEventListener("abort", onAbort, { once: true });
     }
