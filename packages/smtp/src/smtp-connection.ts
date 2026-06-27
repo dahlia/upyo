@@ -26,6 +26,13 @@ const MAX_COMMAND_LINE_LENGTH = 512;
 const CRLF_LENGTH = 2;
 
 /**
+ * How long, in milliseconds, to wait for the graceful `QUIT` to flush during
+ * teardown before giving up, so an unresponsive server cannot block shutdown
+ * for the full socket timeout.
+ */
+const QUIT_TIMEOUT_MS = 5000;
+
+/**
  * Whether a host refers to the local loopback interface, for which cleartext
  * OAuth 2.0 authentication is permitted (e.g. local testing and development).
  *
@@ -557,11 +564,21 @@ export class SmtpConnection {
     // finished connecting (e.g. a refused or timed-out connection) would
     // otherwise error or leave a dangling command timeout.
     if (socket.writable) {
-      try {
-        await this.sendCommand("QUIT");
-      } catch {
-        // Ignore errors during quit
-      }
+      // Send QUIT best-effort and wait only until it has been flushed (bounded
+      // by QUIT_TIMEOUT_MS) rather than for the server's reply, so an
+      // unresponsive server cannot block teardown for the full socket timeout.
+      await new Promise<void>((resolve) => {
+        const timer = setTimeout(resolve, QUIT_TIMEOUT_MS);
+        try {
+          socket.write("QUIT\r\n", () => {
+            clearTimeout(timer);
+            resolve();
+          });
+        } catch {
+          clearTimeout(timer);
+          resolve();
+        }
+      });
     }
 
     try {
