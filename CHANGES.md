@@ -31,7 +31,7 @@ To be released.
  -  Added OAuth 2.0 authentication support to the SMTP transport, using the
     SASL *XOAUTH2* and *OAUTHBEARER* ([RFC 7628]) mechanisms.  This enables
     authentication with providers such as Gmail and Outlook that require OAuth
-    2.0 instead of passwords.  [[#19]]
+    2.0 instead of passwords.  [[#19], [#24]]
 
      -  `SmtpAuth` is now a discriminated union of `SmtpUserPassAuth`
         (username/password, as before) and the OAuth 2.0 variants.  Existing
@@ -58,10 +58,11 @@ To be released.
     as a rejected recipient) that were already reported as a failed `Receipt`.
     Now all delivery failures—including setup failures—are reported uniformly
     as a failed `Receipt`.  Cancellation via `AbortSignal` continues to reject.
-    [[#19]]
+    [[#19], [#24]]
 
 [RFC 7628]: https://www.rfc-editor.org/rfc/rfc7628
 [#19]: https://github.com/dahlia/upyo/issues/19
+[#24]: https://github.com/dahlia/upyo/pull/24
 
 
 Version 0.4.0
