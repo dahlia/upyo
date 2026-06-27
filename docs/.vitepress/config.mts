@@ -149,6 +149,26 @@ export default defineConfig({
     [
       "link",
       {
+        rel: "preload",
+        href: "/fonts/bricolage-grotesque-latin-wght-normal.woff2",
+        as: "font",
+        type: "font/woff2",
+        crossorigin: "",
+      },
+    ],
+    [
+      "link",
+      {
+        rel: "preload",
+        href: "/fonts/jetbrains-mono-latin-wght-normal.woff2",
+        as: "font",
+        type: "font/woff2",
+        crossorigin: "",
+      },
+    ],
+    [
+      "link",
+      {
         rel: "icon",
         type: "image/png",
         sizes: "192x192",

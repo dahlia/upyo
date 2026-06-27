@@ -1,0 +1,741 @@
+/* ========================================================================== *
+ * Upyo landing page styles
+ *
+ * One signature element carries the design: a perforated stamp edge (.lp-stamp).
+ * Everything else stays quiet: warm paper tones, hairline borders, a single
+ * display face for headings, and a monospace for the small "postal" labels.
+ * All classes are global (the code token colors must reach v-html output), so
+ * everything here is namespaced with `lp-`.
+ * ========================================================================== */
+
+.lp {
+  --lp-maxw: 1140px;
+  --lp-pad-x: clamp(1.25rem, 4vw, 2.5rem);
+  --lp-section-y: clamp(4rem, 8.5vw, 7rem);
+  color: var(--vp-c-text-1);
+  overflow-x: clip;
+}
+
+/* Let grid/flex children shrink below their content width so long code lines
+   scroll inside their panel instead of widening the whole page. */
+.lp-hero__grid > *,
+.lp-hero__intro,
+.lp-hero__media,
+.lp-split > *,
+.lp-duo > * {
+  min-width: 0;
+}
+
+.lp-codecard,
+.lp-stamp,
+.lp-stamp__inner {
+  max-width: 100%;
+}
+
+/* --- Section scaffolding -------------------------------------------------- */
+
+.lp-section {
+  position: relative;
+  padding-block: var(--lp-section-y);
+}
+
+.lp-section--paper {
+  background: var(--upyo-paper);
+  border-block: 1px solid var(--upyo-edge);
+}
+
+.lp-container {
+  width: 100%;
+  max-width: var(--lp-maxw);
+  margin-inline: auto;
+  padding-inline: var(--lp-pad-x);
+}
+
+/* --- Eyebrow (a small postal cancellation label) ------------------------- */
+
+.lp-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.65em;
+  margin: 0 0 1.1rem;
+  font-family: var(--vp-font-family-mono);
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--vp-c-brand-1);
+}
+
+.lp-eyebrow::before {
+  content: "";
+  width: 1.7em;
+  height: 1px;
+  background: currentColor;
+  opacity: 0.55;
+}
+
+/* --- Headings & lead text ------------------------------------------------ */
+
+.lp-heading {
+  font-family: var(--upyo-font-display);
+  font-weight: 650;
+  letter-spacing: -0.02em;
+  line-height: 1.08;
+  color: var(--upyo-ink);
+  font-size: clamp(1.8rem, 1rem + 2.6vw, 2.7rem);
+  margin: 0;
+  text-wrap: balance;
+}
+
+.lp-lead {
+  margin: 1.1rem 0 0;
+  max-width: 60ch;
+  color: var(--vp-c-text-2);
+  font-size: clamp(1.02rem, 0.95rem + 0.3vw, 1.18rem);
+  line-height: 1.62;
+}
+
+.lp-lead code,
+.lp-feature__desc code {
+  font-family: var(--vp-font-family-mono);
+  font-size: 0.86em;
+  padding: 0.1em 0.38em;
+  border-radius: 5px;
+  background: var(--vp-c-brand-soft);
+  color: var(--vp-c-brand-1);
+}
+
+/* Code chips that link out (e.g. to MDN): invert on hover to read as links. */
+.lp-lead a:has(code) {
+  text-decoration: none;
+}
+
+.lp-lead a code {
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.lp-lead a:hover code {
+  background: var(--vp-c-brand-1);
+  color: var(--vp-c-bg);
+}
+
+/* --- Arrow link (an entrance into the docs) ------------------------------ */
+
+.lp-arrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45em;
+  margin-top: 1.6rem;
+  font-weight: 600;
+  color: var(--vp-c-brand-1);
+  transition: color 0.2s ease;
+}
+
+.lp-arrow__i {
+  transition: transform 0.2s ease;
+}
+
+.lp-arrow:hover {
+  color: var(--vp-c-brand-2);
+}
+
+.lp-arrow:hover .lp-arrow__i {
+  transform: translateX(3px);
+}
+
+/* --- Buttons ------------------------------------------------------------- */
+
+.lp-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.7rem;
+  margin-top: 1.9rem;
+}
+
+.lp-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5em;
+  border-radius: 9999px;
+  padding: 0.72rem 1.35rem;
+  font-size: 0.95rem;
+  font-weight: 600;
+  line-height: 1;
+  border: 1px solid transparent;
+  transition: background-color 0.2s ease, border-color 0.2s ease,
+    color 0.2s ease, transform 0.12s ease;
+}
+
+.lp-btn--brand {
+  background: var(--vp-c-brand-3);
+  color: #fff;
+}
+
+.lp-btn--brand:hover {
+  background: var(--vp-c-brand-2);
+}
+
+.lp-btn--alt {
+  background: var(--vp-c-bg-elv);
+  color: var(--vp-c-text-1);
+  border-color: var(--vp-c-border);
+}
+
+.lp-btn--alt:hover {
+  border-color: var(--vp-c-brand-1);
+  color: var(--vp-c-brand-1);
+}
+
+.lp-btn:active {
+  transform: translateY(1px);
+}
+
+/* --- The signature: a perforated stamp edge ------------------------------ */
+
+.lp-stamp {
+  --perf-d: 6px;
+  --perf-step: 16px;
+  position: relative;
+  background: var(--upyo-paper);
+  filter: drop-shadow(0 14px 30px rgba(40, 16, 12, 0.16));
+  -webkit-mask:
+    radial-gradient(var(--perf-d) at 50% 0, #0000 96%, #000) 0 0 /
+      var(--perf-step) 100% repeat-x,
+    radial-gradient(var(--perf-d) at 50% 100%, #0000 96%, #000) 0 100% /
+      var(--perf-step) 100% repeat-x,
+    radial-gradient(var(--perf-d) at 0 50%, #0000 96%, #000) 0 0 / 100%
+      var(--perf-step) repeat-y,
+    radial-gradient(var(--perf-d) at 100% 50%, #0000 96%, #000) 100% 0 / 100%
+      var(--perf-step) repeat-y;
+  -webkit-mask-composite: source-in;
+  mask:
+    radial-gradient(var(--perf-d) at 50% 0, #0000 96%, #000) 0 0 /
+      var(--perf-step) 100% repeat-x,
+    radial-gradient(var(--perf-d) at 50% 100%, #0000 96%, #000) 0 100% /
+      var(--perf-step) 100% repeat-x,
+    radial-gradient(var(--perf-d) at 0 50%, #0000 96%, #000) 0 0 / 100%
+      var(--perf-step) repeat-y,
+    radial-gradient(var(--perf-d) at 100% 50%, #0000 96%, #000) 100% 0 / 100%
+      var(--perf-step) repeat-y;
+  mask-composite: intersect;
+}
+
+.dark .lp-stamp {
+  filter: drop-shadow(0 14px 30px rgba(0, 0, 0, 0.5));
+}
+
+.lp-stamp__inner {
+  padding: clamp(16px, 2.2vw, 22px);
+}
+
+/* A torn perforation line, used once as a quiet divider. */
+.lp-perf {
+  height: 4px;
+  background:
+    radial-gradient(circle 2px at 50% 50%, var(--upyo-edge) 60%, #0000 62%) 0
+    50% / 15px 4px repeat-x;
+  opacity: 0.9;
+}
+
+/* --- Code panel (an "engraved" print, dark in both themes) ---------------- */
+
+.lp-codecard {
+  --tok-bg: #1e1714;
+  --tok-text: #e8dfcf;
+  --tok-comment: #93806f;
+  --tok-keyword: #e2906c;
+  --tok-string: #cdb583;
+  --tok-func: #f1e8d6;
+  --tok-type: #d8aa79;
+  --tok-num: #d49c6c;
+  background: var(--tok-bg);
+  border: 1px solid #38302b;
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.dark .lp-codecard {
+  --tok-bg: #221b18;
+  border-color: #3d322d;
+}
+
+.lp-codecard__bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.55rem 0.95rem;
+  background: rgba(255, 255, 255, 0.025);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+}
+
+.lp-codecard__file {
+  font-family: var(--vp-font-family-mono);
+  font-size: 0.74rem;
+  color: #c9b9a6;
+}
+
+.lp-codecard__tag {
+  font-family: var(--vp-font-family-mono);
+  font-size: 0.64rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.16em;
+  color: #9a8775;
+  white-space: nowrap;
+}
+
+.lp-code {
+  margin: 0;
+  padding: 1rem 1.15rem 1.15rem;
+  overflow-x: auto;
+}
+
+.lp-code code {
+  display: block;
+  font-family: var(--vp-font-family-mono);
+  font-size: 0.82rem;
+  line-height: 1.65;
+  color: var(--tok-text);
+  white-space: pre;
+}
+
+.lp-code .tok-comment {
+  color: var(--tok-comment);
+  font-style: italic;
+}
+.lp-code .tok-string {
+  color: var(--tok-string);
+}
+.lp-code .tok-keyword {
+  color: var(--tok-keyword);
+}
+.lp-code .tok-func {
+  color: var(--tok-func);
+}
+.lp-code .tok-type {
+  color: var(--tok-type);
+}
+.lp-code .tok-num {
+  color: var(--tok-num);
+}
+.lp-code .tok-prop {
+  color: var(--tok-text);
+}
+
+/* ========================================================================== *
+ * Hero
+ * ========================================================================== */
+
+.lp-hero {
+  padding-top: clamp(3rem, 4vw, 5rem);
+  padding-bottom: clamp(2.5rem, 4vw, 4rem);
+}
+
+.lp-hero__grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: clamp(2.5rem, 5vw, 4rem);
+  align-items: center;
+}
+
+@media (min-width: 900px) {
+  .lp-hero__grid {
+    grid-template-columns: 1.05fr 0.95fr;
+  }
+}
+
+.lp-hero__logo {
+  width: 60px;
+  height: 60px;
+  margin-bottom: 1.25rem;
+}
+
+.lp-hero__name {
+  display: flex;
+  align-items: baseline;
+  gap: 0.55rem;
+  flex-wrap: wrap;
+  font-family: var(--upyo-font-display);
+  font-weight: 700;
+  font-size: clamp(2.7rem, 1.5rem + 4vw, 4.2rem);
+  line-height: 1;
+  letter-spacing: -0.035em;
+  color: var(--upyo-ink);
+  margin: 0;
+}
+
+.lp-hero__phon {
+  font-family: var(--vp-font-family-mono);
+  font-size: clamp(0.9rem, 0.6rem + 0.8vw, 1.15rem);
+  font-weight: 400;
+  letter-spacing: 0;
+  color: var(--vp-c-text-3);
+}
+
+.lp-hero__tagline {
+  margin: 1.1rem 0 0;
+  font-family: var(--upyo-font-display);
+  font-weight: 600;
+  font-size: clamp(1.35rem, 1rem + 1.4vw, 1.9rem);
+  line-height: 1.18;
+  letter-spacing: -0.015em;
+  color: var(--vp-c-text-1);
+  text-wrap: balance;
+}
+
+.lp-hero__lead {
+  margin: 1.1rem 0 0;
+  max-width: 46ch;
+  color: var(--vp-c-text-2);
+  font-size: clamp(1.02rem, 0.97rem + 0.25vw, 1.15rem);
+  line-height: 1.62;
+}
+
+/* Runtime strip beneath the hero */
+.lp-runtimes {
+  margin-top: clamp(2.5rem, 4vw, 3.5rem);
+  padding-top: 1.4rem;
+  border-top: 1px solid var(--vp-c-divider);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.55rem 1.4rem;
+}
+
+.lp-runtimes__label {
+  font-family: var(--vp-font-family-mono);
+  font-size: 0.7rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--vp-c-text-3);
+}
+
+.lp-runtimes__list {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.6rem 1.5rem;
+}
+
+.lp-ico {
+  width: 1em;
+  height: 1em;
+  flex: none;
+}
+
+.lp-rt {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5em;
+  font-weight: 600;
+  color: var(--vp-c-text-1);
+}
+
+.lp-rt .lp-ico {
+  width: 1.15em;
+  height: 1.15em;
+  color: var(--upyo-ink);
+}
+
+.lp-rt__providers {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5em;
+  margin-left: 0.15em;
+}
+
+.lp-rt__providers .lp-ico {
+  width: 1em;
+  height: 1em;
+  color: var(--vp-c-text-3);
+}
+
+/* ========================================================================== *
+ * Section header (eyebrow + heading + lead)
+ * ========================================================================== */
+
+.lp-head {
+  max-width: 44rem;
+}
+
+.lp-head--center {
+  margin-inline: auto;
+  text-align: center;
+}
+
+.lp-head--center .lp-lead {
+  margin-inline: auto;
+}
+
+.lp-head--center .lp-eyebrow::before {
+  display: none;
+}
+
+/* ========================================================================== *
+ * Runtimes section
+ * ========================================================================== */
+
+.lp-runtile-grid {
+  margin-top: clamp(2rem, 4vw, 3rem);
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 0.85rem;
+}
+
+.lp-runtile {
+  padding: 1.1rem 1.15rem 1.2rem;
+  border: 1px solid var(--vp-c-border);
+  border-radius: 12px;
+  background: var(--vp-c-bg-elv);
+}
+
+.lp-runtile__icos {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  height: 26px;
+  margin-bottom: 0.9rem;
+  color: var(--upyo-ink);
+}
+
+.lp-runtile__icos .lp-ico {
+  width: 24px;
+  height: 24px;
+}
+
+.lp-runtile__name {
+  font-family: var(--upyo-font-display);
+  font-weight: 650;
+  font-size: 1.12rem;
+  color: var(--upyo-ink);
+}
+
+.lp-runtile__desc {
+  margin-top: 0.3rem;
+  font-size: 0.85rem;
+  line-height: 1.5;
+  color: var(--vp-c-text-3);
+}
+
+/* ========================================================================== *
+ * Two-column layouts (text + code)
+ * ========================================================================== */
+
+.lp-split {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: clamp(2rem, 4vw, 3.5rem);
+  align-items: center;
+}
+
+@media (min-width: 900px) {
+  .lp-split {
+    grid-template-columns: 1fr 1fr;
+  }
+  .lp-split--reverse .lp-split__media {
+    order: -1;
+  }
+}
+
+/* ========================================================================== *
+ * Transports
+ * ========================================================================== */
+
+.lp-tport-group {
+  margin-top: clamp(2rem, 4vw, 3rem);
+}
+
+.lp-tport-group + .lp-tport-group {
+  margin-top: 2.5rem;
+}
+
+.lp-tport-group__title {
+  font-family: var(--vp-font-family-mono);
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--vp-c-text-3);
+  margin: 0 0 1rem;
+}
+
+.lp-tport-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(176px, 1fr));
+  gap: 0.75rem;
+}
+
+.lp-tport {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  padding: 0.9rem 1rem;
+  border: 1px solid var(--vp-c-border);
+  border-radius: 11px;
+  background: var(--vp-c-bg-elv);
+  transition: border-color 0.2s ease, transform 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+.lp-tport:hover {
+  border-color: var(--vp-c-brand-1);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 22px rgba(60, 17, 16, 0.07);
+}
+
+.lp-tport__name {
+  font-weight: 650;
+  color: var(--upyo-ink);
+}
+
+.lp-tport__desc {
+  font-size: 0.8rem;
+  line-height: 1.45;
+  color: var(--vp-c-text-3);
+}
+
+/* ========================================================================== *
+ * Packaging feature list
+ * ========================================================================== */
+
+.lp-feature-grid {
+  margin-top: clamp(2rem, 4vw, 3rem);
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 1.6rem 2.2rem;
+}
+
+.lp-feature__label {
+  display: flex;
+  align-items: baseline;
+  gap: 0.6rem;
+  font-family: var(--upyo-font-display);
+  font-weight: 650;
+  font-size: 1.12rem;
+  color: var(--upyo-ink);
+}
+
+.lp-feature__num {
+  font-family: var(--vp-font-family-mono);
+  font-size: 0.72rem;
+  font-weight: 500;
+  color: var(--vp-c-brand-1);
+}
+
+.lp-feature__desc {
+  margin: 0.5rem 0 0;
+  font-size: 0.93rem;
+  line-height: 1.6;
+  color: var(--vp-c-text-2);
+}
+
+/* ========================================================================== *
+ * Developer-experience duo (testing + observability)
+ * ========================================================================== */
+
+.lp-duo {
+  margin-top: clamp(2rem, 4vw, 3rem);
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: clamp(2rem, 4vw, 3rem);
+  align-items: start;
+}
+
+@media (min-width: 860px) {
+  .lp-duo {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+.lp-duo__title {
+  font-family: var(--upyo-font-display);
+  font-weight: 650;
+  font-size: clamp(1.2rem, 1rem + 0.7vw, 1.45rem);
+  letter-spacing: -0.012em;
+  color: var(--upyo-ink);
+  margin: 0 0 0.55rem;
+}
+
+.lp-duo__desc {
+  margin: 0 0 1.2rem;
+  color: var(--vp-c-text-2);
+  line-height: 1.6;
+}
+
+.lp-duo .lp-arrow {
+  margin-top: 1.3rem;
+}
+
+/* ========================================================================== *
+ * Sponsor / closing
+ * ========================================================================== */
+
+.lp-sponsor {
+  text-align: center;
+}
+
+.lp-sponsor__divider {
+  max-width: 30rem;
+  margin: clamp(2.5rem, 5vw, 3.5rem) auto;
+}
+
+.lp-sponsor__note {
+  max-width: 40rem;
+  margin: 0 auto;
+  color: var(--vp-c-text-2);
+  line-height: 1.62;
+}
+
+.lp-sponsor__link {
+  color: var(--vp-c-brand-1);
+  font-weight: 600;
+  text-decoration: underline;
+  text-decoration-thickness: 1.5px;
+  text-underline-offset: 3px;
+  transition: color 0.15s ease;
+}
+
+.lp-sponsor__link:hover {
+  color: var(--vp-c-brand-2);
+}
+
+.lp-sponsor__heart {
+  color: var(--vp-c-brand-1);
+}
+
+.lp-coda {
+  margin-top: 2.4rem;
+  font-family: var(--vp-font-family-mono);
+  font-size: 0.78rem;
+  letter-spacing: 0.03em;
+  color: var(--vp-c-text-3);
+}
+
+/* ========================================================================== *
+ * Scroll reveal (only after JS mounts, only when motion is welcome)
+ * ========================================================================== */
+
+@media (prefers-reduced-motion: no-preference) {
+  .lp-js .lp-reveal {
+    opacity: 0;
+    transform: translateY(14px);
+    transition: opacity 0.6s ease, transform 0.6s ease;
+  }
+
+  .lp-js .lp-reveal.is-visible {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* ========================================================================== *
+ * Focus visibility
+ * ========================================================================== */
+
+.lp a:focus-visible,
+.lp button:focus-visible {
+  outline: 2px solid var(--vp-c-brand-1);
+  outline-offset: 3px;
+  border-radius: 4px;
+}

@@ -3,51 +3,62 @@
  * https://github.com/vuejs/vitepress/blob/main/src/client/theme-default/styles/vars.css
  */
 
+/* -------------------------------------------------------------------------- *
+ * Fonts (self-hosted, see docs/public/fonts/)
+ *
+ * - Bricolage Grotesque: display face for the hero and page headings.  A
+ *   contemporary grotesque with a little warmth, used with restraint.
+ * - JetBrains Mono: monospace used for code and the small "postal" labels.
+ * -------------------------------------------------------------------------- */
+
+@font-face {
+    font-family: "Bricolage Grotesque";
+    font-style: normal;
+    font-display: swap;
+    font-weight: 200 800;
+    src: url("/fonts/bricolage-grotesque-latin-wght-normal.woff2") format("woff2");
+    unicode-range:
+        U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC,
+        U+2000-206F, U+2074, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215,
+        U+FEFF, U+FFFD;
+}
+
+@font-face {
+    font-family: "JetBrains Mono";
+    font-style: normal;
+    font-display: swap;
+    font-weight: 100 800;
+    src: url("/fonts/jetbrains-mono-latin-wght-normal.woff2") format("woff2");
+    unicode-range:
+        U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC,
+        U+2000-206F, U+2074, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215,
+        U+FEFF, U+FFFD;
+}
+
+:root {
+    --upyo-font-display:
+        "Bricolage Grotesque", var(--vp-font-family-base);
+    --vp-font-family-mono:
+        "JetBrains Mono", ui-monospace, "SF Mono", "Menlo", "Consolas",
+        monospace;
+}
+
 /**
- * Colors
+ * Colors — a warm, postal palette.
  *
- * Each colors have exact same color scale system with 3 levels of solid
- * colors with different brightness, and 1 soft color.
- *
- * - `XXX-1`: The most solid color used mainly for colored text. It must
- *   satisfy the contrast ratio against when used on top of `XXX-soft`.
- *
- * - `XXX-2`: The color used mainly for hover state of the button.
- *
- * - `XXX-3`: The color for solid background, such as bg color of the button.
- *   It must satisfy the contrast ratio with pure white (#ffffff) text on
- *   top of it.
- *
- * - `XXX-soft`: The color used for subtle background such as custom container
- *   or badges. It must satisfy the contrast ratio when putting `XXX-1` colors
- *   on top of it.
- *
- *   The soft color must be semi transparent alpha channel. This is crucial
- *   because it allows adding multiple "soft" colors on top of each other
- *   to create a accent, such as when having inline code block inside
- *   custom containers.
- *
- * - `default`: The color used purely for subtle indication without any
- *   special meanings attached to it such as bg color for menu hover state.
- *
- * - `brand`: Used for primary brand colors, such as link text, button with
- *   brand theme, etc.
- *
- * - `tip`: Used to indicate useful information. The default theme uses the
- *   brand color for this by default.
- *
- * - `warning`: Used to indicate warning to the users. Used in custom
- *   container, badges, etc.
- *
- * - `danger`: Used to show error, or dangerous message to the users. Used
- *   in custom container, badges, etc.
+ * Each color has the same 3-level solid scale plus 1 soft color.  See the
+ * VitePress vars.css for the precise contract; in short: `-1` is solid text,
+ * `-2` is the hover state, `-3` is a solid background that must keep white
+ * text legible, and `-soft` is a translucent tint.
  * -------------------------------------------------------------------------- */
 
 :root {
+    /* Postal red.  `-3` was lightened in the old theme to a tone that failed
+       contrast under white button text; it is deepened here to pass AA. */
     --vp-c-maroon-1: #a1402c;
     --vp-c-maroon-2: #bd5234;
-    --vp-c-maroon-3: #df825e;
-    --vp-c-maroon-soft: rgba(244, 63, 94, 0.14);
+    --vp-c-maroon-3: #b5442a;
+    --vp-c-maroon-soft: rgba(161, 64, 44, 0.12);
 
     --vp-c-default-1: var(--vp-c-gray-1);
     --vp-c-default-2: var(--vp-c-gray-2);
@@ -59,9 +70,9 @@
     --vp-c-brand-3: var(--vp-c-maroon-3);
     --vp-c-brand-soft: var(--vp-c-maroon-soft);
 
-    --vp-c-tip-1: var(--vp-c-green-1);
-    --vp-c-tip-2: var(--vp-c-green-2);
-    --vp-c-tip-3: var(--vp-c-green-3);
+    --vp-c-tip-1: var(--vp-c-brand-1);
+    --vp-c-tip-2: var(--vp-c-brand-2);
+    --vp-c-tip-3: var(--vp-c-brand-3);
     --vp-c-tip-soft: var(--vp-c-brand-soft);
 
     --vp-c-warning-1: var(--vp-c-yellow-1);
@@ -73,6 +84,65 @@
     --vp-c-danger-2: var(--vp-c-red-2);
     --vp-c-danger-3: var(--vp-c-red-3);
     --vp-c-danger-soft: var(--vp-c-red-soft);
+}
+
+/* Warm neutrals (light).  A faint paper tint instead of pure white, warm
+   near-ink text, and warm gray dividers — so the whole site sits next to the
+   cream-and-brown logo without clashing. */
+:root {
+    --vp-c-bg: #fbf9f4;
+    --vp-c-bg-alt: #f4efe5;
+    --vp-c-bg-elv: #ffffff;
+    --vp-c-bg-soft: #f4efe4;
+
+    --vp-c-text-1: #2a1714;
+    --vp-c-text-2: #5d4f48;
+    --vp-c-text-3: #8c7d73;
+
+    --vp-c-divider: #e8ddcd;
+    --vp-c-border: #ddd0bf;
+    --vp-c-gutter: #ece3d6;
+
+    --vp-code-block-bg: #f3eee3;
+
+    /* Landing tokens */
+    --upyo-paper: #faf8ec;
+    --upyo-paper-2: #f2ebda;
+    --upyo-ink: #3c1110;
+    --upyo-edge: #e3d7c4;
+    --upyo-muted: #6f5a4e;
+    --upyo-perf-bleed: var(--vp-c-bg);
+}
+
+/* Warm neutrals (dark).  A warm charcoal-brown rather than blue-black. */
+.dark {
+    --vp-c-bg: #1a1413;
+    --vp-c-bg-alt: #140f0e;
+    --vp-c-bg-elv: #221b19;
+    --vp-c-bg-soft: #221b19;
+
+    --vp-c-text-1: #f3eee5;
+    --vp-c-text-2: #c2b5a9;
+    --vp-c-text-3: #8d7e72;
+
+    --vp-c-divider: #342a26;
+    --vp-c-border: #3d322d;
+    --vp-c-gutter: #0f0b0a;
+
+    --vp-code-block-bg: #211a18;
+
+    /* Brand reads brighter on dark surfaces. */
+    --vp-c-maroon-1: #e3895f;
+    --vp-c-maroon-2: #d9744a;
+    --vp-c-maroon-3: #b5442a;
+    --vp-c-maroon-soft: rgba(224, 135, 95, 0.15);
+
+    --upyo-paper: #241b18;
+    --upyo-paper-2: #2c211d;
+    --upyo-ink: #f3eee5;
+    --upyo-edge: #3d322d;
+    --upyo-muted: #b1a294;
+    --upyo-perf-bleed: var(--vp-c-bg);
 }
 
 /**
@@ -91,38 +161,27 @@
     --vp-button-brand-active-bg: var(--vp-c-brand-1);
 }
 
+.dark {
+    /* Keep white button text on the deep brand background in dark mode too. */
+    --vp-button-brand-bg: #b5442a;
+    --vp-button-brand-hover-bg: #c2502f;
+    --vp-button-brand-active-bg: #9a3a26;
+}
+
 /**
- * Component: Home
+ * Headings — the display face, applied with restraint to the larger headings.
  * -------------------------------------------------------------------------- */
 
-:root {
-    --vp-home-hero-name-color: transparent;
-    --vp-home-hero-name-background: -webkit-linear-gradient(120deg,
-            var(--vp-c-maroon-1) 30%,
-            var(--vp-c-maroon-3));
-
-    --vp-home-hero-image-background-image: linear-gradient(-45deg,
-            var(--vp-c-maroon-1) 50%,
-            var(--vp-c-maroon-3) 50%);
-    --vp-home-hero-image-filter: blur(24px);
+.vp-doc h1,
+.vp-doc h2,
+.vp-doc h3 {
+    font-family: var(--upyo-font-display);
+    letter-spacing: -0.018em;
 }
 
-@media (min-width: 640px) {
-    :root {
-        --vp-home-hero-image-filter: blur(32px);
-    }
-}
-
-@media (min-width: 960px) {
-    :root {
-        --vp-home-hero-image-filter: blur(44px);
-    }
-}
-
-.VPHero h1>.name:after {
-    content: ' /upʰjo/';
-    font-weight: 400;
-    opacity: 50%;
+.VPHero .name,
+.VPHero .text {
+    font-family: var(--upyo-font-display);
 }
 
 /**
@@ -137,13 +196,16 @@
 }
 
 /**
- * Component: Algolia
+ * Component: Algolia / local search
  * -------------------------------------------------------------------------- */
 
 .DocSearch {
     --docsearch-primary-color: var(--vp-c-brand-1) !important;
 }
 
+/**
+ * Footnotes & definition lists
+ * -------------------------------------------------------------------------- */
 
 hr.footnotes-sep {
     margin-top: 48px;
