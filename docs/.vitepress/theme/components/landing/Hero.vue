@@ -1,24 +1,7 @@
 <script setup lang="ts">
 import { withBase } from "vitepress";
-import CodeBlock from "./CodeBlock.vue";
+import HeroCode from "./HeroCode.vue";
 import BrandIcon from "./BrandIcon.vue";
-
-const heroCode = `import { createMessage } from "@upyo/core";
-import { MailgunTransport } from "@upyo/mailgun";
-
-const message = createMessage({
-  from: "hello@example.com",
-  to: "rachel@example.net",
-  subject: "Hello from Upyo!",
-  content: { text: "This is a test email." },
-});
-
-const transport = new MailgunTransport({
-  apiKey: process.env.MAILGUN_KEY,
-  domain: process.env.MAILGUN_DOMAIN,
-});
-
-const receipt = await transport.send(message);`;
 </script>
 
 <template>
@@ -67,7 +50,7 @@ const receipt = await transport.send(message);`;
         <div class="lp-hero__media lp-reveal">
           <div class="lp-stamp">
             <div class="lp-stamp__inner">
-              <CodeBlock file="send.ts" tag="Any provider" :code="heroCode" />
+              <HeroCode />
             </div>
           </div>
         </div>

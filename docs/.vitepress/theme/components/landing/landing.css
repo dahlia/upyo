@@ -300,27 +300,88 @@
   white-space: pre;
 }
 
-.lp-code .tok-comment {
+.lp-codecard .tok-comment {
   color: var(--tok-comment);
   font-style: italic;
 }
-.lp-code .tok-string {
+.lp-codecard .tok-string {
   color: var(--tok-string);
 }
-.lp-code .tok-keyword {
+.lp-codecard .tok-keyword {
   color: var(--tok-keyword);
 }
-.lp-code .tok-func {
+.lp-codecard .tok-func {
   color: var(--tok-func);
 }
-.lp-code .tok-type {
+.lp-codecard .tok-type {
   color: var(--tok-type);
 }
-.lp-code .tok-num {
+.lp-codecard .tok-num {
   color: var(--tok-num);
 }
-.lp-code .tok-prop {
+.lp-codecard .tok-prop {
   color: var(--tok-text);
+}
+
+/* Animated hero code: only the transport (import line + constructor) cycles. */
+.lp-acode {
+  margin: 0;
+  padding: 1rem 1.15rem 1.15rem;
+  overflow-x: auto;
+  font-family: var(--vp-font-family-mono);
+  font-size: 0.82rem;
+  line-height: 1.65;
+  color: var(--tok-text);
+}
+
+.lp-acode .lp-aln,
+.lp-acode .lp-tblock__in {
+  display: block;
+  white-space: pre;
+}
+
+.lp-aln {
+  min-height: 1.65em;
+}
+
+.lp-aln--swap {
+  min-height: 1.65em;
+}
+
+.lp-aln--swap > span {
+  display: inline-block;
+  white-space: pre;
+}
+
+/* Reserve the height of the tallest transport block so the lines below it
+   stay put as providers swap. */
+.lp-tblock {
+  position: relative;
+  min-height: calc(1.65em * 4);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .swap-enter-active,
+  .swap-leave-active {
+    transition: opacity 0.32s ease, transform 0.32s ease;
+  }
+  .swap-enter-from {
+    opacity: 0;
+    transform: translateY(7px);
+  }
+  .swap-leave-to {
+    opacity: 0;
+    transform: translateY(-7px);
+  }
+
+  .fade-enter-active,
+  .fade-leave-active {
+    transition: opacity 0.3s ease;
+  }
+  .fade-enter-from,
+  .fade-leave-to {
+    opacity: 0;
+  }
 }
 
 /* ========================================================================== *
