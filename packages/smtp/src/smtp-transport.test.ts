@@ -39,17 +39,13 @@ describe("SmtpTransport", () => {
       headers: new Headers(),
     };
 
-    // This will fail without a real SMTP server, but we can test the structure
-    try {
-      const receipt = await transport.send(message);
-      // If we got here, the message was successfully sent
-      assert.strictEqual(receipt.successful, true);
-      if (receipt.successful) {
-        assert.strictEqual(receipt.messageId.length > 0, true);
-      }
-    } catch (error) {
-      // Expected to fail without a real SMTP server
-      assert.strictEqual(error instanceof Error, true);
+    // send() returns a receipt (success or failure) without throwing, even when
+    // no SMTP server is listening, so assert the receipt shape either way.
+    const receipt = await transport.send(message);
+    if (receipt.successful) {
+      assert.ok(receipt.messageId.length > 0);
+    } else {
+      assert.ok(receipt.errorMessages.length > 0);
     }
   });
 
