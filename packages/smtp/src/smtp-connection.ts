@@ -613,12 +613,17 @@ export interface SmtpResponse {
  * Decodes the Base64 JSON error challenge a server sends after a failed OAuth
  * SASL exchange, falling back to the raw message when it is not valid Base64.
  *
+ * The bytes are decoded as UTF-8 (via `TextDecoder`) so non-ASCII challenge
+ * messages are not corrupted, unlike decoding `atob`'s Latin-1 output directly.
+ *
  * @param message The challenge text from the server's 334 response.
  * @returns A human-readable description of the failure.
  */
 function decodeOAuth2Challenge(message: string): string {
   try {
-    return atob(message.trim());
+    const binary = atob(message.trim());
+    const bytes = Uint8Array.from(binary, (char) => char.charCodeAt(0));
+    return new TextDecoder().decode(bytes);
   } catch {
     return message;
   }
