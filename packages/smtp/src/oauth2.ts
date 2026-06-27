@@ -334,6 +334,7 @@ export class OAuth2TokenManager {
     }, TOKEN_REQUEST_TIMEOUT_MS);
 
     let response: Response;
+    let text: string;
     try {
       response = await this.fetchFn(auth.tokenEndpoint, {
         method: "POST",
@@ -344,6 +345,9 @@ export class OAuth2TokenManager {
         body,
         signal: controller.signal,
       });
+      // Read the body under the same timeout: an endpoint that returns headers
+      // but stalls on the body must not leave `pending` unresolved forever.
+      text = await response.text();
     } catch (cause) {
       throw new SmtpAuthError(
         `Failed to request an OAuth 2.0 access token from ` +
@@ -354,7 +358,6 @@ export class OAuth2TokenManager {
       clearTimeout(timeout);
     }
 
-    const text = await response.text();
     const safeText = truncateErrorBody(text);
     if (!response.ok) {
       throw new SmtpAuthError(
