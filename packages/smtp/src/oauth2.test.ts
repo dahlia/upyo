@@ -283,6 +283,40 @@ describe("OAuth2TokenManager", () => {
     assert.equal(calls, 2);
   });
 
+  test("falls back to the default lifetime for invalid expires_in", async () => {
+    for (const expiresIn of [-100, "100abc", "-5", null]) {
+      let calls = 0;
+      const fetchFn: typeof fetch = () => {
+        calls++;
+        return Promise.resolve(
+          new Response(
+            JSON.stringify({ access_token: "t", expires_in: expiresIn }),
+            { status: 200, headers: { "content-type": "application/json" } },
+          ),
+        );
+      };
+      const auth: SmtpOAuth2RefreshAuth = {
+        user: "u@e.com",
+        clientId: "client-id",
+        refreshToken: "refresh-token",
+        tokenEndpoint: "https://oauth2.example.com/token",
+      };
+      const manager = new OAuth2TokenManager(auth, fetchFn);
+
+      // An invalid value yields the default (~1h) lifetime, so the cached token
+      // is reused and there is no second fetch.
+      await manager.getAccessToken();
+      await manager.getAccessToken();
+      assert.equal(
+        calls,
+        1,
+        `expires_in=${
+          JSON.stringify(expiresIn)
+        } should use the default lifetime`,
+      );
+    }
+  });
+
   test("truncates an oversized error response body", async () => {
     const fetchFn: typeof fetch = () =>
       Promise.resolve(new Response("E".repeat(5000), { status: 502 }));

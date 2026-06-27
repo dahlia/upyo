@@ -384,15 +384,22 @@ export class OAuth2TokenManager {
     }
 
     const record = json as Record<string, unknown>;
-    // Most providers return `expires_in` as a number, but some return it as a
-    // numeric string; parse that rather than falling back to the default.
-    let expiresIn = DEFAULT_EXPIRES_IN;
-    if (typeof record.expires_in === "number") {
-      expiresIn = record.expires_in;
-    } else if (typeof record.expires_in === "string") {
-      const parsed = Number.parseInt(record.expires_in, 10);
-      if (Number.isFinite(parsed)) expiresIn = parsed;
+    // Accept `expires_in` only as a finite, non-negative number of seconds.
+    // Some providers send it as a numeric string; `Number()` (unlike
+    // `parseInt`) rejects partial parses like "100abc".  Negative, NaN, and
+    // Infinity values fall back to the default lifetime.
+    const rawExpiresIn = record.expires_in;
+    let parsedExpiresIn: number;
+    if (typeof rawExpiresIn === "number") {
+      parsedExpiresIn = rawExpiresIn;
+    } else if (typeof rawExpiresIn === "string" && rawExpiresIn.trim() !== "") {
+      parsedExpiresIn = Number(rawExpiresIn);
+    } else {
+      parsedExpiresIn = NaN;
     }
+    const expiresIn = Number.isFinite(parsedExpiresIn) && parsedExpiresIn >= 0
+      ? parsedExpiresIn
+      : DEFAULT_EXPIRES_IN;
     return { accessToken: record.access_token as string, expiresIn };
   }
 }
