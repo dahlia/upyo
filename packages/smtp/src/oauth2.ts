@@ -335,8 +335,12 @@ export class OAuth2TokenManager {
 
     let response: Response;
     let text: string;
+    // Call through a local variable so the global `fetch` is not invoked as a
+    // method of this manager, which throws "Illegal invocation" in some
+    // runtimes (the native `fetch` requires a `globalThis`/undefined receiver).
+    const fetchFn = this.fetchFn;
     try {
-      response = await this.fetchFn(auth.tokenEndpoint, {
+      response = await fetchFn(auth.tokenEndpoint, {
         method: "POST",
         headers: {
           "content-type": "application/x-www-form-urlencoded",

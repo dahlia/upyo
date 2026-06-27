@@ -168,6 +168,31 @@ describe("OAuth2TokenManager", () => {
     assert.equal(calls, 1, "cached token is reused; no second fetch");
   });
 
+  test("calls fetchFn without binding it to the manager", async () => {
+    const receivers: unknown[] = [];
+    function recordingFetch(this: unknown): Promise<Response> {
+      receivers.push(this);
+      return Promise.resolve(
+        new Response(
+          JSON.stringify({ access_token: "t", expires_in: 3600 }),
+          { status: 200, headers: { "content-type": "application/json" } },
+        ),
+      );
+    }
+    const auth: SmtpOAuth2RefreshAuth = {
+      user: "u@e.com",
+      clientId: "client-id",
+      refreshToken: "refresh-token",
+      tokenEndpoint: "https://oauth2.example.com/token",
+    };
+    const manager = new OAuth2TokenManager(auth, recordingFetch);
+    await manager.getAccessToken();
+
+    // The native fetch throws "Illegal invocation" if called as a method, so
+    // it must be invoked unbound (receiver undefined), not as `this.fetchFn`.
+    assert.equal(receivers[0], undefined);
+  });
+
   test("refetches when the cached token is (near) expiry", async () => {
     let calls = 0;
     const fetchFn: typeof fetch = () => {
