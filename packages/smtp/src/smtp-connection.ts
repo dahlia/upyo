@@ -294,7 +294,7 @@ export class SmtpConnection {
     if (
       !this.capabilities.some((cap) => cap.toUpperCase().startsWith("AUTH"))
     ) {
-      throw new Error("Server does not support authentication.");
+      throw new SmtpAuthError("Server does not support authentication.");
     }
 
     if ("accessToken" in auth || "refreshToken" in auth) {
@@ -475,10 +475,19 @@ export class SmtpConnection {
       return;
     }
     if (response.code === 334) {
-      const final = await this.sendCommand(continuation, signal);
+      let finalMessage = "";
+      try {
+        const final = await this.sendCommand(continuation, signal);
+        finalMessage = ` (${final.message})`;
+      } catch {
+        // Some servers close the connection after rejecting authentication, so
+        // sending the continuation fails; keep the decoded challenge as the
+        // error detail rather than masking it with a socket error.
+        signal?.throwIfAborted();
+      }
       throw new SmtpAuthError(
         `${mechanism} authentication failed: ` +
-          `${decodeOAuth2Challenge(response.message)} (${final.message})`,
+          `${decodeOAuth2Challenge(response.message)}${finalMessage}`,
       );
     }
     throw new SmtpAuthError(

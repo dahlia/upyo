@@ -241,4 +241,26 @@ describe("SMTP OAuth 2.0 authentication", () => {
       socket.destroy();
     }
   });
+
+  test("throws SmtpAuthError when the server lacks AUTH support", async () => {
+    const connection = new SmtpConnection({
+      host: "smtp.example.com",
+      port: 465,
+      secure: true,
+      auth: { user: "user@example.com", accessToken: "the-access-token" },
+    });
+    const socket = new Socket();
+    connection.socket = socket;
+    connection.capabilities = []; // server advertised no AUTH mechanisms
+    try {
+      await assert.rejects(
+        connection.authenticate(),
+        (error: unknown) =>
+          error instanceof SmtpAuthError &&
+          /does not support/.test(error.message),
+      );
+    } finally {
+      socket.destroy();
+    }
+  });
 });
