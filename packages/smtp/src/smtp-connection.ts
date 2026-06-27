@@ -568,15 +568,21 @@ export class SmtpConnection {
       // by QUIT_TIMEOUT_MS) rather than for the server's reply, so an
       // unresponsive server cannot block teardown for the full socket timeout.
       await new Promise<void>((resolve) => {
-        const timer = setTimeout(resolve, QUIT_TIMEOUT_MS);
-        try {
-          socket.write("QUIT\r\n", () => {
-            clearTimeout(timer);
-            resolve();
-          });
-        } catch {
+        const done = () => {
           clearTimeout(timer);
+          socket.off("error", done);
+          socket.off("close", done);
           resolve();
+        };
+        const timer = setTimeout(done, QUIT_TIMEOUT_MS);
+        // Teardown is best-effort: an asynchronous socket error or close must
+        // not surface as an unhandled error event, so settle on those too.
+        socket.once("error", done);
+        socket.once("close", done);
+        try {
+          socket.write("QUIT\r\n", done);
+        } catch {
+          done();
         }
       });
     }
