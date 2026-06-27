@@ -88,21 +88,23 @@ export function getOAuth2TestConfig(): OAuth2TestConfig {
     ? "xoauth2"
     : undefined;
 
+  // An empty SMTP_OAUTH2_ACCESS_TOKEN is treated as "not set" (matching
+  // isOAuth2TestingEnabled), so the refresh-token flow is used in that case.
   const accessToken = process.env.SMTP_OAUTH2_ACCESS_TOKEN;
-  const usesRefreshFlow = accessToken == null;
-  const auth: SmtpAuth = usesRefreshFlow
+  const usesRefreshFlow = !accessToken;
+  const auth: SmtpAuth = accessToken
     ? {
+      user,
+      accessToken,
+      method,
+    }
+    : {
       user,
       clientId: process.env.SMTP_OAUTH2_CLIENT_ID!,
       clientSecret: process.env.SMTP_OAUTH2_CLIENT_SECRET,
       refreshToken: process.env.SMTP_OAUTH2_REFRESH_TOKEN!,
       tokenEndpoint: process.env.SMTP_OAUTH2_TOKEN_ENDPOINT!,
       scope: process.env.SMTP_OAUTH2_SCOPE,
-      method,
-    }
-    : {
-      user,
-      accessToken,
       method,
     };
 

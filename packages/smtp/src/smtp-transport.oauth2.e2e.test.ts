@@ -33,8 +33,12 @@ describe(
       }
     });
 
-    test("reuses a cached token across multiple sends", async () => {
-      const { smtp, from, to } = getOAuth2TestConfig();
+    test("reuses a cached token across multiple sends", async (t) => {
+      const { smtp, from, to, usesRefreshFlow } = getOAuth2TestConfig();
+      if (!usesRefreshFlow) {
+        t.skip("requires refresh-token auth to exercise token caching");
+        return;
+      }
       const transport = new SmtpTransport(smtp);
       try {
         const first = await transport.send(
