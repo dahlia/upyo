@@ -285,6 +285,8 @@ describe("OAuth2TokenManager", () => {
     const manager = new OAuth2TokenManager(auth);
     await assert.rejects(
       manager.getAccessToken(AbortSignal.abort()),
+      (error: unknown) =>
+        error instanceof DOMException && error.name === "AbortError",
     );
   });
 
@@ -330,6 +332,7 @@ describe("OAuth2TokenManager", () => {
         "https://oauth2.example.com/token",
         "http://localhost:8080/token",
         "http://127.0.0.1:8080/token",
+        "http://[::1]:8080/token",
       ]
     ) {
       const manager = new OAuth2TokenManager({

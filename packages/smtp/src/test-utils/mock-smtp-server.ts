@@ -124,11 +124,17 @@ export class MockSmtpServer extends EventEmitter {
             continue;
           }
 
-          // Drain the OAuth SASL failure continuation (which may be an empty
-          // line for XOAUTH2) before the empty-line skip below.
+          // Validate and drain the OAuth SASL failure continuation (an empty
+          // line for XOAUTH2, "AQ==" for OAUTHBEARER) before the empty-line skip
+          // below, so a wrong continuation is rejected instead of masked.
           if (awaitingOAuthFailure != null) {
-            const authResponse = this.responses.get("AUTH")!;
-            socket.write(`${authResponse.code} ${authResponse.message}\r\n`);
+            const expected = awaitingOAuthFailure === "xoauth2" ? "" : "AQ==";
+            if (line === expected) {
+              const authResponse = this.responses.get("AUTH")!;
+              socket.write(`${authResponse.code} ${authResponse.message}\r\n`);
+            } else {
+              socket.write("501 Invalid OAuth continuation\r\n");
+            }
             awaitingOAuthFailure = null;
             continue;
           }

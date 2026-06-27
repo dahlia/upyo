@@ -136,7 +136,10 @@ describe("SMTP OAuth 2.0 authentication", () => {
       await assert.rejects(
         connection.authenticate(),
         (error: unknown) =>
-          error instanceof SmtpAuthError && /XOAUTH2/.test(error.message),
+          error instanceof SmtpAuthError && /XOAUTH2/.test(error.message) &&
+          // The empty continuation was accepted, so the final server reply is
+          // the real failure rather than a rejected-continuation error.
+          /Bad credentials/.test(error.message),
       );
       assert.ok(!connection.authenticated);
     } finally {
@@ -185,7 +188,10 @@ describe("SMTP OAuth 2.0 authentication", () => {
       await assert.rejects(
         connection.authenticate(),
         (error: unknown) =>
-          error instanceof SmtpAuthError && /OAUTHBEARER/.test(error.message),
+          error instanceof SmtpAuthError && /OAUTHBEARER/.test(error.message) &&
+          // The "AQ==" continuation was accepted, so the final server reply is
+          // the real failure rather than a rejected-continuation error.
+          /Bad credentials/.test(error.message),
       );
       assert.ok(!connection.authenticated);
     } finally {

@@ -69,17 +69,20 @@ describe("SmtpTransport OAuth 2.0 integration", () => {
       );
     }) as typeof fetch;
 
-    // Pooling disabled so each send uses a fresh connection that authenticates
-    // independently; the shared token manager must still refresh only once.
-    const { server, transport } = await setup({
-      user: "user@example.com",
-      clientId: "client-id",
-      clientSecret: "client-secret",
-      refreshToken: "refresh-token",
-      tokenEndpoint: "https://oauth2.example.com/token",
-    }, { pool: false });
-
+    let server: MockSmtpServer | undefined;
+    let transport: SmtpTransport | undefined;
     try {
+      // Pooling disabled so each send uses a fresh connection that
+      // authenticates independently; the shared token manager must still
+      // refresh only once.
+      ({ server, transport } = await setup({
+        user: "user@example.com",
+        clientId: "client-id",
+        clientSecret: "client-secret",
+        refreshToken: "refresh-token",
+        tokenEndpoint: "https://oauth2.example.com/token",
+      }, { pool: false }));
+
       const first = await transport.send(createTestMessage());
       const second = await transport.send(createTestMessage());
       assert.ok(first.successful);
@@ -91,8 +94,8 @@ describe("SmtpTransport OAuth 2.0 integration", () => {
       );
     } finally {
       globalThis.fetch = originalFetch;
-      await transport.closeAllConnections();
-      await server.stop();
+      await transport?.closeAllConnections();
+      await server?.stop();
     }
   });
 
