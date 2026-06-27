@@ -83,6 +83,28 @@ describe("SMTP OAuth 2.0 authentication", () => {
     }
   });
 
+  test("uses the two-step SASL form for an over-long XOAUTH2 token", async () => {
+    // A long token (e.g. an Outlook JWT) overflows the SMTP command-line limit,
+    // so the initial response must be sent on its own line after a 334.
+    const longToken = "x".repeat(800);
+    const { server, connection } = await setup({
+      user: "user@example.com",
+      accessToken: longToken,
+    });
+    try {
+      await connection.connect();
+      await connection.greeting();
+      await connection.ehlo();
+      await connection.authenticate();
+
+      assert.ok(connection.authenticated);
+      // The AUTH command carried no inline initial response.
+      assert.equal(server.getLastAuthCommand(), "AUTH XOAUTH2");
+    } finally {
+      await teardown(server, connection);
+    }
+  });
+
   test("authenticates with XOAUTH2 using an asynchronous token provider", async () => {
     const { server, connection } = await setup({
       user: "user@example.com",

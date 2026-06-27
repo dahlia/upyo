@@ -16,6 +16,15 @@ import {
 } from "./oauth2.ts";
 import type { SmtpMessage } from "./message-converter.ts";
 
+/**
+ * The maximum length of an SMTP command line, including the terminating CRLF,
+ * as specified by RFC 5321 §4.5.3.1.4.
+ */
+const MAX_COMMAND_LINE_LENGTH = 512;
+
+/** The length of the CRLF terminator appended to every command. */
+const CRLF_LENGTH = 2;
+
 export class SmtpConnection {
   socket: Socket | TLSSocket | null = null;
   config: ResolvedSmtpConfig;
@@ -361,8 +370,9 @@ export class SmtpConnection {
   ): Promise<void> {
     const token = await this.getOAuth2Token(auth, signal);
     const initialResponse = formatXoauth2(auth.user, token);
-    const response = await this.sendCommand(
-      `AUTH XOAUTH2 ${initialResponse}`,
+    const response = await this.sendSaslAuth(
+      "XOAUTH2",
+      initialResponse,
       signal,
     );
     // On failure XOAUTH2 servers send a 334 challenge; the client replies with
@@ -381,13 +391,45 @@ export class SmtpConnection {
       this.config.host,
       this.config.port,
     );
-    const response = await this.sendCommand(
-      `AUTH OAUTHBEARER ${initialResponse}`,
+    const response = await this.sendSaslAuth(
+      "OAUTHBEARER",
+      initialResponse,
       signal,
     );
     // RFC 7628: on failure the client replies with a single 0x01 ("AQ==") to
     // receive the final failure response.
     await this.finishOAuth2(response, "OAUTHBEARER", "AQ==", signal);
+  }
+
+  /**
+   * Sends a SASL `AUTH` command with its Base64 initial response.
+   *
+   * When the resulting command line would exceed the SMTP command-line length
+   * limit (e.g. a long Outlook JWT access token), RFC 4954 requires the client
+   * to omit the initial response and send it on its own line after the server's
+   * `334` challenge.  This method transparently falls back to that two-step
+   * form, since some servers reject the over-long single-line command outright.
+   *
+   * @param mechanism The SASL mechanism name (e.g. `XOAUTH2`).
+   * @param initialResponse The Base64-encoded initial client response.
+   * @param signal An optional {@link AbortSignal}.
+   * @returns The server's response to the initial response.
+   */
+  private async sendSaslAuth(
+    mechanism: string,
+    initialResponse: string,
+    signal?: AbortSignal,
+  ): Promise<SmtpResponse> {
+    const inlineCommand = `AUTH ${mechanism} ${initialResponse}`;
+    if (inlineCommand.length + CRLF_LENGTH <= MAX_COMMAND_LINE_LENGTH) {
+      return await this.sendCommand(inlineCommand, signal);
+    }
+
+    const challenge = await this.sendCommand(`AUTH ${mechanism}`, signal);
+    if (challenge.code !== 334) {
+      return challenge;
+    }
+    return await this.sendCommand(initialResponse, signal);
   }
 
   /**
