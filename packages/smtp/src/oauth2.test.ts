@@ -258,6 +258,31 @@ describe("OAuth2TokenManager", () => {
     );
   });
 
+  test("parses a string expires_in", async () => {
+    let calls = 0;
+    const fetchFn: typeof fetch = () => {
+      calls++;
+      return Promise.resolve(
+        new Response(
+          JSON.stringify({ access_token: `t${calls}`, expires_in: "0" }),
+          { status: 200, headers: { "content-type": "application/json" } },
+        ),
+      );
+    };
+    const auth: SmtpOAuth2RefreshAuth = {
+      user: "u@e.com",
+      clientId: "client-id",
+      refreshToken: "refresh-token",
+      tokenEndpoint: "https://oauth2.example.com/token",
+    };
+    const manager = new OAuth2TokenManager(auth, fetchFn);
+
+    // "0" must parse to an immediate expiry, forcing a second fetch.
+    assert.equal(await manager.getAccessToken(), "t1");
+    assert.equal(await manager.getAccessToken(), "t2");
+    assert.equal(calls, 2);
+  });
+
   test("truncates an oversized error response body", async () => {
     const fetchFn: typeof fetch = () =>
       Promise.resolve(new Response("E".repeat(5000), { status: 502 }));

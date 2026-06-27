@@ -285,15 +285,22 @@ export class OAuth2TokenManager {
     // per token lifetime.  The shared request is not tied to any single caller's
     // abort signal; each caller instead races it against its own signal so that
     // one caller's cancellation cannot fail the others.
-    this.pending ??= this.refresh(auth).finally(() => {
-      this.pending = undefined;
-    });
+    this.pending ??= this.refresh(auth)
+      .then((result) => {
+        // Populate the cache before `finally` clears `pending`, so a concurrent
+        // caller in the microtask gap finds the fresh token instead of starting
+        // a duplicate refresh.
+        this.cached = {
+          accessToken: result.accessToken,
+          expiresAt: Date.now() + result.expiresIn * 1000,
+        };
+        return result;
+      })
+      .finally(() => {
+        this.pending = undefined;
+      });
 
-    const { accessToken, expiresIn } = await abortable(this.pending, signal);
-    this.cached = {
-      accessToken,
-      expiresAt: Date.now() + expiresIn * 1000,
-    };
+    const { accessToken } = await abortable(this.pending, signal);
     return accessToken;
   }
 
@@ -374,9 +381,15 @@ export class OAuth2TokenManager {
     }
 
     const record = json as Record<string, unknown>;
-    const expiresIn = typeof record.expires_in === "number"
-      ? record.expires_in
-      : DEFAULT_EXPIRES_IN;
+    // Most providers return `expires_in` as a number, but some return it as a
+    // numeric string; parse that rather than falling back to the default.
+    let expiresIn = DEFAULT_EXPIRES_IN;
+    if (typeof record.expires_in === "number") {
+      expiresIn = record.expires_in;
+    } else if (typeof record.expires_in === "string") {
+      const parsed = Number.parseInt(record.expires_in, 10);
+      if (Number.isFinite(parsed)) expiresIn = parsed;
+    }
     return { accessToken: record.access_token as string, expiresIn };
   }
 }
