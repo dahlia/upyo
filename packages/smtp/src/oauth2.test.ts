@@ -258,6 +258,25 @@ describe("OAuth2TokenManager", () => {
     );
   });
 
+  test("truncates an oversized error response body", async () => {
+    const fetchFn: typeof fetch = () =>
+      Promise.resolve(new Response("E".repeat(5000), { status: 502 }));
+    const auth: SmtpOAuth2RefreshAuth = {
+      user: "u@e.com",
+      clientId: "client-id",
+      refreshToken: "refresh-token",
+      tokenEndpoint: "https://oauth2.example.com/token",
+    };
+    const manager = new OAuth2TokenManager(auth, fetchFn);
+    await assert.rejects(
+      manager.getAccessToken(),
+      (error: unknown) =>
+        error instanceof SmtpAuthError &&
+        error.message.includes("…") &&
+        error.message.length < 700,
+    );
+  });
+
   test("rejects when the abort signal is already aborted", async () => {
     const auth: SmtpOAuth2TokenAuth = {
       user: "u@e.com",

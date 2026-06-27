@@ -164,6 +164,28 @@ const REFRESH_SAFETY_MARGIN_MS = 60_000;
 const DEFAULT_EXPIRES_IN = 3600;
 
 /**
+ * How long to wait for the token endpoint before aborting the request, so a
+ * stalled endpoint cannot block authentication indefinitely.
+ */
+const TOKEN_REQUEST_TIMEOUT_MS = 60_000;
+
+/** Maximum number of response-body characters to include in error messages. */
+const MAX_ERROR_BODY_LENGTH = 500;
+
+/**
+ * Truncates a token-endpoint response body so an oversized payload (e.g. a
+ * large proxy/CDN error page) does not bloat error messages and logs.
+ *
+ * @param text The response body text.
+ * @returns The text, truncated with an ellipsis if it exceeds the limit.
+ */
+function truncateErrorBody(text: string): string {
+  return text.length > MAX_ERROR_BODY_LENGTH
+    ? `${text.slice(0, MAX_ERROR_BODY_LENGTH)}…`
+    : text;
+}
+
+/**
  * Mirrors a promise but rejects early if the given abort signal fires, without
  * cancelling the underlying promise.  This lets a single waiter abort its own
  * wait on a shared operation without affecting other waiters.
@@ -297,6 +319,13 @@ export class OAuth2TokenManager {
     if (auth.clientSecret != null) body.set("client_secret", auth.clientSecret);
     if (auth.scope != null) body.set("scope", auth.scope);
 
+    // Bound the request with an internal timeout so a stalled endpoint cannot
+    // leave the shared `pending` promise unresolved forever.
+    const controller = new AbortController();
+    const timeout = setTimeout(() => {
+      controller.abort(new Error("OAuth 2.0 token request timed out"));
+    }, TOKEN_REQUEST_TIMEOUT_MS);
+
     let response: Response;
     try {
       response = await this.fetchFn(auth.tokenEndpoint, {
@@ -306,6 +335,7 @@ export class OAuth2TokenManager {
           "accept": "application/json",
         },
         body,
+        signal: controller.signal,
       });
     } catch (cause) {
       throw new SmtpAuthError(
@@ -313,12 +343,15 @@ export class OAuth2TokenManager {
           `${auth.tokenEndpoint}: ` +
           `${cause instanceof Error ? cause.message : String(cause)}`,
       );
+    } finally {
+      clearTimeout(timeout);
     }
 
     const text = await response.text();
+    const safeText = truncateErrorBody(text);
     if (!response.ok) {
       throw new SmtpAuthError(
-        `OAuth 2.0 token endpoint responded with HTTP ${response.status}: ${text}`,
+        `OAuth 2.0 token endpoint responded with HTTP ${response.status}: ${safeText}`,
       );
     }
 
@@ -327,7 +360,7 @@ export class OAuth2TokenManager {
       json = JSON.parse(text);
     } catch {
       throw new SmtpAuthError(
-        `OAuth 2.0 token endpoint returned a non-JSON response: ${text}`,
+        `OAuth 2.0 token endpoint returned a non-JSON response: ${safeText}`,
       );
     }
 
@@ -336,7 +369,7 @@ export class OAuth2TokenManager {
       typeof (json as Record<string, unknown>).access_token !== "string"
     ) {
       throw new SmtpAuthError(
-        `OAuth 2.0 token endpoint response did not include an access_token: ${text}`,
+        `OAuth 2.0 token endpoint response did not include an access_token: ${safeText}`,
       );
     }
 
