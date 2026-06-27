@@ -115,9 +115,11 @@ export function selectOAuth2Mechanism(
   const authLine = capabilities.find((cap) =>
     cap.toUpperCase().startsWith("AUTH")
   );
+  // Normalize "=" to whitespace so the older `AUTH=XOAUTH2 ...` form (where the
+  // first mechanism is glued to the AUTH keyword) is parsed like `AUTH XOAUTH2`.
   const mechanisms = authLine == null
     ? []
-    : authLine.toUpperCase().split(/\s+/).slice(1);
+    : authLine.toUpperCase().replace(/=/g, " ").split(/\s+/).slice(1);
   if (mechanisms.includes("XOAUTH2")) return "xoauth2";
   if (mechanisms.includes("OAUTHBEARER")) return "oauthbearer";
   return "xoauth2";

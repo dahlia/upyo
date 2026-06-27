@@ -96,6 +96,15 @@ describe("selectOAuth2Mechanism()", () => {
     assert.equal(selectOAuth2Mechanism(["AUTH PLAIN LOGIN"]), "xoauth2");
     assert.equal(selectOAuth2Mechanism([]), "xoauth2");
   });
+
+  test("handles the AUTH= capability form", () => {
+    // The first mechanism is glued to the keyword, e.g. `AUTH=XOAUTH2 ...`.
+    assert.equal(
+      selectOAuth2Mechanism(["AUTH=XOAUTH2 OAUTHBEARER"]),
+      "xoauth2",
+    );
+    assert.equal(selectOAuth2Mechanism(["AUTH=OAUTHBEARER"]), "oauthbearer");
+  });
 });
 
 describe("OAuth2TokenManager", () => {
