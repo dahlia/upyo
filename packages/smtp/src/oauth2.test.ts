@@ -309,7 +309,7 @@ describe("OAuth2TokenManager", () => {
   });
 
   test("falls back to the default lifetime for invalid expires_in", async () => {
-    for (const expiresIn of [-100, "100abc", "-5", null]) {
+    for (const expiresIn of [-100, "100abc", "-5", "Infinity", "1e309", null]) {
       let calls = 0;
       const fetchFn: typeof fetch = () => {
         calls++;
