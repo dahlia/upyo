@@ -283,9 +283,7 @@ export class OAuth2TokenManager {
     }
 
     const cached = this.cached;
-    if (
-      cached != null && cached.expiresAt - REFRESH_SAFETY_MARGIN_MS > Date.now()
-    ) {
+    if (cached != null && cached.expiresAt > Date.now()) {
       return cached.accessToken;
     }
 
@@ -297,10 +295,14 @@ export class OAuth2TokenManager {
       .then((result) => {
         // Populate the cache before `finally` clears `pending`, so a concurrent
         // caller in the microtask gap finds the fresh token instead of starting
-        // a duplicate refresh.
+        // a duplicate refresh.  Refresh slightly before expiry; cap the safety
+        // margin at half the lifetime so short-lived tokens are not treated as
+        // already expired (which would refresh on every connection).
+        const lifetimeMs = result.expiresIn * 1000;
+        const safetyMargin = Math.min(REFRESH_SAFETY_MARGIN_MS, lifetimeMs / 2);
         this.cached = {
           accessToken: result.accessToken,
-          expiresAt: Date.now() + result.expiresIn * 1000,
+          expiresAt: Date.now() + lifetimeMs - safetyMargin,
         };
         return result;
       })
