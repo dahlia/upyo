@@ -8,6 +8,7 @@ export class MockSmtpServer extends EventEmitter {
   private responses: Map<string, SmtpResponse> = new Map();
   private receivedMessages: MockSmtpMessage[] = [];
   private timeouts: Set<number | NodeJS.Timeout> = new Set();
+  private lastAuthCommand: string | null = null;
 
   constructor(port: number = 0) {
     super();
@@ -67,6 +68,26 @@ export class MockSmtpServer extends EventEmitter {
       let buffer = "";
       let inDataMode = false;
       let currentMessage: Partial<MockSmtpMessage> = {};
+      // When set, the server has sent a SASL failure challenge (334) for an
+      // OAuth mechanism and is awaiting the client's continuation line (an
+      // empty line for XOAUTH2, or "AQ==" for OAUTHBEARER) before sending the
+      // final failure reply.
+      let awaitingOAuthFailure: "xoauth2" | "oauthbearer" | null = null;
+      // When set, the client used the two-step SASL form (`AUTH <mech>` without
+      // an inline initial response) and the next line is that initial response.
+      let awaitingSaslInitialResponse: "xoauth2" | "oauthbearer" | null = null;
+
+      // Replies to an OAuth SASL initial response: success (235) or a 334
+      // failure challenge that awaits the client's continuation line.
+      const respondToOAuth = (mechanism: "xoauth2" | "oauthbearer") => {
+        const authResponse = this.responses.get("AUTH")!;
+        if (authResponse.code === 235) {
+          socket.write(`${authResponse.code} ${authResponse.message}\r\n`);
+        } else {
+          socket.write("334 eyJzdGF0dXMiOiJpbnZhbGlkX3Rva2VuIn0=\r\n");
+          awaitingOAuthFailure = mechanism;
+        }
+      };
 
       socket.on("data", (data) => {
         buffer += data.toString();
@@ -95,6 +116,29 @@ export class MockSmtpServer extends EventEmitter {
         buffer = lines.pop() || "";
 
         for (const line of lines) {
+          // Consume the two-step SASL initial response sent on its own line.
+          if (awaitingSaslInitialResponse != null) {
+            const mechanism = awaitingSaslInitialResponse;
+            awaitingSaslInitialResponse = null;
+            respondToOAuth(mechanism);
+            continue;
+          }
+
+          // Validate and drain the OAuth SASL failure continuation (an empty
+          // line for XOAUTH2, "AQ==" for OAUTHBEARER) before the empty-line skip
+          // below, so a wrong continuation is rejected instead of masked.
+          if (awaitingOAuthFailure != null) {
+            const expected = awaitingOAuthFailure === "xoauth2" ? "" : "AQ==";
+            if (line === expected) {
+              const authResponse = this.responses.get("AUTH")!;
+              socket.write(`${authResponse.code} ${authResponse.message}\r\n`);
+            } else {
+              socket.write("501 Invalid OAuth continuation\r\n");
+            }
+            awaitingOAuthFailure = null;
+            continue;
+          }
+
           if (!line.trim()) continue;
 
           const command = line.split(" ")[0].toUpperCase();
@@ -105,15 +149,30 @@ export class MockSmtpServer extends EventEmitter {
             case "HELO":
               const ehloResponse = this.responses.get("EHLO")!;
               socket.write(`${ehloResponse.code}-${ehloResponse.message}\r\n`);
-              socket.write("250-AUTH PLAIN LOGIN\r\n");
+              socket.write("250-AUTH PLAIN LOGIN XOAUTH2 OAUTHBEARER\r\n");
               // Note: STARTTLS removed from default capabilities
               // Mock server doesn't actually perform TLS upgrade
               // Tests can manually send STARTTLS command if needed
               socket.write("250 HELP\r\n");
               break;
 
-            case "AUTH":
-              if (line.includes("PLAIN")) {
+            case "AUTH": {
+              this.lastAuthCommand = line;
+              const parts = line.split(" ");
+              const mechanism = parts[1]?.toUpperCase();
+              if (mechanism === "XOAUTH2" || mechanism === "OAUTHBEARER") {
+                const mech = mechanism === "XOAUTH2"
+                  ? "xoauth2"
+                  : "oauthbearer";
+                if (parts.length >= 3) {
+                  respondToOAuth(mech);
+                } else {
+                  // Two-step form: the client omitted the initial response, so
+                  // request it with an empty 334 challenge.
+                  socket.write("334 \r\n");
+                  awaitingSaslInitialResponse = mech;
+                }
+              } else if (line.includes("PLAIN")) {
                 const authResponse = this.responses.get("AUTH")!;
                 socket.write(
                   `${authResponse.code} ${authResponse.message}\r\n`,
@@ -125,8 +184,9 @@ export class MockSmtpServer extends EventEmitter {
                 socket.write("334 Continue\r\n");
               }
               break;
+            }
 
-              // deno-lint-ignore no-case-declarations
+            // deno-lint-ignore no-case-declarations
             case "MAIL":
               currentMessage.from = this.extractEmail(line);
               const mailResponse = this.responses.get("MAIL")!;
@@ -253,6 +313,10 @@ export class MockSmtpServer extends EventEmitter {
 
   getReceivedMessages(): MockSmtpMessage[] {
     return [...this.receivedMessages];
+  }
+
+  getLastAuthCommand(): string | null {
+    return this.lastAuthCommand;
   }
 
   clearReceivedMessages(): void {

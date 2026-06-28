@@ -39,17 +39,13 @@ describe("SmtpTransport", () => {
       headers: new Headers(),
     };
 
-    // This will fail without a real SMTP server, but we can test the structure
-    try {
-      const receipt = await transport.send(message);
-      // If we got here, the message was successfully sent
-      assert.strictEqual(receipt.successful, true);
-      if (receipt.successful) {
-        assert.strictEqual(receipt.messageId.length > 0, true);
-      }
-    } catch (error) {
-      // Expected to fail without a real SMTP server
-      assert.strictEqual(error instanceof Error, true);
+    // send() returns a receipt (success or failure) without throwing, even when
+    // no SMTP server is listening, so assert the receipt shape either way.
+    const receipt = await transport.send(message);
+    if (receipt.successful) {
+      assert.ok(receipt.messageId.length > 0);
+    } else {
+      assert.ok(receipt.errorMessages.length > 0);
     }
   });
 
@@ -233,17 +229,18 @@ describe("SmtpTransport", () => {
         headers: new Headers(),
       };
 
-      try {
-        await transport.send(message);
-        assert.fail("Expected timeout error");
-      } catch (error) {
-        assert.ok(error instanceof Error);
-        // Should be some form of connection error or timeout
+      const receipt = await transport.send(message);
+
+      // Connection setup failures are reported as a failed receipt.
+      assert.ok(!receipt.successful);
+      if (!receipt.successful) {
         assert.ok(
-          error.message.includes("timeout") ||
-            error.message.includes("connect") ||
-            error.message.includes("ECONNREFUSED") ||
-            error.message.includes("EHOSTUNREACH"),
+          receipt.errorMessages.some((m) =>
+            m.includes("timeout") ||
+            m.includes("connect") ||
+            m.includes("ECONNREFUSED") ||
+            m.includes("EHOSTUNREACH")
+          ),
         );
       }
     });
@@ -270,17 +267,18 @@ describe("SmtpTransport", () => {
         headers: new Headers(),
       };
 
-      try {
-        await transport.send(message);
-        assert.fail("Expected DNS resolution error");
-      } catch (error) {
-        assert.ok(error instanceof Error);
-        // Should be DNS resolution error or connection error
+      const receipt = await transport.send(message);
+
+      // Connection setup failures are reported as a failed receipt.
+      assert.ok(!receipt.successful);
+      if (!receipt.successful) {
         assert.ok(
-          error.message.includes("ENOTFOUND") ||
-            error.message.includes("getaddrinfo") ||
-            error.message.includes("connect") ||
-            error.message.includes("host"),
+          receipt.errorMessages.some((m) =>
+            m.includes("ENOTFOUND") ||
+            m.includes("getaddrinfo") ||
+            m.includes("connect") ||
+            m.includes("host")
+          ),
         );
       }
     });
@@ -307,16 +305,17 @@ describe("SmtpTransport", () => {
         headers: new Headers(),
       };
 
-      try {
-        await transport.send(message);
-        assert.fail("Expected connection refused error");
-      } catch (error) {
-        assert.ok(error instanceof Error);
-        // Should be connection refused error
+      const receipt = await transport.send(message);
+
+      // Connection setup failures are reported as a failed receipt.
+      assert.ok(!receipt.successful);
+      if (!receipt.successful) {
         assert.ok(
-          error.message.includes("ECONNREFUSED") ||
-            error.message.includes("connect") ||
-            error.message.includes("refused"),
+          receipt.errorMessages.some((m) =>
+            m.includes("ECONNREFUSED") ||
+            m.includes("connect") ||
+            m.includes("refused")
+          ),
         );
       }
     });
@@ -399,13 +398,10 @@ describe("SmtpTransport", () => {
         headers: new Headers(),
       };
 
-      try {
-        await transport.send(noRecipientsMessage);
-        assert.fail("Expected error for empty recipients");
-      } catch (error) {
-        assert.ok(error instanceof Error);
-        // Should be validation error about recipients
-      }
+      // Sending with no recipients (or no reachable server) yields a failed
+      // receipt rather than throwing.
+      const receipt = await transport.send(noRecipientsMessage);
+      assert.ok(!receipt.successful);
     });
 
     test("should handle connection errors during sendMany", async () => {
@@ -432,24 +428,18 @@ describe("SmtpTransport", () => {
       }));
 
       const receipts = [];
-      let errorCount = 0;
-
-      try {
-        for await (const receipt of transport.sendMany(messages)) {
-          if (receipt.successful) {
-            receipts.push(receipt);
-          } else {
-            errorCount++;
-          }
-        }
-      } catch (error) {
-        // Expected to fail with connection errors
-        assert.ok(error instanceof Error);
-        errorCount++;
+      for await (const receipt of transport.sendMany(messages)) {
+        receipts.push(receipt);
       }
 
-      // Should have attempted to process messages and encountered errors
-      assert.ok(errorCount > 0 || receipts.length >= 0);
+      // Connection setup failure yields a failed receipt for every message.
+      assert.strictEqual(receipts.length, 3);
+      receipts.forEach((receipt) => {
+        assert.ok(!receipt.successful);
+        if (!receipt.successful) {
+          assert.ok(receipt.errorMessages.length > 0);
+        }
+      });
     });
 
     test("should handle resource cleanup after errors", async () => {
@@ -521,19 +511,18 @@ describe("SmtpTransport", () => {
       // Try multiple concurrent sends that should all fail
       const promises = Array.from(
         { length: 5 },
-        () =>
-          transport.send(message).catch((error) => {
-            assert.ok(error instanceof Error);
-            return error;
-          }),
+        () => transport.send(message),
       );
 
       const results = await Promise.all(promises);
 
-      // All should have resulted in errors
+      // All should have resulted in failed receipts
       assert.strictEqual(results.length, 5);
       results.forEach((result) => {
-        assert.ok(result instanceof Error);
+        assert.ok(!result.successful);
+        if (!result.successful) {
+          assert.ok(result.errorMessages.length > 0);
+        }
       });
     });
   });
