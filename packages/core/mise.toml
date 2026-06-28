@@ -1,0 +1,42 @@
+[tasks.build]
+description = "Build @upyo/core"
+run = "pnpm exec tsdown"
+sources = ["deno.json", "package.json", "tsdown.config.ts", "src/**/*.ts", "../../pnpm-lock.yaml", "../../pnpm-workspace.yaml"]
+outputs = ["dist/**/*"]
+
+[tasks."test:deno"]
+description = "Run @upyo/core tests with Deno"
+usage = '''
+flag "--coverage" help="Collect coverage data"
+flag "--junit-path <path>" help="Write JUnit XML test output"
+'''
+run = '''
+#!/usr/bin/env nu
+
+let args = ["test"]
+let args = if ($env.usage_coverage? | default "false" | into bool) {
+  $args | append "--coverage=../../coverage"
+} else {
+  $args
+}
+let args = if ($env.usage_junit_path? | default "" | is-not-empty) {
+  $args | append $"--junit-path=($env.usage_junit_path)"
+} else {
+  $args
+}
+deno ...$args
+'''
+
+[tasks."test:node"]
+description = "Run @upyo/core tests with Node.js"
+depends = ["build"]
+run = "node --experimental-transform-types --test"
+
+[tasks."test:bun"]
+description = "Run @upyo/core tests with Bun"
+depends = ["build"]
+run = "bun test"
+
+[tasks.test]
+description = "Run @upyo/core tests across all runtimes"
+depends = ["test:deno", "test:node", "test:bun"]

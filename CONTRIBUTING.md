@@ -15,9 +15,9 @@ community discussions.
 Getting started
 ---------------
 
-Upyo is a monorepo that uses [pnpm] for Node.js package management and [Deno]
-for runtime and tooling (linting, formatting, testing). To get started,
-you'll need to have [Node.js], [pnpm], and [Deno] installed on your system.
+Upyo is a monorepo that uses [mise] to install the required runtimes, install
+project dependencies, and run development tasks. To get started, you'll need
+to have [mise] installed on your system.
 
 1.  **Fork and clone the repository**
 
@@ -29,50 +29,49 @@ you'll need to have [Node.js], [pnpm], and [Deno] installed on your system.
 2.  **Install dependencies**
 
     ~~~~ bash
-    pnpm install
+    mise install
     ~~~~
 
-    This will install all Node.js dependencies for the entire monorepo.
+    This installs the configured Deno, Node.js, Bun, and pnpm versions, installs
+    project dependencies, and sets up the Git pre-commit hook.
 
-[pnpm]: https://pnpm.io/
-[Deno]: https://deno.com/
-[Node.js]: https://nodejs.org/
+[mise]: https://mise.jdx.dev/
 
 
 Development
 -----------
 
-The project uses both `pnpm` for Node.js-specific tasks and `deno` for
-general development tasks like linting, formatting, and testing.
+The project uses mise tasks for development workflows.
 
- -  **`pnpm build`**
+ -  **`mise run build`**
 
     Builds all packages for Node.js environments. You can also build a
-    specific package by running `pnpm build` from within the package's
+    specific package by running `mise :build` from within the package's
     directory.
 
- -  **`deno task test`**
+ -  **`mise run test:deno`**
 
     Runs the test suite using Deno. This is the primary way to run tests.
 
- -  **`pnpm test`**
+ -  **`mise run test:node`**
 
     Runs the test suite using Node.js. It's important to run this as well to
     ensure cross-runtime compatibility.
 
- -  **`deno lint`**
+ -  **`mise run test:bun`**
 
-    Checks the codebase for linting issues.
+    Runs the test suite using Bun.
 
- -  **`deno fmt`**
+ -  **`mise run fmt`**
 
-    Formats the entire codebase according to the project's style.
+    Formats the TypeScript and Markdown files according to the project's
+    style.
 
- -  **`deno task check`**
+ -  **`mise run check`**
 
     A convenient shorthand that runs type checking, linting, formatting checks,
-    and a dry-run publish to ensure everything is correct. This is a great
-    command to run before committing your changes.
+    workflow linting, and a dry-run publish to ensure everything is correct.
+    This is a great command to run before committing your changes.
 
 
 Adding a new transport
@@ -107,9 +106,8 @@ commit messages.  See *[AI_POLICY.md]* for the complete policy.
 
 Before submitting a pull request, please make sure you have done the following:
 
- -  Run `deno task check` to ensure the code is clean and correct.
- -  Run `deno task test` and `pnpm test` to ensure all tests pass in both
-    runtimes.
+ -  Run `mise run check` to ensure the code is clean and correct.
+ -  Run `mise run test` to ensure all tests pass across supported runtimes.
  -  Add tests for any new features or bug fixes.
  -  Update the documentation if necessary.
  -  Add a changeset to *CHANGES.md* if your changes affect any of

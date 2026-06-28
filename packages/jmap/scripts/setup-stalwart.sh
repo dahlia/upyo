@@ -77,4 +77,4 @@ STALWART_BASE_URL=http://localhost:8080
 EOF
 
 echo "Environment file created at $ENV_FILE"
-echo "Setup complete! You can now run: deno task test"
+echo "Setup complete! You can now run: mise :test:deno"

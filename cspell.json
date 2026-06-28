@@ -6,7 +6,6 @@
     "unbundle",
     "mailpit",
     "ehlo",
-    "dotenvx",
     "helo",
     "STARTTLS",
     "healthcheck",

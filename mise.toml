@@ -1,6 +1,240 @@
+monorepo_root = true
+
+[monorepo]
+config_roots = ["packages/*"]
+
+[settings]
+experimental = true
+
 [tools]
-# Bun version should be kept in sync with GitHub Actions workflows
 bun = "1.2.22"
 deno = "2.3"
 node = "24"
-"npm:pnpm" = "latest"
+pnpm = "latest"
+"github:rhysd/actionlint" = "1.7.12"
+"github:koalaman/shellcheck" = "0.11.0"
+"aqua:dahlia/hongdown" = "0.5.0"
+"aqua:nushell/nushell" = "latest"
+
+[env]
+DENO_NO_PACKAGE_JSON = "1"
+_.file = { path = ".env", redact = true }
+
+[deps.pnpm]
+auto = true
+
+[deps.deno]
+auto = true
+depends = ["pnpm"]
+
+[hooks]
+postinstall = { task = "setup" }
+
+[tasks.setup]
+description = "Install project dependencies and Git hooks"
+depends = ["deps"]
+run = [{ task = "hooks:install" }]
+
+[tasks.deps]
+description = "Install all project dependencies"
+run = "mise deps install"
+
+[tasks."hooks:install"]
+description = "Install the Git pre-commit hook"
+run = "mise generate git-pre-commit --write --task=pre-commit"
+
+[tasks.pre-commit]
+description = "Run checks before committing"
+depends = ["check"]
+
+[tasks."check:versions"]
+description = "Check workspace package versions"
+usage = 'flag "-f --fix" help="Fix version mismatches"'
+run = "deno run --allow-read --allow-write scripts/check_versions.ts{% if usage.fix %} --fix{% endif %}"
+
+[tasks."check:workflow"]
+description = "Lint GitHub Actions workflows"
+run = "actionlint"
+
+[tasks."check:fmt"]
+description = "Check formatting"
+run = ["deno fmt --check", "hongdown --check", "mise fmt --check"]
+
+[tasks.check]
+description = "Run full repository validation"
+depends = ["check:versions", "check:fmt"]
+run = [
+  "deno check",
+  "deno lint",
+  "deno publish --dry-run --allow-dirty",
+  { task = "check:workflow" },
+]
+
+[tasks.fmt]
+description = "Format TypeScript and Markdown files"
+run = ["deno fmt", "hongdown --write", "mise fmt"]
+
+[tasks.build]
+description = "Build all npm packages"
+run = "mise run '//packages/...:build'"
+
+[tasks."test:deno"]
+description = "Run Deno tests for all packages"
+usage = '''
+flag "--coverage" help="Collect coverage data"
+flag "--junit-path <path>" help="Write JUnit XML test output"
+'''
+run = '''
+#!/usr/bin/env nu
+
+let coverage = ($env.usage_coverage? | default "false" | into bool)
+let junit_path = ($env.usage_junit_path? | default "")
+let packages = (ls packages | where type == dir | get name | path basename | sort)
+
+let junit_dir = "tmp/junit-deno"
+if $coverage {
+  rm --force --recursive coverage
+}
+if ($junit_path | is-not-empty) {
+  rm --force --recursive $junit_dir
+  mkdir $junit_dir
+}
+
+mut failed = []
+for package in $packages {
+  let task = $"//packages/($package):test:deno"
+  let args = ["run", $task]
+  let args = if $coverage {
+    $args | append "--coverage"
+  } else {
+    $args
+  }
+  let args = if ($junit_path | is-not-empty) {
+    $args | append ["--junit-path", $"../../($junit_dir)/($package).xml"]
+  } else {
+    $args
+  }
+  let result = (mise ...$args | complete)
+  print --no-newline $result.stdout
+  print --no-newline $result.stderr
+  if $result.exit_code != 0 {
+    $failed = ($failed | append $package)
+  }
+}
+
+if ($junit_path | is-not-empty) {
+  let files = (glob ($junit_dir | path join "*.xml") | sort)
+  let reports = ($files | each { |file| open $file })
+  let sum_attr = {|name|
+    $reports
+    | each { |report| $report.attributes | get --optional $name | default "0" | into float }
+    | math sum
+  }
+  let testsuites = (
+    $reports
+    | each { |report| $report.content }
+    | flatten
+  )
+  let aggregate = {
+    tag: testsuites,
+    attributes: {
+      name: "deno test",
+      tests: (do $sum_attr "tests" | into int | into string),
+      failures: (do $sum_attr "failures" | into int | into string),
+      errors: (do $sum_attr "errors" | into int | into string),
+      disabled: (do $sum_attr "disabled" | into int | into string),
+      time: (do $sum_attr "time" | into string),
+    },
+    content: $testsuites,
+  }
+  $aggregate | to xml | save --force $junit_path
+}
+
+if $coverage {
+  deno coverage coverage --lcov --output=coverage/lcov.info
+}
+
+if ($failed | is-not-empty) {
+  error make { msg: $"Deno tests failed in packages: ($failed | str join ', ')." }
+}
+'''
+
+[tasks."test:node"]
+description = "Run Node.js tests for all packages"
+run = "mise run '//packages/...:test:node'"
+
+[tasks."test:bun"]
+description = "Run Bun tests for all packages"
+run = "mise run '//packages/...:test:bun'"
+
+[tasks.test]
+description = "Run tests across Deno, Node.js, and Bun"
+depends = ["test:deno", "test:node", "test:bun"]
+
+[tasks."docs:dev"]
+description = "Start the documentation dev server"
+depends = ["build"]
+dir = "docs"
+run = "pnpm exec vitepress dev"
+
+[tasks."docs:build"]
+description = "Build the documentation site"
+depends = ["build"]
+dir = "docs"
+run = "pnpm exec vitepress build"
+
+[tasks."docs:preview"]
+description = "Preview the documentation site"
+dir = "docs"
+run = "pnpm exec vitepress preview"
+
+[tasks."publish:prepare"]
+description = "Prepare package versions for publishing"
+usage = '''
+flag "--tag <tag>" help="Release tag to validate"
+flag "--dev-build <build>" help="Development build number"
+flag "--commit <commit>" help="Commit SHA for development version"
+'''
+run = '''
+#!/usr/bin/env nu
+
+let tag = ($env.usage_tag? | default "")
+let dev_build = ($env.usage_dev_build? | default "")
+let commit = ($env.usage_commit? | default "")
+
+if ($tag | is-not-empty) {
+  mise run check:versions
+  let version = (open packages/core/deno.json | get version)
+  if $version != $tag {
+    error make { msg: $"Package version ($version) does not match tag ($tag)." }
+  }
+  return
+}
+
+if ($dev_build | is-empty) or ($commit | is-empty) {
+  error make { msg: "Either --tag or both --dev-build and --commit must be provided." }
+}
+
+let short_commit = (($commit | str trim) | str substring 0..7)
+let deno_json = (open packages/core/deno.json)
+let version = $"($deno_json.version)-dev.($dev_build)+($short_commit)"
+$deno_json | upsert version $version | save --force packages/core/deno.json
+mise run check:versions --fix
+'''
+
+[tasks.publish]
+description = "Publish packages to JSR and npm"
+depends = ["build"]
+usage = '''
+flag "--tag" help="Publish a tagged release"
+'''
+run = '''
+#!/usr/bin/env nu
+
+deno publish --allow-dirty
+if ($env.usage_tag? | default "false" | into bool) {
+  pnpm publish --recursive --no-git-checks --access public --force
+} else {
+  pnpm publish --recursive --no-git-checks --access public --force --tag dev
+}
+'''

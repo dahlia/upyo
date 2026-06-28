@@ -105,12 +105,7 @@
     "typescript": "catalog:"
   },
   "scripts": {
-    "build": "tsdown",
-    "prepack": "tsdown",
-    "prepublish": "tsdown",
-    "test": "tsdown && node --experimental-transform-types --test",
-    "test:bun": "tsdown && bun test",
-    "test:deno": "deno test",
-    "test-all": "tsdown && node --experimental-transform-types --test && bun test && deno test"
+    "prepack": "mise run --no-deps :build",
+    "prepublish": "mise run --no-deps :build"
   }
 }

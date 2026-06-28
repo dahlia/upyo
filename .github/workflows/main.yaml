@@ -44,18 +44,16 @@ jobs:
       LETTERMINT_TO: ${{ secrets.LETTERMINT_TO }}
     steps:
     - uses: actions/checkout@v4
-    - uses: actions/setup-node@v4
+    - uses: jdx/mise-action@v4
       with:
-        node-version: '24'
-    - uses: pnpm/action-setup@v4
-      with:
-        version: latest
-        run_install: true
+        experimental: true
+        cache: true
+        cache_key_prefix: mise-v4
     - name: Start Stalwart
       run: docker compose -f packages/jmap/docker-compose.yml up -d
     - name: Setup Stalwart test accounts
       run: ./packages/jmap/scripts/setup-stalwart.sh
-    - run: pnpm run -r test
+    - run: mise run test:node
 
   test-deno:
     runs-on: ubuntu-latest
@@ -99,14 +97,16 @@ jobs:
       LETTERMINT_TO: ${{ secrets.LETTERMINT_TO }}
     steps:
     - uses: actions/checkout@v4
-    - uses: denoland/setup-deno@v2
+    - uses: jdx/mise-action@v4
       with:
-        deno-version: v2.x
+        experimental: true
+        cache: true
+        cache_key_prefix: mise-v4
     - name: Start Stalwart
       run: docker compose -f packages/jmap/docker-compose.yml up -d
     - name: Setup Stalwart test accounts
       run: ./packages/jmap/scripts/setup-stalwart.sh
-    - run: deno task test --coverage --junit-path=junit.xml
+    - run: mise run test:deno --coverage --junit-path=junit.xml
     - if: ${{ !cancelled() }}
       uses: codecov/test-results-action@v1
       with:
@@ -159,30 +159,27 @@ jobs:
       LETTERMINT_TO: ${{ secrets.LETTERMINT_TO }}
     steps:
     - uses: actions/checkout@v4
-    - uses: actions/setup-node@v4
+    - uses: jdx/mise-action@v4
       with:
-        node-version: '24'
-    - uses: oven-sh/setup-bun@v2
-      with:
-        bun-version: '1.2.22'
-    - uses: pnpm/action-setup@v4
-      with:
-        version: latest
-        run_install: true
+        experimental: true
+        cache: true
+        cache_key_prefix: mise-v4
     - name: Start Stalwart
       run: docker compose -f packages/jmap/docker-compose.yml up -d
     - name: Setup Stalwart test accounts
       run: ./packages/jmap/scripts/setup-stalwart.sh
-    - run: pnpm run -r test:bun
+    - run: mise run test:bun
 
   check:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v4
-    - uses: denoland/setup-deno@v2
+    - uses: jdx/mise-action@v4
       with:
-        deno-version: v2.x
-    - run: deno task check
+        experimental: true
+        cache: true
+        cache_key_prefix: mise-v4
+    - run: mise run check
 
   publish:
     if: github.event_name == 'push'
@@ -193,48 +190,21 @@ jobs:
       id-token: write
     steps:
     - uses: actions/checkout@v4
-    - uses: actions/setup-node@v4
+    - uses: jdx/mise-action@v4
       with:
-        node-version: '24'
-    - uses: denoland/setup-deno@v2
-      with:
-        deno-version: v2.x
-    - uses: pnpm/action-setup@v4
-      with:
-        version: latest
-        run_install: true
-    - run: sudo npm install -g npm@latest && npm --version
-    - run: |
-        set -ex
-        if [[ "$GITHUB_REF_TYPE" == tag ]]; then
-          deno task check-versions
-          [[ "$(jq -r '.version' packages/core/deno.json)" == "$GITHUB_REF_NAME" ]]
-        else
-          jq \
-            --arg build "$GITHUB_RUN_NUMBER" \
-            --arg commit "${GITHUB_SHA::8}" \
-            '.version = .version + "-dev." + $build + "+" + $commit' \
-            packages/core/deno.json > /tmp/deno.json
-          mv /tmp/deno.json packages/core/deno.json
-          deno task check-versions --fix
-        fi
-    - run: |
-        set -ex
-        deno publish --allow-dirty
-        if [[ "$GITHUB_REF_TYPE" == tag ]]; then
-          pnpm publish \
-            --recursive \
-            --no-git-checks \
-            --access public \
-            --force
-        else
-          pnpm publish \
-            --recursive \
-            --no-git-checks \
-            --access public \
-            --force \
-            --tag dev
-        fi
+        experimental: true
+        cache: true
+        cache_key_prefix: mise-v4
+    - if: github.ref_type == 'tag'
+      run: mise run publish:prepare --tag "${{ github.ref_name }}"
+    - if: github.ref_type != 'tag'
+      run: mise run publish:prepare --dev-build "${{ github.run_number }}" --commit "${{ github.sha }}"
+    - if: github.ref_type == 'tag'
+      run: mise run publish --tag
+      env:
+        NPM_CONFIG_PROVENANCE: "true"
+    - if: github.ref_type != 'tag'
+      run: mise run publish
       env:
         NPM_CONFIG_PROVENANCE: "true"
 
@@ -251,34 +221,27 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
     - uses: actions/checkout@v4
-    - uses: actions/setup-node@v4
+    - uses: jdx/mise-action@v4
       with:
-        node-version: "24"
-    - uses: pnpm/action-setup@v4
-      with:
-        version: latest
-        run_install: true
-    - run: |
-        set -ex
-        if [[ "$GITHUB_REF_TYPE" = "tag" ]]; then
-          EXTRA_NAV_TEXT=Unstable \
-          EXTRA_NAV_LINK="$UNSTABLE_DOCS_URL" \
-          SITEMAP_HOSTNAME="$STABLE_DOCS_URL" \
-          JSR_REF_VERSION=stable \
-          pnpm build
-        else
-          EXTRA_NAV_TEXT=Stable \
-          EXTRA_NAV_LINK="$STABLE_DOCS_URL" \
-          SITEMAP_HOSTNAME="$UNSTABLE_DOCS_URL" \
-          JSR_REF_VERSION=unstable \
-          pnpm build
-        fi
+        experimental: true
+        cache: true
+        cache_key_prefix: mise-v4
+    - if: github.ref_type == 'tag'
+      run: mise run docs:build
       env:
-        STABLE_DOCS_URL: ${{ vars.STABLE_DOCS_URL }}
-        UNSTABLE_DOCS_URL: ${{ vars.UNSTABLE_DOCS_URL }}
-        SITEMAP_HOSTNAME: ${{ vars.SITEMAP_HOSTNAME }}
+        EXTRA_NAV_TEXT: Unstable
+        EXTRA_NAV_LINK: ${{ vars.UNSTABLE_DOCS_URL }}
+        SITEMAP_HOSTNAME: ${{ vars.STABLE_DOCS_URL }}
+        JSR_REF_VERSION: stable
         PLAUSIBLE_DOMAIN: ${{ vars.PLAUSIBLE_DOMAIN }}
-      working-directory: docs
+    - if: github.ref_type != 'tag'
+      run: mise run docs:build
+      env:
+        EXTRA_NAV_TEXT: Stable
+        EXTRA_NAV_LINK: ${{ vars.STABLE_DOCS_URL }}
+        SITEMAP_HOSTNAME: ${{ vars.UNSTABLE_DOCS_URL }}
+        JSR_REF_VERSION: unstable
+        PLAUSIBLE_DOMAIN: ${{ vars.PLAUSIBLE_DOMAIN }}
     - uses: actions/upload-pages-artifact@v3
       with:
         path: docs/.vitepress/dist

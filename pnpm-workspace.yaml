@@ -7,7 +7,6 @@ allowBuilds:
   workerd: true
 
 catalog:
-  '@dotenvx/dotenvx': ^1.47.3
   '@opentelemetry/api': ^1.9.0
   '@opentelemetry/resources': ^1.25.1
   '@opentelemetry/sdk-metrics': ^1.25.1
@@ -18,6 +17,5 @@ catalog:
 
 engineStrict: true
 
-nodeVersion: 20.19.0
 
 shellEmulator: true

@@ -50,64 +50,58 @@ This is a polyglot monorepo supporting Deno, Node.js, and Bun.
 
 ### Package manager
 
-This project uses Deno as the primary development tool and pnpm for
-npm-related tasks (building for npm publishing).
+This project uses mise as the primary development tool.  Mise installs the
+required runtimes, installs package dependencies, loads environment files, and
+runs development tasks.
 
 > [!IMPORTANT]
 > Do *not* use npm or Yarn as package managers in this project.  Always use
-> Deno tasks (`deno task ...`) for development workflows and pnpm
-> (`pnpm run ...`) only for npm build tasks.
+> mise tasks (`mise run ...`) for development workflows.  Use pnpm only when
+> adding or publishing npm workspace dependencies.
 
 ### Root level commands
 
-*Using Deno (primary):*
-
- -  `deno task test` — Run tests with environment variables from *.env.test*
- -  `deno task check` — Run full validation (check versions, type check, lint,
-    format check, dry-run publish)
- -  `deno task check-versions` — Verify package version consistency across
+ -  `mise install` — Install runtimes, project dependencies, and Git hooks
+ -  `mise run setup` — Re-run dependency and Git hook setup
+ -  `mise run build` — Build all packages for npm distribution
+ -  `mise run test` — Run tests across Deno, Node.js, and Bun
+ -  `mise run test:deno` — Run Deno tests
+ -  `mise run test:node` — Run Node.js tests
+ -  `mise run test:bun` — Run Bun tests
+ -  `mise run check` — Run full validation (version check, type check, lint,
+    format check, workflow lint, dry-run publish)
+ -  `mise run check:versions` — Verify package version consistency across
     workspace
- -  `deno fmt` — Format code (excludes markdown and YAML files)
- -  `deno lint` — Lint TypeScript code
- -  `deno check` — Type check all TypeScript files
-
-*Using pnpm (for npm ecosystem compatibility):*
-
- -  `pnpm build` — Build all packages for npm distribution
- -  `pnpm run -r build` — Build all packages recursively
- -  `pnpm run --filter '!{docs}' -r build` — Build all packages except docs
+ -  `mise run fmt` — Format TypeScript and Markdown files
+ -  `mise run check:workflow` — Lint GitHub Actions workflows
 
 ### Package level commands
 
-Each package supports multiple runtimes and can be executed with both Deno
-tasks and npm scripts:
+Each package has package-local mise tasks:
 
-*Deno tasks (in deno.json):*
-
- -  `deno task test` — Run tests with Deno
- -  `deno task test:node` — Run tests with Node.js (requires build first)
- -  `deno task test:bun` — Run tests with Bun (requires build first)
- -  `deno task test-all` — Run tests across all runtimes
- -  `deno task build` or `pnpm build` — Build package for npm distribution
-
-*npm scripts (in package.json):*
-
- -  `pnpm build` or `npm run build` — Build with tsdown
- -  `pnpm test` — Run Node.js tests with dotenvx for environment loading
- -  `pnpm run test:bun` — Run Bun tests
- -  `pnpm run test:deno` — Run Deno tests
- -  `pnpm run test-all` — Run tests across all runtimes
+ -  `mise :build` — Build the current package with tsdown
+ -  `mise :test` — Run the current package tests across runtimes
+ -  `mise :test:deno` — Run current package tests with Deno
+ -  `mise :test:node` — Run current package tests with Node.js
+ -  `mise :test:bun` — Run current package tests with Bun
 
 *SMTP package specific:*
 
- -  `pnpm run mailpit:start` — Start Mailpit Docker container for testing
- -  `pnpm run mailpit:stop` — Stop and remove Mailpit container
- -  `pnpm run dev:mailpit` — Run Mailpit in foreground mode
+ -  `mise :mailpit:start` — Start Mailpit Docker container for testing
+ -  `mise :mailpit:stop` — Stop and remove Mailpit container
+ -  `mise :dev:mailpit` — Run Mailpit in foreground mode
+
+*JMAP package specific:*
+
+ -  `mise :stalwart:up` — Start Stalwart and configure test accounts
+ -  `mise :stalwart:fresh` — Recreate Stalwart and configure test accounts
+ -  `mise :stalwart:down` — Stop Stalwart
 
 ### Documentation
 
- -  `cd docs && pnpm dev` — Start VitePress dev server
- -  `cd docs && pnpm build` — Build documentation site
+ -  `mise run docs:dev` — Start VitePress dev server
+ -  `mise run docs:build` — Build documentation site
+ -  `mise run docs:preview` — Preview documentation site
 
 ### Adding dependencies
 
@@ -163,8 +157,7 @@ Architecture
  -  *Workspace references*: Packages use `workspace:*` for internal dependencies
  -  *Catalog dependencies*: Shared versions defined in *pnpm-workspace.yaml*
     catalog
- -  *Environment loading*: dotenvx used for environment variable management
-    in tests
+ -  *Environment loading*: mise loads *.env* files for package tests
 
 ### Dual publishing
 
@@ -318,8 +311,8 @@ the application.
     without external dependencies
  -  *Observability testing*: OpenTelemetry transport includes integration tests
     with real OpenTelemetry SDK
- -  *Environment isolation*: *.env* files for test configuration with dotenvx
-    loading
+ -  *Environment isolation*: *.env* files for test configuration with mise
+    environment loading
 
 
 Development practices
@@ -364,10 +357,10 @@ This project follows test-driven development (TDD) practices:
 
 ### Before committing
 
- -  *Run all checks*: Before committing any changes, run `deno task check` to
+ -  *Run all checks*: Before committing any changes, run `mise run check` to
     ensure all checks pass (type check, lint, format, dry-run publish).
  -  *Test across runtimes*: For significant changes, run tests across Deno,
-    Node.js, and Bun runtimes using `test-all` commands.
+    Node.js, and Bun runtimes using `mise run test`.
 
 ### Changelog (*CHANGES.md*)
 
@@ -801,12 +794,12 @@ pnpm add @upyo/smtp
 ### Building documentation
 
 ~~~~ bash
-cd docs
-pnpm build    # Build for production (runs Twoslash type checking)
-pnpm dev      # Start development server
+mise run docs:build    # Build for production (runs Twoslash type checking)
+mise run docs:dev      # Start development server
 ~~~~
 
-Always run `pnpm build` before committing to catch Twoslash type errors.
+Always run `mise run docs:build` before committing documentation changes to
+catch Twoslash type errors.
 
 
 Common tasks for agents

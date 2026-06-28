@@ -59,17 +59,12 @@
     "@upyo/core": "workspace:*"
   },
   "devDependencies": {
-    "@dotenvx/dotenvx": "catalog:",
     "@upyo/mock": "workspace:*",
     "tsdown": "catalog:",
     "typescript": "catalog:"
   },
   "scripts": {
-    "build": "tsdown",
-    "prepack": "tsdown",
-    "prepublish": "tsdown",
-    "test": "tsdown && dotenvx run --ignore=MISSING_ENV_FILE -- node --experimental-transform-types --test",
-    "test:bun": "tsdown && bun test --timeout=30000 --env-file=.env",
-    "test:deno": "deno test --allow-env --env-file=.env"
+    "prepack": "mise run --no-deps :build",
+    "prepublish": "mise run --no-deps :build"
   }
 }
