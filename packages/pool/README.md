@@ -97,7 +97,7 @@ const transport = new PoolTransport({
     { transport: backupTransport, priority: 50 },
     { transport: emergencyTransport, priority: 10 },
   ],
-  maxRetries: 3, // Try up to 3 transports
+  maxRetries: 2, // Retry up to 2 other transports
 });
 
 // Always tries primary first, only uses backup if primary fails
@@ -219,13 +219,13 @@ Configuration
 
 ### `PoolConfig`
 
-| Property            | Type                                                                        | Required | Default              | Description                                                       |
-| ------------------- | --------------------------------------------------------------------------- | -------- | -------------------- | ----------------------------------------------------------------- |
-| `strategy`          | `"round-robin" \| "weighted" \| "priority" \| "selector-based" \| Strategy` | Yes      |                      | The strategy for selecting transports                             |
-| `transports`        | `TransportEntry[]`                                                          | Yes      |                      | Array of transport configurations                                 |
-| `maxRetries`        | `number`                                                                    | No       | Number of transports | Maximum retry attempts on failure                                 |
-| `timeout`           | `number`                                                                    | No       |                      | Timeout in milliseconds for each send attempt                     |
-| `continueOnSuccess` | `boolean`                                                                   | No       | `false`              | Continue trying transports after success (selector strategy only) |
+| Property            | Type                                                                        | Required | Default                           | Description                                                       |
+| ------------------- | --------------------------------------------------------------------------- | -------- | --------------------------------- | ----------------------------------------------------------------- |
+| `strategy`          | `"round-robin" \| "weighted" \| "priority" \| "selector-based" \| Strategy` | Yes      |                                   | The strategy for selecting transports                             |
+| `transports`        | `TransportEntry[]`                                                          | Yes      |                                   | Array of transport configurations                                 |
+| `maxRetries`        | `number`                                                                    | No       | Enough to try each transport once | Maximum retry attempts after the initial attempt                  |
+| `timeout`           | `number`                                                                    | No       |                                   | Timeout in milliseconds for each send attempt                     |
+| `continueOnSuccess` | `boolean`                                                                   | No       | `false`                           | Continue trying transports after success (selector strategy only) |
 
 ### `TransportEntry`
 

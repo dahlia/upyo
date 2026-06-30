@@ -413,7 +413,7 @@ describe("PoolTransport", () => {
           { transport: transport2 },
           { transport: transport3 },
         ],
-        maxRetries: 2, // Only try 2 transports
+        maxRetries: 1,
       });
 
       const receipt = await pool.send(createTestMessage());
@@ -423,6 +423,26 @@ describe("PoolTransport", () => {
       assert.equal(transport1.getSentMessagesCount(), 1);
       assert.equal(transport2.getSentMessagesCount(), 1);
       assert.equal(transport3.getSentMessagesCount(), 0);
+    });
+
+    test("should make an initial attempt when retries are disabled", async () => {
+      const transport1 = createFailureTransport("Failed");
+      const transport2 = createSuccessTransport("success");
+
+      const pool = new PoolTransport({
+        strategy: "round-robin",
+        transports: [
+          { transport: transport1 },
+          { transport: transport2 },
+        ],
+        maxRetries: 0,
+      });
+
+      const receipt = await pool.send(createTestMessage());
+      assert.ok(!receipt.successful);
+
+      assert.equal(transport1.getSentMessagesCount(), 1);
+      assert.equal(transport2.getSentMessagesCount(), 0);
     });
   });
 

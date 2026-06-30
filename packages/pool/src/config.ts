@@ -70,8 +70,9 @@ export interface PoolConfig<TProviderId extends string = string> {
   readonly transports: readonly TransportEntry<TProviderId>[];
 
   /**
-   * Maximum number of retry attempts when a transport fails.
-   * Set to 0 to disable retries. Defaults to the number of transports.
+   * Maximum number of retry attempts after the initial send attempt fails.
+   * Set to 0 to disable retries. Defaults to enough retries to try every
+   * enabled transport once.
    */
   readonly maxRetries?: number;
 
@@ -161,7 +162,7 @@ export function createPoolConfig<TProviderId extends string = string>(
   return {
     strategy: config.strategy,
     transports: resolvedTransports,
-    maxRetries: config.maxRetries ?? enabledTransports.length,
+    maxRetries: config.maxRetries ?? enabledTransports.length - 1,
     timeout: config.timeout,
     continueOnSuccess: config.continueOnSuccess ?? false,
   };

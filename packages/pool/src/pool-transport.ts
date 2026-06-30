@@ -114,7 +114,7 @@ export class PoolTransport<TProviderId extends string = string>
     const errorMessages: string[] = [];
     const errors: ReceiptError<TProviderId | "pool">[] = [];
 
-    for (let attempt = 0; attempt < this.config.maxRetries; attempt++) {
+    for (let attempt = 0; attempt <= this.config.maxRetries; attempt++) {
       // Check for cancellation
       if (options?.signal?.aborted) {
         throw new DOMException("The operation was aborted.", "AbortError");
