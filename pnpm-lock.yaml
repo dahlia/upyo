@@ -80,6 +80,9 @@ importers:
       '@upyo/resend':
         specifier: 'workspace:'
         version: link:../packages/resend
+      '@upyo/retry':
+        specifier: 'workspace:'
+        version: link:../packages/retry
       '@upyo/sendgrid':
         specifier: 'workspace:'
         version: link:../packages/sendgrid

@@ -139,6 +139,18 @@ To be released.
     receipts with the `"pool"` provider id, while child errors keep the
     underlying transport ids as a type-safe union.  [[#25], [#27]]
 
+### @upyo/retry
+
+ -  Added retry transport.  `RetryTransport` wraps any existing transport and
+    retries transient failed receipts or thrown transient errors using
+    configurable exponential backoff, jitter, `Retry-After` metadata, and
+    `sendMany()` launch throttling.  Use it when one provider should absorb
+    temporary rate limits, server errors, and network failures before handing
+    a failure back to application code.  [[#26], [#28]]
+
+[#26]: https://github.com/dahlia/upyo/issues/26
+[#28]: https://github.com/dahlia/upyo/pull/28
+
 ### @upyo/opentelemetry
 
  -  Changed the built-in error category labels from underscore spelling to

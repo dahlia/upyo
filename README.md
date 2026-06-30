@@ -75,6 +75,7 @@ sending messages.  The following is a list of the available packages:
 | [@upyo/resend](/packages/resend/)               | [JSR][jsr:@upyo/resend]        | [npm][npm:@upyo/resend]        | [Resend] transport                                 |
 | [@upyo/sendgrid](/packages/sendgrid/)           | [JSR][jsr:@upyo/sendgrid]      | [npm][npm:@upyo/sendgrid]      | [SendGrid] transport                               |
 | [@upyo/ses](/packages/ses/)                     | [JSR][jsr:@upyo/ses]           | [npm][npm:@upyo/ses]           | [Amazon SES] transport                             |
+| [@upyo/retry](/packages/retry/)                 | [JSR][jsr:@upyo/retry]         | [npm][npm:@upyo/retry]         | Retry and backoff decorator for transports         |
 | [@upyo/opentelemetry](/packages/opentelemetry/) | [JSR][jsr:@upyo/opentelemetry] | [npm][npm:@upyo/opentelemetry] | [OpenTelemetry] observability  for Upyo transports |
 | [@upyo/mock](/packages/mock/)                   | [JSR][jsr:@upyo/mock]          | [npm][npm:@upyo/mock]          | Mock transport for testing                         |
 
@@ -103,6 +104,8 @@ sending messages.  The following is a list of the available packages:
 [jsr:@upyo/ses]: https://jsr.io/@upyo/ses
 [npm:@upyo/ses]: https://www.npmjs.com/package/@upyo/ses
 [Amazon SES]: https://aws.amazon.com/ses/
+[jsr:@upyo/retry]: https://jsr.io/@upyo/retry
+[npm:@upyo/retry]: https://www.npmjs.com/package/@upyo/retry
 [jsr:@upyo/opentelemetry]: https://jsr.io/@upyo/opentelemetry
 [npm:@upyo/opentelemetry]: https://www.npmjs.com/package/@upyo/opentelemetry
 [OpenTelemetry]: https://opentelemetry.io/

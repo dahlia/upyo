@@ -16,6 +16,7 @@
     "@upyo/plunk": "workspace:",
     "@upyo/pool": "workspace:",
     "@upyo/resend": "workspace:",
+    "@upyo/retry": "workspace:",
     "@upyo/sendgrid": "workspace:",
     "@upyo/ses": "workspace:",
     "@upyo/smtp": "workspace:",
