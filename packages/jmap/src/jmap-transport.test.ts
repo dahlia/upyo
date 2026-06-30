@@ -138,6 +138,43 @@ describe("JmapTransport", () => {
         globalThis.fetch = originalFetch;
       }
     });
+
+    it("should not expose network errors as reasonless caller aborts", async () => {
+      const originalFetch = globalThis.fetch;
+      const controller = new AbortController();
+      Object.defineProperty(controller.signal, "reason", {
+        value: undefined,
+      });
+
+      try {
+        globalThis.fetch = (
+          _input: RequestInfo | URL,
+          init?: RequestInit,
+        ): Promise<Response> =>
+          new Promise((_resolve, reject) => {
+            init?.signal?.addEventListener("abort", () => {
+              reject(new TypeError("fetch failed"));
+            }, { once: true });
+            setTimeout(() => controller.abort(), 0);
+          });
+
+        const transport = new JmapTransport({
+          sessionUrl: "https://jmap.example.com/.well-known/jmap",
+          bearerToken: "test-token",
+          retries: 0,
+        });
+
+        await assert.rejects(
+          () => transport.send(baseMessage, { signal: controller.signal }),
+          (error: unknown) =>
+            error instanceof Error &&
+            error.name === "AbortError" &&
+            error.message !== "fetch failed",
+        );
+      } finally {
+        globalThis.fetch = originalFetch;
+      }
+    });
   });
 
   describe("sendMany", () => {

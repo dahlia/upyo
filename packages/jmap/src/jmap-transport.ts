@@ -828,6 +828,10 @@ function getAttemptCount(error: unknown): number {
 }
 
 function getAbortReason(signal: AbortSignal, fallback: unknown): unknown {
-  return signal.reason ?? fallback ??
+  return signal.reason ?? (isAbortError(fallback) ? fallback : undefined) ??
     new DOMException("The operation was aborted.", "AbortError");
+}
+
+function isAbortError(error: unknown): boolean {
+  return error instanceof Error && error.name === "AbortError";
 }
