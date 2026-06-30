@@ -4,8 +4,5 @@
   "exports": "./src/index.ts",
   "exclude": [
     "dist/"
-  ],
-  "imports": {
-    "@upyo/core": "../core/src/index.ts"
-  }
+  ]
 }
