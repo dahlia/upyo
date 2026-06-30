@@ -1,4 +1,4 @@
-import { parseRetryAfter } from "@upyo/core";
+import { combineSignals, parseRetryAfter } from "@upyo/core";
 import type { ResolvedMailgunConfig } from "./config.ts";
 
 /**
@@ -285,47 +285,6 @@ function sleep(
 function createAbortError(signal?: AbortSignal | null): unknown {
   return signal?.reason ??
     new DOMException("The operation was aborted.", "AbortError");
-}
-
-function combineSignals(
-  timeoutSignal: AbortSignal,
-  externalSignal?: AbortSignal | null,
-): { readonly signal: AbortSignal; cleanup(): void } {
-  if (externalSignal == null) {
-    return { signal: timeoutSignal, cleanup: () => {} };
-  }
-
-  if (typeof AbortSignal.any === "function") {
-    return {
-      signal: AbortSignal.any([timeoutSignal, externalSignal]),
-      cleanup: () => {},
-    };
-  }
-
-  const controller = new AbortController();
-  const cleanup = () => {
-    timeoutSignal.removeEventListener("abort", abortFromTimeout);
-    externalSignal.removeEventListener("abort", abortFromExternal);
-  };
-  const abortFromTimeout = () => {
-    cleanup();
-    controller.abort(timeoutSignal.reason);
-  };
-  const abortFromExternal = () => {
-    cleanup();
-    controller.abort(externalSignal.reason);
-  };
-
-  if (timeoutSignal.aborted) {
-    controller.abort(timeoutSignal.reason);
-  } else if (externalSignal.aborted) {
-    controller.abort(externalSignal.reason);
-  } else {
-    timeoutSignal.addEventListener("abort", abortFromTimeout, { once: true });
-    externalSignal.addEventListener("abort", abortFromExternal, { once: true });
-  }
-
-  return { signal: controller.signal, cleanup };
 }
 
 function truncateErrorBody(text: string): string {

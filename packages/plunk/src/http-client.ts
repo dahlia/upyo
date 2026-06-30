@@ -1,4 +1,4 @@
-import { parseRetryAfter } from "@upyo/core";
+import { combineSignals, parseRetryAfter } from "@upyo/core";
 import type { ResolvedPlunkConfig } from "./config.ts";
 
 /**
@@ -314,56 +314,6 @@ function isCallerAbort(
 ): boolean {
   return signal?.aborted === true &&
     (isAbortError(error) || error === signal.reason);
-}
-
-interface CombinedSignal {
-  readonly signal: AbortSignal;
-  cleanup(): void;
-}
-
-function combineSignals(
-  timeoutSignal: AbortSignal,
-  externalSignal?: AbortSignal | null,
-): CombinedSignal {
-  if (externalSignal == null) {
-    return { signal: timeoutSignal, cleanup: () => {} };
-  }
-
-  if (typeof AbortSignal.any === "function") {
-    return {
-      signal: AbortSignal.any([timeoutSignal, externalSignal]),
-      cleanup: () => {},
-    };
-  }
-
-  const controller = new AbortController();
-  const abort = (signal: AbortSignal) => {
-    controller.abort(getAbortReason(signal));
-  };
-  const abortTimeout = () => abort(timeoutSignal);
-  const abortExternal = () => abort(externalSignal);
-
-  timeoutSignal.addEventListener("abort", abortTimeout, { once: true });
-  externalSignal.addEventListener("abort", abortExternal, { once: true });
-
-  if (timeoutSignal.aborted) {
-    abortTimeout();
-  } else if (externalSignal.aborted) {
-    abortExternal();
-  }
-
-  return {
-    signal: controller.signal,
-    cleanup: () => {
-      timeoutSignal.removeEventListener("abort", abortTimeout);
-      externalSignal.removeEventListener("abort", abortExternal);
-    },
-  };
-}
-
-function getAbortReason(signal: AbortSignal): unknown {
-  return signal.reason ??
-    new DOMException("The operation was aborted.", "AbortError");
 }
 
 function truncateErrorBody(text: string): string {

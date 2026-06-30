@@ -1,4 +1,4 @@
-import { parseRetryAfter } from "@upyo/core";
+import { combineSignals, parseRetryAfter } from "@upyo/core";
 import type { ResolvedLettermintConfig } from "./config.ts";
 import type { LettermintEmail } from "./message-converter.ts";
 
@@ -327,45 +327,6 @@ function parseErrorMessage(text: string, statusCode: number): string {
   }
 
   return text || `HTTP ${statusCode}`;
-}
-
-interface CombinedSignal {
-  readonly signal: AbortSignal;
-  cleanup(): void;
-}
-
-function combineSignals(
-  timeoutSignal: AbortSignal,
-  externalSignal?: AbortSignal,
-): CombinedSignal {
-  if (externalSignal == null) {
-    return { signal: timeoutSignal, cleanup: () => {} };
-  }
-
-  if (typeof AbortSignal.any === "function") {
-    return {
-      signal: AbortSignal.any([timeoutSignal, externalSignal]),
-      cleanup: () => {},
-    };
-  }
-
-  const controller = new AbortController();
-  const abort = () => controller.abort();
-
-  timeoutSignal.addEventListener("abort", abort, { once: true });
-  externalSignal.addEventListener("abort", abort, { once: true });
-
-  if (timeoutSignal.aborted || externalSignal.aborted) {
-    controller.abort();
-  }
-
-  return {
-    signal: controller.signal,
-    cleanup: () => {
-      timeoutSignal.removeEventListener("abort", abort);
-      externalSignal.removeEventListener("abort", abort);
-    },
-  };
 }
 
 function sleep(ms: number, signal?: AbortSignal): Promise<void> {
