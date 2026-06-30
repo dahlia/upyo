@@ -3,6 +3,7 @@ import { defineConfig } from "tsdown";
 export default defineConfig({
   entry: [
     "src/index.ts",
+    "src/abort-signal.ts",
     "src/address.ts",
     "src/attachment.ts",
     "src/message.ts",

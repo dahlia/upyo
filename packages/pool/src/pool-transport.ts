@@ -402,7 +402,10 @@ function getReceiptErrors<TProviderId extends string>(
   }
 
   return receipt.errorMessages.map((message) =>
-    createReceiptError(message, { provider: receipt.provider ?? provider })
+    createReceiptError(message, {
+      provider: receipt.provider ?? provider,
+      retryable: receipt.retryable,
+    })
   );
 }
 

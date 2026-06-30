@@ -364,6 +364,31 @@ describe("PoolTransport", () => {
       }
     });
 
+    test("should preserve retryable legacy child failures", async () => {
+      const pool = new PoolTransport({
+        strategy: "round-robin",
+        transports: [
+          {
+            transport: new FixedFailureTransport<"legacy">("legacy", {
+              successful: false,
+              errorMessages: ["Try again later"],
+              retryable: true,
+              provider: "legacy",
+            }),
+          },
+        ],
+      });
+
+      const receipt = await pool.send(createTestMessage());
+
+      assert.ok(!receipt.successful);
+      if (!receipt.successful) {
+        assert.equal(receipt.retryable, true);
+        assert.equal(receipt.errors?.[0]?.retryable, true);
+        assert.equal(receipt.errors?.[0]?.provider, "legacy");
+      }
+    });
+
     test("should preserve structured errors thrown by transports", async () => {
       const thrownError: ReceiptError<"mailgun"> = createReceiptError(
         "Too many requests",
