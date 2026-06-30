@@ -397,7 +397,7 @@ function getReceiptErrors<TProviderId extends string>(
 ): readonly ReceiptError<TProviderId>[] {
   if (receipt.errors != null && receipt.errors.length > 0) {
     return receipt.errors.map((error) =>
-      error.provider == null ? { ...error, provider } : error
+      withReceiptErrorProvider(error, provider)
     );
   }
 
@@ -411,7 +411,7 @@ function getThrownReceiptErrors<TProviderId extends string>(
   provider: TProviderId,
 ): readonly ReceiptError<TProviderId>[] {
   if (isReceiptError<TProviderId>(error)) {
-    return [error.provider == null ? { ...error, provider } : error];
+    return [withReceiptErrorProvider(error, provider)];
   }
 
   if (isFailedReceipt<TProviderId>(error)) {
@@ -419,6 +419,22 @@ function getThrownReceiptErrors<TProviderId extends string>(
   }
 
   return [];
+}
+
+function withReceiptErrorProvider<TProviderId extends string>(
+  error: ReceiptError<TProviderId>,
+  provider: TProviderId,
+): ReceiptError<TProviderId> {
+  return {
+    message: error.message,
+    code: error.code,
+    category: error.category,
+    retryable: error.retryable,
+    provider: error.provider ?? provider,
+    statusCode: error.statusCode,
+    retryAfterMilliseconds: error.retryAfterMilliseconds,
+    providerDetails: error.providerDetails,
+  };
 }
 
 function isReceiptError<TProviderId extends string>(

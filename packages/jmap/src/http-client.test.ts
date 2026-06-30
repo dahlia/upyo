@@ -192,5 +192,47 @@ describe("JmapHttpClient", () => {
         },
       );
     });
+
+    it("should preserve custom abort reasons during requests", async () => {
+      const originalFetch = globalThis.fetch;
+      const abortReason = new Error("Stop JMAP request.");
+      const controller = new AbortController();
+
+      try {
+        globalThis.fetch = (
+          _input: RequestInfo | URL,
+          init?: RequestInit,
+        ): Promise<Response> =>
+          new Promise((_resolve, reject) => {
+            assert.ok(init?.signal instanceof AbortSignal);
+            init.signal.addEventListener("abort", () => {
+              reject(init.signal?.reason);
+            }, { once: true });
+            setTimeout(() => controller.abort(abortReason), 0);
+          });
+
+        const clientWithRetries = new JmapHttpClient(
+          createJmapConfig({
+            sessionUrl: "https://jmap.example.com/.well-known/jmap",
+            bearerToken: "test-token",
+            retries: 3,
+          }),
+        );
+        const startedAt = Date.now();
+
+        await assert.rejects(
+          () =>
+            clientWithRetries.executeRequest(
+              "https://jmap.example.com/api",
+              { using: [], methodCalls: [] },
+              controller.signal,
+            ),
+          (error: unknown) => error === abortReason,
+        );
+        assert.ok(Date.now() - startedAt < 500);
+      } finally {
+        globalThis.fetch = originalFetch;
+      }
+    });
   });
 });

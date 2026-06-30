@@ -125,7 +125,7 @@ export class JmapHttpClient {
         return await response.json();
       } catch (error) {
         // Don't retry if aborted
-        if (error instanceof Error && error.name === "AbortError") {
+        if (isCallerAbort(error, signal)) {
           throw error;
         }
 
@@ -230,4 +230,16 @@ export class JmapHttpClient {
       clearTimeout(timeoutId);
     }
   }
+}
+
+function isCallerAbort(
+  error: unknown,
+  signal?: AbortSignal | null,
+): boolean {
+  return signal?.aborted === true &&
+    (isAbortError(error) || error === signal.reason);
+}
+
+function isAbortError(error: unknown): boolean {
+  return error instanceof Error && error.name === "AbortError";
 }

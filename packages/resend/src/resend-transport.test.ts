@@ -34,6 +34,22 @@ async function withMockedFetch<T>(
   }
 }
 
+function createTestMessage(): Message {
+  return {
+    sender: { address: "sender@example.com" },
+    recipients: [{ address: "recipient@example.com" }],
+    ccRecipients: [],
+    bccRecipients: [],
+    replyRecipients: [],
+    subject: "Test Subject",
+    content: { text: "Test content" },
+    attachments: [],
+    priority: "normal",
+    tags: [],
+    headers: new Headers(),
+  };
+}
+
 describe("ResendTransport - Send Message", () => {
   it("should send a message successfully", async () => {
     const originalFetch = globalThis.fetch;
@@ -439,6 +455,20 @@ describe("ResendTransport - Abort Signal", () => {
     } finally {
       globalThis.fetch = originalFetch;
     }
+  });
+
+  it("should preserve custom abort reasons in send", async () => {
+    const abortReason = new Error("Stop resend send.");
+    const controller = new AbortController();
+    controller.abort(abortReason);
+    const transport = new ResendTransport({
+      apiKey: "test-key",
+    });
+
+    await assert.rejects(
+      () => transport.send(createTestMessage(), { signal: controller.signal }),
+      (error: unknown) => error === abortReason,
+    );
   });
 });
 

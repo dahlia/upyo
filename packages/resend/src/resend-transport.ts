@@ -119,7 +119,7 @@ export class ResendTransport implements Transport<"resend"> {
         provider: "resend",
       };
     } catch (error) {
-      if (isAbortError(error) && options?.signal?.aborted) {
+      if (isCallerAbort(error, options?.signal)) {
         throw error;
       }
 
@@ -286,7 +286,7 @@ export class ResendTransport implements Transport<"resend"> {
         };
       }
     } catch (error) {
-      if (isAbortError(error) && options?.signal?.aborted) {
+      if (isCallerAbort(error, options?.signal)) {
         throw error;
       }
 
@@ -355,4 +355,12 @@ function createResendFailure(
 
 function isAbortError(error: unknown): boolean {
   return error instanceof Error && error.name === "AbortError";
+}
+
+function isCallerAbort(
+  error: unknown,
+  signal?: AbortSignal | null,
+): boolean {
+  return signal?.aborted === true &&
+    (isAbortError(error) || error === signal.reason);
 }

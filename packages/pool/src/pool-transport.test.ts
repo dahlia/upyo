@@ -401,6 +401,36 @@ describe("PoolTransport", () => {
       }
     });
 
+    test("should preserve thrown Error receipt messages", async () => {
+      class ThrownReceiptError extends Error
+        implements ReceiptError<"mailgun"> {
+        readonly code = "http.429";
+        readonly category = "rate-limit";
+        readonly retryable = true;
+      }
+
+      const pool = new PoolTransport({
+        strategy: "round-robin",
+        transports: [
+          {
+            transport: new ThrowingTransport(
+              "mailgun",
+              new ThrownReceiptError("Too many requests"),
+            ),
+          },
+        ],
+      });
+
+      const receipt = await pool.send(createTestMessage());
+
+      assert.ok(!receipt.successful);
+      if (!receipt.successful) {
+        assert.equal(receipt.errorMessages[0], "Too many requests");
+        assert.equal(receipt.errors?.[0]?.message, "Too many requests");
+        assert.equal(receipt.errors?.[0]?.provider, "mailgun");
+      }
+    });
+
     test("should respect maxRetries limit", async () => {
       const transport1 = createFailureTransport("Failed");
       const transport2 = createFailureTransport("Failed");
