@@ -142,6 +142,16 @@ export class JmapHttpClient {
           if (error instanceof JmapApiError) {
             throw error;
           }
+          if (isAbortError(error)) {
+            throw new JmapApiError(
+              "JMAP request timed out.",
+              undefined,
+              undefined,
+              undefined,
+              undefined,
+              attempt + 1,
+            );
+          }
           throw new JmapApiError(
             lastError.message,
             undefined,

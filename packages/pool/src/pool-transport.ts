@@ -153,7 +153,6 @@ export class PoolTransport<TProviderId extends string = string>
             isCallerAbort(error, options?.signal)
           ) {
             abortedByCaller = true;
-            throw error;
           }
           throw error;
         } finally {
