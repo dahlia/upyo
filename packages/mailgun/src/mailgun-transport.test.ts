@@ -306,13 +306,14 @@ describe("MailgunTransport - Retry Backoff Abort Signal", () => {
   it("should reject caller aborts during retry backoff", async () => {
     const originalFetch = globalThis.fetch;
     const controller = new AbortController();
+    const reason = new Error("Stop retrying.");
     let attempts = 0;
 
     try {
       // deno-lint-ignore require-await
       globalThis.fetch = async () => {
         attempts++;
-        setTimeout(() => controller.abort(), 0);
+        setTimeout(() => controller.abort(reason), 0);
         return new Response("Server Error", { status: 500 });
       };
 
@@ -339,8 +340,7 @@ describe("MailgunTransport - Retry Backoff Abort Signal", () => {
       const startedAt = Date.now();
       await assert.rejects(
         () => transport.send(message, { signal: controller.signal }),
-        (error: unknown) =>
-          error instanceof Error && error.name === "AbortError",
+        (error: unknown) => error === reason,
       );
 
       assert.equal(attempts, 1);

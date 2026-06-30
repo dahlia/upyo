@@ -227,12 +227,13 @@ describe("SendGridTransport", { concurrency: false }, () => {
 
   it("should reject caller aborts during retry backoff", async () => {
     const controller = new AbortController();
+    const reason = new Error("Stop retrying.");
     let attempts = 0;
 
     await withMockedFetch(
       () => {
         attempts++;
-        setTimeout(() => controller.abort(), 0);
+        setTimeout(() => controller.abort(reason), 0);
         return Promise.resolve(new Response("Server Error", { status: 500 }));
       },
       async () => {
@@ -244,12 +245,47 @@ describe("SendGridTransport", { concurrency: false }, () => {
         const startedAt = Date.now();
         await assert.rejects(
           () => transport.send(basicMessage, { signal: controller.signal }),
-          (error: unknown) =>
-            error instanceof Error && error.name === "AbortError",
+          (error: unknown) => error === reason,
         );
 
         assert.equal(attempts, 1);
         assert.ok(Date.now() - startedAt < 500);
+      },
+    );
+  });
+
+  it("falls back when AbortSignal.any is unavailable", async () => {
+    const originalAny = AbortSignal.any;
+    const controller = new AbortController();
+
+    await withMockedFetch(
+      (_url, options) => {
+        assert.ok(options?.signal instanceof AbortSignal);
+        return Promise.resolve(new Response("", { status: 202 }));
+      },
+      async () => {
+        try {
+          Object.defineProperty(AbortSignal, "any", {
+            configurable: true,
+            value: undefined,
+          });
+
+          const transport = new SendGridTransport({
+            apiKey: "SG.test-key",
+            retries: 0,
+          });
+
+          const receipt = await transport.send(basicMessage, {
+            signal: controller.signal,
+          });
+
+          assert.ok(receipt.successful);
+        } finally {
+          Object.defineProperty(AbortSignal, "any", {
+            configurable: true,
+            value: originalAny,
+          });
+        }
       },
     );
   });

@@ -109,7 +109,7 @@ export class MailgunTransport implements Transport<"mailgun"> {
         provider: "mailgun",
       };
     } catch (error) {
-      if (isAbortError(error) && options?.signal?.aborted) {
+      if (isCallerAbort(error, options?.signal)) {
         throw error;
       }
 
@@ -211,6 +211,11 @@ function createMailgunFailure(
   return createFailedReceipt(message, {
     provider: "mailgun",
   });
+}
+
+function isCallerAbort(error: unknown, signal?: AbortSignal): boolean {
+  return signal?.aborted === true &&
+    (isAbortError(error) || error === signal.reason);
 }
 
 function isAbortError(error: unknown): boolean {

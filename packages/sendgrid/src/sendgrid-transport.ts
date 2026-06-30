@@ -113,7 +113,7 @@ export class SendGridTransport implements Transport<"sendgrid"> {
         provider: "sendgrid",
       };
     } catch (error) {
-      if (isAbortError(error) && options?.signal?.aborted) {
+      if (isCallerAbort(error, options?.signal)) {
         throw error;
       }
 
@@ -244,6 +244,11 @@ function createSendGridFailure(
   return createFailedReceipt(message, {
     provider: "sendgrid",
   });
+}
+
+function isCallerAbort(error: unknown, signal?: AbortSignal): boolean {
+  return signal?.aborted === true &&
+    (isAbortError(error) || error === signal.reason);
 }
 
 function isAbortError(error: unknown): boolean {

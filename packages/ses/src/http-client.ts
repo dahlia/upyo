@@ -150,15 +150,13 @@ export class SesHttpClient {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), this.config.timeout);
 
-    const signal = options.signal == null
-      ? controller.signal
-      : AbortSignal.any([controller.signal, options.signal]);
+    const combinedSignal = combineSignals(controller.signal, options.signal);
 
     try {
       return await globalThis.fetch(url, {
         ...options,
         headers: this.headersToRecord(signedHeaders),
-        signal,
+        signal: combinedSignal.signal,
       });
     } catch (error) {
       if (
@@ -172,6 +170,7 @@ export class SesHttpClient {
       }
       throw error;
     } finally {
+      combinedSignal.cleanup();
       clearTimeout(timeoutId);
     }
   }
@@ -345,14 +344,14 @@ function sleep(
   signal?: AbortSignal | null,
 ): Promise<void> {
   if (signal?.aborted) {
-    return Promise.reject(createAbortError());
+    return Promise.reject(createAbortError(signal));
   }
 
   return new Promise((resolve, reject) => {
     function abort() {
       clearTimeout(timeoutId);
       signal?.removeEventListener("abort", abort);
-      reject(createAbortError());
+      reject(createAbortError(signal));
     }
 
     const timeoutId = setTimeout(() => {
@@ -364,8 +363,50 @@ function sleep(
   });
 }
 
-function createAbortError(): DOMException {
-  return new DOMException("The operation was aborted.", "AbortError");
+function createAbortError(signal?: AbortSignal | null): unknown {
+  return signal?.reason ??
+    new DOMException("The operation was aborted.", "AbortError");
+}
+
+function combineSignals(
+  timeoutSignal: AbortSignal,
+  externalSignal?: AbortSignal | null,
+): { readonly signal: AbortSignal; cleanup(): void } {
+  if (externalSignal == null) {
+    return { signal: timeoutSignal, cleanup: () => {} };
+  }
+
+  if (typeof AbortSignal.any === "function") {
+    return {
+      signal: AbortSignal.any([timeoutSignal, externalSignal]),
+      cleanup: () => {},
+    };
+  }
+
+  const controller = new AbortController();
+  const cleanup = () => {
+    timeoutSignal.removeEventListener("abort", abortFromTimeout);
+    externalSignal.removeEventListener("abort", abortFromExternal);
+  };
+  const abortFromTimeout = () => {
+    cleanup();
+    controller.abort(timeoutSignal.reason);
+  };
+  const abortFromExternal = () => {
+    cleanup();
+    controller.abort(externalSignal.reason);
+  };
+
+  if (timeoutSignal.aborted) {
+    controller.abort(timeoutSignal.reason);
+  } else if (externalSignal.aborted) {
+    controller.abort(externalSignal.reason);
+  } else {
+    timeoutSignal.addEventListener("abort", abortFromTimeout, { once: true });
+    externalSignal.addEventListener("abort", abortFromExternal, { once: true });
+  }
+
+  return { signal: controller.signal, cleanup };
 }
 
 export class SesApiError extends Error {

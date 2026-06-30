@@ -91,13 +91,14 @@ test("SesTransport rejects caller aborts during fetch", async () => {
 test("SesTransport rejects caller aborts during retry backoff", async () => {
   const originalFetch = globalThis.fetch;
   const controller = new AbortController();
+  const reason = new Error("Stop retrying.");
   let attempts = 0;
 
   try {
     // deno-lint-ignore require-await
     globalThis.fetch = async () => {
       attempts++;
-      setTimeout(() => controller.abort(), 0);
+      setTimeout(() => controller.abort(reason), 0);
       return new Response("Server Error", { status: 500 });
     };
 
@@ -120,12 +121,61 @@ test("SesTransport rejects caller aborts during retry backoff", async () => {
     const startedAt = Date.now();
     await assert.rejects(
       () => transport.send(message, { signal: controller.signal }),
-      (error: unknown) => error instanceof Error && error.name === "AbortError",
+      (error: unknown) => error === reason,
     );
 
     assert.equal(attempts, 1);
     assert.ok(Date.now() - startedAt < 500);
   } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("SesTransport falls back when AbortSignal.any is unavailable", async () => {
+  const originalAny = AbortSignal.any;
+  const originalFetch = globalThis.fetch;
+  const controller = new AbortController();
+
+  try {
+    Object.defineProperty(AbortSignal, "any", {
+      configurable: true,
+      value: undefined,
+    });
+
+    // deno-lint-ignore require-await
+    globalThis.fetch = async (_url, options) => {
+      assert.ok(options?.signal instanceof AbortSignal);
+      return new Response('{"MessageId":"test-message-id"}', {
+        status: 200,
+      });
+    };
+
+    const transport = new SesTransport({
+      authentication: {
+        type: "credentials",
+        accessKeyId: "test-key",
+        secretAccessKey: "test-secret",
+      },
+      retries: 0,
+    });
+
+    const message = createMessage({
+      from: "sender@example.com",
+      to: "recipient@example.com",
+      subject: "Test Subject",
+      content: { text: "Hello World!" },
+    });
+
+    const receipt = await transport.send(message, {
+      signal: controller.signal,
+    });
+
+    assert.ok(receipt.successful);
+  } finally {
+    Object.defineProperty(AbortSignal, "any", {
+      configurable: true,
+      value: originalAny,
+    });
     globalThis.fetch = originalFetch;
   }
 });
