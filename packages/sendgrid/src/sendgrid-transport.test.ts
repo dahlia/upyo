@@ -122,6 +122,37 @@ describe("SendGridTransport", { concurrency: false }, () => {
     );
   });
 
+  it("should reject custom caller abort reasons during final fetch", async () => {
+    const controller = new AbortController();
+    const reason = "custom abort reason";
+
+    await withMockedFetch(
+      (_url, options) =>
+        new Promise((_resolve, reject) => {
+          if (options?.signal == null) {
+            reject(new TypeError("Expected fetch to receive an AbortSignal."));
+            return;
+          }
+
+          options.signal.addEventListener("abort", () => {
+            reject(options.signal?.reason);
+          }, { once: true });
+          setTimeout(() => controller.abort(reason), 0);
+        }),
+      async () => {
+        const transport = new SendGridTransport({
+          apiKey: "SG.test-key",
+          retries: 0,
+        });
+
+        await assert.rejects(
+          () => transport.send(basicMessage, { signal: controller.signal }),
+          (error: unknown) => error === reason,
+        );
+      },
+    );
+  });
+
   it("should validate message structure in sendMany", async () => {
     const transport = new SendGridTransport({
       apiKey: "SG.test-key",

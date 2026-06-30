@@ -132,7 +132,7 @@ export class SendGridHttpClient {
         lastError = error instanceof Error ? error : new Error(String(error));
 
         // Don't retry caller cancellation.
-        if (isAbortError(error)) {
+        if (isCallerAbort(error, options.signal)) {
           throw error;
         }
 
@@ -295,6 +295,11 @@ export class SendGridApiError extends Error {
 
 function isAbortError(error: unknown): boolean {
   return error instanceof Error && error.name === "AbortError";
+}
+
+function isCallerAbort(error: unknown, signal?: AbortSignal | null): boolean {
+  return signal?.aborted === true &&
+    (isAbortError(error) || error === signal.reason);
 }
 
 function sleep(

@@ -227,15 +227,17 @@ export function classifyReceiptError(
   }
   if (
     text.includes("authentication") || text.includes("authenticate") ||
+    text.includes("authorization") || text.includes("authorize") ||
     /\bauth\b/.test(text) || text.includes("unauthorized") ||
-    text.includes("forbidden") || text.includes("invalid api key") ||
-    text.includes("invalid token") || text.includes("401") ||
-    text.includes("403")
+    text.includes("not authorized") || text.includes("forbidden") ||
+    text.includes("invalid api key") || text.includes("invalid token") ||
+    text.includes("401") || text.includes("403")
   ) {
     return { category: "auth", retryable: false, code: "auth" };
   }
   if (
-    text.includes("rate limit") || text.includes("too many requests") ||
+    text.includes("rate limit") || text.includes("rate-limit") ||
+    text.includes("too many requests") ||
     text.includes("quota") || text.includes("throttle") ||
     text.includes("429")
   ) {
@@ -336,24 +338,23 @@ export function createReceiptError<TProviderId extends string = string>(
 export function createFailedReceipt<TProviderId extends string = string>(
   error:
     | string
-    | readonly string[]
-    | ReceiptError<TProviderId>
-    | readonly ReceiptError<TProviderId>[],
+    | readonly (string | ReceiptError<TProviderId>)[]
+    | ReceiptError<TProviderId>,
   options: CreateFailedReceiptOptions<TProviderId> = {},
 ): Receipt<TProviderId> & { readonly successful: false } {
   const errors = options.errors ?? (
     typeof error === "string"
       ? [createReceiptError(error, options)]
       : Array.isArray(error)
-      ? error.every((item) => typeof item === "string")
-        ? error.map((message) => createReceiptError(message, options))
-        : error
+      ? error.map((item) =>
+        typeof item === "string" ? createReceiptError(item, options) : item
+      )
       : [error]
   );
   const errorMessages = typeof error === "string"
     ? [error]
-    : Array.isArray(error) && error.every((item) => typeof item === "string")
-    ? error
+    : Array.isArray(error)
+    ? error.map((item) => typeof item === "string" ? item : item.message)
     : errors.map((receiptError) => receiptError.message);
   const retryable = options.retryable ??
     errors.some((receiptError) => receiptError.retryable);

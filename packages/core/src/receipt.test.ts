@@ -127,6 +127,21 @@ describe("Receipt errors", () => {
       retryable: false,
       code: "auth",
     });
+    assert.deepEqual(classifyReceiptError("Authorization failed"), {
+      category: "auth",
+      retryable: false,
+      code: "auth",
+    });
+    assert.deepEqual(classifyReceiptError("Not authorized"), {
+      category: "auth",
+      retryable: false,
+      code: "auth",
+    });
+    assert.deepEqual(classifyReceiptError("Rate-limit exceeded"), {
+      category: "rate-limit",
+      retryable: true,
+      code: "rate-limit",
+    });
     assert.deepEqual(classifyReceiptError("Something unexpected"), {
       category: "unknown",
       retryable: false,
@@ -181,6 +196,36 @@ describe("Receipt errors", () => {
 
     assert.equal(error.category, "rate-limit");
     assert.equal(error.code, "http.429");
+  });
+
+  it("normalizes mixed failed receipt error arrays", () => {
+    const receipt = createFailedReceipt([
+      "Rate-limit exceeded",
+      createReceiptError("Unauthorized", { provider: "sendgrid" }),
+    ], {
+      timestamp: "2026-06-30T00:00:00.000Z",
+    });
+
+    assert.deepEqual(receipt.errorMessages, [
+      "Rate-limit exceeded",
+      "Unauthorized",
+    ]);
+    assert.deepEqual(receipt.errors, [
+      {
+        message: "Rate-limit exceeded",
+        category: "rate-limit",
+        code: "rate-limit",
+        retryable: true,
+      },
+      {
+        message: "Unauthorized",
+        category: "auth",
+        code: "auth",
+        retryable: false,
+        provider: "sendgrid",
+      },
+    ]);
+    assert.equal(receipt.retryable, true);
   });
 });
 
