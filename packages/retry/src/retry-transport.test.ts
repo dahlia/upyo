@@ -162,6 +162,27 @@ describe("RetryTransport", () => {
     assert.equal(receipt.attempts, 2);
   });
 
+  it("preserves retryable metadata for exhausted provider AbortErrors", async () => {
+    const base = new SequenceTransport([
+      createAbortError(),
+      createAbortError(),
+    ]);
+    const transport = createRetryTransport(base, {
+      maxAttempts: 2,
+      jitter: false,
+      wait: () => Promise.resolve(),
+    });
+
+    const receipt = await transport.send(message());
+
+    assert.equal(base.calls, 2);
+    assert.ok(!receipt.successful);
+    assert.ok(receipt.retryable);
+    assert.equal(receipt.errors?.[0]?.category, "timeout");
+    assert.equal(receipt.errors?.[0]?.code, "timeout");
+    assert.equal(receipt.attempts, 2);
+  });
+
   it("lets custom retry policy classify provider AbortErrors", async () => {
     const errors: unknown[] = [];
     const base = new SequenceTransport([

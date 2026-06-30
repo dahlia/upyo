@@ -397,7 +397,13 @@ export class RetryTransport<TProviderId extends string = string>
     }
 
     const message = error instanceof Error ? error.message : String(error);
-    const classification = classifyReceiptError(error);
+    const classification = error instanceof Error && error.name === "AbortError"
+      ? {
+        category: "timeout" as const,
+        code: "timeout",
+        retryable: true,
+      }
+      : classifyReceiptError(error);
     return createFailedReceipt(
       createReceiptError(message, {
         provider: this.id,
