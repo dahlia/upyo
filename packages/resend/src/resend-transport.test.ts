@@ -236,6 +236,72 @@ describe("ResendHttpClient - Abort Signal", () => {
       },
     );
   });
+
+  it("falls back when AbortSignal.any is unavailable", async () => {
+    const originalAny = AbortSignal.any;
+    const controller = new AbortController();
+    let addedAbortListeners = 0;
+    let removedAbortListeners = 0;
+    const addEventListener = controller.signal.addEventListener.bind(
+      controller.signal,
+    );
+    const removeEventListener = controller.signal.removeEventListener.bind(
+      controller.signal,
+    );
+
+    Object.defineProperty(controller.signal, "addEventListener", {
+      value: (
+        type: string,
+        listener: EventListenerOrEventListenerObject,
+        options?: boolean | AddEventListenerOptions,
+      ) => {
+        if (type === "abort") addedAbortListeners++;
+        addEventListener(type, listener, options);
+      },
+    });
+    Object.defineProperty(controller.signal, "removeEventListener", {
+      value: (
+        type: string,
+        listener: EventListenerOrEventListenerObject,
+        options?: boolean | EventListenerOptions,
+      ) => {
+        if (type === "abort") removedAbortListeners++;
+        removeEventListener(type, listener, options);
+      },
+    });
+
+    await withMockedFetch(
+      (_url, init) => {
+        assert.ok(init?.signal instanceof AbortSignal);
+        return Promise.resolve(
+          new Response(JSON.stringify({ id: "msg_fallback" })),
+        );
+      },
+      async () => {
+        Object.defineProperty(AbortSignal, "any", {
+          value: undefined,
+          configurable: true,
+          writable: true,
+        });
+        try {
+          const client = new ResendHttpClient(
+            createResendConfig({ apiKey: "test-key", retries: 0 }),
+          );
+
+          await client.sendMessage({}, controller.signal);
+
+          assert.ok(addedAbortListeners > 0);
+          assert.equal(removedAbortListeners, addedAbortListeners);
+        } finally {
+          Object.defineProperty(AbortSignal, "any", {
+            value: originalAny,
+            configurable: true,
+            writable: true,
+          });
+        }
+      },
+    );
+  });
 });
 
 describe("ResendTransport - Network Errors", () => {

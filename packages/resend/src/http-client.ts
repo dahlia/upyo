@@ -270,34 +270,13 @@ export class ResendHttpClient {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), this.config.timeout);
 
-    // Combine signals if one is provided
-    let signal: AbortSignal;
-    let cleanup = () => {};
-    if (options.signal) {
-      const combinedController = new AbortController();
-      const onAbort = () => combinedController.abort();
-
-      if (options.signal.aborted || controller.signal.aborted) {
-        combinedController.abort();
-      } else {
-        options.signal.addEventListener("abort", onAbort, { once: true });
-        controller.signal.addEventListener("abort", onAbort, { once: true });
-      }
-      cleanup = () => {
-        options.signal?.removeEventListener("abort", onAbort);
-        controller.signal.removeEventListener("abort", onAbort);
-      };
-
-      signal = combinedController.signal;
-    } else {
-      signal = controller.signal;
-    }
+    const combinedSignal = combineSignals(controller.signal, options.signal);
 
     try {
       const response = await fetch(url, {
         ...options,
         headers,
-        signal,
+        signal: combinedSignal.signal,
       });
 
       return response;
@@ -313,10 +292,49 @@ export class ResendHttpClient {
       }
       throw error;
     } finally {
-      cleanup();
+      combinedSignal.cleanup();
       clearTimeout(timeoutId);
     }
   }
+}
+
+interface CombinedSignal {
+  readonly signal: AbortSignal;
+  cleanup(): void;
+}
+
+function combineSignals(
+  timeoutSignal: AbortSignal,
+  externalSignal?: AbortSignal | null,
+): CombinedSignal {
+  if (externalSignal == null) {
+    return { signal: timeoutSignal, cleanup: () => {} };
+  }
+
+  if (typeof AbortSignal.any === "function") {
+    return {
+      signal: AbortSignal.any([timeoutSignal, externalSignal]),
+      cleanup: () => {},
+    };
+  }
+
+  const controller = new AbortController();
+  const abort = () => controller.abort();
+
+  timeoutSignal.addEventListener("abort", abort, { once: true });
+  externalSignal.addEventListener("abort", abort, { once: true });
+
+  if (timeoutSignal.aborted || externalSignal.aborted) {
+    controller.abort();
+  }
+
+  return {
+    signal: controller.signal,
+    cleanup: () => {
+      timeoutSignal.removeEventListener("abort", abort);
+      externalSignal.removeEventListener("abort", abort);
+    },
+  };
 }
 
 function isAbortError(error: unknown): boolean {

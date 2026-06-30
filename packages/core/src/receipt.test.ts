@@ -21,6 +21,10 @@ describe("Receipt errors", () => {
       category: "rate-limit",
       retryable: true,
     });
+    assert.deepEqual(classifyHttpStatus(409), {
+      category: "validation",
+      retryable: false,
+    });
     assert.deepEqual(classifyHttpStatus(422), {
       category: "validation",
       retryable: false,

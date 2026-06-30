@@ -184,7 +184,7 @@ export function classifyHttpStatus(
   if (statusCode === 408 || statusCode === 504) {
     return { category: "timeout", retryable: true };
   }
-  if (statusCode === 409 || statusCode === 429) {
+  if (statusCode === 429) {
     return { category: "rate-limit", retryable: true };
   }
   if (statusCode === 503) {

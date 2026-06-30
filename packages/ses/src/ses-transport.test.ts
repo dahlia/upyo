@@ -294,3 +294,48 @@ test("SesTransport returns structured API failures", async () => {
     globalThis.fetch = originalFetch;
   }
 });
+
+test("SesTransport preserves provider error details", async () => {
+  const originalFetch = globalThis.fetch;
+  const providerErrors = [{
+    message: "Email address is not verified",
+    field: "Destination.ToAddresses.member.1",
+    code: "MessageRejected",
+  }];
+
+  try {
+    globalThis.fetch = () =>
+      Promise.resolve(
+        new Response(
+          JSON.stringify({
+            message: "Email address is not verified",
+            errors: providerErrors,
+          }),
+          { status: 400 },
+        ),
+      );
+
+    const transport = new SesTransport({
+      authentication: {
+        type: "credentials",
+        accessKeyId: "test-key",
+        secretAccessKey: "test-secret",
+      },
+      retries: 0,
+    });
+
+    const receipt = await transport.send(createMessage({
+      from: "sender@example.com",
+      to: "recipient@example.com",
+      subject: "Test Subject",
+      content: { text: "Hello World!" },
+    }));
+
+    assert.ok(!receipt.successful);
+    if (!receipt.successful) {
+      assert.deepEqual(receipt.errors?.[0]?.providerDetails, providerErrors);
+    }
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
