@@ -338,7 +338,7 @@ export class OpenTelemetryTransport<TProviderId extends string = string>
     }
 
     // Try to extract from constructor name
-    const constructorName = transport.constructor.name;
+    const constructorName = transport.constructor?.name;
     if (constructorName && constructorName !== "Object") {
       return constructorName.toLowerCase().replace("transport", "");
     }

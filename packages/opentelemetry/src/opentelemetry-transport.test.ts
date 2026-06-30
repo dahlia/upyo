@@ -60,6 +60,28 @@ describe("OpenTelemetryTransport", () => {
       );
       assert.ok(disabledTransport instanceof OpenTelemetryTransport);
     });
+
+    it("should handle null-prototype transports", () => {
+      const setup = createTestSetup();
+      const nullPrototypeTransport: Transport<""> = Object.assign(
+        Object.create(null) as object,
+        {
+          id: "" as const,
+          send: () =>
+            Promise.resolve(
+              createFailedReceipt<"">("Not implemented.", { provider: "" }),
+            ),
+          sendMany: async function* (
+            _messages: Iterable<Message> | AsyncIterable<Message>,
+            _options?: TransportOptions,
+          ): AsyncIterable<Receipt<"">> {},
+        },
+      );
+
+      assert.doesNotThrow(() => {
+        new OpenTelemetryTransport(nullPrototypeTransport, setup.config);
+      });
+    });
   });
 
   describe("send", () => {

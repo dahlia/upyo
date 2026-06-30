@@ -122,6 +122,10 @@ export class MailgunHttpClient {
       } catch (error) {
         lastError = error instanceof Error ? error : new Error(String(error));
 
+        if (options.signal?.aborted) {
+          throw createAbortError(options.signal);
+        }
+
         // Don't retry caller cancellation.
         if (isAbortError(error)) {
           throw error;

@@ -526,6 +526,49 @@ describe("MailgunTransport - Abort Signal", () => {
   });
 });
 
+describe("MailgunTransport - Fetch Abort Reason", () => {
+  it("should reject caller abort reasons during fetch", async () => {
+    const originalFetch = globalThis.fetch;
+    const controller = new AbortController();
+    const reason = new Error("Stop sending.");
+
+    try {
+      globalThis.fetch = (_url, options) => {
+        assert.ok(options?.signal instanceof AbortSignal);
+        controller.abort(reason);
+        return Promise.reject(options.signal.reason);
+      };
+
+      const transport = new MailgunTransport({
+        apiKey: "test-key",
+        domain: "test-domain.com",
+        retries: 0,
+      });
+
+      const message: Message = {
+        sender: { address: "sender@example.com" },
+        recipients: [{ address: "recipient@example.com" }],
+        ccRecipients: [],
+        bccRecipients: [],
+        replyRecipients: [],
+        subject: "Test Subject",
+        content: { text: "Test content" },
+        attachments: [],
+        priority: "normal",
+        tags: [],
+        headers: new Headers(),
+      };
+
+      await assert.rejects(
+        () => transport.send(message, { signal: controller.signal }),
+        (error: unknown) => error === reason,
+      );
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+  });
+});
+
 describe("MailgunTransport - Rate Limiting", () => {
   it("should handle rate limiting (429) responses", async () => {
     const originalFetch = globalThis.fetch;
