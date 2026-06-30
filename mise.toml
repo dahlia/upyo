@@ -124,7 +124,15 @@ for package in $packages {
 
 if ($junit_path | is-not-empty) {
   let files = (glob ($junit_dir | path join "*.xml") | sort)
-  let reports = ($files | each { |file| open $file })
+  let reports = (
+    $files
+    | each { |file|
+      open --raw $file
+      | ansi strip
+      | str replace --all --regex "[\u{0000}-\u{0008}\u{000B}\u{000C}\u{000E}-\u{001F}]" ""
+      | from xml
+    }
+  )
   let sum_attr = {|name|
     $reports
     | each { |report| $report.attributes | get --optional $name | default "0" | into float }
