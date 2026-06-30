@@ -88,6 +88,45 @@ test("SesTransport rejects caller aborts during fetch", async () => {
   }
 });
 
+test("SesTransport preserves custom caller abort reasons during fetch", async () => {
+  const originalFetch = globalThis.fetch;
+  const controller = new AbortController();
+  const reason = new Error("Stop fetching.");
+
+  try {
+    globalThis.fetch = (_url, options) =>
+      new Promise((_resolve, reject) => {
+        options?.signal?.addEventListener("abort", () => {
+          reject(options.signal?.reason);
+        }, { once: true });
+        setTimeout(() => controller.abort(reason), 0);
+      });
+
+    const transport = new SesTransport({
+      authentication: {
+        type: "credentials",
+        accessKeyId: "test-key",
+        secretAccessKey: "test-secret",
+      },
+      retries: 0,
+    });
+
+    const message = createMessage({
+      from: "sender@example.com",
+      to: "recipient@example.com",
+      subject: "Test Subject",
+      content: { text: "Hello World!" },
+    });
+
+    await assert.rejects(
+      () => transport.send(message, { signal: controller.signal }),
+      (error: unknown) => error === reason,
+    );
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
 test("SesTransport rejects caller aborts during retry backoff", async () => {
   const originalFetch = globalThis.fetch;
   const controller = new AbortController();

@@ -256,6 +256,29 @@ describe("SmtpTransport Integration Tests", () => {
     }
   });
 
+  test("should mark transient recipient failures as retryable", async () => {
+    const { server, transport } = await setupTest();
+    try {
+      server.setResponse("RCPT", {
+        code: 451,
+        message: "Requested action aborted: local error in processing",
+      });
+
+      const receipt = await transport.send(createTestMessage());
+
+      assert.ok(!receipt.successful);
+      if (!receipt.successful) {
+        assert.equal(receipt.provider, "smtp");
+        assert.equal(receipt.retryable, true);
+        assert.equal(receipt.errors?.[0]?.code, "smtp.451");
+        assert.equal(receipt.errors?.[0]?.category, "service-unavailable");
+        assert.equal(receipt.errors?.[0]?.retryable, true);
+      }
+    } finally {
+      await teardownTest(server, transport);
+    }
+  });
+
   test("should handle non-ASCII characters in headers and content", async () => {
     const { server, transport } = await setupTest();
     try {

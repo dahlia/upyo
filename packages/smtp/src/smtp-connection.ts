@@ -512,7 +512,12 @@ export class SmtpConnection {
       signal,
     );
     if (mailResponse.code !== 250) {
-      throw new Error(`MAIL FROM failed: ${mailResponse.message}`);
+      throw new SmtpResponseError(
+        `MAIL FROM failed: ${mailResponse.message}`,
+        mailResponse.code,
+        "MAIL FROM",
+        mailResponse.message,
+      );
     }
 
     // RCPT TO
@@ -523,8 +528,11 @@ export class SmtpConnection {
         signal,
       );
       if (rcptResponse.code !== 250) {
-        throw new Error(
+        throw new SmtpResponseError(
           `RCPT TO failed for ${recipient}: ${rcptResponse.message}`,
+          rcptResponse.code,
+          "RCPT TO",
+          rcptResponse.message,
         );
       }
     }
@@ -532,14 +540,24 @@ export class SmtpConnection {
     // DATA
     const dataResponse = await this.sendCommand("DATA", signal);
     if (dataResponse.code !== 354) {
-      throw new Error(`DATA failed: ${dataResponse.message}`);
+      throw new SmtpResponseError(
+        `DATA failed: ${dataResponse.message}`,
+        dataResponse.code,
+        "DATA",
+        dataResponse.message,
+      );
     }
 
     // Message content
     const content = message.raw.replace(/\n\./g, "\n..");
     const finalResponse = await this.sendCommand(`${content}\r\n.`, signal);
     if (finalResponse.code !== 250) {
-      throw new Error(`Message send failed: ${finalResponse.message}`);
+      throw new SmtpResponseError(
+        `Message send failed: ${finalResponse.message}`,
+        finalResponse.code,
+        "DATA_END",
+        finalResponse.message,
+      );
     }
 
     // Extract message ID from response
@@ -606,6 +624,49 @@ export class SmtpConnection {
     if (response.code !== 250) {
       throw new Error(`RESET failed: ${response.message}`);
     }
+  }
+}
+
+/**
+ * Error thrown when an SMTP command receives an unsuccessful server reply.
+ *
+ * @since 0.5.0
+ */
+export class SmtpResponseError extends Error {
+  /**
+   * The numeric SMTP reply code returned by the server.
+   */
+  readonly code: number;
+
+  /**
+   * The SMTP command that produced the reply.
+   */
+  readonly command: string;
+
+  /**
+   * The textual SMTP reply returned by the server.
+   */
+  readonly response: string;
+
+  /**
+   * Creates an SMTP response error.
+   *
+   * @param message Human-readable error message.
+   * @param code The numeric SMTP reply code.
+   * @param command The SMTP command that produced the reply.
+   * @param response The textual SMTP reply returned by the server.
+   */
+  constructor(
+    message: string,
+    code: number,
+    command: string,
+    response: string,
+  ) {
+    super(message);
+    this.name = "SmtpResponseError";
+    this.code = code;
+    this.command = command;
+    this.response = response;
   }
 }
 

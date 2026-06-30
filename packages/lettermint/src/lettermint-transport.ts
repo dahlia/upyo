@@ -91,7 +91,7 @@ export class LettermintTransport implements Transport<"lettermint"> {
 
       return responseToReceipt(response);
     } catch (error) {
-      if (isAbortError(error)) throw error;
+      if (isCallerAbort(error, options?.signal)) throw error;
       return createLettermintFailure(
         error instanceof Error ? error.message : String(error),
         error,
@@ -185,7 +185,7 @@ export class LettermintTransport implements Transport<"lettermint"> {
         yield responseToReceipt(result);
       }
     } catch (error) {
-      if (isAbortError(error)) throw error;
+      if (isCallerAbort(error, options?.signal)) throw error;
       const errorMessage = error instanceof Error
         ? error.message
         : String(error);
@@ -303,4 +303,9 @@ function isSuccessfulStatus(status: LettermintStatus): boolean {
 
 function isAbortError(error: unknown): boolean {
   return error instanceof Error && error.name === "AbortError";
+}
+
+function isCallerAbort(error: unknown, signal?: AbortSignal): boolean {
+  return signal?.aborted === true &&
+    (isAbortError(error) || error === signal.reason);
 }

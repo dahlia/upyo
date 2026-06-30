@@ -88,6 +88,10 @@ export class SesHttpClient {
       } catch (error) {
         lastError = error instanceof Error ? error : new Error(String(error));
 
+        if (options.signal?.aborted) {
+          throw createAbortError(options.signal);
+        }
+
         if (isAbortError(error)) {
           throw error;
         }

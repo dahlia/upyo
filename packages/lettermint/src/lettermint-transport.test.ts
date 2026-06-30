@@ -195,6 +195,32 @@ describe("LettermintTransport - send", { concurrency: false }, () => {
     );
   });
 
+  it("propagates custom caller abort reasons during sends", async () => {
+    const controller = new AbortController();
+    const reason = new Error("Stop Lettermint send.");
+
+    await withMockedFetch(
+      (_url, init) =>
+        new Promise((_resolve, reject) => {
+          init?.signal?.addEventListener("abort", () => {
+            reject(init.signal?.reason);
+          }, { once: true });
+          setTimeout(() => controller.abort(reason), 0);
+        }),
+      async () => {
+        const transport = new LettermintTransport({
+          apiToken: "test-token",
+          retries: 0,
+        });
+
+        await assert.rejects(
+          () => transport.send(createMessage(), { signal: controller.signal }),
+          (error: unknown) => error === reason,
+        );
+      },
+    );
+  });
+
   it("generates an idempotency key when not provided", async () => {
     let capturedHeaders = new Headers();
 

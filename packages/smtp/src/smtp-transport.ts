@@ -6,7 +6,7 @@ import {
   type TransportOptions,
 } from "@upyo/core";
 import type { SmtpConfig } from "./config.ts";
-import { SmtpConnection } from "./smtp-connection.ts";
+import { SmtpConnection, SmtpResponseError } from "./smtp-connection.ts";
 import { OAuth2TokenManager } from "./oauth2.ts";
 import { convertMessage } from "./message-converter.ts";
 
@@ -154,6 +154,7 @@ export class SmtpTransport implements Transport<"smtp">, AsyncDisposable {
 
       return createSmtpFailure(
         error instanceof Error ? error.message : String(error),
+        error,
       );
     }
   }
@@ -209,7 +210,7 @@ export class SmtpTransport implements Transport<"smtp">, AsyncDisposable {
         : String(error);
       for await (const _ of messages) {
         options?.signal?.throwIfAborted();
-        yield createSmtpFailure(errorMessage);
+        yield createSmtpFailure(errorMessage, error);
       }
       return;
     }
@@ -251,6 +252,7 @@ export class SmtpTransport implements Transport<"smtp">, AsyncDisposable {
 
             yield createSmtpFailure(
               error instanceof Error ? error.message : String(error),
+              error,
             );
           }
         }
@@ -286,6 +288,7 @@ export class SmtpTransport implements Transport<"smtp">, AsyncDisposable {
 
             yield createSmtpFailure(
               error instanceof Error ? error.message : String(error),
+              error,
             );
           }
         }
@@ -443,9 +446,38 @@ export class SmtpTransport implements Transport<"smtp">, AsyncDisposable {
 
 function createSmtpFailure(
   message: string,
+  error?: unknown,
 ): Receipt<"smtp"> & { readonly successful: false } {
+  if (error instanceof SmtpResponseError) {
+    const classification = classifySmtpReply(error.code);
+    return createFailedReceipt(message, {
+      provider: "smtp",
+      code: `smtp.${error.code}`,
+      category: classification.category,
+      retryable: classification.retryable,
+      attempts: 1,
+      providerDetails: {
+        command: error.command,
+        response: error.response,
+      },
+    });
+  }
+
   return createFailedReceipt(message, {
     provider: "smtp",
     attempts: 1,
   });
+}
+
+function classifySmtpReply(code: number): {
+  readonly category: "rejected" | "service-unavailable" | "unknown";
+  readonly retryable: boolean;
+} {
+  if (code >= 400 && code < 500) {
+    return { category: "service-unavailable", retryable: true };
+  }
+  if (code >= 500 && code < 600) {
+    return { category: "rejected", retryable: false };
+  }
+  return { category: "unknown", retryable: false };
 }
