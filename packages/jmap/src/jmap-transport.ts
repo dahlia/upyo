@@ -157,6 +157,9 @@ export class JmapTransport implements Transport<"jmap"> {
       return this.parseResponse(response);
     } catch (error) {
       if (error instanceof Error && error.name === "AbortError") {
+        if (signal?.aborted) {
+          throw getAbortReason(signal, error);
+        }
         return createJmapFailure(`Request aborted: ${error.message}`, error, {
           category: "timeout",
           code: "abort",
@@ -322,6 +325,12 @@ export class JmapTransport implements Transport<"jmap"> {
         yield this.parseBatchResponseForIndex(response, i);
       }
     } catch (error) {
+      if (error instanceof Error && error.name === "AbortError") {
+        if (signal?.aborted) {
+          throw getAbortReason(signal, error);
+        }
+      }
+
       // For any error during batch processing, yield failure for all messages
       // with detailed stage information
       const baseMessage = error instanceof Error && error.name === "AbortError"
@@ -774,12 +783,14 @@ function createJmapFailure(
   error?: unknown,
   override: JmapFailureOverride = {},
 ): Receipt<"jmap"> & { readonly successful: false } {
+  const attempts = getAttemptCount(error);
+
   if (error instanceof JmapApiError) {
     return createFailedReceipt(message, {
       provider: "jmap",
       statusCode: error.statusCode,
       retryAfterMilliseconds: error.retryAfterMilliseconds,
-      attempts: error.attempts,
+      attempts,
       providerDetails: {
         responseBody: error.responseBody,
         jmapErrorType: error.jmapErrorType,
@@ -792,9 +803,28 @@ function createJmapFailure(
 
   return createFailedReceipt(message, {
     provider: "jmap",
-    attempts: 1,
+    attempts,
     category: override.category,
     code: override.code,
     retryable: override.retryable,
   });
+}
+
+function getAttemptCount(error: unknown): number {
+  if (error instanceof JmapApiError) {
+    return error.attempts ?? 1;
+  }
+
+  if (
+    typeof error === "object" && error !== null && "attempts" in error &&
+    typeof error.attempts === "number"
+  ) {
+    return error.attempts;
+  }
+
+  return 1;
+}
+
+function getAbortReason(signal: AbortSignal, fallback: Error): unknown {
+  return signal.reason ?? fallback;
 }

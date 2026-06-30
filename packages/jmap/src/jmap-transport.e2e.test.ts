@@ -336,21 +336,11 @@ describe(
         content: { text: "This should not be sent" },
       });
 
-      const receipt = await transport.send(message, {
-        signal: controller.signal,
-      });
-
-      assert.ok(!receipt.successful);
-      if (!receipt.successful) {
-        assert.ok(
-          receipt.errorMessages.some(
-            (msg) =>
-              msg.includes("abort") ||
-              msg.includes("Abort") ||
-              msg.includes("cancel"),
-          ),
-        );
-      }
+      await assert.rejects(
+        () => transport.send(message, { signal: controller.signal }),
+        (error: unknown) =>
+          error instanceof Error && error.name === "AbortError",
+      );
     });
   },
 );

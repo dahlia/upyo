@@ -36,7 +36,7 @@ describe("JmapTransport", () => {
   });
 
   describe("send", () => {
-    it("should respect abort signal", async () => {
+    it("should reject already-aborted signals", async () => {
       const controller = new AbortController();
       controller.abort();
 
@@ -45,17 +45,151 @@ describe("JmapTransport", () => {
         bearerToken: "test-token",
       });
 
-      const receipt = await transport.send(baseMessage, {
-        signal: controller.signal,
-      });
+      await assert.rejects(
+        () => transport.send(baseMessage, { signal: controller.signal }),
+        (error: unknown) =>
+          error instanceof Error && error.name === "AbortError",
+      );
+    });
 
-      assert.equal(receipt.successful, false);
-      if (!receipt.successful) {
-        assert.ok(
-          receipt.errorMessages.some(
-            (m: string) => m.includes("abort") || m.includes("Abort"),
-          ),
+    it("should reject caller aborts during fetch", async () => {
+      const originalFetch = globalThis.fetch;
+      const controller = new AbortController();
+
+      try {
+        globalThis.fetch = (
+          _input: RequestInfo | URL,
+          init?: RequestInit,
+        ): Promise<Response> =>
+          new Promise((_resolve, reject) => {
+            init?.signal?.addEventListener("abort", () => {
+              reject(
+                new DOMException(
+                  "The operation was aborted.",
+                  "AbortError",
+                ),
+              );
+            }, { once: true });
+            setTimeout(() => controller.abort(), 0);
+          });
+
+        const transport = new JmapTransport({
+          sessionUrl: "https://jmap.example.com/.well-known/jmap",
+          bearerToken: "test-token",
+          retries: 0,
+        });
+
+        await assert.rejects(
+          () => transport.send(baseMessage, { signal: controller.signal }),
+          (error: unknown) =>
+            error instanceof Error && error.name === "AbortError",
         );
+      } finally {
+        globalThis.fetch = originalFetch;
+      }
+    });
+
+    it("should preserve attempt counts from retried failures", async () => {
+      const originalFetch = globalThis.fetch;
+
+      class RetriedNetworkError extends Error {
+        readonly attempts = 4;
+      }
+
+      try {
+        globalThis.fetch = (
+          input: RequestInfo | URL,
+          init?: RequestInit,
+        ): Promise<Response> => {
+          const url = typeof input === "string"
+            ? input
+            : input instanceof URL
+            ? input.href
+            : input.url;
+          const body = init?.body == null
+            ? undefined
+            : JSON.parse(init.body as string);
+
+          if (url.includes(".well-known/jmap")) {
+            return Promise.resolve(
+              new Response(
+                JSON.stringify({
+                  capabilities: {},
+                  accounts: {
+                    "acc-1": {
+                      name: "Test",
+                      isPersonal: true,
+                      isReadOnly: false,
+                      accountCapabilities: {
+                        "urn:ietf:params:jmap:mail": {},
+                      },
+                    },
+                  },
+                  primaryAccounts: {},
+                  username: "test@example.com",
+                  apiUrl: "https://jmap.example.com/api",
+                  downloadUrl: "https://jmap.example.com/download/{blobId}",
+                  uploadUrl: "https://jmap.example.com/upload/{accountId}",
+                  state: "123",
+                }),
+                { status: 200 },
+              ),
+            );
+          }
+
+          if (body?.methodCalls?.[0]?.[0] === "Mailbox/get") {
+            return Promise.resolve(
+              new Response(
+                JSON.stringify({
+                  methodResponses: [
+                    ["Mailbox/get", {
+                      list: [{
+                        id: "drafts-123",
+                        role: "drafts",
+                        name: "Drafts",
+                      }],
+                    }, "c0"],
+                  ],
+                }),
+                { status: 200 },
+              ),
+            );
+          }
+
+          if (body?.methodCalls?.[0]?.[0] === "Identity/get") {
+            return Promise.resolve(
+              new Response(
+                JSON.stringify({
+                  methodResponses: [
+                    ["Identity/get", {
+                      list: [{
+                        id: "identity-123",
+                        email: "sender@example.com",
+                        name: "Sender",
+                      }],
+                    }, "c0"],
+                  ],
+                }),
+                { status: 200 },
+              ),
+            );
+          }
+
+          return Promise.reject(new RetriedNetworkError("fetch failed"));
+        };
+
+        const transport = new JmapTransport({
+          sessionUrl: "https://jmap.example.com/.well-known/jmap",
+          bearerToken: "test-token",
+          retries: 0,
+        });
+
+        const receipt = await transport.send(baseMessage);
+
+        assert.equal(receipt.successful, false);
+        assert.equal(receipt.attempts, 4);
+      } finally {
+        globalThis.fetch = originalFetch;
       }
     });
   });

@@ -1,6 +1,7 @@
 import type { Message } from "@upyo/core";
 import { MailgunTransport } from "@upyo/mailgun";
 import assert from "node:assert/strict";
+import { createServer, type Server } from "node:http";
 import { describe, it } from "node:test";
 
 // Note: Tests are split into separate describe blocks instead of one unified block
@@ -8,6 +9,51 @@ import { describe, it } from "node:test";
 // globalThis.fetch mocking to interfere between tests. Node.js runs tests sequentially
 // so it doesn't have this issue. By separating each test into its own describe block,
 // we ensure that fetch mocking is isolated between tests in both environments.
+
+async function withHangingServer(
+  callback: (baseUrl: string) => Promise<void>,
+): Promise<void> {
+  const server = createServer((_request, _response) => {});
+  const port = await new Promise<number>((resolve, reject) => {
+    server.once("error", reject);
+    server.listen(0, "127.0.0.1", () => {
+      const address = server.address();
+      if (address == null || typeof address === "string") {
+        reject(new TypeError("Expected TCP server address."));
+        return;
+      }
+      resolve(address.port);
+    });
+  });
+
+  try {
+    await callback(`http://127.0.0.1:${port}`);
+  } finally {
+    const closeableServer = server as Server & {
+      closeAllConnections?: () => void;
+    };
+    await new Promise<void>((resolve, reject) => {
+      if (!server.listening) {
+        closeableServer.closeAllConnections?.();
+        resolve();
+        return;
+      }
+
+      server.close((error) => {
+        const code = typeof error === "object" && error !== null &&
+            "code" in error
+          ? error.code
+          : undefined;
+        if (error != null && code !== "ERR_SERVER_NOT_RUNNING") {
+          reject(error);
+          return;
+        }
+        resolve();
+      });
+      closeableServer.closeAllConnections?.();
+    });
+  }
+}
 
 describe("MailgunTransport - Send Message", () => {
   it("should send a message successfully", async () => {
@@ -353,7 +399,9 @@ describe("MailgunTransport - Abort Signal", () => {
 
           options?.signal?.addEventListener("abort", () => {
             clearTimeout(timeout);
-            reject(new DOMException("The operation was aborted", "AbortError"));
+            reject(
+              new DOMException("The operation was aborted", "AbortError"),
+            );
           });
         });
       };
@@ -390,6 +438,42 @@ describe("MailgunTransport - Abort Signal", () => {
     } finally {
       globalThis.fetch = originalFetch;
     }
+  });
+
+  it("should reject caller aborts during fetch", async () => {
+    const controller = new AbortController();
+
+    await withHangingServer(async (baseUrl) => {
+      const transport = new MailgunTransport({
+        apiKey: "test-key",
+        domain: "test-domain.com",
+        baseUrl,
+        retries: 0,
+      });
+
+      const message: Message = {
+        sender: { address: "sender@example.com" },
+        recipients: [{ address: "recipient@example.com" }],
+        ccRecipients: [],
+        bccRecipients: [],
+        replyRecipients: [],
+        subject: "Test Subject",
+        content: { text: "Test content" },
+        attachments: [],
+        priority: "normal",
+        tags: [],
+        headers: new Headers(),
+      };
+
+      const send = transport.send(message, { signal: controller.signal });
+      setTimeout(() => controller.abort(), 0);
+
+      await assert.rejects(
+        () => send,
+        (error: unknown) =>
+          error instanceof Error && error.name === "AbortError",
+      );
+    });
   });
 });
 
@@ -712,7 +796,9 @@ describe("MailgunTransport - Concurrent Error Handling", () => {
 
       // If the mocking works as expected, we should have some failures
       // But the exact distribution might vary based on implementation
-      console.log(`Successful: ${successful.length}, Failed: ${failed.length}`);
+      console.log(
+        `Successful: ${successful.length}, Failed: ${failed.length}`,
+      );
 
       // At minimum, we should have processed all messages
       assert.ok(receipts.length === 4);

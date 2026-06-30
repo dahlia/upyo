@@ -128,6 +128,11 @@ export class SendGridHttpClient {
       } catch (error) {
         lastError = error instanceof Error ? error : new Error(String(error));
 
+        // Don't retry caller cancellation.
+        if (isAbortError(error)) {
+          throw error;
+        }
+
         // Don't retry on client errors (4xx) or if it's the last attempt
         if (
           error instanceof SendGridApiError &&

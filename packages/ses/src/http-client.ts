@@ -78,6 +78,10 @@ export class SesHttpClient {
       } catch (error) {
         lastError = error instanceof Error ? error : new Error(String(error));
 
+        if (isAbortError(error)) {
+          throw error;
+        }
+
         if (
           error instanceof SesApiError &&
           error.statusCode &&

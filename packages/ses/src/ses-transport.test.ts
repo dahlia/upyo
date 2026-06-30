@@ -48,6 +48,46 @@ test("SesTransport handles AbortSignal cancellation", async () => {
   }
 });
 
+test("SesTransport rejects caller aborts during fetch", async () => {
+  const originalFetch = globalThis.fetch;
+  const controller = new AbortController();
+
+  try {
+    globalThis.fetch = (_url, options) =>
+      new Promise((_resolve, reject) => {
+        options?.signal?.addEventListener("abort", () => {
+          reject(
+            new DOMException("The operation was aborted.", "AbortError"),
+          );
+        }, { once: true });
+        setTimeout(() => controller.abort(), 0);
+      });
+
+    const transport = new SesTransport({
+      authentication: {
+        type: "credentials",
+        accessKeyId: "test-key",
+        secretAccessKey: "test-secret",
+      },
+      retries: 0,
+    });
+
+    const message = createMessage({
+      from: "sender@example.com",
+      to: "recipient@example.com",
+      subject: "Test Subject",
+      content: { text: "Hello World!" },
+    });
+
+    await assert.rejects(
+      () => transport.send(message, { signal: controller.signal }),
+      (error: unknown) => error instanceof Error && error.name === "AbortError",
+    );
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
 test("SesTransport sendMany handles async iterables", async () => {
   const config: SesConfig = {
     authentication: {

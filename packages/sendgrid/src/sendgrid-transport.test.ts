@@ -89,6 +89,34 @@ describe("SendGridTransport", { concurrency: false }, () => {
     }
   });
 
+  it("should reject caller aborts during fetch", async () => {
+    const controller = new AbortController();
+
+    await withMockedFetch(
+      (_url, options) =>
+        new Promise((_resolve, reject) => {
+          options?.signal?.addEventListener("abort", () => {
+            reject(
+              new DOMException("The operation was aborted.", "AbortError"),
+            );
+          }, { once: true });
+          setTimeout(() => controller.abort(), 0);
+        }),
+      async () => {
+        const transport = new SendGridTransport({
+          apiKey: "SG.test-key",
+          retries: 0,
+        });
+
+        await assert.rejects(
+          () => transport.send(basicMessage, { signal: controller.signal }),
+          (error: unknown) =>
+            error instanceof Error && error.name === "AbortError",
+        );
+      },
+    );
+  });
+
   it("should validate message structure in sendMany", async () => {
     const transport = new SendGridTransport({
       apiKey: "SG.test-key",
