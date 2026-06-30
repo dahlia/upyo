@@ -179,14 +179,16 @@ export class ResendHttpClient {
             // Ignore if JSON parsing fails, as the body may be non-JSON
           }
 
-          // Fallback logic for creating a meaningful error message.
-          // 1. Use the parsed `errorMessage` if available.
-          // 2. Otherwise, use the raw `text` response.
-          // 3. If the raw `text` is also empty, fall back to the HTTP status.
-          // Using `||` is intentional here to treat empty strings as falsy
-          // and ensure a non-empty error message for the tests.
+          const parsedErrorMessage = errorMessage === ""
+            ? undefined
+            : errorMessage;
+          const responseMessage = truncateErrorBody(text);
+          const fallbackMessage = responseMessage === ""
+            ? undefined
+            : responseMessage;
+
           throw new ResendApiError(
-            errorMessage || truncateErrorBody(text) ||
+            parsedErrorMessage ?? fallbackMessage ??
               `HTTP ${response.status}`,
             response.status,
             parseRetryAfter(response.headers.get("Retry-After")),

@@ -375,7 +375,7 @@ describe(
 
       if (!receipt.successful) {
         assert.equal(receipt.errors?.[0]?.category, "timeout");
-        assert.equal(receipt.retryable, true);
+        assert.ok(receipt.retryable);
         console.log(
           `✓ Network timeout handled correctly: ${receipt.errorMessages[0]}`,
         );
