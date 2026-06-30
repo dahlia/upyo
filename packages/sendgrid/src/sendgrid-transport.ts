@@ -236,6 +236,7 @@ function createSendGridFailure(
       provider: "sendgrid",
       statusCode: error.statusCode,
       retryAfterMilliseconds: error.retryAfterMilliseconds,
+      providerDetails: error.errors,
       attempts: error.attempts,
     });
   }

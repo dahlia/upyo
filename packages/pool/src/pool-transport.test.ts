@@ -69,9 +69,10 @@ describe("PoolTransport", () => {
 
     async *sendMany(
       messages: Iterable<Message> | AsyncIterable<Message>,
+      options?: TransportOptions,
     ): AsyncIterable<Receipt<TProviderId>> {
       for await (const message of messages) {
-        yield await this.send(message);
+        yield await this.send(message, options);
       }
     }
   }
@@ -554,6 +555,48 @@ describe("PoolTransport", () => {
         () => pool.send(createTestMessage(), { signal: controller.signal }),
         { name: "AbortError" },
       );
+    });
+
+    test("should keep timeout receipts when callers abort later", async () => {
+      const controller = new AbortController();
+      const transport: Transport<"slow"> = {
+        id: "slow",
+        send(_message, options) {
+          return new Promise((_, reject) => {
+            options?.signal?.addEventListener("abort", () => {
+              setTimeout(() => {
+                reject(
+                  new DOMException(
+                    "The operation was aborted.",
+                    "AbortError",
+                  ),
+                );
+              }, 20);
+            }, { once: true });
+          });
+        },
+        async *sendMany(messages, options) {
+          for await (const message of messages) {
+            yield await this.send(message, options);
+          }
+        },
+      };
+      const pool = new PoolTransport({
+        strategy: "round-robin",
+        transports: [{ transport }],
+        timeout: 5,
+      });
+
+      setTimeout(() => controller.abort(), 10);
+      const receipt = await pool.send(createTestMessage(), {
+        signal: controller.signal,
+      });
+
+      assert.ok(!receipt.successful);
+      if (!receipt.successful) {
+        assert.equal(receipt.errors?.[0]?.category, "timeout");
+        assert.ok(receipt.retryable);
+      }
     });
   });
 

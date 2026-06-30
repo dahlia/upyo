@@ -94,7 +94,18 @@ export class LettermintApiError extends Error {
  * @since 0.5.0
  */
 export class LettermintTimeoutError extends Error {
+  /**
+   * Request timeout in milliseconds.
+   *
+   * @since 0.5.0
+   */
   readonly timeout: number;
+
+  /**
+   * Number of attempts made before this error was produced.
+   *
+   * @since 0.5.0
+   */
   readonly attempts?: number;
 
   /**

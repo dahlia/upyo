@@ -134,6 +134,7 @@ export class PoolTransport<TProviderId extends string = string>
 
       attemptedIndices.add(selection.index);
 
+      let abortedByCaller = false;
       try {
         // Apply timeout if configured
         const sendOptions = this.createSendOptions(options);
@@ -144,6 +145,12 @@ export class PoolTransport<TProviderId extends string = string>
             message,
             sendOptions.options,
           );
+        } catch (error) {
+          if (isAbortError(error) && sendOptions.abortedByCaller()) {
+            abortedByCaller = true;
+            throw error;
+          }
+          throw error;
         } finally {
           sendOptions.cleanup();
         }
@@ -157,7 +164,7 @@ export class PoolTransport<TProviderId extends string = string>
         errors.push(...getReceiptErrors(receipt, selection.entry.transport.id));
       } catch (error) {
         // Handle transport errors
-        if (isAbortError(error) && options?.signal?.aborted) {
+        if (isAbortError(error) && abortedByCaller) {
           throw error;
         }
 
@@ -297,23 +304,30 @@ export class PoolTransport<TProviderId extends string = string>
     options?: TransportOptions,
   ): {
     readonly options?: TransportOptions;
+    abortedByCaller(): boolean;
     cleanup(): void;
   } {
     if (!this.config.timeout) {
-      return { options, cleanup: () => {} };
+      return {
+        options,
+        abortedByCaller: () => options?.signal?.aborted ?? false,
+        cleanup: () => {},
+      };
     }
 
     // Create AbortController for timeout
     const controller = new AbortController();
-    const timeoutId = setTimeout(
-      () => controller.abort(),
-      this.config.timeout,
-    );
+    let abortSource: "caller" | "timeout" | undefined;
+    const timeoutId = setTimeout(() => {
+      abortSource ??= "timeout";
+      controller.abort();
+    }, this.config.timeout);
     let cleanup = () => clearTimeout(timeoutId);
 
     // Combine with existing signal if present
     if (options?.signal) {
       const abort = () => {
+        abortSource ??= "caller";
         clearTimeout(timeoutId);
         controller.abort();
       };
@@ -338,6 +352,7 @@ export class PoolTransport<TProviderId extends string = string>
         ...options,
         signal: controller.signal,
       },
+      abortedByCaller: () => abortSource === "caller",
       cleanup,
     };
   }

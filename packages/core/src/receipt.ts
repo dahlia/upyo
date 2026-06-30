@@ -308,10 +308,8 @@ export function createReceiptError<TProviderId extends string = string>(
   const category = options.category ?? classification.category;
   const retryable = options.retryable ?? classification.retryable;
   const code = options.code ?? (
-    options.category != null
-      ? category
-      : options.statusCode == null
-      ? classification.code ?? category
+    options.statusCode == null
+      ? options.category != null ? category : classification.code ?? category
       : `http.${options.statusCode}`
   );
 

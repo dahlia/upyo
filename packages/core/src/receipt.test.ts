@@ -168,6 +168,16 @@ describe("Receipt errors", () => {
     assert.equal(error.category, "rejected");
     assert.equal(error.code, "rejected");
   });
+
+  it("keeps HTTP status codes when explicit categories are provided", () => {
+    const error = createReceiptError("Too many requests", {
+      category: "rate-limit",
+      statusCode: 429,
+    });
+
+    assert.equal(error.category, "rate-limit");
+    assert.equal(error.code, "http.429");
+  });
 });
 
 const typedError: ReceiptError<"mailgun"> = createReceiptError(

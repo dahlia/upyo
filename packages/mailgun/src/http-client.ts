@@ -70,6 +70,8 @@ export class MailgunHttpClient {
    * @param url The URL to make the request to.
    * @param options Fetch options.
    * @returns Promise that resolves to the parsed response.
+   * @throws {MailgunApiError} If Mailgun returns an error response or all
+   *                           retry attempts are exhausted.
    */
   private async makeRequest(
     url: string,
@@ -157,6 +159,8 @@ export class MailgunHttpClient {
    * @param url The URL to make the request to.
    * @param options Fetch options.
    * @returns Promise that resolves to the fetch response.
+   * @throws {Error} If the configured request timeout is reached.
+   * @throws {DOMException} If the caller aborts the request.
    */
   private async fetchWithAuth(
     url: string,

@@ -129,7 +129,11 @@ describe("SendGridTransport", { concurrency: false }, () => {
           new Response(
             JSON.stringify({
               message: "Too Many Requests",
-              errors: [{ message: "Rate limit exceeded" }],
+              errors: [{
+                message: "Rate limit exceeded",
+                field: "personalizations.0.to",
+                help: "https://sendgrid.com/docs/",
+              }],
             }),
             {
               status: 429,
@@ -155,6 +159,11 @@ describe("SendGridTransport", { concurrency: false }, () => {
           assert.equal(receipt.errors?.[0]?.code, "http.429");
           assert.equal(receipt.errors?.[0]?.statusCode, 429);
           assert.equal(receipt.errors?.[0]?.retryAfterMilliseconds, 30_000);
+          assert.deepEqual(receipt.errors?.[0]?.providerDetails, [{
+            message: "Rate limit exceeded",
+            field: "personalizations.0.to",
+            help: "https://sendgrid.com/docs/",
+          }]);
         }
       },
     );
