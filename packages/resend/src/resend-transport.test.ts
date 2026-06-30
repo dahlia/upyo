@@ -1,4 +1,6 @@
 import type { Message } from "@upyo/core";
+import { createResendConfig } from "./config.ts";
+import { ResendHttpClient } from "./http-client.ts";
 import { ResendTransport } from "./resend-transport.ts";
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
@@ -130,6 +132,38 @@ describe("ResendTransport - API Errors", () => {
     );
   });
 
+  it("should truncate non-JSON error response bodies", async () => {
+    const longBody = "x".repeat(600);
+    await withMockedFetch(
+      () => Promise.resolve(new Response(longBody, { status: 500 })),
+      async () => {
+        const transport = new ResendTransport({
+          apiKey: "test-key",
+          retries: 0,
+        });
+
+        const message: Message = {
+          sender: { address: "sender@example.com" },
+          recipients: [{ address: "recipient@example.com" }],
+          ccRecipients: [],
+          bccRecipients: [],
+          replyRecipients: [],
+          subject: "Test Subject",
+          content: { text: "Test content" },
+          attachments: [],
+          priority: "normal",
+          tags: [],
+          headers: new Headers(),
+        };
+
+        const receipt = await transport.send(message);
+
+        assert.ok(!receipt.successful);
+        assert.equal(receipt.errorMessages[0], `${"x".repeat(500)}...`);
+      },
+    );
+  });
+
   it("should expose rate limit retry metadata", async () => {
     await withMockedFetch(
       () =>
@@ -173,6 +207,32 @@ describe("ResendTransport - API Errors", () => {
           assert.equal(receipt.errors?.[0]?.category, "rate-limit");
           assert.equal(receipt.errors?.[0]?.retryAfterMilliseconds, 20_000);
         }
+      },
+    );
+  });
+});
+
+describe("ResendHttpClient - Abort Signal", () => {
+  it("should pass an already aborted signal to fetch", async () => {
+    await withMockedFetch(
+      (_url, init) => {
+        assert.ok(init?.signal instanceof AbortSignal);
+        assert.ok(init.signal.aborted);
+        return Promise.reject(
+          new DOMException("The operation was aborted.", "AbortError"),
+        );
+      },
+      async () => {
+        const client = new ResendHttpClient(
+          createResendConfig({ apiKey: "test-key", retries: 0 }),
+        );
+        const controller = new AbortController();
+        controller.abort();
+
+        await assert.rejects(
+          () => client.sendMessage({}, controller.signal),
+          { name: "AbortError" },
+        );
       },
     );
   });

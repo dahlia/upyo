@@ -186,7 +186,8 @@ export class ResendHttpClient {
           // Using `||` is intentional here to treat empty strings as falsy
           // and ensure a non-empty error message for the tests.
           throw new ResendApiError(
-            errorMessage || text || `HTTP ${response.status}`,
+            errorMessage || truncateErrorBody(text) ||
+              `HTTP ${response.status}`,
             response.status,
             parseRetryAfter(response.headers.get("Retry-After")),
             attempt + 1,
@@ -274,8 +275,12 @@ export class ResendHttpClient {
       const combinedController = new AbortController();
       const onAbort = () => combinedController.abort();
 
-      options.signal.addEventListener("abort", onAbort, { once: true });
-      controller.signal.addEventListener("abort", onAbort, { once: true });
+      if (options.signal.aborted || controller.signal.aborted) {
+        combinedController.abort();
+      } else {
+        options.signal.addEventListener("abort", onAbort, { once: true });
+        controller.signal.addEventListener("abort", onAbort, { once: true });
+      }
       cleanup = () => {
         options.signal?.removeEventListener("abort", onAbort);
         controller.signal.removeEventListener("abort", onAbort);
@@ -314,4 +319,8 @@ export class ResendHttpClient {
 
 function isAbortError(error: unknown): boolean {
   return error instanceof Error && error.name === "AbortError";
+}
+
+function truncateErrorBody(text: string): string {
+  return text.length > 500 ? `${text.slice(0, 500)}...` : text;
 }

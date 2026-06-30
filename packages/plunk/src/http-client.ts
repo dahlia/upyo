@@ -245,7 +245,9 @@ export class PlunkHttpClient {
       }
 
       throw new PlunkApiError(
-        `HTTP ${response.status}: ${response.statusText}. ${errorBody}`,
+        `HTTP ${response.status}: ${response.statusText}. ${
+          truncateErrorBody(errorBody)
+        }`,
         response.status,
         parseRetryAfter(response.headers.get("Retry-After")),
       );
@@ -301,4 +303,8 @@ export class PlunkHttpClient {
 
 function isAbortError(error: unknown): boolean {
   return error instanceof Error && error.name === "AbortError";
+}
+
+function truncateErrorBody(text: string): string {
+  return text.length > 500 ? `${text.slice(0, 500)}...` : text;
 }

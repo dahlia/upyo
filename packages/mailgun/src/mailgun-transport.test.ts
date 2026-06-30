@@ -116,6 +116,44 @@ describe("MailgunTransport - API Errors", () => {
   });
 });
 
+describe("MailgunTransport - Long Error Bodies", () => {
+  it("should truncate non-JSON error response bodies", async () => {
+    const originalFetch = globalThis.fetch;
+    try {
+      const longBody = "x".repeat(600);
+      // deno-lint-ignore require-await
+      globalThis.fetch = async () => new Response(longBody, { status: 500 });
+
+      const transport = new MailgunTransport({
+        apiKey: "test-key",
+        domain: "test-domain.com",
+        retries: 0,
+      });
+
+      const message: Message = {
+        sender: { address: "sender@example.com" },
+        recipients: [{ address: "recipient@example.com" }],
+        ccRecipients: [],
+        bccRecipients: [],
+        replyRecipients: [],
+        subject: "Test Subject",
+        content: { text: "Test content" },
+        attachments: [],
+        priority: "normal",
+        tags: [],
+        headers: new Headers(),
+      };
+
+      const receipt = await transport.send(message);
+
+      assert.ok(!receipt.successful);
+      assert.equal(receipt.errorMessages[0], `${"x".repeat(500)}...`);
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+  });
+});
+
 describe("MailgunTransport - Structured Rate Limit Errors", () => {
   it("should expose rate limit retry metadata", async () => {
     const originalFetch = globalThis.fetch;

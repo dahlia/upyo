@@ -317,7 +317,11 @@ export class PoolTransport<TProviderId extends string = string>
         clearTimeout(timeoutId);
         controller.abort();
       };
-      options.signal.addEventListener("abort", abort, { once: true });
+      if (options.signal.aborted) {
+        abort();
+      } else {
+        options.signal.addEventListener("abort", abort, { once: true });
+      }
       cleanup = () => {
         clearTimeout(timeoutId);
         options.signal?.removeEventListener("abort", abort);

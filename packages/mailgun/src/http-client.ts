@@ -98,7 +98,8 @@ export class MailgunHttpClient {
           // Using `||` is intentional here to treat empty strings as falsy
           // and ensure a non-empty error message for the tests.
           throw new MailgunApiError(
-            errorMessage || text || `HTTP ${response.status}`,
+            errorMessage || truncateErrorBody(text) ||
+              `HTTP ${response.status}`,
             response.status,
             parseRetryAfter(response.headers.get("Retry-After")),
             attempt + 1,
@@ -249,4 +250,8 @@ export class MailgunApiError extends Error {
 
 function isAbortError(error: unknown): boolean {
   return error instanceof Error && error.name === "AbortError";
+}
+
+function truncateErrorBody(text: string): string {
+  return text.length > 500 ? `${text.slice(0, 500)}...` : text;
 }

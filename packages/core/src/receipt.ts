@@ -226,7 +226,8 @@ export function classifyReceiptError(
     return { category: "network", retryable: true, code: "network" };
   }
   if (
-    text.includes("auth") || text.includes("unauthorized") ||
+    text.includes("authentication") || text.includes("authenticate") ||
+    /\bauth\b/.test(text) || text.includes("unauthorized") ||
     text.includes("forbidden") || text.includes("invalid api key") ||
     text.includes("invalid token") || text.includes("401") ||
     text.includes("403")

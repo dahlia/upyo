@@ -124,6 +124,34 @@ describe("PlunkTransport - HTTP 500 error", () => {
       globalThis.fetch = originalFetch;
     }
   });
+
+  it("should truncate long error response bodies", async () => {
+    const originalFetch = globalThis.fetch;
+    try {
+      const longBody = "x".repeat(600);
+      // deno-lint-ignore require-await
+      globalThis.fetch = async () =>
+        new Response(longBody, {
+          status: 500,
+          statusText: "Internal Server Error",
+        });
+
+      const transport = new PlunkTransport({
+        apiKey: "test-key",
+        retries: 0,
+      });
+
+      const receipt = await transport.send(createTestMessage());
+
+      assert.ok(!receipt.successful);
+      assert.equal(
+        receipt.errorMessages[0],
+        `HTTP 500: Internal Server Error. ${"x".repeat(500)}...`,
+      );
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+  });
 });
 
 describe("PlunkTransport - HTTP 400 error", () => {

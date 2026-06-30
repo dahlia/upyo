@@ -128,6 +128,22 @@ describe("Receipt errors", () => {
       retryable: false,
       code: "unknown",
     });
+    assert.deepEqual(
+      classifyReceiptError("Author domain failed policy checks"),
+      {
+        category: "unknown",
+        retryable: false,
+        code: "unknown",
+      },
+    );
+    assert.deepEqual(
+      classifyReceiptError("Certification authority unavailable"),
+      {
+        category: "unknown",
+        retryable: false,
+        code: "unknown",
+      },
+    );
   });
 
   it("classifies error-like objects with message and name properties", () => {

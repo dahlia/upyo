@@ -521,6 +521,40 @@ describe("PoolTransport", () => {
         },
       );
     });
+
+    test("should pass through aborts that happen during selection", async () => {
+      const controller = new AbortController();
+      const transport: Transport<"delayed"> = {
+        id: "delayed",
+        send(_message, options) {
+          assert.ok(options?.signal?.aborted);
+          return Promise.reject(
+            new DOMException("The operation was aborted.", "AbortError"),
+          );
+        },
+        async *sendMany(messages) {
+          for await (const message of messages) {
+            yield await this.send(message);
+          }
+        },
+      };
+      const pool = new PoolTransport({
+        strategy: {
+          select(_message, transports) {
+            controller.abort();
+            return { entry: transports[0], index: 0 };
+          },
+          reset() {},
+        },
+        transports: [{ transport }],
+        timeout: 1000,
+      });
+
+      await assert.rejects(
+        () => pool.send(createTestMessage(), { signal: controller.signal }),
+        { name: "AbortError" },
+      );
+    });
   });
 
   describe("AsyncDisposable", () => {
