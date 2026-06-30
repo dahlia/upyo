@@ -42,6 +42,16 @@ export class SesHttpClient {
     });
   }
 
+  /**
+   * Makes an HTTP request to the SES API with retry logic.
+   *
+   * @param url The URL to make the request to.
+   * @param options Fetch options.
+   * @returns Promise that resolves to the parsed response.
+   * @throws {DOMException} If the caller aborts the request.
+   * @throws {SesApiError} If SES returns a client error or all retry attempts
+   *                       are exhausted.
+   */
   async makeRequest(
     url: string,
     options: RequestInit,
@@ -105,13 +115,22 @@ export class SesHttpClient {
         }
 
         const delay = Math.pow(2, attempt) * 1000;
-        await new Promise((resolve) => setTimeout(resolve, delay));
+        await sleep(delay, options.signal);
       }
     }
 
     throw lastError || new Error("Request failed after all retries");
   }
 
+  /**
+   * Makes a signed fetch request to the SES API.
+   *
+   * @param url The URL to make the request to.
+   * @param options Fetch options.
+   * @returns Promise that resolves to the fetch response.
+   * @throws {Error} If the configured request timeout is reached.
+   * @throws {DOMException} If the caller aborts the request.
+   */
   async fetchWithAuth(
     url: string,
     options: RequestInit,
@@ -319,6 +338,34 @@ export class SesHttpClient {
 
 function isAbortError(error: unknown): boolean {
   return error instanceof Error && error.name === "AbortError";
+}
+
+function sleep(
+  milliseconds: number,
+  signal?: AbortSignal | null,
+): Promise<void> {
+  if (signal?.aborted) {
+    return Promise.reject(createAbortError());
+  }
+
+  return new Promise((resolve, reject) => {
+    function abort() {
+      clearTimeout(timeoutId);
+      signal?.removeEventListener("abort", abort);
+      reject(createAbortError());
+    }
+
+    const timeoutId = setTimeout(() => {
+      signal?.removeEventListener("abort", abort);
+      resolve();
+    }, milliseconds);
+
+    signal?.addEventListener("abort", abort, { once: true });
+  });
+}
+
+function createAbortError(): DOMException {
+  return new DOMException("The operation was aborted.", "AbortError");
 }
 
 export class SesApiError extends Error {

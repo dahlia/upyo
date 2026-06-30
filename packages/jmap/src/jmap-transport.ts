@@ -55,6 +55,8 @@ export class JmapTransport implements Transport<"jmap"> {
    * @param message The message to send.
    * @param options Optional transport options.
    * @returns A receipt indicating success or failure.
+   * @throws The abort reason or an `AbortError` when the caller aborts the
+   *         operation.
    * @since 0.4.0
    */
   async send(
@@ -156,10 +158,11 @@ export class JmapTransport implements Transport<"jmap"> {
       // Parse response
       return this.parseResponse(response);
     } catch (error) {
+      if (signal?.aborted) {
+        throw getAbortReason(signal, error);
+      }
+
       if (error instanceof Error && error.name === "AbortError") {
-        if (signal?.aborted) {
-          throw getAbortReason(signal, error);
-        }
         return createJmapFailure(`Request aborted: ${error.message}`, error, {
           category: "timeout",
           code: "abort",
@@ -183,6 +186,8 @@ export class JmapTransport implements Transport<"jmap"> {
    * @param messages The messages to send.
    * @param options Optional transport options.
    * @yields Receipts for each message.
+   * @throws The abort reason or an `AbortError` when the caller aborts the
+   *         operation.
    * @since 0.4.0
    */
   async *sendMany(
@@ -325,10 +330,8 @@ export class JmapTransport implements Transport<"jmap"> {
         yield this.parseBatchResponseForIndex(response, i);
       }
     } catch (error) {
-      if (error instanceof Error && error.name === "AbortError") {
-        if (signal?.aborted) {
-          throw getAbortReason(signal, error);
-        }
+      if (signal?.aborted) {
+        throw getAbortReason(signal, error);
       }
 
       // For any error during batch processing, yield failure for all messages
@@ -825,6 +828,6 @@ function getAttemptCount(error: unknown): number {
   return 1;
 }
 
-function getAbortReason(signal: AbortSignal, fallback: Error): unknown {
+function getAbortReason(signal: AbortSignal, fallback: unknown): unknown {
   return signal.reason ?? fallback;
 }

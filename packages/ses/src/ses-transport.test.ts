@@ -88,6 +88,48 @@ test("SesTransport rejects caller aborts during fetch", async () => {
   }
 });
 
+test("SesTransport rejects caller aborts during retry backoff", async () => {
+  const originalFetch = globalThis.fetch;
+  const controller = new AbortController();
+  let attempts = 0;
+
+  try {
+    // deno-lint-ignore require-await
+    globalThis.fetch = async () => {
+      attempts++;
+      setTimeout(() => controller.abort(), 0);
+      return new Response("Server Error", { status: 500 });
+    };
+
+    const transport = new SesTransport({
+      authentication: {
+        type: "credentials",
+        accessKeyId: "test-key",
+        secretAccessKey: "test-secret",
+      },
+      retries: 1,
+    });
+
+    const message = createMessage({
+      from: "sender@example.com",
+      to: "recipient@example.com",
+      subject: "Test Subject",
+      content: { text: "Hello World!" },
+    });
+
+    const startedAt = Date.now();
+    await assert.rejects(
+      () => transport.send(message, { signal: controller.signal }),
+      (error: unknown) => error instanceof Error && error.name === "AbortError",
+    );
+
+    assert.equal(attempts, 1);
+    assert.ok(Date.now() - startedAt < 500);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
 test("SesTransport sendMany handles async iterables", async () => {
   const config: SesConfig = {
     authentication: {

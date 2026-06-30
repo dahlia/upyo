@@ -225,6 +225,35 @@ describe("SendGridTransport", { concurrency: false }, () => {
     );
   });
 
+  it("should reject caller aborts during retry backoff", async () => {
+    const controller = new AbortController();
+    let attempts = 0;
+
+    await withMockedFetch(
+      () => {
+        attempts++;
+        setTimeout(() => controller.abort(), 0);
+        return Promise.resolve(new Response("Server Error", { status: 500 }));
+      },
+      async () => {
+        const transport = new SendGridTransport({
+          apiKey: "SG.test-key",
+          retries: 1,
+        });
+
+        const startedAt = Date.now();
+        await assert.rejects(
+          () => transport.send(basicMessage, { signal: controller.signal }),
+          (error: unknown) =>
+            error instanceof Error && error.name === "AbortError",
+        );
+
+        assert.equal(attempts, 1);
+        assert.ok(Date.now() - startedAt < 500);
+      },
+    );
+  });
+
   // 네트워크 테스트는 E2E 테스트 파일에서 환경 변수와 함께 실행
   // src/sendgrid-transport.e2e.test.ts에서 실제 SendGrid API 연동 테스트 수행
 });

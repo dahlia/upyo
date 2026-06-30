@@ -302,6 +302,55 @@ describe("MailgunTransport - Network Errors", () => {
   });
 });
 
+describe("MailgunTransport - Retry Backoff Abort Signal", () => {
+  it("should reject caller aborts during retry backoff", async () => {
+    const originalFetch = globalThis.fetch;
+    const controller = new AbortController();
+    let attempts = 0;
+
+    try {
+      // deno-lint-ignore require-await
+      globalThis.fetch = async () => {
+        attempts++;
+        setTimeout(() => controller.abort(), 0);
+        return new Response("Server Error", { status: 500 });
+      };
+
+      const transport = new MailgunTransport({
+        apiKey: "test-key",
+        domain: "test-domain.com",
+        retries: 1,
+      });
+
+      const message: Message = {
+        sender: { address: "sender@example.com" },
+        recipients: [{ address: "recipient@example.com" }],
+        ccRecipients: [],
+        bccRecipients: [],
+        replyRecipients: [],
+        subject: "Test Subject",
+        content: { text: "Test content" },
+        attachments: [],
+        priority: "normal",
+        tags: [],
+        headers: new Headers(),
+      };
+
+      const startedAt = Date.now();
+      await assert.rejects(
+        () => transport.send(message, { signal: controller.signal }),
+        (error: unknown) =>
+          error instanceof Error && error.name === "AbortError",
+      );
+
+      assert.equal(attempts, 1);
+      assert.ok(Date.now() - startedAt < 500);
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+  });
+});
+
 describe("MailgunTransport - Multiple Messages", () => {
   it("should send multiple messages", async () => {
     const originalFetch = globalThis.fetch;

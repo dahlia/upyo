@@ -151,7 +151,7 @@ export class MailgunHttpClient {
 
         // Wait before retrying (exponential backoff)
         const delay = Math.pow(2, attempt) * 1000;
-        await new Promise((resolve) => setTimeout(resolve, delay));
+        await sleep(delay, options.signal);
       }
     }
 
@@ -259,6 +259,34 @@ export class MailgunApiError extends Error {
 
 function isAbortError(error: unknown): boolean {
   return error instanceof Error && error.name === "AbortError";
+}
+
+function sleep(
+  milliseconds: number,
+  signal?: AbortSignal | null,
+): Promise<void> {
+  if (signal?.aborted) {
+    return Promise.reject(createAbortError());
+  }
+
+  return new Promise((resolve, reject) => {
+    function abort() {
+      clearTimeout(timeoutId);
+      signal?.removeEventListener("abort", abort);
+      reject(createAbortError());
+    }
+
+    const timeoutId = setTimeout(() => {
+      signal?.removeEventListener("abort", abort);
+      resolve();
+    }, milliseconds);
+
+    signal?.addEventListener("abort", abort, { once: true });
+  });
+}
+
+function createAbortError(): DOMException {
+  return new DOMException("The operation was aborted.", "AbortError");
 }
 
 function truncateErrorBody(text: string): string {

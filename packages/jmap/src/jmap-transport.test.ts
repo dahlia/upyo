@@ -52,6 +52,21 @@ describe("JmapTransport", () => {
       );
     });
 
+    it("should reject already-aborted signals with custom reasons", async () => {
+      const controller = new AbortController();
+      controller.abort("stop");
+
+      const transport = new JmapTransport({
+        sessionUrl: "https://jmap.example.com/.well-known/jmap",
+        bearerToken: "test-token",
+      });
+
+      await assert.rejects(
+        () => transport.send(baseMessage, { signal: controller.signal }),
+        (error: unknown) => error === "stop",
+      );
+    });
+
     it("should reject caller aborts during fetch", async () => {
       const originalFetch = globalThis.fetch;
       const controller = new AbortController();
@@ -186,11 +201,36 @@ describe("JmapTransport", () => {
 
         const receipt = await transport.send(baseMessage);
 
-        assert.equal(receipt.successful, false);
+        assert.ok(!receipt.successful);
         assert.equal(receipt.attempts, 4);
       } finally {
         globalThis.fetch = originalFetch;
       }
+    });
+  });
+
+  describe("sendMany", () => {
+    it("should reject already-aborted signals with custom reasons", async () => {
+      const controller = new AbortController();
+      controller.abort("stop");
+
+      const transport = new JmapTransport({
+        sessionUrl: "https://jmap.example.com/.well-known/jmap",
+        bearerToken: "test-token",
+      });
+
+      await assert.rejects(
+        async () => {
+          for await (
+            const _receipt of transport.sendMany([baseMessage], {
+              signal: controller.signal,
+            })
+          ) {
+            // Consume the async iterable to trigger sendMany().
+          }
+        },
+        (error: unknown) => error === "stop",
+      );
     });
   });
 });
