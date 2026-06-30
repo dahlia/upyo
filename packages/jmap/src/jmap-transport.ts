@@ -333,6 +333,15 @@ export class JmapTransport implements Transport<"jmap"> {
         throw getAbortReason(signal, error);
       }
 
+      const timeoutOverride =
+        error instanceof Error && error.name === "AbortError"
+          ? {
+            category: "timeout" as const,
+            code: "abort",
+            retryable: true,
+          }
+          : undefined;
+
       // For any error during batch processing, yield failure for all messages
       // with detailed stage information
       const baseMessage = error instanceof Error && error.name === "AbortError"
@@ -353,7 +362,7 @@ export class JmapTransport implements Transport<"jmap"> {
       }
 
       for (let i = 0; i < messageArray.length; i++) {
-        yield createJmapFailure(detailedMessage, error);
+        yield createJmapFailure(detailedMessage, error, timeoutOverride);
       }
     }
   }

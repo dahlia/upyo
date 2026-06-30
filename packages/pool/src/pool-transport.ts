@@ -387,7 +387,8 @@ function createAbortError(): DOMException {
 }
 
 function isCallerAbort(error: unknown, signal?: AbortSignal): boolean {
-  return isAbortError(error) || error === signal?.reason;
+  return signal?.aborted === true &&
+    (isAbortError(error) || error === signal.reason);
 }
 
 function getReceiptErrors<TProviderId extends string>(
