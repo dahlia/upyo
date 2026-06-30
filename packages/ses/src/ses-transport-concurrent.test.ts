@@ -185,12 +185,15 @@ test("SesTransport sendMany handles errors in concurrent sending", async () => {
     assert.equal(receipts.length, 2);
     assert.equal(fetchCallCount, 2);
 
-    assert.ok(receipts[0].successful);
-    assert.ok(!receipts[1].successful);
+    const successfulReceipts = receipts.filter((receipt) => receipt.successful);
+    const failedReceipts = receipts.filter((receipt) => !receipt.successful);
 
-    if (!receipts[1].successful) {
-      assert.ok(receipts[1].errorMessages.includes("Network error"));
-    }
+    assert.equal(successfulReceipts.length, 1);
+    assert.equal(failedReceipts.length, 1);
+
+    const [failedReceipt] = failedReceipts;
+    assert.ok(!failedReceipt.successful);
+    assert.ok(failedReceipt.errorMessages.includes("Network error"));
   } finally {
     globalThis.fetch = originalFetch;
   }
