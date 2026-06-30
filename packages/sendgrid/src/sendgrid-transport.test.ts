@@ -95,7 +95,12 @@ describe("SendGridTransport", { concurrency: false }, () => {
     await withMockedFetch(
       (_url, options) =>
         new Promise((_resolve, reject) => {
-          options?.signal?.addEventListener("abort", () => {
+          if (options?.signal == null) {
+            reject(new TypeError("Expected fetch to receive an AbortSignal."));
+            return;
+          }
+
+          options.signal.addEventListener("abort", () => {
             reject(
               new DOMException("The operation was aborted.", "AbortError"),
             );
