@@ -2,13 +2,13 @@
 _.file = { path = ".env", redact = true }
 
 [tasks.build]
-description = "Build @upyo/lettermint"
+description = "Build @upyo/retry"
 run = "pnpm exec tsdown"
 sources = ["deno.json", "package.json", "tsdown.config.ts", "src/**/*.ts", "../../pnpm-lock.yaml", "../../pnpm-workspace.yaml"]
 outputs = ["dist/**/*"]
 
 [tasks."test:deno"]
-description = "Run @upyo/lettermint tests with Deno"
+description = "Run @upyo/retry tests with Deno"
 usage = '''
 flag "--coverage" help="Collect coverage data"
 flag "--junit-path <path>" help="Write JUnit XML test output"
@@ -31,15 +31,15 @@ deno ...$args
 '''
 
 [tasks."test:node"]
-description = "Run @upyo/lettermint tests with Node.js"
+description = "Run @upyo/retry tests with Node.js"
 depends = ["build"]
 run = "node --experimental-transform-types --test"
 
 [tasks."test:bun"]
-description = "Run @upyo/lettermint tests with Bun"
+description = "Run @upyo/retry tests with Bun"
 depends = ["build"]
-run = "bun test --timeout=90000"
+run = "bun test --timeout=30000"
 
 [tasks.test]
-description = "Run @upyo/lettermint tests across all runtimes"
+description = "Run @upyo/retry tests across all runtimes"
 depends = ["test:deno", "test:node", "test:bun"]

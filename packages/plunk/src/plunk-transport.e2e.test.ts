@@ -1,4 +1,4 @@
-import type { Receipt } from "@upyo/core";
+import { createFailedReceipt, type Receipt } from "@upyo/core";
 import { PlunkTransport } from "@upyo/plunk";
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
@@ -28,10 +28,9 @@ describeE2E("PlunkTransport E2E", () => {
 
     const receipt = await transport.send(message);
 
-    assert.equal(receipt.successful, true, "Send should be successful");
-    if (receipt.successful) {
-      assert.ok(receipt.messageId, "Should have a message ID");
-    }
+    if (acceptQuotaLimit(receipt, "Simple text email")) return;
+
+    assertSuccessful(receipt);
 
     if (receipt.successful) {
       console.log(`Sent email with ID: ${receipt.messageId}`);
@@ -50,10 +49,9 @@ describeE2E("PlunkTransport E2E", () => {
 
     const receipt = await transport.send(message);
 
-    assert.equal(receipt.successful, true, "Send should be successful");
-    if (receipt.successful) {
-      assert.ok(receipt.messageId, "Should have a message ID");
-    }
+    if (acceptQuotaLimit(receipt, "HTML email")) return;
+
+    assertSuccessful(receipt);
 
     if (receipt.successful) {
       console.log(`Sent HTML email with ID: ${receipt.messageId}`);
@@ -106,10 +104,9 @@ describeE2E("PlunkTransport E2E", () => {
 
     const receipt = await transport.send(message);
 
-    assert.equal(receipt.successful, true, "Send should be successful");
-    if (receipt.successful) {
-      assert.ok(receipt.messageId, "Should have a message ID");
-    }
+    if (acceptQuotaLimit(receipt, "Custom headers email")) return;
+
+    assertSuccessful(receipt);
 
     if (receipt.successful) {
       console.log(`Sent email with custom headers, ID: ${receipt.messageId}`);
@@ -131,10 +128,9 @@ describeE2E("PlunkTransport E2E", () => {
 
     const receipt = await transport.send(message);
 
-    assert.equal(receipt.successful, true, "Send should be successful");
-    if (receipt.successful) {
-      assert.ok(receipt.messageId, "Should have a message ID");
-    }
+    if (acceptQuotaLimit(receipt, "Reply-to email")) return;
+
+    assertSuccessful(receipt);
 
     if (receipt.successful) {
       console.log(`Sent email with reply-to, ID: ${receipt.messageId}`);
@@ -165,6 +161,10 @@ describeE2E("PlunkTransport E2E", () => {
     }
 
     assert.equal(receipts.length, 3, "Should send all three emails");
+    if (isQuotaLimitedBatch(receipts)) {
+      console.log("Batch email test skipped due to Plunk transactional limit.");
+      return;
+    }
     assert.ok(
       receipts.every((r) => r.successful),
       "All sends should be successful",
@@ -220,3 +220,50 @@ describeE2E("PlunkTransport E2E", () => {
     console.log(`Timeout test failed as expected: ${receipt.errorMessages[0]}`);
   });
 });
+
+describe("PlunkTransport E2E quota helpers", () => {
+  it("only skips batches when all failures are quota limits", () => {
+    const success: Receipt = { successful: true, messageId: "sent" };
+    const quotaLimit = createFailedReceipt("Plunk transactional limit.", {
+      provider: "plunk",
+      statusCode: 402,
+    });
+    const authFailure = createFailedReceipt("Unauthorized.", {
+      provider: "plunk",
+      statusCode: 401,
+    });
+
+    assert.equal(isQuotaLimitedBatch([success]), false);
+    assert.equal(isQuotaLimitedBatch([success, quotaLimit]), true);
+    assert.equal(
+      isQuotaLimitedBatch([success, quotaLimit, authFailure]),
+      false,
+    );
+  });
+});
+
+function assertSuccessful(receipt: Receipt): asserts receipt is Receipt & {
+  readonly successful: true;
+} {
+  assert.equal(receipt.successful, true, "Send should be successful");
+  assert.ok(receipt.messageId, "Should have a message ID");
+}
+
+function acceptQuotaLimit(receipt: Receipt, label: string): boolean {
+  if (!isQuotaLimitReceipt(receipt)) return false;
+  console.log(`${label} test skipped due to Plunk transactional limit.`);
+  return true;
+}
+
+function isQuotaLimitedBatch(receipts: readonly Receipt[]): boolean {
+  const failures = receipts.filter((receipt) => !receipt.successful);
+  return failures.length > 0 && failures.every(isQuotaLimitReceipt);
+}
+
+function isQuotaLimitReceipt(receipt: Receipt): boolean {
+  return !receipt.successful &&
+    receipt.errors?.some((error) => error.statusCode === 402) === true &&
+    receipt.errorMessages.some((message) =>
+      message.includes("transactional limit")
+    );
+}
