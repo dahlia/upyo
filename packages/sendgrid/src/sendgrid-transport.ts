@@ -113,6 +113,10 @@ export class SendGridTransport implements Transport<"sendgrid"> {
         provider: "sendgrid",
       };
     } catch (error) {
+      if (isAbortError(error) && options?.signal?.aborted) {
+        throw error;
+      }
+
       const errorMessage = error instanceof Error
         ? error.message
         : String(error);
@@ -238,6 +242,9 @@ function createSendGridFailure(
 
   return createFailedReceipt(message, {
     provider: "sendgrid",
-    attempts: 1,
   });
+}
+
+function isAbortError(error: unknown): boolean {
+  return error instanceof Error && error.name === "AbortError";
 }

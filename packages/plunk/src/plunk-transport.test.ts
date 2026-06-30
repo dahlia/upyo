@@ -62,16 +62,13 @@ describe("PlunkTransport - AbortSignal (send)", () => {
     controller.abort();
 
     const message = createTestMessage();
-    const receipt = await transport.send(message, {
-      signal: controller.signal,
-    });
-
-    assert.equal(receipt.successful, false);
-    assert.ok(
-      receipt.errorMessages.some((msg) =>
-        msg.includes("aborted") || msg.includes("Abort")
-      ),
-    );
+    try {
+      await transport.send(message, { signal: controller.signal });
+      assert.fail("Should have thrown AbortError");
+    } catch (error) {
+      assert.ok(error instanceof Error);
+      assert.equal(error.name, "AbortError");
+    }
   });
 });
 

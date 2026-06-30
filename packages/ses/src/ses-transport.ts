@@ -116,6 +116,10 @@ export class SesTransport implements Transport<"ses"> {
         provider: "ses",
       };
     } catch (error) {
+      if (isAbortError(error) && options?.signal?.aborted) {
+        throw error;
+      }
+
       const errorMessage = error instanceof Error
         ? error.message
         : String(error);
@@ -244,6 +248,9 @@ function createSesFailure(
 
   return createFailedReceipt(message, {
     provider: "ses",
-    attempts: 1,
   });
+}
+
+function isAbortError(error: unknown): boolean {
+  return error instanceof Error && error.name === "AbortError";
 }

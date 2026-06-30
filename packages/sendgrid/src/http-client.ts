@@ -139,7 +139,16 @@ export class SendGridHttpClient {
         }
 
         if (attempt === this.config.retries) {
-          throw error;
+          if (lastError instanceof SendGridApiError) {
+            throw lastError;
+          }
+          throw new SendGridApiError(
+            lastError.message,
+            undefined,
+            undefined,
+            undefined,
+            attempt + 1,
+          );
         }
 
         // Wait before retrying (exponential backoff)
@@ -176,18 +185,9 @@ export class SendGridHttpClient {
     const timeoutId = setTimeout(() => controller.abort(), this.config.timeout);
 
     // Combine signals if provided
-    let signal = controller.signal;
-    if (options.signal) {
-      // Use the external signal if provided, timeout will still work
-      signal = options.signal;
-      // If the external signal is already aborted, abort our controller too
-      if (options.signal.aborted) {
-        controller.abort();
-      } else {
-        // Listen for abort on the external signal
-        options.signal.addEventListener("abort", () => controller.abort());
-      }
-    }
+    const signal = options.signal == null
+      ? controller.signal
+      : AbortSignal.any([controller.signal, options.signal]);
 
     try {
       return await globalThis.fetch(url, {
@@ -195,6 +195,17 @@ export class SendGridHttpClient {
         headers,
         signal,
       });
+    } catch (error) {
+      if (
+        isAbortError(error) &&
+        controller.signal.aborted &&
+        !options.signal?.aborted
+      ) {
+        throw new Error(
+          `SendGrid API request timed out after ${this.config.timeout} ms.`,
+        );
+      }
+      throw error;
     } finally {
       clearTimeout(timeoutId);
     }
@@ -216,18 +227,44 @@ export class SendGridHttpClient {
 }
 
 /**
- * Custom error class for SendGrid API errors.
+ * Error thrown when a SendGrid API request fails.
+ *
+ * @since 0.5.0
  */
 export class SendGridApiError extends Error {
+  /**
+   * HTTP status code returned by SendGrid, if the request reached the API.
+   */
   readonly statusCode?: number;
+
+  /**
+   * Provider-supplied SendGrid error details.
+   */
   readonly errors?: {
     readonly message: string;
     readonly field?: string;
     readonly help?: string;
   }[];
+
+  /**
+   * Retry delay from SendGrid's `Retry-After` response header.
+   */
   readonly retryAfterMilliseconds?: number;
+
+  /**
+   * Number of attempts made before this error was produced.
+   */
   readonly attempts?: number;
 
+  /**
+   * Creates a SendGrid API error.
+   *
+   * @param message Error message.
+   * @param statusCode HTTP status code returned by SendGrid.
+   * @param errors Provider-supplied SendGrid error details.
+   * @param retryAfterMilliseconds Retry delay from the response.
+   * @param attempts Number of attempts made before this error.
+   */
   constructor(
     message: string,
     statusCode?: number,
@@ -246,4 +283,8 @@ export class SendGridApiError extends Error {
     this.retryAfterMilliseconds = retryAfterMilliseconds;
     this.attempts = attempts;
   }
+}
+
+function isAbortError(error: unknown): boolean {
+  return error instanceof Error && error.name === "AbortError";
 }

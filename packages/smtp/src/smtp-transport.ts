@@ -107,6 +107,8 @@ export class SmtpTransport implements Transport<"smtp">, AsyncDisposable {
    *                cancellation.
    * @returns A promise that resolves to a receipt indicating success or
    *          failure.
+   * @throws {DOMException} If the operation is aborted through
+   *                        `options.signal`.
    */
   async send(
     message: Message,
@@ -183,6 +185,8 @@ export class SmtpTransport implements Transport<"smtp">, AsyncDisposable {
    * @param options Optional transport options including `AbortSignal` for
    *                cancellation.
    * @returns An async iterable of receipts, one for each message.
+   * @throws {DOMException} If the operation is aborted through
+   *                        `options.signal`.
    */
   async *sendMany(
     messages: Iterable<Message> | AsyncIterable<Message>,

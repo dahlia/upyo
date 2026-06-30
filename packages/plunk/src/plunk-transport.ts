@@ -114,6 +114,10 @@ export class PlunkTransport implements Transport<"plunk"> {
         provider: "plunk",
       };
     } catch (error) {
+      if (isAbortError(error) && options?.signal?.aborted) {
+        throw error;
+      }
+
       const errorMessage = error instanceof Error
         ? error.message
         : String(error);
@@ -248,6 +252,9 @@ function createPlunkFailure(
 
   return createFailedReceipt(message, {
     provider: "plunk",
-    attempts: 1,
   });
+}
+
+function isAbortError(error: unknown): boolean {
+  return error instanceof Error && error.name === "AbortError";
 }

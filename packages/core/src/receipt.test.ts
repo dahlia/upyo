@@ -48,6 +48,7 @@ describe("Receipt errors", () => {
 
     assert.equal(parseRetryAfter(null, now), undefined);
     assert.equal(parseRetryAfter("", now), undefined);
+    assert.equal(parseRetryAfter("0", now), undefined);
     assert.equal(parseRetryAfter("not a date", now), undefined);
     assert.equal(
       parseRetryAfter("Mon, 29 Jun 2026 00:00:00 GMT", now),
@@ -60,6 +61,7 @@ describe("Receipt errors", () => {
       provider: "sendgrid",
       statusCode: 429,
       retryAfterMilliseconds: 30_000,
+      providerDetails: { requestId: "req_123" },
     });
 
     assert.deepEqual(error, {
@@ -70,6 +72,7 @@ describe("Receipt errors", () => {
       provider: "sendgrid",
       statusCode: 429,
       retryAfterMilliseconds: 30_000,
+      providerDetails: { requestId: "req_123" },
     });
   });
 
@@ -125,6 +128,29 @@ describe("Receipt errors", () => {
       retryable: false,
       code: "unknown",
     });
+  });
+
+  it("classifies error-like objects with message and name properties", () => {
+    assert.deepEqual(
+      classifyReceiptError({
+        name: "NetworkError",
+        message: "socket disconnected",
+      }),
+      {
+        category: "network",
+        retryable: true,
+        code: "network",
+      },
+    );
+  });
+
+  it("honors explicit category overrides when deriving error codes", () => {
+    const error = createReceiptError("Provider rejected the message", {
+      category: "rejected",
+    });
+
+    assert.equal(error.category, "rejected");
+    assert.equal(error.code, "rejected");
   });
 });
 

@@ -37,16 +37,37 @@ export interface ResendError {
 }
 
 /**
- * Resend API error class for handling API-specific errors.
+ * Error thrown when a Resend API request fails.
+ *
+ * @since 0.5.0
  */
 export class ResendApiError extends Error {
-  readonly statusCode: number;
+  /**
+   * HTTP status code returned by Resend, if the request reached the API.
+   */
+  readonly statusCode?: number;
+
+  /**
+   * Retry delay from Resend's `Retry-After` response header.
+   */
   readonly retryAfterMilliseconds?: number;
+
+  /**
+   * Number of attempts made before this error was produced.
+   */
   readonly attempts?: number;
 
+  /**
+   * Creates a Resend API error.
+   *
+   * @param message Error message.
+   * @param statusCode HTTP status code returned by Resend.
+   * @param retryAfterMilliseconds Retry delay from the response.
+   * @param attempts Number of attempts made before this error.
+   */
   constructor(
     message: string,
-    statusCode: number,
+    statusCode?: number,
     retryAfterMilliseconds?: number,
     attempts?: number,
   ) {
@@ -188,7 +209,9 @@ export class ResendHttpClient {
 
         // Don't retry on client errors (4xx) or AbortError
         if (
-          error instanceof ResendApiError && error.statusCode >= 400 &&
+          error instanceof ResendApiError &&
+          error.statusCode !== undefined &&
+          error.statusCode >= 400 &&
           error.statusCode < 500
         ) {
           throw error;
@@ -200,7 +223,15 @@ export class ResendHttpClient {
 
         // If this is the last attempt, throw the error
         if (attempt === this.config.retries) {
-          throw lastError;
+          if (lastError instanceof ResendApiError) {
+            throw lastError;
+          }
+          throw new ResendApiError(
+            lastError.message,
+            undefined,
+            undefined,
+            attempt + 1,
+          );
         }
 
         // Wait before retrying with exponential backoff
@@ -238,12 +269,17 @@ export class ResendHttpClient {
 
     // Combine signals if one is provided
     let signal: AbortSignal;
+    let cleanup = () => {};
     if (options.signal) {
       const combinedController = new AbortController();
       const onAbort = () => combinedController.abort();
 
       options.signal.addEventListener("abort", onAbort, { once: true });
       controller.signal.addEventListener("abort", onAbort, { once: true });
+      cleanup = () => {
+        options.signal?.removeEventListener("abort", onAbort);
+        controller.signal.removeEventListener("abort", onAbort);
+      };
 
       signal = combinedController.signal;
     } else {
@@ -258,8 +294,24 @@ export class ResendHttpClient {
       });
 
       return response;
+    } catch (error) {
+      if (
+        isAbortError(error) &&
+        controller.signal.aborted &&
+        !options.signal?.aborted
+      ) {
+        throw new Error(
+          `Resend API request timed out after ${this.config.timeout} ms.`,
+        );
+      }
+      throw error;
     } finally {
+      cleanup();
       clearTimeout(timeoutId);
     }
   }
+}
+
+function isAbortError(error: unknown): boolean {
+  return error instanceof Error && error.name === "AbortError";
 }

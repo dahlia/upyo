@@ -95,16 +95,19 @@ export class LettermintApiError extends Error {
  */
 export class LettermintTimeoutError extends Error {
   readonly timeout: number;
+  readonly attempts?: number;
 
   /**
    * Creates a Lettermint request timeout error.
    *
    * @param timeout Request timeout in milliseconds.
+   * @param attempts Number of attempts made before this error.
    */
-  constructor(timeout: number) {
+  constructor(timeout: number, attempts?: number) {
     super(`Lettermint API request timed out after ${timeout} ms.`);
     this.name = "LettermintTimeoutError";
     this.timeout = timeout;
+    this.attempts = attempts;
   }
 }
 
@@ -215,7 +218,7 @@ export class LettermintHttpClient {
         }
 
         if (attempt === this.config.retries) {
-          throw lastError;
+          throw withAttempts(lastError, attempt + 1);
         }
 
         await sleep(calculateRetryDelay(attempt), signal);
@@ -274,6 +277,16 @@ export class LettermintHttpClient {
       }
     }
   }
+}
+
+function withAttempts(error: Error, attempts: number): Error {
+  if (error instanceof LettermintTimeoutError) {
+    return new LettermintTimeoutError(error.timeout, attempts);
+  }
+  if (error instanceof LettermintApiError) {
+    return error;
+  }
+  return Object.assign(error, { attempts });
 }
 
 function isRetryable(error: LettermintApiError): boolean {

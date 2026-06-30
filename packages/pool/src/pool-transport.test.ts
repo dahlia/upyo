@@ -4,8 +4,10 @@ import { PoolTransport } from "./pool-transport.ts";
 import { MockTransport } from "@upyo/mock";
 import {
   createFailedReceipt,
+  createReceiptError,
   type Message,
   type Receipt,
+  type ReceiptError,
   type Transport,
   type TransportOptions,
 } from "@upyo/core";
@@ -44,6 +46,32 @@ describe("PoolTransport", () => {
     ): AsyncIterable<Receipt<TProviderId>> {
       for await (const _message of messages) {
         yield this.receipt;
+      }
+    }
+  }
+
+  class ThrowingTransport<TProviderId extends string>
+    implements Transport<TProviderId> {
+    readonly id: TProviderId;
+    private readonly error: unknown;
+
+    constructor(id: TProviderId, error: unknown) {
+      this.id = id;
+      this.error = error;
+    }
+
+    send(
+      _message: Message,
+      _options?: TransportOptions,
+    ): Promise<Receipt<TProviderId>> {
+      return Promise.reject(this.error);
+    }
+
+    async *sendMany(
+      messages: Iterable<Message> | AsyncIterable<Message>,
+    ): AsyncIterable<Receipt<TProviderId>> {
+      for await (const message of messages) {
+        yield await this.send(message);
       }
     }
   }
@@ -322,7 +350,7 @@ describe("PoolTransport", () => {
 
       const receipt = await pool.send(createTestMessage());
 
-      assert.equal(receipt.successful, false);
+      assert.ok(!receipt.successful);
       if (!receipt.successful) {
         assert.equal(receipt.provider, "pool");
         assert.equal(receipt.attempts, 2);
@@ -332,6 +360,43 @@ describe("PoolTransport", () => {
         );
         assert.equal(receipt.errors?.[0]?.category, "rate-limit");
         assert.equal(receipt.errors?.[1]?.category, "auth");
+      }
+    });
+
+    test("should preserve structured errors thrown by transports", async () => {
+      const thrownError: ReceiptError<"mailgun"> = createReceiptError(
+        "Too many requests",
+        { provider: "mailgun", statusCode: 429 },
+      );
+      const thrownReceipt = createFailedReceipt("Invalid API key", {
+        provider: "sendgrid",
+        category: "auth",
+      });
+
+      const pool = new PoolTransport({
+        strategy: "round-robin",
+        transports: [
+          { transport: new ThrowingTransport("mailgun", thrownError) },
+          { transport: new ThrowingTransport("sendgrid", thrownReceipt) },
+        ],
+      });
+
+      const receipt = await pool.send(createTestMessage());
+
+      assert.ok(!receipt.successful);
+      if (!receipt.successful) {
+        assert.deepEqual(receipt.errorMessages, [
+          "Too many requests",
+          "Invalid API key",
+        ]);
+        assert.deepEqual(
+          receipt.errors?.map((error) => error.category),
+          ["rate-limit", "auth"],
+        );
+        assert.deepEqual(
+          receipt.errors?.map((error) => error.provider),
+          ["mailgun", "sendgrid"],
+        );
       }
     });
 

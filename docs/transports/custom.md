@@ -227,8 +227,14 @@ handles, or background timers. Implementing the `AsyncDisposable` interface
 ensures proper cleanup and integrates with modern JavaScript resource
 management patterns.
 
-~~~~ typescript {22-24} twoslash
-import type { Message, Receipt, Transport, TransportOptions } from "@upyo/core";
+~~~~ typescript {25-33} twoslash
+import {
+  createFailedReceipt,
+  type Message,
+  type Receipt,
+  type Transport,
+  type TransportOptions,
+} from "@upyo/core";
 
 export class MyTransport implements Transport<"myservice">, AsyncDisposable {
   readonly id = "myservice";
@@ -239,14 +245,21 @@ export class MyTransport implements Transport<"myservice">, AsyncDisposable {
     message: Message,
     options?: TransportOptions,
   ): Promise<Receipt<"myservice">> {
-    throw new Error("Not implemented");
+    options?.signal?.throwIfAborted();
+    return createFailedReceipt("No connection is available.", {
+      provider: this.id,
+      category: "configuration",
+      retryable: false,
+    });
   }
 
   async *sendMany(
     messages: Iterable<Message> | AsyncIterable<Message>,
     options?: TransportOptions,
   ): AsyncIterable<Receipt<"myservice">> {
-    throw new Error("Not implemented");
+    for await (const message of messages) {
+      yield await this.send(message, options);
+    }
   }
 
   async closeConnections(): Promise<void> {

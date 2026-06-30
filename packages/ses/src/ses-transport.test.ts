@@ -241,10 +241,10 @@ test("SesTransport returns structured API failures", async () => {
       content: { text: "Hello World!" },
     }));
 
-    assert.equal(receipt.successful, false);
+    assert.ok(!receipt.successful);
     if (!receipt.successful) {
       assert.equal(receipt.provider, "ses");
-      assert.equal(receipt.retryable, true);
+      assert.ok(receipt.retryable);
       assert.equal(receipt.attempts, 1);
       assert.equal(receipt.errors?.[0]?.category, "rate-limit");
       assert.equal(receipt.errors?.[0]?.statusCode, 429);

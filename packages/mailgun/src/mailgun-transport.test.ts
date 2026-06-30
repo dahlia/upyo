@@ -100,12 +100,12 @@ describe("MailgunTransport - API Errors", () => {
 
       const receipt = await transport.send(message);
 
-      assert.equal(receipt.successful, false);
+      assert.ok(!receipt.successful);
       if (!receipt.successful) {
         assert.equal(receipt.errorMessages.length, 1);
         assert.equal(receipt.errorMessages[0], "Bad Request");
         assert.equal(receipt.provider, "mailgun");
-        assert.equal(receipt.retryable, false);
+        assert.ok(!receipt.retryable);
         assert.equal(receipt.attempts, 1);
         assert.equal(receipt.errors?.[0]?.category, "validation");
         assert.equal(receipt.errors?.[0]?.statusCode, 400);
@@ -158,9 +158,9 @@ describe("MailgunTransport - Structured Rate Limit Errors", () => {
 
       const receipt = await transport.send(message);
 
-      assert.equal(receipt.successful, false);
+      assert.ok(!receipt.successful);
       if (!receipt.successful) {
-        assert.equal(receipt.retryable, true);
+        assert.ok(receipt.retryable);
         assert.equal(receipt.errors?.[0]?.category, "rate-limit");
         assert.equal(receipt.errors?.[0]?.code, "http.429");
         assert.equal(receipt.errors?.[0]?.retryAfterMilliseconds, 45_000);
@@ -203,12 +203,13 @@ describe("MailgunTransport - Network Errors", () => {
 
       const receipt = await transport.send(message);
 
-      assert.equal(receipt.successful, false);
+      assert.ok(!receipt.successful);
       if (!receipt.successful) {
         assert.equal(receipt.errorMessages.length, 1);
         assert.equal(receipt.errorMessages[0], "Network error");
         assert.equal(receipt.provider, "mailgun");
         assert.equal(receipt.retryable, true);
+        assert.equal(receipt.attempts, 1);
         assert.equal(receipt.errors?.[0]?.category, "network");
       }
     } finally {
@@ -557,11 +558,14 @@ describe("MailgunTransport - Connection Timeouts", () => {
   it("should handle fetch timeout errors", async () => {
     const originalFetch = globalThis.fetch;
     try {
-      // Mock timeout behavior
-      // deno-lint-ignore require-await
-      globalThis.fetch = async () => {
-        throw new DOMException("The operation was aborted", "AbortError");
-      };
+      globalThis.fetch = (_url, options) =>
+        new Promise<Response>((_resolve, reject) => {
+          options?.signal?.addEventListener("abort", () => {
+            reject(
+              new DOMException("The operation was aborted.", "AbortError"),
+            );
+          }, { once: true });
+        });
 
       const transport = new MailgunTransport({
         apiKey: "test-key",
@@ -586,13 +590,12 @@ describe("MailgunTransport - Connection Timeouts", () => {
 
       const receipt = await transport.send(message);
 
-      assert.equal(receipt.successful, false);
+      assert.ok(!receipt.successful);
       if (!receipt.successful) {
         assert.equal(receipt.errorMessages.length, 1);
-        assert.ok(
-          receipt.errorMessages[0].includes("aborted") ||
-            receipt.errorMessages[0].includes("timeout"),
-        );
+        assert.equal(receipt.errors?.[0]?.category, "timeout");
+        assert.ok(receipt.retryable);
+        assert.equal(receipt.attempts, 1);
       }
     } finally {
       globalThis.fetch = originalFetch;

@@ -11,7 +11,9 @@ To be released.
  -  Added structured delivery error metadata to failed `Receipt` values.
     Failed receipts still include `errorMessages` for existing code, and may
     now also include `errors`, `retryable`, `provider`, `attempts`, and
-    `timestamp` fields for programmatic error handling.  [[#25], [#27]]
+    `timestamp` fields for programmatic error handling.  Structured errors may
+    also include provider-specific `providerDetails` when a transport exposes
+    them.  [[#25], [#27]]
 
     `Receipt`, `ReceiptError`, and `Transport` are now generic over the
     transport provider id, and `Transport` implementations expose a stable

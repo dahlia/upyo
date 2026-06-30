@@ -130,7 +130,15 @@ export class MailgunHttpClient {
         }
 
         if (attempt === this.config.retries) {
-          throw error;
+          if (lastError instanceof MailgunApiError) {
+            throw lastError;
+          }
+          throw new MailgunApiError(
+            lastError.message,
+            undefined,
+            undefined,
+            attempt + 1,
+          );
         }
 
         // Wait before retrying (exponential backoff)
@@ -179,6 +187,17 @@ export class MailgunHttpClient {
         headers,
         signal,
       });
+    } catch (error) {
+      if (
+        isAbortError(error) &&
+        controller.signal.aborted &&
+        !options.signal?.aborted
+      ) {
+        throw new Error(
+          `Mailgun API request timed out after ${this.config.timeout} ms.`,
+        );
+      }
+      throw error;
     } finally {
       clearTimeout(timeoutId);
     }
@@ -186,13 +205,34 @@ export class MailgunHttpClient {
 }
 
 /**
- * Custom error class for Mailgun API errors.
+ * Error thrown when a Mailgun API request fails.
+ *
+ * @since 0.5.0
  */
 export class MailgunApiError extends Error {
+  /**
+   * HTTP status code returned by Mailgun, if the request reached the API.
+   */
   public statusCode?: number;
+
+  /**
+   * Retry delay from Mailgun's `Retry-After` response header.
+   */
   public retryAfterMilliseconds?: number;
+
+  /**
+   * Number of attempts made before this error was produced.
+   */
   public attempts?: number;
 
+  /**
+   * Creates a Mailgun API error.
+   *
+   * @param message Error message.
+   * @param statusCode HTTP status code returned by Mailgun.
+   * @param retryAfterMilliseconds Retry delay from the response.
+   * @param attempts Number of attempts made before this error.
+   */
   constructor(
     message: string,
     statusCode?: number,
@@ -205,4 +245,8 @@ export class MailgunApiError extends Error {
     this.retryAfterMilliseconds = retryAfterMilliseconds;
     this.attempts = attempts;
   }
+}
+
+function isAbortError(error: unknown): boolean {
+  return error instanceof Error && error.name === "AbortError";
 }

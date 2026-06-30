@@ -27,7 +27,7 @@ export class RoundRobinStrategy<TProviderId extends string = string>
   select(
     _message: Message,
     transports: readonly ResolvedTransportEntry<TProviderId>[],
-    attemptedIndices: Set<number>,
+    attemptedIndices: ReadonlySet<number>,
   ): TransportSelection<TProviderId> | undefined {
     const enabledCount = transports.filter((t) => t.enabled).length;
     if (enabledCount < 1) return undefined;

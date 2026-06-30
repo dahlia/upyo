@@ -780,6 +780,10 @@ function createJmapFailure(
       statusCode: error.statusCode,
       retryAfterMilliseconds: error.retryAfterMilliseconds,
       attempts: error.attempts,
+      providerDetails: {
+        responseBody: error.responseBody,
+        jmapErrorType: error.jmapErrorType,
+      },
       category: override.category,
       code: override.code,
       retryable: override.retryable,

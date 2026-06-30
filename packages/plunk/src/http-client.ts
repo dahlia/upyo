@@ -48,13 +48,34 @@ export interface PlunkError {
 }
 
 /**
- * Plunk API error.
+ * Error thrown when a Plunk API request fails.
+ *
+ * @since 0.5.0
  */
 export class PlunkApiError extends Error {
+  /**
+   * HTTP status code returned by Plunk, if the request reached the API.
+   */
   readonly statusCode?: number;
+
+  /**
+   * Retry delay from Plunk's `Retry-After` response header.
+   */
   readonly retryAfterMilliseconds?: number;
+
+  /**
+   * Number of attempts made before this error was produced.
+   */
   readonly attempts?: number;
 
+  /**
+   * Creates a Plunk API error.
+   *
+   * @param message Error message.
+   * @param statusCode HTTP status code returned by Plunk.
+   * @param retryAfterMilliseconds Retry delay from the response.
+   * @param attempts Number of attempts made before this error.
+   */
   constructor(
     message: string,
     statusCode?: number,
@@ -155,7 +176,12 @@ export class PlunkHttpClient {
         this.config.retries + 1,
       );
     }
-    throw new PlunkApiError(errorMessage);
+    throw new PlunkApiError(
+      errorMessage,
+      undefined,
+      undefined,
+      this.config.retries + 1,
+    );
   }
 
   /**
@@ -177,22 +203,38 @@ export class PlunkHttpClient {
       ...this.config.headers,
     };
 
-    const response = await fetch(url, {
-      method: "POST",
-      headers,
-      body: JSON.stringify(emailData),
-      signal,
-      // Add timeout if supported by the runtime
-      ...(this.config.timeout > 0 &&
-          typeof globalThis.AbortSignal?.timeout === "function"
-        ? {
-          signal: AbortSignal.any([
-            signal,
-            AbortSignal.timeout(this.config.timeout),
-          ].filter(Boolean) as AbortSignal[]),
-        }
-        : {}),
-    });
+    const timeoutController = new AbortController();
+    const timeoutId = this.config.timeout > 0
+      ? setTimeout(() => timeoutController.abort(), this.config.timeout)
+      : undefined;
+    const requestSignal = signal == null
+      ? timeoutController.signal
+      : AbortSignal.any([timeoutController.signal, signal]);
+
+    let response: Response;
+    try {
+      response = await fetch(url, {
+        method: "POST",
+        headers,
+        body: JSON.stringify(emailData),
+        signal: requestSignal,
+      });
+    } catch (error) {
+      if (
+        isAbortError(error) &&
+        timeoutController.signal.aborted &&
+        !signal?.aborted
+      ) {
+        throw new Error(
+          `Plunk API request timed out after ${this.config.timeout} ms.`,
+        );
+      }
+      throw error;
+    } finally {
+      if (timeoutId !== undefined) {
+        clearTimeout(timeoutId);
+      }
+    }
 
     if (!response.ok) {
       let errorBody: string;
@@ -255,4 +297,8 @@ export class PlunkHttpClient {
   private sleep(ms: number): Promise<void> {
     return new Promise((resolve) => setTimeout(resolve, ms));
   }
+}
+
+function isAbortError(error: unknown): boolean {
+  return error instanceof Error && error.name === "AbortError";
 }

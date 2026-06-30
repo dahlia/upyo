@@ -258,7 +258,8 @@ export function createOpenTelemetryConfig(
  *
  * @param error The error to classify.
  * @returns A string category such as `"auth"`, `"rate-limit"`, `"network"`,
- *          `"validation"`, `"server-error"`, or `"unknown"`.
+ *          `"validation"`, `"service-unavailable"`, `"server-error"`, or
+ *          `"unknown"`.
  * @since 0.2.0
  */
 export function defaultErrorClassifier(

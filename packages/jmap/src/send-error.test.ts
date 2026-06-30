@@ -43,6 +43,10 @@ describe("JmapTransport send error", () => {
         assert.equal(receipt.retryable, false);
         assert.equal(receipt.errors?.[0]?.category, "auth");
         assert.equal(receipt.errors?.[0]?.statusCode, 401);
+        assert.deepEqual(receipt.errors?.[0]?.providerDetails, {
+          responseBody: "Unauthorized",
+          jmapErrorType: undefined,
+        });
       }
     } finally {
       globalThis.fetch = originalFetch;

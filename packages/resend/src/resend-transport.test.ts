@@ -214,6 +214,7 @@ describe("ResendTransport - Network Errors", () => {
         assert.ok(receipt.errorMessages[0].includes("Network error"));
         assert.equal(receipt.provider, "resend");
         assert.equal(receipt.retryable, true);
+        assert.equal(receipt.attempts, 4);
         assert.equal(receipt.errors?.[0]?.category, "network");
       }
     } finally {
@@ -262,13 +263,12 @@ describe("ResendTransport - Abort Signal", () => {
       const controller = new AbortController();
       controller.abort();
 
-      const receipt = await transport.send(message, {
-        signal: controller.signal,
-      });
-
-      assert.equal(receipt.successful, false);
-      if (!receipt.successful) {
-        assert.ok(receipt.errorMessages.length > 0);
+      try {
+        await transport.send(message, { signal: controller.signal });
+        assert.fail("Should have thrown AbortError");
+      } catch (error) {
+        assert.ok(error instanceof Error);
+        assert.equal(error.name, "AbortError");
       }
     } finally {
       globalThis.fetch = originalFetch;

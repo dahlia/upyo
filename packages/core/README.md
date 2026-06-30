@@ -135,7 +135,9 @@ const receipt = createFailedReceipt("HTTP 429: Too Many Requests", {
 });
 ~~~~
 
-### Implementing custom transports
+
+Implementing custom transports
+------------------------------
 
 The `Transport` interface defines the contract for all email providers:
 

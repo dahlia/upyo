@@ -138,11 +138,15 @@ export class PoolTransport<TProviderId extends string = string>
         // Apply timeout if configured
         const sendOptions = this.createSendOptions(options);
 
-        // Send the message
-        const receipt = await selection.entry.transport.send(
-          message,
-          sendOptions,
-        );
+        let receipt: Receipt<TProviderId>;
+        try {
+          receipt = await selection.entry.transport.send(
+            message,
+            sendOptions.options,
+          );
+        } finally {
+          sendOptions.cleanup();
+        }
 
         if (receipt.successful) {
           return receipt;
@@ -153,16 +157,31 @@ export class PoolTransport<TProviderId extends string = string>
         errors.push(...getReceiptErrors(receipt, selection.entry.transport.id));
       } catch (error) {
         // Handle transport errors
-        if (error instanceof DOMException && error.name === "AbortError") {
+        if (isAbortError(error) && options?.signal?.aborted) {
           throw error;
         }
 
-        const errorMessage = error instanceof Error
+        const thrownErrors = getThrownReceiptErrors(
+          error,
+          selection.entry.transport.id,
+        );
+        if (thrownErrors.length > 0) {
+          errorMessages.push(...thrownErrors.map((item) => item.message));
+          errors.push(...thrownErrors);
+          continue;
+        }
+
+        const timeoutMessage = "Transport send timed out.";
+        const errorMessage = isAbortError(error)
+          ? timeoutMessage
+          : error instanceof Error
           ? error.message
           : String(error);
         errorMessages.push(errorMessage);
         errors.push(createReceiptError(errorMessage, {
           provider: selection.entry.transport.id,
+          category: isAbortError(error) ? "timeout" : undefined,
+          retryable: isAbortError(error) ? true : undefined,
         }));
       }
     }
@@ -171,7 +190,7 @@ export class PoolTransport<TProviderId extends string = string>
     return createFailedReceipt<TProviderId | "pool">(
       errorMessages.length > 0
         ? errorMessages
-        : ["All transports failed to send the message"],
+        : ["All transports failed to send the message."],
       {
         provider: "pool",
         errors: errors.length > 0 ? errors : undefined,
@@ -276,9 +295,12 @@ export class PoolTransport<TProviderId extends string = string>
    */
   private createSendOptions(
     options?: TransportOptions,
-  ): TransportOptions | undefined {
+  ): {
+    readonly options?: TransportOptions;
+    cleanup(): void;
+  } {
     if (!this.config.timeout) {
-      return options;
+      return { options, cleanup: () => {} };
     }
 
     // Create AbortController for timeout
@@ -287,13 +309,19 @@ export class PoolTransport<TProviderId extends string = string>
       () => controller.abort(),
       this.config.timeout,
     );
+    let cleanup = () => clearTimeout(timeoutId);
 
     // Combine with existing signal if present
     if (options?.signal) {
-      options.signal.addEventListener("abort", () => {
+      const abort = () => {
         clearTimeout(timeoutId);
         controller.abort();
-      });
+      };
+      options.signal.addEventListener("abort", abort, { once: true });
+      cleanup = () => {
+        clearTimeout(timeoutId);
+        options.signal?.removeEventListener("abort", abort);
+      };
     }
 
     // Clean up timeout when done
@@ -302,8 +330,11 @@ export class PoolTransport<TProviderId extends string = string>
     });
 
     return {
-      ...options,
-      signal: controller.signal,
+      options: {
+        ...options,
+        signal: controller.signal,
+      },
+      cleanup,
     };
   }
 }
@@ -321,4 +352,45 @@ function getReceiptErrors<TProviderId extends string>(
   return receipt.errorMessages.map((message) =>
     createReceiptError(message, { provider: receipt.provider ?? provider })
   );
+}
+
+function getThrownReceiptErrors<TProviderId extends string>(
+  error: unknown,
+  provider: TProviderId,
+): readonly ReceiptError<TProviderId>[] {
+  if (isReceiptError<TProviderId>(error)) {
+    return [error.provider == null ? { ...error, provider } : error];
+  }
+
+  if (isFailedReceipt<TProviderId>(error)) {
+    return getReceiptErrors(error, provider);
+  }
+
+  return [];
+}
+
+function isReceiptError<TProviderId extends string>(
+  value: unknown,
+): value is ReceiptError<TProviderId> {
+  return typeof value === "object" && value != null &&
+    typeof (value as { readonly message?: unknown }).message === "string" &&
+    typeof (value as { readonly code?: unknown }).code === "string" &&
+    typeof (value as { readonly retryable?: unknown }).retryable ===
+      "boolean" &&
+    typeof (value as { readonly category?: unknown }).category === "string";
+}
+
+function isFailedReceipt<TProviderId extends string>(
+  value: unknown,
+): value is Receipt<TProviderId> & { readonly successful: false } {
+  return typeof value === "object" && value != null &&
+    (value as { readonly successful?: unknown }).successful === false &&
+    Array.isArray(
+      (value as { readonly errorMessages?: unknown })
+        .errorMessages,
+    );
+}
+
+function isAbortError(error: unknown): boolean {
+  return error instanceof Error && error.name === "AbortError";
 }

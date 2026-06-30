@@ -55,6 +55,11 @@ export interface ReceiptError<TProviderId extends string = string> {
    * Provider-supplied retry delay in milliseconds, when available.
    */
   readonly retryAfterMilliseconds?: number;
+
+  /**
+   * Provider-specific error details, when available.
+   */
+  readonly providerDetails?: unknown;
 }
 
 /**
@@ -147,6 +152,7 @@ export interface CreateReceiptErrorOptions<
   readonly provider?: TProviderId;
   readonly statusCode?: number;
   readonly retryAfterMilliseconds?: number;
+  readonly providerDetails?: unknown;
 }
 
 /**
@@ -203,8 +209,8 @@ export function classifyHttpStatus(
 export function classifyReceiptError(
   error: unknown,
 ): Required<ReceiptErrorClassification> {
-  const message = error instanceof Error ? error.message : String(error);
-  const name = error instanceof Error ? error.name : "";
+  const message = getStringProperty(error, "message") ?? String(error);
+  const name = getStringProperty(error, "name") ?? "";
   const text = `${name} ${message}`.toLowerCase();
 
   if (text.includes("timeout") || text.includes("timed out")) {
@@ -301,7 +307,9 @@ export function createReceiptError<TProviderId extends string = string>(
   const category = options.category ?? classification.category;
   const retryable = options.retryable ?? classification.retryable;
   const code = options.code ?? (
-    options.statusCode == null
+    options.category != null
+      ? category
+      : options.statusCode == null
       ? classification.code ?? category
       : `http.${options.statusCode}`
   );
@@ -314,6 +322,7 @@ export function createReceiptError<TProviderId extends string = string>(
     provider: options.provider,
     statusCode: options.statusCode,
     retryAfterMilliseconds: options.retryAfterMilliseconds,
+    providerDetails: options.providerDetails,
   });
 }
 
@@ -378,7 +387,8 @@ export function parseRetryAfter(
 
   const trimmed = value.trim();
   if (/^\d+$/.test(trimmed)) {
-    return Number(trimmed) * 1000;
+    const delay = Number(trimmed) * 1000;
+    return delay > 0 ? delay : undefined;
   }
 
   const timestamp = Date.parse(trimmed);
@@ -386,6 +396,22 @@ export function parseRetryAfter(
 
   const delay = timestamp - now.getTime();
   return delay > 0 ? delay : undefined;
+}
+
+function getStringProperty(
+  value: unknown,
+  property: "message" | "name",
+): string | undefined {
+  if (value instanceof Error) {
+    return value[property];
+  }
+  if (typeof value !== "object" || value == null || !(property in value)) {
+    return undefined;
+  }
+  const propertyValue = (value as { readonly [key: string]: unknown })[
+    property
+  ];
+  return propertyValue == null ? undefined : String(propertyValue);
 }
 
 function omitUndefined<T extends Record<string, unknown>>(value: T): T {

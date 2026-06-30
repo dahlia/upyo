@@ -262,14 +262,22 @@ function createLettermintFailure(
       category: "timeout",
       code: "timeout",
       retryable: true,
-      attempts: 1,
+      attempts: error.attempts,
     });
   }
 
   return createFailedReceipt(message, {
     provider: "lettermint",
-    attempts: 1,
+    attempts: getErrorAttempts(error),
   });
+}
+
+function getErrorAttempts(error: unknown): number | undefined {
+  if (typeof error !== "object" || error == null || !("attempts" in error)) {
+    return undefined;
+  }
+  const attempts = (error as { readonly attempts?: unknown }).attempts;
+  return typeof attempts === "number" ? attempts : undefined;
 }
 
 function isSuccessfulStatus(status: LettermintStatus): boolean {

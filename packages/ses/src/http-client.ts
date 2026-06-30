@@ -88,7 +88,16 @@ export class SesHttpClient {
         }
 
         if (attempt === this.config.retries) {
-          throw error;
+          if (lastError instanceof SesApiError) {
+            throw lastError;
+          }
+          throw new SesApiError(
+            lastError.message,
+            undefined,
+            undefined,
+            undefined,
+            attempt + 1,
+          );
         }
 
         const delay = Math.pow(2, attempt) * 1000;
@@ -118,15 +127,9 @@ export class SesHttpClient {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), this.config.timeout);
 
-    let signal = controller.signal;
-    if (options.signal) {
-      signal = options.signal;
-      if (options.signal.aborted) {
-        controller.abort();
-      } else {
-        options.signal.addEventListener("abort", () => controller.abort());
-      }
-    }
+    const signal = options.signal == null
+      ? controller.signal
+      : AbortSignal.any([controller.signal, options.signal]);
 
     try {
       return await globalThis.fetch(url, {
@@ -134,6 +137,17 @@ export class SesHttpClient {
         headers: this.headersToRecord(signedHeaders),
         signal,
       });
+    } catch (error) {
+      if (
+        isAbortError(error) &&
+        controller.signal.aborted &&
+        !options.signal?.aborted
+      ) {
+        throw new Error(
+          `SES API request timed out after ${this.config.timeout} ms.`,
+        );
+      }
+      throw error;
     } finally {
       clearTimeout(timeoutId);
     }
@@ -297,6 +311,10 @@ export class SesHttpClient {
     }
     return record;
   }
+}
+
+function isAbortError(error: unknown): boolean {
+  return error instanceof Error && error.name === "AbortError";
 }
 
 export class SesApiError extends Error {

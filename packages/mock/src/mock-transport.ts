@@ -387,6 +387,7 @@ export class MockTransport implements Transport<"mock"> {
       this.config.generateUniqueMessageIds
     ) {
       return {
+        ...this.config.defaultResponse,
         successful: true,
         messageId: `mock-message-${this.messageIdCounter++}`,
         provider: "mock",

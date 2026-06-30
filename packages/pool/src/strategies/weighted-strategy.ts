@@ -26,7 +26,7 @@ export class WeightedStrategy<TProviderId extends string = string>
   select(
     _message: Message,
     transports: readonly ResolvedTransportEntry<TProviderId>[],
-    attemptedIndices: Set<number>,
+    attemptedIndices: ReadonlySet<number>,
   ): TransportSelection<TProviderId> | undefined {
     // Filter to enabled transports that haven't been attempted
     const availableTransports = transports

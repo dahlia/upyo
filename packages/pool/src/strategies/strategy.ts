@@ -35,7 +35,7 @@ export interface Strategy<TProviderId extends string = string> {
   select(
     message: Message,
     transports: readonly ResolvedTransportEntry<TProviderId>[],
-    attemptedIndices: Set<number>,
+    attemptedIndices: ReadonlySet<number>,
   ): TransportSelection<TProviderId> | undefined;
 
   /**
