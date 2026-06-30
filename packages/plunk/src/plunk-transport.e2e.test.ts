@@ -233,11 +233,10 @@ describe("PlunkTransport E2E quota helpers", () => {
       statusCode: 401,
     });
 
-    assert.equal(isQuotaLimitedBatch([success]), false);
-    assert.equal(isQuotaLimitedBatch([success, quotaLimit]), true);
-    assert.equal(
-      isQuotaLimitedBatch([success, quotaLimit, authFailure]),
-      false,
+    assert.ok(!isQuotaLimitedBatch([success]));
+    assert.ok(isQuotaLimitedBatch([success, quotaLimit]));
+    assert.ok(
+      !isQuotaLimitedBatch([success, quotaLimit, authFailure]),
     );
   });
 });
@@ -245,7 +244,7 @@ describe("PlunkTransport E2E quota helpers", () => {
 function assertSuccessful(receipt: Receipt): asserts receipt is Receipt & {
   readonly successful: true;
 } {
-  assert.equal(receipt.successful, true, "Send should be successful");
+  assert.ok(receipt.successful, "Send should be successful");
   assert.ok(receipt.messageId, "Should have a message ID");
 }
 
