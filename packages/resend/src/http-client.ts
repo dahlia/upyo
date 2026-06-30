@@ -208,6 +208,10 @@ export class ResendHttpClient {
           );
         }
       } catch (error) {
+        if (isCallerAbort(error, options.signal)) {
+          throw error;
+        }
+
         lastError = error instanceof Error ? error : new Error(String(error));
 
         // Don't retry on client errors (4xx) or AbortError
@@ -319,26 +323,45 @@ function combineSignals(
   }
 
   const controller = new AbortController();
-  const abort = () => controller.abort();
+  const abort = (signal: AbortSignal) => {
+    controller.abort(getAbortReason(signal));
+  };
+  const abortTimeout = () => abort(timeoutSignal);
+  const abortExternal = () => abort(externalSignal);
 
-  timeoutSignal.addEventListener("abort", abort, { once: true });
-  externalSignal.addEventListener("abort", abort, { once: true });
+  timeoutSignal.addEventListener("abort", abortTimeout, { once: true });
+  externalSignal.addEventListener("abort", abortExternal, { once: true });
 
-  if (timeoutSignal.aborted || externalSignal.aborted) {
-    controller.abort();
+  if (timeoutSignal.aborted) {
+    abortTimeout();
+  } else if (externalSignal.aborted) {
+    abortExternal();
   }
 
   return {
     signal: controller.signal,
     cleanup: () => {
-      timeoutSignal.removeEventListener("abort", abort);
-      externalSignal.removeEventListener("abort", abort);
+      timeoutSignal.removeEventListener("abort", abortTimeout);
+      externalSignal.removeEventListener("abort", abortExternal);
     },
   };
 }
 
+function getAbortReason(signal: AbortSignal): unknown {
+  return signal.reason ??
+    new DOMException("The operation was aborted.", "AbortError");
+}
+
 function isAbortError(error: unknown): boolean {
   return error instanceof Error && error.name === "AbortError";
+}
+
+function isCallerAbort(
+  error: unknown,
+  signal?: AbortSignal | null,
+): boolean {
+  return signal?.aborted === true &&
+    (isAbortError(error) || error === signal.reason);
 }
 
 function truncateErrorBody(text: string): string {

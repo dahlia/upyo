@@ -70,6 +70,47 @@ describe("PlunkTransport - AbortSignal (send)", () => {
       assert.equal(error.name, "AbortError");
     }
   });
+
+  it("should preserve abort reasons without AbortSignal.any", async () => {
+    const originalAny = AbortSignal.any;
+    const originalFetch = globalThis.fetch;
+    const abortReason = new Error("Stop plunk request.");
+    const controller = new AbortController();
+
+    try {
+      Object.defineProperty(AbortSignal, "any", {
+        value: undefined,
+        configurable: true,
+        writable: true,
+      });
+      globalThis.fetch = (_input, init) =>
+        new Promise((_resolve, reject) => {
+          assert.ok(init?.signal instanceof AbortSignal);
+          init.signal.addEventListener("abort", () => {
+            reject(init.signal?.reason);
+          }, { once: true });
+          setTimeout(() => controller.abort(abortReason), 0);
+        });
+
+      const transport = new PlunkTransport({
+        apiKey: "test-key",
+        retries: 0,
+      });
+
+      await assert.rejects(
+        () =>
+          transport.send(createTestMessage(), { signal: controller.signal }),
+        (error: unknown) => error === abortReason,
+      );
+    } finally {
+      globalThis.fetch = originalFetch;
+      Object.defineProperty(AbortSignal, "any", {
+        value: originalAny,
+        configurable: true,
+        writable: true,
+      });
+    }
+  });
 });
 
 describe("PlunkTransport - AbortSignal (sendMany)", () => {

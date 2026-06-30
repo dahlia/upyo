@@ -134,6 +134,10 @@ export class PlunkHttpClient {
         const response = await this.makeRequest(url, emailData, signal);
         return await this.parseResponse(response);
       } catch (error) {
+        if (isCallerAbort(error, signal)) {
+          throw error;
+        }
+
         lastError = error instanceof Error ? error : new Error(String(error));
 
         // Don't retry on client errors (4xx) or AbortError
@@ -207,9 +211,7 @@ export class PlunkHttpClient {
     const timeoutId = this.config.timeout > 0
       ? setTimeout(() => timeoutController.abort(), this.config.timeout)
       : undefined;
-    const requestSignal = signal == null
-      ? timeoutController.signal
-      : AbortSignal.any([timeoutController.signal, signal]);
+    const combinedSignal = combineSignals(timeoutController.signal, signal);
 
     let response: Response;
     try {
@@ -217,7 +219,7 @@ export class PlunkHttpClient {
         method: "POST",
         headers,
         body: JSON.stringify(emailData),
-        signal: requestSignal,
+        signal: combinedSignal.signal,
       });
     } catch (error) {
       if (
@@ -231,6 +233,7 @@ export class PlunkHttpClient {
       }
       throw error;
     } finally {
+      combinedSignal.cleanup();
       if (timeoutId !== undefined) {
         clearTimeout(timeoutId);
       }
@@ -303,6 +306,64 @@ export class PlunkHttpClient {
 
 function isAbortError(error: unknown): boolean {
   return error instanceof Error && error.name === "AbortError";
+}
+
+function isCallerAbort(
+  error: unknown,
+  signal?: AbortSignal | null,
+): boolean {
+  return signal?.aborted === true &&
+    (isAbortError(error) || error === signal.reason);
+}
+
+interface CombinedSignal {
+  readonly signal: AbortSignal;
+  cleanup(): void;
+}
+
+function combineSignals(
+  timeoutSignal: AbortSignal,
+  externalSignal?: AbortSignal | null,
+): CombinedSignal {
+  if (externalSignal == null) {
+    return { signal: timeoutSignal, cleanup: () => {} };
+  }
+
+  if (typeof AbortSignal.any === "function") {
+    return {
+      signal: AbortSignal.any([timeoutSignal, externalSignal]),
+      cleanup: () => {},
+    };
+  }
+
+  const controller = new AbortController();
+  const abort = (signal: AbortSignal) => {
+    controller.abort(getAbortReason(signal));
+  };
+  const abortTimeout = () => abort(timeoutSignal);
+  const abortExternal = () => abort(externalSignal);
+
+  timeoutSignal.addEventListener("abort", abortTimeout, { once: true });
+  externalSignal.addEventListener("abort", abortExternal, { once: true });
+
+  if (timeoutSignal.aborted) {
+    abortTimeout();
+  } else if (externalSignal.aborted) {
+    abortExternal();
+  }
+
+  return {
+    signal: controller.signal,
+    cleanup: () => {
+      timeoutSignal.removeEventListener("abort", abortTimeout);
+      externalSignal.removeEventListener("abort", abortExternal);
+    },
+  };
+}
+
+function getAbortReason(signal: AbortSignal): unknown {
+  return signal.reason ??
+    new DOMException("The operation was aborted.", "AbortError");
 }
 
 function truncateErrorBody(text: string): string {

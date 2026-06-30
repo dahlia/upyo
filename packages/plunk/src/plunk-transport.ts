@@ -114,7 +114,7 @@ export class PlunkTransport implements Transport<"plunk"> {
         provider: "plunk",
       };
     } catch (error) {
-      if (isAbortError(error) && options?.signal?.aborted) {
+      if (isCallerAbort(error, options?.signal)) {
         throw error;
       }
 
@@ -257,4 +257,9 @@ function createPlunkFailure(
 
 function isAbortError(error: unknown): boolean {
   return error instanceof Error && error.name === "AbortError";
+}
+
+function isCallerAbort(error: unknown, signal?: AbortSignal): boolean {
+  return signal?.aborted === true &&
+    (isAbortError(error) || error === signal.reason);
 }

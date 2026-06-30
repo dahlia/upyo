@@ -302,6 +302,46 @@ describe("ResendHttpClient - Abort Signal", () => {
       },
     );
   });
+
+  it("preserves abort reasons without AbortSignal.any", async () => {
+    const originalAny = AbortSignal.any;
+    const abortReason = new Error("Stop resend request.");
+    const controller = new AbortController();
+
+    await withMockedFetch(
+      (_url, init) =>
+        new Promise((_resolve, reject) => {
+          assert.ok(init?.signal instanceof AbortSignal);
+          init.signal.addEventListener("abort", () => {
+            reject(init.signal?.reason);
+          }, { once: true });
+          setTimeout(() => controller.abort(abortReason), 0);
+        }),
+      async () => {
+        Object.defineProperty(AbortSignal, "any", {
+          value: undefined,
+          configurable: true,
+          writable: true,
+        });
+        try {
+          const client = new ResendHttpClient(
+            createResendConfig({ apiKey: "test-key", retries: 0 }),
+          );
+
+          await assert.rejects(
+            () => client.sendMessage({}, controller.signal),
+            (error: unknown) => error === abortReason,
+          );
+        } finally {
+          Object.defineProperty(AbortSignal, "any", {
+            value: originalAny,
+            configurable: true,
+            writable: true,
+          });
+        }
+      },
+    );
+  });
 });
 
 describe("ResendTransport - Network Errors", () => {

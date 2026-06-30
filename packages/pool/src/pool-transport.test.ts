@@ -577,6 +577,37 @@ describe("PoolTransport", () => {
       );
     });
 
+    test("should preserve caller abort reasons with timeout", async () => {
+      const abortReason = new Error("Stop pooled send.");
+      const controller = new AbortController();
+      const transport: Transport<"delayed"> = {
+        id: "delayed",
+        send(_message, options) {
+          return new Promise((_resolve, reject) => {
+            options?.signal?.addEventListener("abort", () => {
+              reject(options.signal?.reason);
+            }, { once: true });
+            setTimeout(() => controller.abort(abortReason), 0);
+          });
+        },
+        async *sendMany(messages, options) {
+          for await (const message of messages) {
+            yield await this.send(message, options);
+          }
+        },
+      };
+      const pool = new PoolTransport({
+        strategy: "round-robin",
+        transports: [{ transport }],
+        timeout: 1000,
+      });
+
+      await assert.rejects(
+        () => pool.send(createTestMessage(), { signal: controller.signal }),
+        (error: unknown) => error === abortReason,
+      );
+    });
+
     test("should keep timeout receipts when callers abort later", async () => {
       const controller = new AbortController();
       const transport: Transport<"slow"> = {

@@ -146,7 +146,10 @@ export class PoolTransport<TProviderId extends string = string>
             sendOptions.options,
           );
         } catch (error) {
-          if (isAbortError(error) && sendOptions.abortedByCaller()) {
+          if (
+            sendOptions.abortedByCaller() &&
+            isCallerAbort(error, options?.signal)
+          ) {
             abortedByCaller = true;
             throw error;
           }
@@ -164,7 +167,7 @@ export class PoolTransport<TProviderId extends string = string>
         errors.push(...getReceiptErrors(receipt, selection.entry.transport.id));
       } catch (error) {
         // Handle transport errors
-        if (isAbortError(error) && abortedByCaller) {
+        if (abortedByCaller && isCallerAbort(error, options?.signal)) {
           throw error;
         }
 
@@ -316,46 +319,111 @@ export class PoolTransport<TProviderId extends string = string>
     }
 
     // Create AbortController for timeout
-    const controller = new AbortController();
+    const timeoutController = new AbortController();
     let abortSource: "caller" | "timeout" | undefined;
     const timeoutId = setTimeout(() => {
       abortSource ??= "timeout";
-      controller.abort();
+      timeoutController.abort(createAbortError());
     }, this.config.timeout);
-    let cleanup = () => clearTimeout(timeoutId);
+    let cleanupAbortSource = () => {};
+    let signal = timeoutController.signal;
+    let cleanupCombinedSignal = () => {};
 
     // Combine with existing signal if present
     if (options?.signal) {
-      const abort = () => {
+      const markCallerAbort = () => {
         abortSource ??= "caller";
         clearTimeout(timeoutId);
-        controller.abort();
       };
       if (options.signal.aborted) {
-        abort();
+        markCallerAbort();
       } else {
-        options.signal.addEventListener("abort", abort, { once: true });
+        options.signal.addEventListener("abort", markCallerAbort, {
+          once: true,
+        });
       }
-      cleanup = () => {
-        clearTimeout(timeoutId);
-        options.signal?.removeEventListener("abort", abort);
-      };
+      cleanupAbortSource = () =>
+        options.signal?.removeEventListener("abort", markCallerAbort);
+
+      const combinedSignal = combineSignals(
+        timeoutController.signal,
+        options.signal,
+      );
+      signal = combinedSignal.signal;
+      cleanupCombinedSignal = combinedSignal.cleanup;
     }
 
     // Clean up timeout when done
-    controller.signal.addEventListener("abort", () => {
+    timeoutController.signal.addEventListener("abort", () => {
       clearTimeout(timeoutId);
     });
 
     return {
       options: {
         ...options,
-        signal: controller.signal,
+        signal,
       },
       abortedByCaller: () => abortSource === "caller",
-      cleanup,
+      cleanup: () => {
+        clearTimeout(timeoutId);
+        cleanupAbortSource();
+        cleanupCombinedSignal();
+      },
     };
   }
+}
+
+interface CombinedSignal {
+  readonly signal: AbortSignal;
+  cleanup(): void;
+}
+
+function combineSignals(
+  timeoutSignal: AbortSignal,
+  externalSignal: AbortSignal,
+): CombinedSignal {
+  if (typeof AbortSignal.any === "function") {
+    return {
+      signal: AbortSignal.any([timeoutSignal, externalSignal]),
+      cleanup: () => {},
+    };
+  }
+
+  const controller = new AbortController();
+  const abort = (signal: AbortSignal) => {
+    controller.abort(getAbortReason(signal));
+  };
+  const abortTimeout = () => abort(timeoutSignal);
+  const abortExternal = () => abort(externalSignal);
+
+  timeoutSignal.addEventListener("abort", abortTimeout, { once: true });
+  externalSignal.addEventListener("abort", abortExternal, { once: true });
+
+  if (timeoutSignal.aborted) {
+    abortTimeout();
+  } else if (externalSignal.aborted) {
+    abortExternal();
+  }
+
+  return {
+    signal: controller.signal,
+    cleanup: () => {
+      timeoutSignal.removeEventListener("abort", abortTimeout);
+      externalSignal.removeEventListener("abort", abortExternal);
+    },
+  };
+}
+
+function getAbortReason(signal: AbortSignal): unknown {
+  return signal.reason ?? createAbortError();
+}
+
+function createAbortError(): DOMException {
+  return new DOMException("The operation was aborted.", "AbortError");
+}
+
+function isCallerAbort(error: unknown, signal?: AbortSignal): boolean {
+  return isAbortError(error) || error === signal?.reason;
 }
 
 function getReceiptErrors<TProviderId extends string>(
