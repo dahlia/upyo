@@ -1,6 +1,6 @@
 import { describe, it } from "node:test";
 import { strict as assert } from "node:assert";
-import type { Receipt, Transport } from "@upyo/core";
+import { createFailedReceipt, type Receipt, type Transport } from "@upyo/core";
 import { OpenTelemetryTransport } from "./opentelemetry-transport.ts";
 import {
   assertions,
@@ -139,6 +139,35 @@ describe("OpenTelemetryTransport", () => {
       const spans = extractSpans(setup.tracerProvider);
       const span = assertions.hasSpan(spans, "email send");
       assert.equal(span.status?.code, 2); // ERROR
+    });
+
+    it("should prefer structured receipt categories for metrics", async () => {
+      const setup = createTestSetup();
+      const transport = new OpenTelemetryTransport(
+        setup.mockTransport,
+        {
+          ...setup.config,
+          errorClassifier: () => "validation",
+        },
+      );
+      const message = createTestMessage();
+      setup.mockTransport.setNextReceipt(
+        createFailedReceipt("Provider throttled the request", {
+          provider: "mock",
+          statusCode: 429,
+        }),
+      );
+
+      const receipt = await transport.send(message);
+
+      assert.equal(receipt.successful, false);
+
+      const metrics = extractMetrics(setup.meterProvider);
+      const failureRecord = metrics
+        .flatMap((metric) => metric.records)
+        .find((record) => record.attributes?.status === "failure");
+
+      assert.equal(failureRecord?.attributes?.error_type, "rate-limit");
     });
 
     it("should respect abort signals", async () => {

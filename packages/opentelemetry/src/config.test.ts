@@ -135,7 +135,7 @@ describe("config", () => {
 
       for (const error of errors) {
         const category = defaultErrorClassifier(error);
-        assert.equal(category, "rate_limit", `Failed to classify: ${error}`);
+        assert.equal(category, "rate-limit", `Failed to classify: ${error}`);
       }
     });
 
@@ -190,7 +190,7 @@ describe("config", () => {
         const category = defaultErrorClassifier(error);
         assert.equal(
           category,
-          "service_unavailable",
+          "service-unavailable",
           `Failed to classify: ${error}`,
         );
       }
@@ -206,7 +206,7 @@ describe("config", () => {
 
       for (const error of errors) {
         const category = defaultErrorClassifier(error);
-        assert.equal(category, "server_error", `Failed to classify: ${error}`);
+        assert.equal(category, "server-error", `Failed to classify: ${error}`);
       }
     });
 
@@ -231,9 +231,9 @@ describe("config", () => {
       const error2 = new Error("Rate Limit Exceeded");
       const error3 = new Error("rate limit exceeded");
 
-      assert.equal(defaultErrorClassifier(error1), "rate_limit");
-      assert.equal(defaultErrorClassifier(error2), "rate_limit");
-      assert.equal(defaultErrorClassifier(error3), "rate_limit");
+      assert.equal(defaultErrorClassifier(error1), "rate-limit");
+      assert.equal(defaultErrorClassifier(error2), "rate-limit");
+      assert.equal(defaultErrorClassifier(error3), "rate-limit");
     });
   });
 });

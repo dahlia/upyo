@@ -1,7 +1,13 @@
-import type { Message, Receipt, Transport, TransportOptions } from "@upyo/core";
+import {
+  createFailedReceipt,
+  type Message,
+  type Receipt,
+  type Transport,
+  type TransportOptions,
+} from "@upyo/core";
 import type { ResolvedSendGridConfig, SendGridConfig } from "./config.ts";
 import { createSendGridConfig } from "./config.ts";
-import { SendGridHttpClient } from "./http-client.ts";
+import { SendGridApiError, SendGridHttpClient } from "./http-client.ts";
 import { convertMessage } from "./message-converter.ts";
 
 /**
@@ -28,7 +34,9 @@ import { convertMessage } from "./message-converter.ts";
  * }
  * ```
  */
-export class SendGridTransport implements Transport {
+export class SendGridTransport implements Transport<"sendgrid"> {
+  readonly id = "sendgrid";
+
   /**
    * The resolved SendGrid configuration used by this transport.
    */
@@ -79,7 +87,10 @@ export class SendGridTransport implements Transport {
    * @returns A promise that resolves to a receipt indicating success or
    *          failure.
    */
-  async send(message: Message, options?: TransportOptions): Promise<Receipt> {
+  async send(
+    message: Message,
+    options?: TransportOptions,
+  ): Promise<Receipt<"sendgrid">> {
     options?.signal?.throwIfAborted();
 
     try {
@@ -99,16 +110,14 @@ export class SendGridTransport implements Transport {
       return {
         successful: true,
         messageId,
+        provider: "sendgrid",
       };
     } catch (error) {
       const errorMessage = error instanceof Error
         ? error.message
         : String(error);
 
-      return {
-        successful: false,
-        errorMessages: [errorMessage],
-      };
+      return createSendGridFailure(errorMessage, error);
     }
   }
 
@@ -167,7 +176,7 @@ export class SendGridTransport implements Transport {
   async *sendMany(
     messages: Iterable<Message> | AsyncIterable<Message>,
     options?: TransportOptions,
-  ): AsyncIterable<Receipt> {
+  ): AsyncIterable<Receipt<"sendgrid">> {
     options?.signal?.throwIfAborted();
 
     const isAsyncIterable = Symbol.asyncIterator in messages;
@@ -212,4 +221,23 @@ export class SendGridTransport implements Transport {
 
     return `sendgrid-${timestamp}-${random}`;
   }
+}
+
+function createSendGridFailure(
+  message: string,
+  error: unknown,
+): Receipt<"sendgrid"> & { readonly successful: false } {
+  if (error instanceof SendGridApiError) {
+    return createFailedReceipt(message, {
+      provider: "sendgrid",
+      statusCode: error.statusCode,
+      retryAfterMilliseconds: error.retryAfterMilliseconds,
+      attempts: error.attempts,
+    });
+  }
+
+  return createFailedReceipt(message, {
+    provider: "sendgrid",
+    attempts: 1,
+  });
 }

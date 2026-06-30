@@ -719,7 +719,7 @@ const testTransport = createOpenTelemetryTransport(
       if (error instanceof Error) {
         // Custom test error classification
         if (error.message.includes("test-auth-failure")) return "auth";
-        if (error.message.includes("test-rate-limit")) return "rate_limit";
+        if (error.message.includes("test-rate-limit")) return "rate-limit";
       }
       return "test_error";
     },

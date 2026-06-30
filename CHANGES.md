@@ -6,6 +6,37 @@ Version 0.5.0
 
 To be released.
 
+### @upyo/core
+
+ -  Added structured delivery error metadata to failed `Receipt` values.
+    Failed receipts still include `errorMessages` for existing code, and may
+    now also include `errors`, `retryable`, `provider`, `attempts`, and
+    `timestamp` fields for programmatic error handling.  [[#25], [#27]]
+
+    `Receipt`, `ReceiptError`, and `Transport` are now generic over the
+    transport provider id, and `Transport` implementations expose a stable
+    `id` field so `provider` metadata can be type-checked.
+
+     -  Added the `ReceiptError` interface.
+     -  Added the `ReceiptErrorCategory` type.
+     -  Added the `ReceiptErrorClassification` interface.
+     -  Added the `CreateReceiptErrorOptions` interface.
+     -  Added the `CreateFailedReceiptOptions` interface.
+     -  Added the `classifyHttpStatus()` function.
+     -  Added the `classifyReceiptError()` function.
+     -  Added the `createReceiptError()` function.
+     -  Added the `createFailedReceipt()` function.
+     -  Added the `parseRetryAfter()` function.
+
+[#25]: https://github.com/dahlia/upyo/issues/25
+[#27]: https://github.com/dahlia/upyo/pull/27
+
+### @upyo/jmap
+
+ -  Updated `JmapTransport` to return structured failure receipts with
+    provider ids, retryability, HTTP status codes, retry delay metadata from
+    `Retry-After`, and attempt counts where available.  [[#25], [#27]]
+
 ### @upyo/lettermint
 
  -  Added [Lettermint] transport.  [[#22], [#23]]
@@ -26,7 +57,42 @@ To be released.
 [#22]: https://github.com/dahlia/upyo/issues/22
 [#23]: https://github.com/dahlia/upyo/pull/23
 
+### @upyo/mailgun
+
+ -  Updated `MailgunTransport` to return structured failure receipts with
+    provider ids, retryability, HTTP status codes, retry delay metadata from
+    `Retry-After`, and attempt counts where available.  [[#25], [#27]]
+
+### @upyo/plunk
+
+ -  Updated `PlunkTransport` to return structured failure receipts with
+    provider ids, retryability, HTTP status codes, retry delay metadata from
+    `Retry-After`, and attempt counts where available.  [[#25], [#27]]
+
+### @upyo/resend
+
+ -  Updated `ResendTransport` to return structured failure receipts with
+    provider ids, retryability, HTTP status codes, retry delay metadata from
+    `Retry-After`, and attempt counts where available.  Batch item failures
+    now include structured error metadata as well.  [[#25], [#27]]
+
+### @upyo/sendgrid
+
+ -  Updated `SendGridTransport` to return structured failure receipts with
+    provider ids, retryability, HTTP status codes, retry delay metadata from
+    `Retry-After`, and attempt counts where available.  [[#25], [#27]]
+
+### @upyo/ses
+
+ -  Updated `SesTransport` to return structured failure receipts with provider
+    ids, retryability, HTTP status codes, retry delay metadata from
+    `Retry-After`, and attempt counts where available.  [[#25], [#27]]
+
 ### @upyo/smtp
+
+ -  Updated `SmtpTransport` to return structured failure receipts with
+    provider ids, retryability, attempt counts, and classified network,
+    timeout, authentication, and rejection errors.  [[#25], [#27]]
 
  -  Added OAuth 2.0 authentication support to the SMTP transport, using the
     SASL *XOAUTH2* and *OAUTHBEARER* ([RFC 7628]) mechanisms.  This enables
@@ -63,6 +129,21 @@ To be released.
 [RFC 7628]: https://www.rfc-editor.org/rfc/rfc7628
 [#19]: https://github.com/dahlia/upyo/issues/19
 [#24]: https://github.com/dahlia/upyo/pull/24
+
+### @upyo/pool
+
+ -  Updated `PoolTransport` to preserve child transport provider ids in
+    aggregated structured errors.  The pool itself reports failed aggregate
+    receipts with the `"pool"` provider id, while child errors keep the
+    underlying transport ids as a type-safe union.  [[#25], [#27]]
+
+### @upyo/opentelemetry
+
+ -  Changed the built-in error category labels from underscore spelling to
+    hyphen spelling: `rate-limit`, `service-unavailable`, and `server-error`.
+    OpenTelemetry metrics now prefer structured receipt categories when a
+    wrapped transport returns them, then fall back to the configured error
+    classifier.  [[#25], [#27]]
 
 
 Version 0.4.0

@@ -161,15 +161,15 @@ if ($failed | is-not-empty) {
 
 [tasks."test:node"]
 description = "Run Node.js tests for all packages"
-run = "mise run '//packages/...:test:node'"
+run = "mise run --jobs 1 '//packages/...:test:node'"
 
 [tasks."test:bun"]
 description = "Run Bun tests for all packages"
-run = "mise run '//packages/...:test:bun'"
+run = "mise run --jobs 1 '//packages/...:test:bun'"
 
 [tasks.test]
 description = "Run tests across Deno, Node.js, and Bun"
-depends = ["test:deno", "test:node", "test:bun"]
+run = ["mise run test:deno", "mise run test:node", "mise run test:bun"]
 
 [tasks."docs:dev"]
 description = "Start the documentation dev server"

@@ -1,3 +1,4 @@
+import { parseRetryAfter } from "@upyo/core";
 import type { ResolvedMailgunConfig } from "./config.ts";
 
 /**
@@ -99,6 +100,8 @@ export class MailgunHttpClient {
           throw new MailgunApiError(
             errorMessage || text || `HTTP ${response.status}`,
             response.status,
+            parseRetryAfter(response.headers.get("Retry-After")),
+            attempt + 1,
           );
         }
 
@@ -187,10 +190,19 @@ export class MailgunHttpClient {
  */
 export class MailgunApiError extends Error {
   public statusCode?: number;
+  public retryAfterMilliseconds?: number;
+  public attempts?: number;
 
-  constructor(message: string, statusCode?: number) {
+  constructor(
+    message: string,
+    statusCode?: number,
+    retryAfterMilliseconds?: number,
+    attempts?: number,
+  ) {
     super(message);
     this.name = "MailgunApiError";
     this.statusCode = statusCode;
+    this.retryAfterMilliseconds = retryAfterMilliseconds;
+    this.attempts = attempts;
   }
 }

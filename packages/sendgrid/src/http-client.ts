@@ -1,3 +1,4 @@
+import { parseRetryAfter } from "@upyo/core";
 import type { ResolvedSendGridConfig } from "./config.ts";
 
 /**
@@ -121,6 +122,8 @@ export class SendGridHttpClient {
           errorData.message || `HTTP ${response.status}`,
           response.status,
           errorData.errors,
+          parseRetryAfter(response.headers.get("Retry-After")),
+          attempt + 1,
         );
       } catch (error) {
         lastError = error instanceof Error ? error : new Error(String(error));
@@ -222,6 +225,8 @@ export class SendGridApiError extends Error {
     readonly field?: string;
     readonly help?: string;
   }[];
+  readonly retryAfterMilliseconds?: number;
+  readonly attempts?: number;
 
   constructor(
     message: string,
@@ -231,10 +236,14 @@ export class SendGridApiError extends Error {
       field?: string;
       help?: string;
     }>,
+    retryAfterMilliseconds?: number,
+    attempts?: number,
   ) {
     super(message);
     this.name = "SendGridApiError";
     this.statusCode = statusCode;
     this.errors = errors;
+    this.retryAfterMilliseconds = retryAfterMilliseconds;
+    this.attempts = attempts;
   }
 }

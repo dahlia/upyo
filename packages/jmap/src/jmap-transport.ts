@@ -1,10 +1,12 @@
 import type {
   Attachment,
+  CreateFailedReceiptOptions,
   Message,
   Receipt,
   Transport,
   TransportOptions,
 } from "@upyo/core";
+import { createFailedReceipt } from "@upyo/core";
 import { uploadBlob } from "./blob-uploader.ts";
 import {
   createJmapConfig,
@@ -30,7 +32,9 @@ const JMAP_CAPABILITIES = {
  * JMAP transport for sending emails via JMAP protocol (RFC 8620/8621).
  * @since 0.4.0
  */
-export class JmapTransport implements Transport {
+export class JmapTransport implements Transport<"jmap"> {
+  readonly id = "jmap";
+
   readonly config: ResolvedJmapConfig;
   private readonly httpClient: JmapHttpClient;
   private cachedSession: { session: JmapSession; fetchedAt: number } | null =
@@ -53,7 +57,10 @@ export class JmapTransport implements Transport {
    * @returns A receipt indicating success or failure.
    * @since 0.4.0
    */
-  async send(message: Message, options?: TransportOptions): Promise<Receipt> {
+  async send(
+    message: Message,
+    options?: TransportOptions,
+  ): Promise<Receipt<"jmap">> {
     const signal = options?.signal;
 
     try {
@@ -66,10 +73,15 @@ export class JmapTransport implements Transport {
       // Get account ID
       const accountId = this.config.accountId ?? findMailAccount(session);
       if (!accountId) {
-        return {
-          successful: false,
-          errorMessages: ["No mail-capable account found in JMAP session"],
-        };
+        return createJmapFailure(
+          "No mail-capable account found in JMAP session",
+          undefined,
+          {
+            category: "configuration",
+            code: "jmap.no_mail_account",
+            retryable: false,
+          },
+        );
       }
 
       // Get drafts mailbox ID
@@ -145,25 +157,21 @@ export class JmapTransport implements Transport {
       return this.parseResponse(response);
     } catch (error) {
       if (error instanceof Error && error.name === "AbortError") {
-        return {
-          successful: false,
-          errorMessages: [`Request aborted: ${error.message}`],
-        };
+        return createJmapFailure(`Request aborted: ${error.message}`, error, {
+          category: "timeout",
+          code: "abort",
+          retryable: true,
+        });
       }
 
       if (error instanceof JmapApiError) {
-        return {
-          successful: false,
-          errorMessages: [error.message],
-        };
+        return createJmapFailure(error.message, error);
       }
 
-      return {
-        successful: false,
-        errorMessages: [
-          error instanceof Error ? error.message : String(error),
-        ],
-      };
+      return createJmapFailure(
+        error instanceof Error ? error.message : String(error),
+        error,
+      );
     }
   }
 
@@ -177,7 +185,7 @@ export class JmapTransport implements Transport {
   async *sendMany(
     messages: Iterable<Message> | AsyncIterable<Message>,
     options?: TransportOptions,
-  ): AsyncIterable<Receipt> {
+  ): AsyncIterable<Receipt<"jmap">> {
     const signal = options?.signal;
 
     // Collect all messages into an array first
@@ -208,10 +216,15 @@ export class JmapTransport implements Transport {
       const accountId = this.config.accountId ?? findMailAccount(session);
       if (!accountId) {
         for (let i = 0; i < messageArray.length; i++) {
-          yield {
-            successful: false,
-            errorMessages: ["No mail-capable account found in JMAP session"],
-          };
+          yield createJmapFailure(
+            "No mail-capable account found in JMAP session",
+            undefined,
+            {
+              category: "configuration",
+              code: "jmap.no_mail_account",
+              retryable: false,
+            },
+          );
         }
         return;
       }
@@ -329,10 +342,7 @@ export class JmapTransport implements Transport {
       }
 
       for (let i = 0; i < messageArray.length; i++) {
-        yield {
-          successful: false,
-          errorMessages: [detailedMessage],
-        };
+        yield createJmapFailure(detailedMessage, error);
       }
     }
   }
@@ -602,7 +612,7 @@ export class JmapTransport implements Transport {
    * @returns A receipt indicating success or failure.
    * @since 0.4.0
    */
-  private parseResponse(response: JmapResponse): Receipt {
+  private parseResponse(response: JmapResponse): Receipt<"jmap"> {
     const errors: string[] = [];
 
     // Check Email/set response
@@ -655,6 +665,7 @@ export class JmapTransport implements Transport {
         return {
           successful: true,
           messageId: submissionResult.created.submission.id,
+          provider: "jmap",
         };
       }
     }
@@ -664,10 +675,12 @@ export class JmapTransport implements Transport {
       errors.push("Unknown error: No submission result received");
     }
 
-    return {
-      successful: false,
-      errorMessages: errors,
-    };
+    return createFailedReceipt(errors, {
+      provider: "jmap",
+      category: "rejected",
+      code: "jmap.submission_failed",
+      retryable: false,
+    });
   }
 
   /**
@@ -680,7 +693,7 @@ export class JmapTransport implements Transport {
   private parseBatchResponseForIndex(
     response: JmapResponse,
     index: number,
-  ): Receipt {
+  ): Receipt<"jmap"> {
     const errors: string[] = [];
     const draftKey = `draft${index}`;
     const subKey = `sub${index}`;
@@ -731,6 +744,7 @@ export class JmapTransport implements Transport {
         return {
           successful: true,
           messageId: submissionResult.created[subKey].id,
+          provider: "jmap",
         };
       }
     }
@@ -740,9 +754,43 @@ export class JmapTransport implements Transport {
       errors.push("Unknown error: No submission result received");
     }
 
-    return {
-      successful: false,
-      errorMessages: errors,
-    };
+    return createFailedReceipt(errors, {
+      provider: "jmap",
+      category: "rejected",
+      code: "jmap.submission_failed",
+      retryable: false,
+    });
   }
+}
+
+interface JmapFailureOverride {
+  readonly category?: CreateFailedReceiptOptions<"jmap">["category"];
+  readonly code?: string;
+  readonly retryable?: boolean;
+}
+
+function createJmapFailure(
+  message: string,
+  error?: unknown,
+  override: JmapFailureOverride = {},
+): Receipt<"jmap"> & { readonly successful: false } {
+  if (error instanceof JmapApiError) {
+    return createFailedReceipt(message, {
+      provider: "jmap",
+      statusCode: error.statusCode,
+      retryAfterMilliseconds: error.retryAfterMilliseconds,
+      attempts: error.attempts,
+      category: override.category,
+      code: override.code,
+      retryable: override.retryable,
+    });
+  }
+
+  return createFailedReceipt(message, {
+    provider: "jmap",
+    attempts: 1,
+    category: override.category,
+    code: override.code,
+    retryable: override.retryable,
+  });
 }

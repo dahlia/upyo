@@ -31,6 +31,7 @@ describe("MailgunTransport - Send Message", () => {
       const transport = new MailgunTransport({
         apiKey: "test-key",
         domain: "test-domain.com",
+        retries: 0,
       });
 
       const message: Message = {
@@ -80,6 +81,7 @@ describe("MailgunTransport - API Errors", () => {
       const transport = new MailgunTransport({
         apiKey: "test-key",
         domain: "test-domain.com",
+        retries: 0,
       });
 
       const message: Message = {
@@ -102,6 +104,66 @@ describe("MailgunTransport - API Errors", () => {
       if (!receipt.successful) {
         assert.equal(receipt.errorMessages.length, 1);
         assert.equal(receipt.errorMessages[0], "Bad Request");
+        assert.equal(receipt.provider, "mailgun");
+        assert.equal(receipt.retryable, false);
+        assert.equal(receipt.attempts, 1);
+        assert.equal(receipt.errors?.[0]?.category, "validation");
+        assert.equal(receipt.errors?.[0]?.statusCode, 400);
+      }
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+  });
+});
+
+describe("MailgunTransport - Structured Rate Limit Errors", () => {
+  it("should expose rate limit retry metadata", async () => {
+    const originalFetch = globalThis.fetch;
+    try {
+      // deno-lint-ignore require-await
+      globalThis.fetch = async () => {
+        return new Response(
+          JSON.stringify({
+            message: "Too Many Requests",
+          }),
+          {
+            status: 429,
+            headers: {
+              "Content-Type": "application/json",
+              "Retry-After": "45",
+            },
+          },
+        );
+      };
+
+      const transport = new MailgunTransport({
+        apiKey: "test-key",
+        domain: "test-domain.com",
+        retries: 0,
+      });
+
+      const message: Message = {
+        sender: { address: "sender@example.com" },
+        recipients: [{ address: "recipient@example.com" }],
+        ccRecipients: [],
+        bccRecipients: [],
+        replyRecipients: [],
+        subject: "Test Subject",
+        content: { text: "Test content" },
+        attachments: [],
+        priority: "normal",
+        tags: [],
+        headers: new Headers(),
+      };
+
+      const receipt = await transport.send(message);
+
+      assert.equal(receipt.successful, false);
+      if (!receipt.successful) {
+        assert.equal(receipt.retryable, true);
+        assert.equal(receipt.errors?.[0]?.category, "rate-limit");
+        assert.equal(receipt.errors?.[0]?.code, "http.429");
+        assert.equal(receipt.errors?.[0]?.retryAfterMilliseconds, 45_000);
       }
     } finally {
       globalThis.fetch = originalFetch;
@@ -122,6 +184,7 @@ describe("MailgunTransport - Network Errors", () => {
       const transport = new MailgunTransport({
         apiKey: "test-key",
         domain: "test-domain.com",
+        retries: 0,
       });
 
       const message: Message = {
@@ -144,6 +207,9 @@ describe("MailgunTransport - Network Errors", () => {
       if (!receipt.successful) {
         assert.equal(receipt.errorMessages.length, 1);
         assert.equal(receipt.errorMessages[0], "Network error");
+        assert.equal(receipt.provider, "mailgun");
+        assert.equal(receipt.retryable, true);
+        assert.equal(receipt.errors?.[0]?.category, "network");
       }
     } finally {
       globalThis.fetch = originalFetch;
@@ -173,6 +239,7 @@ describe("MailgunTransport - Multiple Messages", () => {
       const transport = new MailgunTransport({
         apiKey: "test-key",
         domain: "test-domain.com",
+        retries: 0,
       });
 
       const messages: Message[] = [
@@ -255,6 +322,7 @@ describe("MailgunTransport - Abort Signal", () => {
       const transport = new MailgunTransport({
         apiKey: "test-key",
         domain: "test-domain.com",
+        retries: 0,
       });
 
       const message: Message = {
@@ -499,6 +567,7 @@ describe("MailgunTransport - Connection Timeouts", () => {
         apiKey: "test-key",
         domain: "test-domain.com",
         timeout: 100, // Short timeout
+        retries: 0,
       });
 
       const message: Message = {
@@ -569,6 +638,7 @@ describe("MailgunTransport - Concurrent Error Handling", () => {
       const transport = new MailgunTransport({
         apiKey: "test-key",
         domain: "test-domain.com",
+        retries: 0,
       });
 
       const messages: Message[] = Array.from({ length: 4 }, (_, i) => ({

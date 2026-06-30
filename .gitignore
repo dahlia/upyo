@@ -4,3 +4,4 @@ packages/*/dist/
 coverage/
 junit.xml
 node_modules/
+tmp/

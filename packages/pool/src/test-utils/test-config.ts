@@ -33,6 +33,7 @@ export function createSuccessTransport(
   transport.setNextResponse({
     successful: true,
     messageId,
+    provider: "mock",
   });
   return transport;
 }
@@ -47,6 +48,7 @@ export function createFailureTransport(
   transport.setNextResponse({
     successful: false,
     errorMessages: [errorMessage],
+    provider: "mock",
   });
   return transport;
 }
@@ -67,17 +69,19 @@ export function createFlakeyTransport(
   transport.send = (
     message: Message,
     options?: import("@upyo/core").TransportOptions,
-  ): Promise<Receipt> => {
+  ): Promise<Receipt<"mock">> => {
     attempts++;
     if (attempts <= failureCount) {
       transport.setNextResponse({
         successful: false,
         errorMessages: [errorMessage],
+        provider: "mock",
       });
     } else {
       transport.setNextResponse({
         successful: true,
         messageId: successId,
+        provider: "mock",
       });
     }
     return originalSend(message, options);

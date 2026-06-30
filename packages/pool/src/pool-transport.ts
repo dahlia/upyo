@@ -1,4 +1,12 @@
-import type { Message, Receipt, Transport, TransportOptions } from "@upyo/core";
+import {
+  createFailedReceipt,
+  createReceiptError,
+  type Message,
+  type Receipt,
+  type ReceiptError,
+  type Transport,
+  type TransportOptions,
+} from "@upyo/core";
 import {
   createPoolConfig,
   type PoolConfig,
@@ -65,13 +73,16 @@ import { SelectorStrategy } from "./strategies/selector-strategy.ts";
  *
  * @since 0.3.0
  */
-export class PoolTransport implements Transport, AsyncDisposable {
+export class PoolTransport<TProviderId extends string = string>
+  implements Transport<TProviderId | "pool">, AsyncDisposable {
+  readonly id = "pool";
+
   /**
    * The resolved configuration used by this pool transport.
    */
-  readonly config: ResolvedPoolConfig;
+  readonly config: ResolvedPoolConfig<TProviderId>;
 
-  private readonly strategy: Strategy;
+  private readonly strategy: Strategy<TProviderId>;
 
   /**
    * Creates a new PoolTransport instance.
@@ -79,7 +90,7 @@ export class PoolTransport implements Transport, AsyncDisposable {
    * @param config Configuration options for the pool transport.
    * @throws {Error} If the configuration is invalid.
    */
-  constructor(config: PoolConfig) {
+  constructor(config: PoolConfig<TProviderId>) {
     this.config = createPoolConfig(config);
     this.strategy = this.createStrategy(this.config.strategy);
   }
@@ -95,11 +106,13 @@ export class PoolTransport implements Transport, AsyncDisposable {
    * @param options Optional transport options including abort signal.
    * @returns A promise that resolves to a receipt indicating success or failure.
    */
-  async send(message: Message, options?: TransportOptions): Promise<Receipt> {
+  async send(
+    message: Message,
+    options?: TransportOptions,
+  ): Promise<Receipt<TProviderId | "pool">> {
     const attemptedIndices = new Set<number>();
-    const errors: string[] = [];
-    // Track errors from all attempts
-    // let lastReceipt: Receipt | null = null; // Removed as it was unused
+    const errorMessages: string[] = [];
+    const errors: ReceiptError<TProviderId | "pool">[] = [];
 
     for (let attempt = 0; attempt < this.config.maxRetries; attempt++) {
       // Check for cancellation
@@ -131,15 +144,13 @@ export class PoolTransport implements Transport, AsyncDisposable {
           sendOptions,
         );
 
-        // Track receipt for potential error collection
-        // lastReceipt = receipt; // Removed as lastReceipt was removed
-
         if (receipt.successful) {
           return receipt;
         }
 
         // Collect error messages for failed attempts
-        errors.push(...receipt.errorMessages);
+        errorMessages.push(...receipt.errorMessages);
+        errors.push(...getReceiptErrors(receipt, selection.entry.transport.id));
       } catch (error) {
         // Handle transport errors
         if (error instanceof DOMException && error.name === "AbortError") {
@@ -149,17 +160,24 @@ export class PoolTransport implements Transport, AsyncDisposable {
         const errorMessage = error instanceof Error
           ? error.message
           : String(error);
-        errors.push(errorMessage);
+        errorMessages.push(errorMessage);
+        errors.push(createReceiptError(errorMessage, {
+          provider: selection.entry.transport.id,
+        }));
       }
     }
 
     // All attempts failed
-    return {
-      successful: false,
-      errorMessages: errors.length > 0
-        ? errors
+    return createFailedReceipt<TProviderId | "pool">(
+      errorMessages.length > 0
+        ? errorMessages
         : ["All transports failed to send the message"],
-    };
+      {
+        provider: "pool",
+        errors: errors.length > 0 ? errors : undefined,
+        attempts: attemptedIndices.size,
+      },
+    );
   }
 
   /**
@@ -175,7 +193,7 @@ export class PoolTransport implements Transport, AsyncDisposable {
   async *sendMany(
     messages: Iterable<Message> | AsyncIterable<Message>,
     options?: TransportOptions,
-  ): AsyncIterable<Receipt> {
+  ): AsyncIterable<Receipt<TProviderId | "pool">> {
     // Reset strategy state for batch operations
     this.strategy.reset();
 
@@ -230,7 +248,9 @@ export class PoolTransport implements Transport, AsyncDisposable {
   /**
    * Creates a strategy instance based on the strategy type or returns the provided strategy.
    */
-  private createStrategy(strategy: PoolStrategy | Strategy): Strategy {
+  private createStrategy(
+    strategy: PoolStrategy | Strategy<TProviderId>,
+  ): Strategy<TProviderId> {
     // If it's already a Strategy instance, return it directly
     if (typeof strategy === "object" && strategy !== null) {
       return strategy;
@@ -239,13 +259,13 @@ export class PoolTransport implements Transport, AsyncDisposable {
     // Handle built-in strategy names
     switch (strategy) {
       case "round-robin":
-        return new RoundRobinStrategy();
+        return new RoundRobinStrategy<TProviderId>();
       case "weighted":
-        return new WeightedStrategy();
+        return new WeightedStrategy<TProviderId>();
       case "priority":
-        return new PriorityStrategy();
+        return new PriorityStrategy<TProviderId>();
       case "selector-based":
-        return new SelectorStrategy();
+        return new SelectorStrategy<TProviderId>();
       default:
         throw new Error(`Unknown strategy: ${strategy}`);
     }
@@ -286,4 +306,19 @@ export class PoolTransport implements Transport, AsyncDisposable {
       signal: controller.signal,
     };
   }
+}
+
+function getReceiptErrors<TProviderId extends string>(
+  receipt: Receipt<TProviderId> & { readonly successful: false },
+  provider: TProviderId,
+): readonly ReceiptError<TProviderId>[] {
+  if (receipt.errors != null && receipt.errors.length > 0) {
+    return receipt.errors.map((error) =>
+      error.provider == null ? { ...error, provider } : error
+    );
+  }
+
+  return receipt.errorMessages.map((message) =>
+    createReceiptError(message, { provider: receipt.provider ?? provider })
+  );
 }

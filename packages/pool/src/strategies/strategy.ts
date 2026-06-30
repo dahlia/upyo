@@ -5,11 +5,11 @@ import type { ResolvedTransportEntry } from "../config.ts";
  * Result of transport selection by a strategy.
  * @since 0.3.0
  */
-export interface TransportSelection {
+export interface TransportSelection<TProviderId extends string = string> {
   /**
    * The selected transport entry.
    */
-  readonly entry: ResolvedTransportEntry;
+  readonly entry: ResolvedTransportEntry<TProviderId>;
 
   /**
    * Index of the selected transport in the original list.
@@ -21,7 +21,7 @@ export interface TransportSelection {
  * Base interface for transport selection strategies.
  * @since 0.3.0
  */
-export interface Strategy {
+export interface Strategy<TProviderId extends string = string> {
   /**
    * Selects a transport for sending a message.
    *
@@ -34,9 +34,9 @@ export interface Strategy {
    */
   select(
     message: Message,
-    transports: readonly ResolvedTransportEntry[],
+    transports: readonly ResolvedTransportEntry<TProviderId>[],
     attemptedIndices: Set<number>,
-  ): TransportSelection | undefined;
+  ): TransportSelection<TProviderId> | undefined;
 
   /**
    * Resets any internal state of the strategy.

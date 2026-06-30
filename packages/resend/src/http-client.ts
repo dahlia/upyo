@@ -1,3 +1,4 @@
+import { parseRetryAfter } from "@upyo/core";
 import type { ResolvedResendConfig } from "./config.ts";
 
 /**
@@ -40,11 +41,20 @@ export interface ResendError {
  */
 export class ResendApiError extends Error {
   readonly statusCode: number;
+  readonly retryAfterMilliseconds?: number;
+  readonly attempts?: number;
 
-  constructor(message: string, statusCode: number) {
+  constructor(
+    message: string,
+    statusCode: number,
+    retryAfterMilliseconds?: number,
+    attempts?: number,
+  ) {
     super(message);
     this.name = "ResendApiError";
     this.statusCode = statusCode;
+    this.retryAfterMilliseconds = retryAfterMilliseconds;
+    this.attempts = attempts;
   }
 }
 
@@ -157,6 +167,8 @@ export class ResendHttpClient {
           throw new ResendApiError(
             errorMessage || text || `HTTP ${response.status}`,
             response.status,
+            parseRetryAfter(response.headers.get("Retry-After")),
+            attempt + 1,
           );
         }
 

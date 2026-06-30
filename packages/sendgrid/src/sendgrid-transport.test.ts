@@ -3,7 +3,30 @@ import { SendGridTransport } from "@upyo/sendgrid";
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-describe("SendGridTransport", () => {
+let fetchMockChain = Promise.resolve();
+
+async function withMockedFetch<T>(
+  fetchMock: typeof globalThis.fetch,
+  callback: () => Promise<T>,
+): Promise<T> {
+  const previous = fetchMockChain;
+  let release: () => void = () => {};
+  fetchMockChain = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  await previous;
+
+  const originalFetch = globalThis.fetch;
+  try {
+    globalThis.fetch = fetchMock;
+    return await callback();
+  } finally {
+    globalThis.fetch = originalFetch;
+    release();
+  }
+}
+
+describe("SendGridTransport", { concurrency: false }, () => {
   const basicMessage: Message = {
     sender: { address: "from@example.com" },
     recipients: [{ address: "to@example.com" }],
@@ -97,6 +120,67 @@ describe("SendGridTransport", () => {
         error.name === "AbortError" || error.message.includes("aborted"),
       );
     }
+  });
+
+  it("should expose structured API error metadata", async () => {
+    await withMockedFetch(
+      () =>
+        Promise.resolve(
+          new Response(
+            JSON.stringify({
+              message: "Too Many Requests",
+              errors: [{ message: "Rate limit exceeded" }],
+            }),
+            {
+              status: 429,
+              headers: { "Retry-After": "30" },
+            },
+          ),
+        ),
+      async () => {
+        const transport = new SendGridTransport({
+          apiKey: "SG.test-key",
+          retries: 0,
+        });
+
+        const receipt = await transport.send(basicMessage);
+
+        assert.equal(receipt.successful, false);
+        if (!receipt.successful) {
+          assert.deepEqual(receipt.errorMessages, ["Too Many Requests"]);
+          assert.equal(receipt.provider, "sendgrid");
+          assert.equal(receipt.retryable, true);
+          assert.equal(receipt.attempts, 1);
+          assert.equal(receipt.errors?.[0]?.category, "rate-limit");
+          assert.equal(receipt.errors?.[0]?.code, "http.429");
+          assert.equal(receipt.errors?.[0]?.statusCode, 429);
+          assert.equal(receipt.errors?.[0]?.retryAfterMilliseconds, 30_000);
+        }
+      },
+    );
+  });
+
+  it("should expose structured network error metadata", async () => {
+    await withMockedFetch(
+      () => {
+        throw new TypeError("fetch failed");
+      },
+      async () => {
+        const transport = new SendGridTransport({
+          apiKey: "SG.test-key",
+          retries: 0,
+        });
+
+        const receipt = await transport.send(basicMessage);
+
+        assert.equal(receipt.successful, false);
+        if (!receipt.successful) {
+          assert.equal(receipt.provider, "sendgrid");
+          assert.equal(receipt.retryable, true);
+          assert.equal(receipt.errors?.[0]?.category, "network");
+        }
+      },
+    );
   });
 
   // 네트워크 테스트는 E2E 테스트 파일에서 환경 변수와 함께 실행

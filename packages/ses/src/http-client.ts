@@ -1,3 +1,4 @@
+import { parseRetryAfter } from "@upyo/core";
 import type { ResolvedSesConfig } from "./config.ts";
 
 export interface SesResponse {
@@ -71,6 +72,8 @@ export class SesHttpClient {
           errorData.message || `HTTP ${response.status}`,
           response.status,
           errorData.errors,
+          parseRetryAfter(response.headers.get("Retry-After")),
+          attempt + 1,
         );
       } catch (error) {
         lastError = error instanceof Error ? error : new Error(String(error));
@@ -303,6 +306,8 @@ export class SesApiError extends Error {
     readonly field?: string;
     readonly code?: string;
   }[];
+  readonly retryAfterMilliseconds?: number;
+  readonly attempts?: number;
 
   constructor(
     message: string,
@@ -312,10 +317,14 @@ export class SesApiError extends Error {
       field?: string;
       code?: string;
     }>,
+    retryAfterMilliseconds?: number,
+    attempts?: number,
   ) {
     super(message);
     this.name = "SesApiError";
     this.statusCode = statusCode;
     this.errors = errors;
+    this.retryAfterMilliseconds = retryAfterMilliseconds;
+    this.attempts = attempts;
   }
 }

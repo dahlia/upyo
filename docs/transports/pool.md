@@ -291,6 +291,7 @@ const receipt = await pool.send(message);
 if (!receipt.successful) {
   // Contains error messages from all failed attempts
   console.error("All providers failed:", receipt.errorMessages);
+  console.error("Failed providers:", receipt.errors?.map(e => e.provider));
   // Example: [
   //   "Provider 1: Connection timeout",
   //   "Provider 2: Rate limit exceeded",
@@ -299,8 +300,10 @@ if (!receipt.successful) {
 }
 ~~~~
 
-The pool aggregates error messages from all failed attempts, giving you
-complete visibility into what went wrong across all providers.
+The pool aggregates error messages and structured errors from all failed
+attempts, giving you complete visibility into what went wrong across all
+providers.  Structured errors use each child transport's provider `id`, so
+fallback failures remain tied to the transport that produced them.
 
 
 Custom strategies

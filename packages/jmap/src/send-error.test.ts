@@ -39,6 +39,10 @@ describe("JmapTransport send error", () => {
       assert.equal(receipt.successful, false);
       if (!receipt.successful) {
         assert.ok(receipt.errorMessages.length > 0);
+        assert.equal(receipt.provider, "jmap");
+        assert.equal(receipt.retryable, false);
+        assert.equal(receipt.errors?.[0]?.category, "auth");
+        assert.equal(receipt.errors?.[0]?.statusCode, 401);
       }
     } finally {
       globalThis.fetch = originalFetch;

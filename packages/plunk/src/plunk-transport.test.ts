@@ -117,6 +117,12 @@ describe("PlunkTransport - HTTP 500 error", () => {
       const receipt = await transport.send(message);
 
       assert.equal(receipt.successful, false);
+      if (!receipt.successful) {
+        assert.equal(receipt.provider, "plunk");
+        assert.equal(receipt.retryable, true);
+        assert.equal(receipt.errors?.[0]?.category, "server-error");
+        assert.equal(receipt.errors?.[0]?.statusCode, 500);
+      }
     } finally {
       globalThis.fetch = originalFetch;
     }
@@ -141,6 +147,12 @@ describe("PlunkTransport - HTTP 400 error", () => {
 
       assert.equal(receipt.successful, false);
       assert.ok(Array.isArray(receipt.errorMessages));
+      if (!receipt.successful) {
+        assert.equal(receipt.provider, "plunk");
+        assert.equal(receipt.retryable, false);
+        assert.equal(receipt.errors?.[0]?.category, "validation");
+        assert.equal(receipt.errors?.[0]?.statusCode, 400);
+      }
     } finally {
       globalThis.fetch = originalFetch;
     }

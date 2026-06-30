@@ -1,3 +1,4 @@
+import { parseRetryAfter } from "@upyo/core";
 import type { ResolvedPlunkConfig } from "./config.ts";
 
 /**
@@ -47,6 +48,28 @@ export interface PlunkError {
 }
 
 /**
+ * Plunk API error.
+ */
+export class PlunkApiError extends Error {
+  readonly statusCode?: number;
+  readonly retryAfterMilliseconds?: number;
+  readonly attempts?: number;
+
+  constructor(
+    message: string,
+    statusCode?: number,
+    retryAfterMilliseconds?: number,
+    attempts?: number,
+  ) {
+    super(message);
+    this.name = "PlunkApiError";
+    this.statusCode = statusCode;
+    this.retryAfterMilliseconds = retryAfterMilliseconds;
+    this.attempts = attempts;
+  }
+}
+
+/**
  * HTTP client wrapper for Plunk API requests.
  *
  * This class handles authentication, request formatting, error handling,
@@ -93,14 +116,22 @@ export class PlunkHttpClient {
         lastError = error instanceof Error ? error : new Error(String(error));
 
         // Don't retry on client errors (4xx) or AbortError
-        if (error instanceof Error) {
-          if (error.name === "AbortError") {
-            throw error;
-          }
+        if (error instanceof Error && error.name === "AbortError") {
+          throw error;
+        }
 
-          if (error.message.includes("status: 4")) {
-            throw this.createPlunkError(error.message, 400);
-          }
+        if (
+          error instanceof PlunkApiError &&
+          error.statusCode !== undefined &&
+          error.statusCode >= 400 &&
+          error.statusCode < 500
+        ) {
+          throw new PlunkApiError(
+            error.message,
+            error.statusCode,
+            error.retryAfterMilliseconds,
+            attempt + 1,
+          );
         }
 
         // If this was the last attempt, throw the error
@@ -116,7 +147,15 @@ export class PlunkHttpClient {
 
     // All retries failed
     const errorMessage = lastError?.message ?? "Unknown error occurred";
-    throw this.createPlunkError(errorMessage);
+    if (lastError instanceof PlunkApiError) {
+      throw new PlunkApiError(
+        lastError.message,
+        lastError.statusCode,
+        lastError.retryAfterMilliseconds,
+        this.config.retries + 1,
+      );
+    }
+    throw new PlunkApiError(errorMessage);
   }
 
   /**
@@ -163,8 +202,10 @@ export class PlunkHttpClient {
         errorBody = "Failed to read error response";
       }
 
-      throw new Error(
+      throw new PlunkApiError(
         `HTTP ${response.status}: ${response.statusText}. ${errorBody}`,
+        response.status,
+        parseRetryAfter(response.headers.get("Retry-After")),
       );
     }
 
@@ -203,23 +244,6 @@ export class PlunkHttpClient {
       }
       throw error;
     }
-  }
-
-  /**
-   * Creates a PlunkError from an error message and optional status code.
-   *
-   * @param message - The error message
-   * @param statusCode - Optional HTTP status code
-   * @returns PlunkError instance
-   */
-  private createPlunkError(
-    message: string,
-    statusCode?: number,
-  ): PlunkError {
-    return {
-      message,
-      statusCode,
-    };
   }
 
   /**

@@ -2,7 +2,13 @@ import assert from "node:assert/strict";
 import { describe, test } from "node:test";
 import { PoolTransport } from "./pool-transport.ts";
 import { MockTransport } from "@upyo/mock";
-import type { Receipt } from "@upyo/core";
+import {
+  createFailedReceipt,
+  type Message,
+  type Receipt,
+  type Transport,
+  type TransportOptions,
+} from "@upyo/core";
 import {
   createFailureTransport,
   createSuccessTransport,
@@ -10,6 +16,38 @@ import {
 } from "./test-utils/test-config.ts";
 
 describe("PoolTransport", () => {
+  class FixedFailureTransport<TProviderId extends string>
+    implements Transport<TProviderId> {
+    readonly id: TProviderId;
+    private readonly receipt: Receipt<TProviderId> & {
+      readonly successful: false;
+    };
+
+    constructor(
+      id: TProviderId,
+      receipt: Receipt<TProviderId> & { readonly successful: false },
+    ) {
+      this.id = id;
+      this.receipt = receipt;
+    }
+
+    send(
+      _message: Message,
+      _options?: TransportOptions,
+    ): Promise<Receipt<TProviderId>> {
+      return Promise.resolve(this.receipt);
+    }
+
+    async *sendMany(
+      messages: Iterable<Message> | AsyncIterable<Message>,
+      _options?: TransportOptions,
+    ): AsyncIterable<Receipt<TProviderId>> {
+      for await (const _message of messages) {
+        yield this.receipt;
+      }
+    }
+  }
+
   describe("round-robin strategy", () => {
     test("should distribute messages across transports", async () => {
       const transport1 = new MockTransport();
@@ -77,19 +115,23 @@ describe("PoolTransport", () => {
         ],
       });
 
-      // Send many messages to observe distribution
-      const messageCount = 100;
-      for (let i = 0; i < messageCount; i++) {
-        await pool.send(createTestMessage({ subject: `Message ${i}` }));
+      const originalRandom = Math.random;
+      const randomValues = [0.125, 0.375, 0.625, 0.875];
+      try {
+        Math.random = () => randomValues.shift() ?? 0.875;
+
+        for (let i = 0; i < 4; i++) {
+          await pool.send(createTestMessage({ subject: `Message ${i}` }));
+        }
+      } finally {
+        Math.random = originalRandom;
       }
 
       const count1 = transport1.getSentMessagesCount();
       const count2 = transport2.getSentMessagesCount();
 
-      // Transport2 should receive roughly 3x more messages
-      assert.equal(count1 + count2, messageCount);
-      assert.ok(count2 > count1 * 1.5); // At least 1.5x more
-      assert.ok(count2 < count1 * 5); // At most 5x more
+      assert.equal(count1, 1);
+      assert.equal(count2, 3);
     });
   });
 
@@ -255,6 +297,42 @@ describe("PoolTransport", () => {
       assert.ok(!receipt.successful);
       assert.ok(receipt.errorMessages.includes("Failed 1"));
       assert.ok(receipt.errorMessages.includes("Failed 2"));
+    });
+
+    test("should preserve transport ids in structured failures", async () => {
+      const primary = new FixedFailureTransport(
+        "mailgun",
+        createFailedReceipt("Too many requests", {
+          provider: "mailgun",
+          statusCode: 429,
+        }),
+      );
+      const secondary = new FixedFailureTransport<"sendgrid">("sendgrid", {
+        successful: false,
+        errorMessages: ["Invalid API key"],
+      });
+
+      const pool = new PoolTransport({
+        strategy: "round-robin",
+        transports: [
+          { transport: primary },
+          { transport: secondary },
+        ],
+      });
+
+      const receipt = await pool.send(createTestMessage());
+
+      assert.equal(receipt.successful, false);
+      if (!receipt.successful) {
+        assert.equal(receipt.provider, "pool");
+        assert.equal(receipt.attempts, 2);
+        assert.deepEqual(
+          receipt.errors?.map((error) => error.provider),
+          ["mailgun", "sendgrid"],
+        );
+        assert.equal(receipt.errors?.[0]?.category, "rate-limit");
+        assert.equal(receipt.errors?.[1]?.category, "auth");
+      }
     });
 
     test("should respect maxRetries limit", async () => {

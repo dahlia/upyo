@@ -210,3 +210,47 @@ test("SesTransport extractMessageId generates synthetic ID", () => {
   assert.ok(messageId.startsWith("ses-"));
   assert.ok(messageId.length > 10);
 });
+
+test("SesTransport returns structured API failures", async () => {
+  const originalFetch = globalThis.fetch;
+  try {
+    globalThis.fetch = () =>
+      Promise.resolve(
+        new Response(
+          JSON.stringify({ message: "Too Many Requests" }),
+          {
+            status: 429,
+            headers: { "Retry-After": "60" },
+          },
+        ),
+      );
+
+    const transport = new SesTransport({
+      authentication: {
+        type: "credentials",
+        accessKeyId: "test-key",
+        secretAccessKey: "test-secret",
+      },
+      retries: 0,
+    });
+
+    const receipt = await transport.send(createMessage({
+      from: "sender@example.com",
+      to: "recipient@example.com",
+      subject: "Test Subject",
+      content: { text: "Hello World!" },
+    }));
+
+    assert.equal(receipt.successful, false);
+    if (!receipt.successful) {
+      assert.equal(receipt.provider, "ses");
+      assert.equal(receipt.retryable, true);
+      assert.equal(receipt.attempts, 1);
+      assert.equal(receipt.errors?.[0]?.category, "rate-limit");
+      assert.equal(receipt.errors?.[0]?.statusCode, 429);
+      assert.equal(receipt.errors?.[0]?.retryAfterMilliseconds, 60_000);
+    }
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});

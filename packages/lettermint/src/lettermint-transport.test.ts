@@ -142,6 +142,10 @@ describe("LettermintTransport - send", { concurrency: false }, () => {
         assert.equal(receipt.successful, false);
         if (!receipt.successful) {
           assert.deepEqual(receipt.errorMessages, ["Invalid API token"]);
+          assert.equal(receipt.provider, "lettermint");
+          assert.equal(receipt.retryable, false);
+          assert.equal(receipt.errors?.[0]?.category, "auth");
+          assert.equal(receipt.errors?.[0]?.statusCode, 401);
         }
       },
     );
@@ -170,6 +174,10 @@ describe("LettermintTransport - send", { concurrency: false }, () => {
           assert.deepEqual(receipt.errorMessages, [
             'Lettermint reported message status "policy_rejected".',
           ]);
+          assert.equal(receipt.provider, "lettermint");
+          assert.equal(receipt.retryable, false);
+          assert.equal(receipt.errors?.[0]?.category, "rejected");
+          assert.equal(receipt.errors?.[0]?.code, "lettermint.policy_rejected");
         }
       },
     );

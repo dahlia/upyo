@@ -1,3 +1,4 @@
+import { parseRetryAfter } from "@upyo/core";
 import type { ResolvedLettermintConfig } from "./config.ts";
 import type { LettermintEmail } from "./message-converter.ts";
 
@@ -62,17 +63,28 @@ export interface LettermintError {
  */
 export class LettermintApiError extends Error {
   readonly statusCode: number;
+  readonly retryAfterMilliseconds?: number;
+  readonly attempts?: number;
 
   /**
    * Creates a Lettermint API error.
    *
    * @param message Error message.
    * @param statusCode HTTP status code.
+   * @param retryAfterMilliseconds Retry delay from the response.
+   * @param attempts Number of attempts made before this error.
    */
-  constructor(message: string, statusCode: number) {
+  constructor(
+    message: string,
+    statusCode: number,
+    retryAfterMilliseconds?: number,
+    attempts?: number,
+  ) {
     super(message);
     this.name = "LettermintApiError";
     this.statusCode = statusCode;
+    this.retryAfterMilliseconds = retryAfterMilliseconds;
+    this.attempts = attempts;
   }
 }
 
@@ -173,6 +185,8 @@ export class LettermintHttpClient {
           throw new LettermintApiError(
             parseErrorMessage(text, response.status),
             response.status,
+            parseRetryAfter(response.headers.get("Retry-After")),
+            attempt + 1,
           );
         }
 

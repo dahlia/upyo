@@ -108,8 +108,31 @@ function handleReceipt(receipt: Receipt) {
     console.log("Message sent with ID:", receipt.messageId);
   } else {
     console.error("Send failed:", receipt.errorMessages.join(", "));
+    console.error("Retryable:", receipt.retryable ?? false);
+
+    for (const error of receipt.errors ?? []) {
+      console.error(error.category, error.code, error.provider);
+    }
   }
 }
+~~~~
+
+Failed receipts keep the legacy `errorMessages` array and can also carry
+structured `errors` for programmatic handling.  Transports use categories such
+as `auth`, `rate-limit`, `network`, `timeout`, `validation`, `rejected`,
+`server-error`, `service-unavailable`, `configuration`, and `unknown`.
+
+When implementing a transport, use `createFailedReceipt()` to keep these fields
+consistent:
+
+~~~~ typescript
+import { createFailedReceipt } from "@upyo/core";
+
+const receipt = createFailedReceipt("HTTP 429: Too Many Requests", {
+  provider: "example",
+  statusCode: 429,
+  retryAfterMilliseconds: 30_000,
+});
 ~~~~
 
 ### Implementing custom transports
@@ -119,16 +142,21 @@ The `Transport` interface defines the contract for all email providers:
 ~~~~ typescript
 import type { Message, Receipt, Transport, TransportOptions } from "@upyo/core";
 
-class MyCustomTransport implements Transport {
-  async send(message: Message, options?: TransportOptions): Promise<Receipt> {
+class MyCustomTransport implements Transport<"example"> {
+  readonly id = "example";
+
+  async send(
+    message: Message,
+    options?: TransportOptions,
+  ): Promise<Receipt<"example">> {
     // Implementation details...
-    return { successful: true, messageId: "12345" };
+    return { successful: true, messageId: "12345", provider: this.id };
   }
 
   async *sendMany(
     messages: Iterable<Message> | AsyncIterable<Message>,
     options?: TransportOptions,
-  ): AsyncIterable<Receipt> {
+  ): AsyncIterable<Receipt<"example">> {
     for await (const message of messages) {
       yield await this.send(message, options);
     }

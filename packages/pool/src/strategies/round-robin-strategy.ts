@@ -10,7 +10,8 @@ import type { Strategy, TransportSelection } from "./strategy.ts";
  * all enabled transports.
  * @since 0.3.0
  */
-export class RoundRobinStrategy implements Strategy {
+export class RoundRobinStrategy<TProviderId extends string = string>
+  implements Strategy<TProviderId> {
   private currentIndex: number = 0;
 
   /**
@@ -25,9 +26,9 @@ export class RoundRobinStrategy implements Strategy {
    */
   select(
     _message: Message,
-    transports: readonly ResolvedTransportEntry[],
+    transports: readonly ResolvedTransportEntry<TProviderId>[],
     attemptedIndices: Set<number>,
-  ): TransportSelection | undefined {
+  ): TransportSelection<TProviderId> | undefined {
     const enabledCount = transports.filter((t) => t.enabled).length;
     if (enabledCount < 1) return undefined;
 

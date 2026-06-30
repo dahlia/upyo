@@ -50,7 +50,7 @@ deno ...$args
 [tasks."test:node"]
 description = "Run @upyo/smtp tests with Node.js"
 depends = ["build"]
-run = "node --experimental-transform-types --test"
+run = "node --experimental-transform-types --test --test-concurrency=1"
 
 [tasks."test:bun"]
 description = "Run @upyo/smtp tests with Bun"

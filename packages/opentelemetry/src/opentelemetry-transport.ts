@@ -67,13 +67,16 @@ import { TracingCollector } from "./tracing.ts";
  *
  * @since 0.2.0
  */
-export class OpenTelemetryTransport implements Transport, AsyncDisposable {
+export class OpenTelemetryTransport<TProviderId extends string = string>
+  implements Transport<TProviderId>, AsyncDisposable {
+  readonly id: TProviderId;
+
   /**
    * The resolved OpenTelemetry configuration.
    */
   readonly config: ResolvedOpenTelemetryConfig;
 
-  private readonly wrappedTransport: Transport;
+  private readonly wrappedTransport: Transport<TProviderId>;
   private readonly metricsCollector?: MetricsCollector;
   private readonly tracingCollector?: TracingCollector;
   private readonly transportName: string;
@@ -85,8 +88,12 @@ export class OpenTelemetryTransport implements Transport, AsyncDisposable {
    * @param transport The base transport to wrap with observability.
    * @param config OpenTelemetry configuration options.
    */
-  constructor(transport: Transport, config: OpenTelemetryConfig = {}) {
+  constructor(
+    transport: Transport<TProviderId>,
+    config: OpenTelemetryConfig = {},
+  ) {
     this.wrappedTransport = transport;
+    this.id = transport.id;
     this.config = createOpenTelemetryConfig(config);
 
     // Extract transport information
@@ -118,7 +125,10 @@ export class OpenTelemetryTransport implements Transport, AsyncDisposable {
    * @param options Optional transport options including abort signal.
    * @returns A promise that resolves to a receipt indicating success or failure.
    */
-  async send(message: Message, options?: TransportOptions): Promise<Receipt> {
+  async send(
+    message: Message,
+    options?: TransportOptions,
+  ): Promise<Receipt<TProviderId>> {
     const startTime = performance.now();
 
     // Create span if tracing is enabled
@@ -156,7 +166,7 @@ export class OpenTelemetryTransport implements Transport, AsyncDisposable {
           true,
         );
       } else {
-        const errorCategory = this.classifyErrors(receipt.errorMessages);
+        const errorCategory = this.classifyReceipt(receipt);
         span?.recordFailure(receipt.errorMessages);
         this.metricsCollector?.recordSendComplete(
           this.transportName,
@@ -195,7 +205,7 @@ export class OpenTelemetryTransport implements Transport, AsyncDisposable {
   async *sendMany(
     messages: Iterable<Message> | AsyncIterable<Message>,
     options?: TransportOptions,
-  ): AsyncIterable<Receipt> {
+  ): AsyncIterable<Receipt<TProviderId>> {
     const startTime = performance.now();
     const messageArray: Message[] = [];
 
@@ -218,7 +228,7 @@ export class OpenTelemetryTransport implements Transport, AsyncDisposable {
 
     let successCount = 0;
     let failureCount = 0;
-    const receipts: Receipt[] = [];
+    const receipts: Receipt<TProviderId>[] = [];
 
     try {
       // Apply custom attributes if configured
@@ -322,7 +332,9 @@ export class OpenTelemetryTransport implements Transport, AsyncDisposable {
     }
   }
 
-  private extractTransportName(transport: Transport): string {
+  private extractTransportName(transport: Transport<TProviderId>): string {
+    if (transport.id !== "") return transport.id;
+
     // Try to extract from constructor name
     const constructorName = transport.constructor.name;
     if (constructorName && constructorName !== "Object") {
@@ -346,7 +358,9 @@ export class OpenTelemetryTransport implements Transport, AsyncDisposable {
     return "unknown";
   }
 
-  private extractTransportVersion(transport: Transport): string | undefined {
+  private extractTransportVersion(
+    transport: Transport<TProviderId>,
+  ): string | undefined {
     // Try to extract version from config or transport properties
     if (
       "config" in transport && transport.config &&
@@ -407,6 +421,14 @@ export class OpenTelemetryTransport implements Transport, AsyncDisposable {
   private classifyError(error: unknown): string {
     const classifier = this.config.errorClassifier || defaultErrorClassifier;
     return classifier(error);
+  }
+
+  private classifyReceipt(
+    receipt: Receipt<TProviderId> & { readonly successful: false },
+  ): string {
+    const structuredCategory = receipt.errors?.[0]?.category;
+    if (structuredCategory != null) return structuredCategory;
+    return this.classifyErrors(receipt.errorMessages);
   }
 
   private classifyErrors(errorMessages: readonly string[]): string {

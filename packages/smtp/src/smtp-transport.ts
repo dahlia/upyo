@@ -1,4 +1,10 @@
-import type { Message, Receipt, Transport, TransportOptions } from "@upyo/core";
+import {
+  createFailedReceipt,
+  type Message,
+  type Receipt,
+  type Transport,
+  type TransportOptions,
+} from "@upyo/core";
 import type { SmtpConfig } from "./config.ts";
 import { SmtpConnection } from "./smtp-connection.ts";
 import { OAuth2TokenManager } from "./oauth2.ts";
@@ -37,7 +43,9 @@ import { convertMessage } from "./message-converter.ts";
  * }
  * ```
  */
-export class SmtpTransport implements Transport, AsyncDisposable {
+export class SmtpTransport implements Transport<"smtp">, AsyncDisposable {
+  readonly id = "smtp";
+
   /**
    * The SMTP configuration used by this transport.
    */
@@ -100,7 +108,10 @@ export class SmtpTransport implements Transport, AsyncDisposable {
    * @returns A promise that resolves to a receipt indicating success or
    *          failure.
    */
-  async send(message: Message, options?: TransportOptions): Promise<Receipt> {
+  async send(
+    message: Message,
+    options?: TransportOptions,
+  ): Promise<Receipt<"smtp">> {
     options?.signal?.throwIfAborted();
 
     let connection: SmtpConnection | undefined;
@@ -129,6 +140,7 @@ export class SmtpTransport implements Transport, AsyncDisposable {
       return {
         successful: true,
         messageId,
+        provider: "smtp",
       };
     } catch (error) {
       if (connection != null) {
@@ -138,10 +150,9 @@ export class SmtpTransport implements Transport, AsyncDisposable {
       // Cancellation rejects rather than producing a receipt.
       options?.signal?.throwIfAborted();
 
-      return {
-        successful: false,
-        errorMessages: [error instanceof Error ? error.message : String(error)],
-      };
+      return createSmtpFailure(
+        error instanceof Error ? error.message : String(error),
+      );
     }
   }
 
@@ -176,7 +187,7 @@ export class SmtpTransport implements Transport, AsyncDisposable {
   async *sendMany(
     messages: Iterable<Message> | AsyncIterable<Message>,
     options?: TransportOptions,
-  ): AsyncIterable<Receipt> {
+  ): AsyncIterable<Receipt<"smtp">> {
     options?.signal?.throwIfAborted();
 
     let connection: SmtpConnection;
@@ -194,10 +205,7 @@ export class SmtpTransport implements Transport, AsyncDisposable {
         : String(error);
       for await (const _ of messages) {
         options?.signal?.throwIfAborted();
-        yield {
-          successful: false,
-          errorMessages: [errorMessage],
-        };
+        yield createSmtpFailure(errorMessage);
       }
       return;
     }
@@ -212,10 +220,7 @@ export class SmtpTransport implements Transport, AsyncDisposable {
           options?.signal?.throwIfAborted();
 
           if (!connectionValid) {
-            yield {
-              successful: false,
-              errorMessages: ["Connection is no longer valid"],
-            };
+            yield createSmtpFailure("Connection is no longer valid");
             continue;
           }
 
@@ -231,6 +236,7 @@ export class SmtpTransport implements Transport, AsyncDisposable {
             yield {
               successful: true,
               messageId,
+              provider: "smtp",
             };
           } catch (error) {
             // Cancellation rejects rather than producing a receipt.
@@ -239,12 +245,9 @@ export class SmtpTransport implements Transport, AsyncDisposable {
             // Mark connection as invalid on any error
             connectionValid = false;
 
-            yield {
-              successful: false,
-              errorMessages: [
-                error instanceof Error ? error.message : String(error),
-              ],
-            };
+            yield createSmtpFailure(
+              error instanceof Error ? error.message : String(error),
+            );
           }
         }
       } else {
@@ -252,10 +255,7 @@ export class SmtpTransport implements Transport, AsyncDisposable {
           options?.signal?.throwIfAborted();
 
           if (!connectionValid) {
-            yield {
-              successful: false,
-              errorMessages: ["Connection is no longer valid"],
-            };
+            yield createSmtpFailure("Connection is no longer valid");
             continue;
           }
 
@@ -271,6 +271,7 @@ export class SmtpTransport implements Transport, AsyncDisposable {
             yield {
               successful: true,
               messageId,
+              provider: "smtp",
             };
           } catch (error) {
             // Cancellation rejects rather than producing a receipt.
@@ -279,12 +280,9 @@ export class SmtpTransport implements Transport, AsyncDisposable {
             // Mark connection as invalid on any error
             connectionValid = false;
 
-            yield {
-              successful: false,
-              errorMessages: [
-                error instanceof Error ? error.message : String(error),
-              ],
-            };
+            yield createSmtpFailure(
+              error instanceof Error ? error.message : String(error),
+            );
           }
         }
       }
@@ -437,4 +435,13 @@ export class SmtpTransport implements Transport, AsyncDisposable {
   async [Symbol.asyncDispose](): Promise<void> {
     await this.closeAllConnections();
   }
+}
+
+function createSmtpFailure(
+  message: string,
+): Receipt<"smtp"> & { readonly successful: false } {
+  return createFailedReceipt(message, {
+    provider: "smtp",
+    attempts: 1,
+  });
 }

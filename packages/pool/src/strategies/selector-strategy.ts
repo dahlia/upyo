@@ -11,7 +11,8 @@ import type { Strategy, TransportSelection } from "./strategy.ts";
  * one is selected randomly.
  * @since 0.3.0
  */
-export class SelectorStrategy implements Strategy {
+export class SelectorStrategy<TProviderId extends string = string>
+  implements Strategy<TProviderId> {
   /**
    * Selects a transport based on selector function matching.
    *
@@ -23,9 +24,9 @@ export class SelectorStrategy implements Strategy {
    */
   select(
     message: Message,
-    transports: readonly ResolvedTransportEntry[],
+    transports: readonly ResolvedTransportEntry<TProviderId>[],
     attemptedIndices: Set<number>,
-  ): TransportSelection | undefined {
+  ): TransportSelection<TProviderId> | undefined {
     // Filter to enabled transports that haven't been attempted
     const availableTransports = transports
       .map((entry, index) => ({ entry, index }))

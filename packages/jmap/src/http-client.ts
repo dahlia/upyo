@@ -1,3 +1,4 @@
+import { parseRetryAfter } from "@upyo/core";
 import type { ResolvedJmapConfig } from "./config.ts";
 import { JmapApiError } from "./errors.ts";
 import type { JmapSession } from "./session.ts";
@@ -62,6 +63,9 @@ export class JmapHttpClient {
         `Session fetch failed: ${response.status}`,
         response.status,
         text,
+        undefined,
+        parseRetryAfter(response.headers.get("Retry-After")),
+        1,
       );
     }
 
@@ -105,6 +109,9 @@ export class JmapHttpClient {
             `JMAP request failed: ${response.status}`,
             response.status,
             text,
+            undefined,
+            parseRetryAfter(response.headers.get("Retry-After")),
+            attempt + 1,
           );
 
           // Don't retry on 4xx errors (client errors)
