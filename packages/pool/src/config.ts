@@ -21,11 +21,11 @@ export type TransportSelector = (message: Message) => boolean;
  * Configuration for a transport entry in the pool.
  * @since 0.3.0
  */
-export interface TransportEntry {
+export interface TransportEntry<TProviderId extends string = string> {
   /**
    * The transport instance to use.
    */
-  readonly transport: Transport;
+  readonly transport: Transport<TProviderId>;
 
   /**
    * Weight for weighted distribution strategy.
@@ -57,21 +57,22 @@ export interface TransportEntry {
  * Configuration options for the pool transport.
  * @since 0.3.0
  */
-export interface PoolConfig {
+export interface PoolConfig<TProviderId extends string = string> {
   /**
    * The strategy to use for selecting transports.
    * Can be a built-in strategy name or a custom Strategy instance.
    */
-  readonly strategy: PoolStrategy | Strategy;
+  readonly strategy: PoolStrategy | Strategy<TProviderId>;
 
   /**
    * The transports in the pool.
    */
-  readonly transports: readonly TransportEntry[];
+  readonly transports: readonly TransportEntry<TProviderId>[];
 
   /**
-   * Maximum number of retry attempts when a transport fails.
-   * Set to 0 to disable retries. Defaults to the number of transports.
+   * Maximum number of retry attempts after the initial send attempt fails.
+   * Set to 0 to disable retries. Defaults to enough retries to try every
+   * enabled transport once.
    */
   readonly maxRetries?: number;
 
@@ -92,9 +93,9 @@ export interface PoolConfig {
  * Resolved pool configuration with defaults applied.
  * @since 0.3.0
  */
-export interface ResolvedPoolConfig {
-  readonly strategy: PoolStrategy | Strategy;
-  readonly transports: readonly ResolvedTransportEntry[];
+export interface ResolvedPoolConfig<TProviderId extends string = string> {
+  readonly strategy: PoolStrategy | Strategy<TProviderId>;
+  readonly transports: readonly ResolvedTransportEntry<TProviderId>[];
   readonly maxRetries: number;
   readonly timeout?: number;
   readonly continueOnSuccess: boolean;
@@ -104,8 +105,8 @@ export interface ResolvedPoolConfig {
  * Resolved transport entry with defaults applied.
  * @since 0.3.0
  */
-export interface ResolvedTransportEntry {
-  readonly transport: Transport;
+export interface ResolvedTransportEntry<TProviderId extends string = string> {
+  readonly transport: Transport<TProviderId>;
   readonly weight: number;
   readonly priority: number;
   readonly selector?: TransportSelector;
@@ -120,7 +121,9 @@ export interface ResolvedTransportEntry {
  * @throws {Error} If the configuration is invalid.
  * @since 0.3.0
  */
-export function createPoolConfig(config: PoolConfig): ResolvedPoolConfig {
+export function createPoolConfig<TProviderId extends string = string>(
+  config: PoolConfig<TProviderId>,
+): ResolvedPoolConfig<TProviderId> {
   if (!config.transports || config.transports.length === 0) {
     throw new Error("Pool must have at least one transport");
   }
@@ -133,15 +136,16 @@ export function createPoolConfig(config: PoolConfig): ResolvedPoolConfig {
     throw new Error("Pool must have at least one enabled transport");
   }
 
-  const resolvedTransports: ResolvedTransportEntry[] = config.transports.map(
-    (entry) => ({
-      transport: entry.transport,
-      weight: entry.weight ?? 1,
-      priority: entry.priority ?? 0,
-      selector: entry.selector,
-      enabled: entry.enabled ?? true,
-    }),
-  );
+  const resolvedTransports: ResolvedTransportEntry<TProviderId>[] = config
+    .transports.map(
+      (entry) => ({
+        transport: entry.transport,
+        weight: entry.weight ?? 1,
+        priority: entry.priority ?? 0,
+        selector: entry.selector,
+        enabled: entry.enabled ?? true,
+      }),
+    );
 
   // Validate weights for weighted strategy
   if (config.strategy === "weighted") {
@@ -158,7 +162,7 @@ export function createPoolConfig(config: PoolConfig): ResolvedPoolConfig {
   return {
     strategy: config.strategy,
     transports: resolvedTransports,
-    maxRetries: config.maxRetries ?? enabledTransports.length,
+    maxRetries: config.maxRetries ?? enabledTransports.length - 1,
     timeout: config.timeout,
     continueOnSuccess: config.continueOnSuccess ?? false,
   };

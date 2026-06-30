@@ -48,6 +48,177 @@ test("SesTransport handles AbortSignal cancellation", async () => {
   }
 });
 
+test("SesTransport rejects caller aborts during fetch", async () => {
+  const originalFetch = globalThis.fetch;
+  const controller = new AbortController();
+
+  try {
+    globalThis.fetch = (_url, options) =>
+      new Promise((_resolve, reject) => {
+        options?.signal?.addEventListener("abort", () => {
+          reject(
+            new DOMException("The operation was aborted.", "AbortError"),
+          );
+        }, { once: true });
+        setTimeout(() => controller.abort(), 0);
+      });
+
+    const transport = new SesTransport({
+      authentication: {
+        type: "credentials",
+        accessKeyId: "test-key",
+        secretAccessKey: "test-secret",
+      },
+      retries: 0,
+    });
+
+    const message = createMessage({
+      from: "sender@example.com",
+      to: "recipient@example.com",
+      subject: "Test Subject",
+      content: { text: "Hello World!" },
+    });
+
+    await assert.rejects(
+      () => transport.send(message, { signal: controller.signal }),
+      (error: unknown) => error instanceof Error && error.name === "AbortError",
+    );
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("SesTransport preserves custom caller abort reasons during fetch", async () => {
+  const originalFetch = globalThis.fetch;
+  const controller = new AbortController();
+  const reason = new Error("Stop fetching.");
+
+  try {
+    globalThis.fetch = (_url, options) =>
+      new Promise((_resolve, reject) => {
+        options?.signal?.addEventListener("abort", () => {
+          reject(options.signal?.reason);
+        }, { once: true });
+        setTimeout(() => controller.abort(reason), 0);
+      });
+
+    const transport = new SesTransport({
+      authentication: {
+        type: "credentials",
+        accessKeyId: "test-key",
+        secretAccessKey: "test-secret",
+      },
+      retries: 0,
+    });
+
+    const message = createMessage({
+      from: "sender@example.com",
+      to: "recipient@example.com",
+      subject: "Test Subject",
+      content: { text: "Hello World!" },
+    });
+
+    await assert.rejects(
+      () => transport.send(message, { signal: controller.signal }),
+      (error: unknown) => error === reason,
+    );
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("SesTransport rejects caller aborts during retry backoff", async () => {
+  const originalFetch = globalThis.fetch;
+  const controller = new AbortController();
+  const reason = new Error("Stop retrying.");
+  let attempts = 0;
+
+  try {
+    // deno-lint-ignore require-await
+    globalThis.fetch = async () => {
+      attempts++;
+      setTimeout(() => controller.abort(reason), 0);
+      return new Response("Server Error", { status: 500 });
+    };
+
+    const transport = new SesTransport({
+      authentication: {
+        type: "credentials",
+        accessKeyId: "test-key",
+        secretAccessKey: "test-secret",
+      },
+      retries: 1,
+    });
+
+    const message = createMessage({
+      from: "sender@example.com",
+      to: "recipient@example.com",
+      subject: "Test Subject",
+      content: { text: "Hello World!" },
+    });
+
+    const startedAt = Date.now();
+    await assert.rejects(
+      () => transport.send(message, { signal: controller.signal }),
+      (error: unknown) => error === reason,
+    );
+
+    assert.equal(attempts, 1);
+    assert.ok(Date.now() - startedAt < 500);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("SesTransport falls back when AbortSignal.any is unavailable", async () => {
+  const originalAny = AbortSignal.any;
+  const originalFetch = globalThis.fetch;
+  const controller = new AbortController();
+
+  try {
+    Object.defineProperty(AbortSignal, "any", {
+      configurable: true,
+      value: undefined,
+    });
+
+    // deno-lint-ignore require-await
+    globalThis.fetch = async (_url, options) => {
+      assert.ok(options?.signal instanceof AbortSignal);
+      return new Response('{"MessageId":"test-message-id"}', {
+        status: 200,
+      });
+    };
+
+    const transport = new SesTransport({
+      authentication: {
+        type: "credentials",
+        accessKeyId: "test-key",
+        secretAccessKey: "test-secret",
+      },
+      retries: 0,
+    });
+
+    const message = createMessage({
+      from: "sender@example.com",
+      to: "recipient@example.com",
+      subject: "Test Subject",
+      content: { text: "Hello World!" },
+    });
+
+    const receipt = await transport.send(message, {
+      signal: controller.signal,
+    });
+
+    assert.ok(receipt.successful);
+  } finally {
+    Object.defineProperty(AbortSignal, "any", {
+      configurable: true,
+      value: originalAny,
+    });
+    globalThis.fetch = originalFetch;
+  }
+});
+
 test("SesTransport sendMany handles async iterables", async () => {
   const config: SesConfig = {
     authentication: {
@@ -209,4 +380,93 @@ test("SesTransport extractMessageId generates synthetic ID", () => {
   const messageId = extractMessageId(response);
   assert.ok(messageId.startsWith("ses-"));
   assert.ok(messageId.length > 10);
+});
+
+test("SesTransport returns structured API failures", async () => {
+  const originalFetch = globalThis.fetch;
+  try {
+    globalThis.fetch = () =>
+      Promise.resolve(
+        new Response(
+          JSON.stringify({ message: "Too Many Requests" }),
+          {
+            status: 429,
+            headers: { "Retry-After": "60" },
+          },
+        ),
+      );
+
+    const transport = new SesTransport({
+      authentication: {
+        type: "credentials",
+        accessKeyId: "test-key",
+        secretAccessKey: "test-secret",
+      },
+      retries: 0,
+    });
+
+    const receipt = await transport.send(createMessage({
+      from: "sender@example.com",
+      to: "recipient@example.com",
+      subject: "Test Subject",
+      content: { text: "Hello World!" },
+    }));
+
+    assert.ok(!receipt.successful);
+    if (!receipt.successful) {
+      assert.equal(receipt.provider, "ses");
+      assert.ok(receipt.retryable);
+      assert.equal(receipt.attempts, 1);
+      assert.equal(receipt.errors?.[0]?.category, "rate-limit");
+      assert.equal(receipt.errors?.[0]?.statusCode, 429);
+      assert.equal(receipt.errors?.[0]?.retryAfterMilliseconds, 60_000);
+    }
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("SesTransport preserves provider error details", async () => {
+  const originalFetch = globalThis.fetch;
+  const providerErrors = [{
+    message: "Email address is not verified",
+    field: "Destination.ToAddresses.member.1",
+    code: "MessageRejected",
+  }];
+
+  try {
+    globalThis.fetch = () =>
+      Promise.resolve(
+        new Response(
+          JSON.stringify({
+            message: "Email address is not verified",
+            errors: providerErrors,
+          }),
+          { status: 400 },
+        ),
+      );
+
+    const transport = new SesTransport({
+      authentication: {
+        type: "credentials",
+        accessKeyId: "test-key",
+        secretAccessKey: "test-secret",
+      },
+      retries: 0,
+    });
+
+    const receipt = await transport.send(createMessage({
+      from: "sender@example.com",
+      to: "recipient@example.com",
+      subject: "Test Subject",
+      content: { text: "Hello World!" },
+    }));
+
+    assert.ok(!receipt.successful);
+    if (!receipt.successful) {
+      assert.deepEqual(receipt.errors?.[0]?.providerDetails, providerErrors);
+    }
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
 });

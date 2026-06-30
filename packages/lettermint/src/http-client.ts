@@ -1,3 +1,4 @@
+import { combineSignals, parseRetryAfter } from "@upyo/core";
 import type { ResolvedLettermintConfig } from "./config.ts";
 import type { LettermintEmail } from "./message-converter.ts";
 
@@ -62,17 +63,28 @@ export interface LettermintError {
  */
 export class LettermintApiError extends Error {
   readonly statusCode: number;
+  readonly retryAfterMilliseconds?: number;
+  readonly attempts?: number;
 
   /**
    * Creates a Lettermint API error.
    *
    * @param message Error message.
    * @param statusCode HTTP status code.
+   * @param retryAfterMilliseconds Retry delay from the response.
+   * @param attempts Number of attempts made before this error.
    */
-  constructor(message: string, statusCode: number) {
+  constructor(
+    message: string,
+    statusCode: number,
+    retryAfterMilliseconds?: number,
+    attempts?: number,
+  ) {
     super(message);
     this.name = "LettermintApiError";
     this.statusCode = statusCode;
+    this.retryAfterMilliseconds = retryAfterMilliseconds;
+    this.attempts = attempts;
   }
 }
 
@@ -82,17 +94,31 @@ export class LettermintApiError extends Error {
  * @since 0.5.0
  */
 export class LettermintTimeoutError extends Error {
+  /**
+   * Request timeout in milliseconds.
+   *
+   * @since 0.5.0
+   */
   readonly timeout: number;
+
+  /**
+   * Number of attempts made before this error was produced.
+   *
+   * @since 0.5.0
+   */
+  readonly attempts?: number;
 
   /**
    * Creates a Lettermint request timeout error.
    *
    * @param timeout Request timeout in milliseconds.
+   * @param attempts Number of attempts made before this error.
    */
-  constructor(timeout: number) {
+  constructor(timeout: number, attempts?: number) {
     super(`Lettermint API request timed out after ${timeout} ms.`);
     this.name = "LettermintTimeoutError";
     this.timeout = timeout;
+    this.attempts = attempts;
   }
 }
 
@@ -173,6 +199,8 @@ export class LettermintHttpClient {
           throw new LettermintApiError(
             parseErrorMessage(text, response.status),
             response.status,
+            parseRetryAfter(response.headers.get("Retry-After")),
+            attempt + 1,
           );
         }
 
@@ -201,7 +229,7 @@ export class LettermintHttpClient {
         }
 
         if (attempt === this.config.retries) {
-          throw lastError;
+          throw withAttempts(lastError, attempt + 1);
         }
 
         await sleep(calculateRetryDelay(attempt), signal);
@@ -262,6 +290,16 @@ export class LettermintHttpClient {
   }
 }
 
+function withAttempts(error: Error, attempts: number): Error {
+  if (error instanceof LettermintTimeoutError) {
+    return new LettermintTimeoutError(error.timeout, attempts);
+  }
+  if (error instanceof LettermintApiError) {
+    return error;
+  }
+  return Object.assign(error, { attempts });
+}
+
 function isRetryable(error: LettermintApiError): boolean {
   return error.statusCode === 408 || error.statusCode === 429 ||
     error.statusCode >= 500;
@@ -289,45 +327,6 @@ function parseErrorMessage(text: string, statusCode: number): string {
   }
 
   return text || `HTTP ${statusCode}`;
-}
-
-interface CombinedSignal {
-  readonly signal: AbortSignal;
-  cleanup(): void;
-}
-
-function combineSignals(
-  timeoutSignal: AbortSignal,
-  externalSignal?: AbortSignal,
-): CombinedSignal {
-  if (externalSignal == null) {
-    return { signal: timeoutSignal, cleanup: () => {} };
-  }
-
-  if (typeof AbortSignal.any === "function") {
-    return {
-      signal: AbortSignal.any([timeoutSignal, externalSignal]),
-      cleanup: () => {},
-    };
-  }
-
-  const controller = new AbortController();
-  const abort = () => controller.abort();
-
-  timeoutSignal.addEventListener("abort", abort, { once: true });
-  externalSignal.addEventListener("abort", abort, { once: true });
-
-  if (timeoutSignal.aborted || externalSignal.aborted) {
-    controller.abort();
-  }
-
-  return {
-    signal: controller.signal,
-    cleanup: () => {
-      timeoutSignal.removeEventListener("abort", abort);
-      externalSignal.removeEventListener("abort", abort);
-    },
-  };
 }
 
 function sleep(ms: number, signal?: AbortSignal): Promise<void> {

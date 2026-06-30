@@ -1,3 +1,4 @@
+import { combineSignals, parseRetryAfter } from "@upyo/core";
 import type { ResolvedSesConfig } from "./config.ts";
 
 export interface SesResponse {
@@ -41,6 +42,16 @@ export class SesHttpClient {
     });
   }
 
+  /**
+   * Makes an HTTP request to the SES API with retry logic.
+   *
+   * @param url The URL to make the request to.
+   * @param options Fetch options.
+   * @returns Promise that resolves to the parsed response.
+   * @throws {DOMException} If the caller aborts the request.
+   * @throws {SesApiError} If SES returns a client error or all retry attempts
+   *                       are exhausted.
+   */
   async makeRequest(
     url: string,
     options: RequestInit,
@@ -71,9 +82,19 @@ export class SesHttpClient {
           errorData.message || `HTTP ${response.status}`,
           response.status,
           errorData.errors,
+          parseRetryAfter(response.headers.get("Retry-After")),
+          attempt + 1,
         );
       } catch (error) {
         lastError = error instanceof Error ? error : new Error(String(error));
+
+        if (options.signal?.aborted) {
+          throw createAbortError(options.signal);
+        }
+
+        if (isAbortError(error)) {
+          throw error;
+        }
 
         if (
           error instanceof SesApiError &&
@@ -85,17 +106,35 @@ export class SesHttpClient {
         }
 
         if (attempt === this.config.retries) {
-          throw error;
+          if (lastError instanceof SesApiError) {
+            throw lastError;
+          }
+          throw new SesApiError(
+            lastError.message,
+            undefined,
+            undefined,
+            undefined,
+            attempt + 1,
+          );
         }
 
         const delay = Math.pow(2, attempt) * 1000;
-        await new Promise((resolve) => setTimeout(resolve, delay));
+        await sleep(delay, options.signal);
       }
     }
 
     throw lastError || new Error("Request failed after all retries");
   }
 
+  /**
+   * Makes a signed fetch request to the SES API.
+   *
+   * @param url The URL to make the request to.
+   * @param options Fetch options.
+   * @returns Promise that resolves to the fetch response.
+   * @throws {Error} If the configured request timeout is reached.
+   * @throws {DOMException} If the caller aborts the request.
+   */
   async fetchWithAuth(
     url: string,
     options: RequestInit,
@@ -115,23 +154,27 @@ export class SesHttpClient {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), this.config.timeout);
 
-    let signal = controller.signal;
-    if (options.signal) {
-      signal = options.signal;
-      if (options.signal.aborted) {
-        controller.abort();
-      } else {
-        options.signal.addEventListener("abort", () => controller.abort());
-      }
-    }
+    const combinedSignal = combineSignals(controller.signal, options.signal);
 
     try {
       return await globalThis.fetch(url, {
         ...options,
         headers: this.headersToRecord(signedHeaders),
-        signal,
+        signal: combinedSignal.signal,
       });
+    } catch (error) {
+      if (
+        isAbortError(error) &&
+        controller.signal.aborted &&
+        !options.signal?.aborted
+      ) {
+        throw new Error(
+          `SES API request timed out after ${this.config.timeout} ms.`,
+        );
+      }
+      throw error;
     } finally {
+      combinedSignal.cleanup();
       clearTimeout(timeoutId);
     }
   }
@@ -296,6 +339,39 @@ export class SesHttpClient {
   }
 }
 
+function isAbortError(error: unknown): boolean {
+  return error instanceof Error && error.name === "AbortError";
+}
+
+function sleep(
+  milliseconds: number,
+  signal?: AbortSignal | null,
+): Promise<void> {
+  if (signal?.aborted) {
+    return Promise.reject(createAbortError(signal));
+  }
+
+  return new Promise((resolve, reject) => {
+    function abort() {
+      clearTimeout(timeoutId);
+      signal?.removeEventListener("abort", abort);
+      reject(createAbortError(signal));
+    }
+
+    const timeoutId = setTimeout(() => {
+      signal?.removeEventListener("abort", abort);
+      resolve();
+    }, milliseconds);
+
+    signal?.addEventListener("abort", abort, { once: true });
+  });
+}
+
+function createAbortError(signal?: AbortSignal | null): unknown {
+  return signal?.reason ??
+    new DOMException("The operation was aborted.", "AbortError");
+}
+
 export class SesApiError extends Error {
   readonly statusCode?: number;
   readonly errors?: {
@@ -303,6 +379,8 @@ export class SesApiError extends Error {
     readonly field?: string;
     readonly code?: string;
   }[];
+  readonly retryAfterMilliseconds?: number;
+  readonly attempts?: number;
 
   constructor(
     message: string,
@@ -312,10 +390,14 @@ export class SesApiError extends Error {
       field?: string;
       code?: string;
     }>,
+    retryAfterMilliseconds?: number,
+    attempts?: number,
   ) {
     super(message);
     this.name = "SesApiError";
     this.statusCode = statusCode;
     this.errors = errors;
+    this.retryAfterMilliseconds = retryAfterMilliseconds;
+    this.attempts = attempts;
   }
 }

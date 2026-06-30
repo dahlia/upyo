@@ -1,4 +1,13 @@
-import type { Message, Receipt, Transport, TransportOptions } from "@upyo/core";
+import {
+  combineSignals,
+  createFailedReceipt,
+  createReceiptError,
+  type Message,
+  type Receipt,
+  type ReceiptError,
+  type Transport,
+  type TransportOptions,
+} from "@upyo/core";
 import {
   createPoolConfig,
   type PoolConfig,
@@ -65,13 +74,16 @@ import { SelectorStrategy } from "./strategies/selector-strategy.ts";
  *
  * @since 0.3.0
  */
-export class PoolTransport implements Transport, AsyncDisposable {
+export class PoolTransport<TProviderId extends string = string>
+  implements Transport<TProviderId | "pool">, AsyncDisposable {
+  readonly id = "pool";
+
   /**
    * The resolved configuration used by this pool transport.
    */
-  readonly config: ResolvedPoolConfig;
+  readonly config: ResolvedPoolConfig<TProviderId>;
 
-  private readonly strategy: Strategy;
+  private readonly strategy: Strategy<TProviderId>;
 
   /**
    * Creates a new PoolTransport instance.
@@ -79,7 +91,7 @@ export class PoolTransport implements Transport, AsyncDisposable {
    * @param config Configuration options for the pool transport.
    * @throws {Error} If the configuration is invalid.
    */
-  constructor(config: PoolConfig) {
+  constructor(config: PoolConfig<TProviderId>) {
     this.config = createPoolConfig(config);
     this.strategy = this.createStrategy(this.config.strategy);
   }
@@ -95,13 +107,16 @@ export class PoolTransport implements Transport, AsyncDisposable {
    * @param options Optional transport options including abort signal.
    * @returns A promise that resolves to a receipt indicating success or failure.
    */
-  async send(message: Message, options?: TransportOptions): Promise<Receipt> {
+  async send(
+    message: Message,
+    options?: TransportOptions,
+  ): Promise<Receipt<TProviderId | "pool">> {
     const attemptedIndices = new Set<number>();
-    const errors: string[] = [];
-    // Track errors from all attempts
-    // let lastReceipt: Receipt | null = null; // Removed as it was unused
+    const errorMessages: string[] = [];
+    const errors: ReceiptError<TProviderId | "pool">[] = [];
+    let checkCallerAbortBeforeFailure = false;
 
-    for (let attempt = 0; attempt < this.config.maxRetries; attempt++) {
+    for (let attempt = 0; attempt <= this.config.maxRetries; attempt++) {
       // Check for cancellation
       if (options?.signal?.aborted) {
         throw new DOMException("The operation was aborted.", "AbortError");
@@ -121,45 +136,86 @@ export class PoolTransport implements Transport, AsyncDisposable {
 
       attemptedIndices.add(selection.index);
 
+      let abortedByCaller = false;
       try {
         // Apply timeout if configured
         const sendOptions = this.createSendOptions(options);
 
-        // Send the message
-        const receipt = await selection.entry.transport.send(
-          message,
-          sendOptions,
-        );
-
-        // Track receipt for potential error collection
-        // lastReceipt = receipt; // Removed as lastReceipt was removed
+        let receipt: Receipt<TProviderId>;
+        try {
+          receipt = await selection.entry.transport.send(
+            message,
+            sendOptions.options,
+          );
+        } catch (error) {
+          if (
+            sendOptions.abortedByCaller() &&
+            isCallerAbort(error, options?.signal)
+          ) {
+            abortedByCaller = true;
+          }
+          throw error;
+        } finally {
+          sendOptions.cleanup();
+        }
 
         if (receipt.successful) {
           return receipt;
         }
 
         // Collect error messages for failed attempts
-        errors.push(...receipt.errorMessages);
+        errorMessages.push(...receipt.errorMessages);
+        errors.push(...getReceiptErrors(receipt, selection.entry.transport.id));
+        checkCallerAbortBeforeFailure = true;
       } catch (error) {
         // Handle transport errors
-        if (error instanceof DOMException && error.name === "AbortError") {
+        if (abortedByCaller && isCallerAbort(error, options?.signal)) {
           throw error;
         }
 
-        const errorMessage = error instanceof Error
+        const thrownErrors = getThrownReceiptErrors(
+          error,
+          selection.entry.transport.id,
+        );
+        if (thrownErrors.length > 0) {
+          errorMessages.push(...thrownErrors.map((item) => item.message));
+          errors.push(...thrownErrors);
+          checkCallerAbortBeforeFailure = true;
+          continue;
+        }
+
+        const timeoutMessage = "Transport send timed out.";
+        const abortError = isAbortError(error);
+        const errorMessage = abortError
+          ? timeoutMessage
+          : error instanceof Error
           ? error.message
           : String(error);
-        errors.push(errorMessage);
+        errorMessages.push(errorMessage);
+        errors.push(createReceiptError(errorMessage, {
+          provider: selection.entry.transport.id,
+          category: abortError ? "timeout" : undefined,
+          retryable: abortError ? true : undefined,
+        }));
+        checkCallerAbortBeforeFailure ||= !abortError;
       }
     }
 
     // All attempts failed
-    return {
-      successful: false,
-      errorMessages: errors.length > 0
-        ? errors
-        : ["All transports failed to send the message"],
-    };
+    if (checkCallerAbortBeforeFailure) {
+      options?.signal?.throwIfAborted();
+    }
+
+    return createFailedReceipt<TProviderId | "pool">(
+      errorMessages.length > 0
+        ? errorMessages
+        : ["All transports failed to send the message."],
+      {
+        provider: "pool",
+        errors: errors.length > 0 ? errors : undefined,
+        attempts: attemptedIndices.size,
+      },
+    );
   }
 
   /**
@@ -175,7 +231,7 @@ export class PoolTransport implements Transport, AsyncDisposable {
   async *sendMany(
     messages: Iterable<Message> | AsyncIterable<Message>,
     options?: TransportOptions,
-  ): AsyncIterable<Receipt> {
+  ): AsyncIterable<Receipt<TProviderId | "pool">> {
     // Reset strategy state for batch operations
     this.strategy.reset();
 
@@ -230,7 +286,9 @@ export class PoolTransport implements Transport, AsyncDisposable {
   /**
    * Creates a strategy instance based on the strategy type or returns the provided strategy.
    */
-  private createStrategy(strategy: PoolStrategy | Strategy): Strategy {
+  private createStrategy(
+    strategy: PoolStrategy | Strategy<TProviderId>,
+  ): Strategy<TProviderId> {
     // If it's already a Strategy instance, return it directly
     if (typeof strategy === "object" && strategy !== null) {
       return strategy;
@@ -239,13 +297,13 @@ export class PoolTransport implements Transport, AsyncDisposable {
     // Handle built-in strategy names
     switch (strategy) {
       case "round-robin":
-        return new RoundRobinStrategy();
+        return new RoundRobinStrategy<TProviderId>();
       case "weighted":
-        return new WeightedStrategy();
+        return new WeightedStrategy<TProviderId>();
       case "priority":
-        return new PriorityStrategy();
+        return new PriorityStrategy<TProviderId>();
       case "selector-based":
-        return new SelectorStrategy();
+        return new SelectorStrategy<TProviderId>();
       default:
         throw new Error(`Unknown strategy: ${strategy}`);
     }
@@ -256,34 +314,154 @@ export class PoolTransport implements Transport, AsyncDisposable {
    */
   private createSendOptions(
     options?: TransportOptions,
-  ): TransportOptions | undefined {
+  ): {
+    readonly options?: TransportOptions;
+    abortedByCaller(): boolean;
+    cleanup(): void;
+  } {
     if (!this.config.timeout) {
-      return options;
+      return {
+        options,
+        abortedByCaller: () => options?.signal?.aborted ?? false,
+        cleanup: () => {},
+      };
     }
 
     // Create AbortController for timeout
-    const controller = new AbortController();
-    const timeoutId = setTimeout(
-      () => controller.abort(),
-      this.config.timeout,
-    );
+    const timeoutController = new AbortController();
+    let abortSource: "caller" | "timeout" | undefined;
+    const timeoutId = setTimeout(() => {
+      abortSource ??= "timeout";
+      timeoutController.abort(createAbortError());
+    }, this.config.timeout);
+    let cleanupAbortSource = () => {};
+    let signal = timeoutController.signal;
+    let cleanupCombinedSignal = () => {};
 
     // Combine with existing signal if present
     if (options?.signal) {
-      options.signal.addEventListener("abort", () => {
+      const markCallerAbort = () => {
+        abortSource ??= "caller";
         clearTimeout(timeoutId);
-        controller.abort();
-      });
+      };
+      if (options.signal.aborted) {
+        markCallerAbort();
+      } else {
+        options.signal.addEventListener("abort", markCallerAbort, {
+          once: true,
+        });
+      }
+      cleanupAbortSource = () =>
+        options.signal?.removeEventListener("abort", markCallerAbort);
+
+      const combinedSignal = combineSignals(
+        timeoutController.signal,
+        options.signal,
+      );
+      signal = combinedSignal.signal;
+      cleanupCombinedSignal = combinedSignal.cleanup;
     }
 
     // Clean up timeout when done
-    controller.signal.addEventListener("abort", () => {
+    timeoutController.signal.addEventListener("abort", () => {
       clearTimeout(timeoutId);
     });
 
     return {
-      ...options,
-      signal: controller.signal,
+      options: {
+        ...options,
+        signal,
+      },
+      abortedByCaller: () => abortSource === "caller",
+      cleanup: () => {
+        clearTimeout(timeoutId);
+        cleanupAbortSource();
+        cleanupCombinedSignal();
+      },
     };
   }
+}
+
+function createAbortError(): DOMException {
+  return new DOMException("The operation was aborted.", "AbortError");
+}
+
+function isCallerAbort(error: unknown, signal?: AbortSignal): boolean {
+  return signal?.aborted === true &&
+    (isAbortError(error) || error === signal.reason);
+}
+
+function getReceiptErrors<TProviderId extends string>(
+  receipt: Receipt<TProviderId> & { readonly successful: false },
+  provider: TProviderId,
+): readonly ReceiptError<TProviderId>[] {
+  if (receipt.errors != null && receipt.errors.length > 0) {
+    return receipt.errors.map((error) =>
+      withReceiptErrorProvider(error, provider)
+    );
+  }
+
+  return receipt.errorMessages.map((message) =>
+    createReceiptError(message, {
+      provider: receipt.provider ?? provider,
+      retryable: receipt.retryable,
+    })
+  );
+}
+
+function getThrownReceiptErrors<TProviderId extends string>(
+  error: unknown,
+  provider: TProviderId,
+): readonly ReceiptError<TProviderId>[] {
+  if (isReceiptError<TProviderId>(error)) {
+    return [withReceiptErrorProvider(error, provider)];
+  }
+
+  if (isFailedReceipt<TProviderId>(error)) {
+    return getReceiptErrors(error, provider);
+  }
+
+  return [];
+}
+
+function withReceiptErrorProvider<TProviderId extends string>(
+  error: ReceiptError<TProviderId>,
+  provider: TProviderId,
+): ReceiptError<TProviderId> {
+  return {
+    message: error.message,
+    code: error.code,
+    category: error.category,
+    retryable: error.retryable,
+    provider: error.provider ?? provider,
+    statusCode: error.statusCode,
+    retryAfterMilliseconds: error.retryAfterMilliseconds,
+    providerDetails: error.providerDetails,
+  };
+}
+
+function isReceiptError<TProviderId extends string>(
+  value: unknown,
+): value is ReceiptError<TProviderId> {
+  return typeof value === "object" && value != null &&
+    typeof (value as { readonly message?: unknown }).message === "string" &&
+    typeof (value as { readonly code?: unknown }).code === "string" &&
+    typeof (value as { readonly retryable?: unknown }).retryable ===
+      "boolean" &&
+    typeof (value as { readonly category?: unknown }).category === "string";
+}
+
+function isFailedReceipt<TProviderId extends string>(
+  value: unknown,
+): value is Receipt<TProviderId> & { readonly successful: false } {
+  return typeof value === "object" && value != null &&
+    (value as { readonly successful?: unknown }).successful === false &&
+    Array.isArray(
+      (value as { readonly errorMessages?: unknown })
+        .errorMessages,
+    );
+}
+
+function isAbortError(error: unknown): boolean {
+  return error instanceof Error && error.name === "AbortError";
 }

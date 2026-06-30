@@ -43,19 +43,25 @@ ensuring consistent behavior across different providers.
 ~~~~ typescript twoslash
 import type { Message, Receipt, TransportOptions } from "@upyo/core";
 
-export interface Transport {
-  send(message: Message, options?: TransportOptions): Promise<Receipt>;
+export interface Transport<TProviderId extends string = string> {
+  readonly id: TProviderId;
+
+  send(
+    message: Message,
+    options?: TransportOptions,
+  ): Promise<Receipt<TProviderId>>;
 
   sendMany(
     messages: Iterable<Message> | AsyncIterable<Message>,
     options?: TransportOptions,
-  ): AsyncIterable<Receipt>;
+  ): AsyncIterable<Receipt<TProviderId>>;
 }
 ~~~~
 
 This interface is intentionally minimal, with just two methods that handle
-the core email sending operations.  The design philosophy prioritizes simplicity
-and reliability over feature complexity.
+the core email sending operations, plus a stable provider `id` used in
+structured receipt metadata.  The design philosophy prioritizes simplicity and
+reliability over feature complexity.
 
 ### Core principles
 
@@ -75,7 +81,8 @@ especially before expensive network operations.
 **Return descriptive receipts.** Success receipts should include a meaningful
 `messageId` that can be used for tracking and debugging.  Failure receipts
 should provide specific `errorMessages` that help developers understand what
-went wrong.
+went wrong.  Use a string literal provider id, such as `Transport<"myservice">`,
+when you want `Receipt.provider` and `ReceiptError.provider` to be type-safe.
 
 [`AbortSignal`]: https://developer.mozilla.org/en-US/docs/Web/API/AbortSignal
 
@@ -92,14 +99,26 @@ components: configuration management, HTTP communication, proper error
 handling, and cancellation support.
 
 ~~~~ typescript twoslash
-import type { Message, Receipt, Transport, TransportOptions } from "@upyo/core";
+import {
+  createFailedReceipt,
+  type Message,
+  type Receipt,
+  type Transport,
+  type TransportOptions,
+} from "@upyo/core";
 
 export interface MyServiceConfig {
   readonly apiKey: string;
   readonly baseUrl?: string;
 }
 
-export class MyServiceTransport implements Transport {
+interface MyServiceResponse {
+  readonly messageId: string;
+}
+
+export class MyServiceTransport implements Transport<"myservice"> {
+  readonly id = "myservice";
+
   private config: Required<MyServiceConfig>;
 
   constructor(config: MyServiceConfig) {
@@ -109,7 +128,10 @@ export class MyServiceTransport implements Transport {
     };
   }
 
-  async send(message: Message, options?: TransportOptions): Promise<Receipt> {
+  async send(
+    message: Message,
+    options?: TransportOptions,
+  ): Promise<Receipt<"myservice">> {
     // Check for cancellation
     options?.signal?.throwIfAborted();
 
@@ -138,29 +160,30 @@ export class MyServiceTransport implements Transport {
 
       if (!response.ok) {
         const error = await response.text();
-        return {
-          successful: false,
-          errorMessages: [`HTTP ${response.status}: ${error}`],
-        };
+        return createFailedReceipt(`HTTP ${response.status}: ${error}`, {
+          provider: this.id,
+          statusCode: response.status,
+        });
       }
 
-      const result = await response.json() as any;
+      const result = await response.json() as MyServiceResponse;
       return {
         successful: true,
         messageId: result.messageId,
+        provider: this.id,
       };
     } catch (error) {
-      return {
-        successful: false,
-        errorMessages: [error instanceof Error ? error.message : String(error)],
-      };
+      return createFailedReceipt(
+        error instanceof Error ? error.message : String(error),
+        { provider: this.id },
+      );
     }
   }
 
   async *sendMany(
     messages: Iterable<Message> | AsyncIterable<Message>,
     options?: TransportOptions,
-  ): AsyncIterable<Receipt> {
+  ): AsyncIterable<Receipt<"myservice">> {
     for await (const message of messages) {
       options?.signal?.throwIfAborted();
       yield await this.send(message, options);
@@ -204,21 +227,39 @@ handles, or background timers. Implementing the `AsyncDisposable` interface
 ensures proper cleanup and integrates with modern JavaScript resource
 management patterns.
 
-~~~~ typescript {22-24} twoslash
-import type { Message, Receipt, Transport, TransportOptions } from "@upyo/core";
+~~~~ typescript {25-33} twoslash
+import {
+  createFailedReceipt,
+  type Message,
+  type Receipt,
+  type Transport,
+  type TransportOptions,
+} from "@upyo/core";
 
-export class MyTransport implements Transport, AsyncDisposable {
-  private connections: any[] = [];
+export class MyTransport implements Transport<"myservice">, AsyncDisposable {
+  readonly id = "myservice";
 
-  async send(message: Message, options?: TransportOptions): Promise<Receipt> {
-    throw new Error("Not implemented");
+  private connections: Array<{ close(): Promise<void> }> = [];
+
+  async send(
+    message: Message,
+    options?: TransportOptions,
+  ): Promise<Receipt<"myservice">> {
+    options?.signal?.throwIfAborted();
+    return createFailedReceipt("No connection is available.", {
+      provider: this.id,
+      category: "configuration",
+      retryable: false,
+    });
   }
 
   async *sendMany(
     messages: Iterable<Message> | AsyncIterable<Message>,
     options?: TransportOptions,
-  ): AsyncIterable<Receipt> {
-    throw new Error("Not implemented");
+  ): AsyncIterable<Receipt<"myservice">> {
+    for await (const message of messages) {
+      yield await this.send(message, options);
+    }
   }
 
   async closeConnections(): Promise<void> {

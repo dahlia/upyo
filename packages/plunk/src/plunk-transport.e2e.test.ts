@@ -189,19 +189,13 @@ describeE2E("PlunkTransport E2E", () => {
       content: { text: "This email should be cancelled." },
     });
 
-    const receipt = await transport.send(message, {
-      signal: controller.signal,
-    });
-
-    // In real API scenarios, cancellation might not always work as expected
-    // so we accept both cancelled and failed receipts
-    if (receipt.successful) {
-      console.log("Request completed before cancellation could take effect");
-    } else {
-      console.log(
-        `Request cancelled or failed: ${receipt.errorMessages.join(", ")}`,
-      );
-    }
+    await assert.rejects(
+      () =>
+        transport.send(message, {
+          signal: controller.signal,
+        }),
+      { name: "AbortError" },
+    );
   });
 
   it("should handle timeout gracefully", async () => {

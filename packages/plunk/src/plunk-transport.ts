@@ -1,7 +1,13 @@
-import type { Message, Receipt, Transport, TransportOptions } from "@upyo/core";
+import {
+  createFailedReceipt,
+  type Message,
+  type Receipt,
+  type Transport,
+  type TransportOptions,
+} from "@upyo/core";
 import type { PlunkConfig, ResolvedPlunkConfig } from "./config.ts";
 import { createPlunkConfig } from "./config.ts";
-import { PlunkHttpClient } from "./http-client.ts";
+import { PlunkApiError, PlunkHttpClient } from "./http-client.ts";
 import { convertMessage } from "./message-converter.ts";
 
 /**
@@ -30,7 +36,9 @@ import { convertMessage } from "./message-converter.ts";
  * }
  * ```
  */
-export class PlunkTransport implements Transport {
+export class PlunkTransport implements Transport<"plunk"> {
+  readonly id = "plunk";
+
   /**
    * The resolved Plunk configuration used by this transport.
    */
@@ -81,7 +89,10 @@ export class PlunkTransport implements Transport {
    * @returns A promise that resolves to a receipt indicating success or
    *          failure.
    */
-  async send(message: Message, options?: TransportOptions): Promise<Receipt> {
+  async send(
+    message: Message,
+    options?: TransportOptions,
+  ): Promise<Receipt<"plunk">> {
     try {
       options?.signal?.throwIfAborted();
 
@@ -100,16 +111,18 @@ export class PlunkTransport implements Transport {
       return {
         successful: true,
         messageId,
+        provider: "plunk",
       };
     } catch (error) {
+      if (isCallerAbort(error, options?.signal)) {
+        throw error;
+      }
+
       const errorMessage = error instanceof Error
         ? error.message
         : String(error);
 
-      return {
-        successful: false,
-        errorMessages: [errorMessage],
-      };
+      return createPlunkFailure(errorMessage, error);
     }
   }
 
@@ -168,7 +181,7 @@ export class PlunkTransport implements Transport {
   async *sendMany(
     messages: Iterable<Message> | AsyncIterable<Message>,
     options?: TransportOptions,
-  ): AsyncIterable<Receipt> {
+  ): AsyncIterable<Receipt<"plunk">> {
     options?.signal?.throwIfAborted();
 
     const isAsyncIterable = Symbol.asyncIterator in messages;
@@ -222,4 +235,31 @@ export class PlunkTransport implements Transport {
 
     return `plunk-${timestamp}-${recipientHash}-${random}`;
   }
+}
+
+function createPlunkFailure(
+  message: string,
+  error: unknown,
+): Receipt<"plunk"> & { readonly successful: false } {
+  if (error instanceof PlunkApiError) {
+    return createFailedReceipt(message, {
+      provider: "plunk",
+      statusCode: error.statusCode,
+      retryAfterMilliseconds: error.retryAfterMilliseconds,
+      attempts: error.attempts,
+    });
+  }
+
+  return createFailedReceipt(message, {
+    provider: "plunk",
+  });
+}
+
+function isAbortError(error: unknown): boolean {
+  return error instanceof Error && error.name === "AbortError";
+}
+
+function isCallerAbort(error: unknown, signal?: AbortSignal): boolean {
+  return signal?.aborted === true &&
+    (isAbortError(error) || error === signal.reason);
 }

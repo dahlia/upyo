@@ -1,3 +1,4 @@
+import { parseRetryAfter } from "@upyo/core";
 import type { ResolvedJmapConfig } from "./config.ts";
 import { JmapApiError } from "./errors.ts";
 import type { JmapSession } from "./session.ts";
@@ -62,6 +63,9 @@ export class JmapHttpClient {
         `Session fetch failed: ${response.status}`,
         response.status,
         text,
+        undefined,
+        parseRetryAfter(response.headers.get("Retry-After")),
+        1,
       );
     }
 
@@ -105,6 +109,9 @@ export class JmapHttpClient {
             `JMAP request failed: ${response.status}`,
             response.status,
             text,
+            undefined,
+            parseRetryAfter(response.headers.get("Retry-After")),
+            attempt + 1,
           );
 
           // Don't retry on 4xx errors (client errors)
@@ -118,7 +125,7 @@ export class JmapHttpClient {
         return await response.json();
       } catch (error) {
         // Don't retry if aborted
-        if (error instanceof Error && error.name === "AbortError") {
+        if (isCallerAbort(error, signal)) {
           throw error;
         }
 
@@ -132,7 +139,27 @@ export class JmapHttpClient {
         lastError = error instanceof Error ? error : new Error(String(error));
 
         if (attempt === this.config.retries) {
-          throw error;
+          if (error instanceof JmapApiError) {
+            throw error;
+          }
+          if (isAbortError(error)) {
+            throw new JmapApiError(
+              "JMAP request timed out.",
+              undefined,
+              undefined,
+              undefined,
+              undefined,
+              attempt + 1,
+            );
+          }
+          throw new JmapApiError(
+            lastError.message,
+            undefined,
+            undefined,
+            undefined,
+            undefined,
+            attempt + 1,
+          );
         }
 
         // Exponential backoff
@@ -141,7 +168,10 @@ export class JmapHttpClient {
       }
     }
 
-    throw lastError || new Error("Request failed after all retries");
+    if (lastError != null) {
+      throw lastError;
+    }
+    throw new Error("Request failed after all retries");
   }
 
   /**
@@ -210,4 +240,16 @@ export class JmapHttpClient {
       clearTimeout(timeoutId);
     }
   }
+}
+
+function isCallerAbort(
+  error: unknown,
+  signal?: AbortSignal | null,
+): boolean {
+  return signal?.aborted === true &&
+    (isAbortError(error) || error === signal.reason);
+}
+
+function isAbortError(error: unknown): boolean {
+  return error instanceof Error && error.name === "AbortError";
 }

@@ -6,18 +6,24 @@ export class JmapApiError extends Error {
   readonly statusCode?: number;
   readonly responseBody?: string;
   readonly jmapErrorType?: string;
+  readonly retryAfterMilliseconds?: number;
+  readonly attempts?: number;
 
   constructor(
     message: string,
     statusCode?: number,
     responseBody?: string,
     jmapErrorType?: string,
+    retryAfterMilliseconds?: number,
+    attempts?: number,
   ) {
     super(message);
     this.name = "JmapApiError";
     this.statusCode = statusCode;
     this.responseBody = responseBody;
     this.jmapErrorType = jmapErrorType;
+    this.retryAfterMilliseconds = retryAfterMilliseconds;
+    this.attempts = attempts;
   }
 }
 

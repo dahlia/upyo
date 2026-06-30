@@ -1,6 +1,12 @@
 import { describe, it } from "node:test";
 import { strict as assert } from "node:assert";
-import type { Receipt, Transport } from "@upyo/core";
+import {
+  createFailedReceipt,
+  type Message,
+  type Receipt,
+  type Transport,
+  type TransportOptions,
+} from "@upyo/core";
 import { OpenTelemetryTransport } from "./opentelemetry-transport.ts";
 import {
   assertions,
@@ -53,6 +59,28 @@ describe("OpenTelemetryTransport", () => {
         },
       );
       assert.ok(disabledTransport instanceof OpenTelemetryTransport);
+    });
+
+    it("should handle null-prototype transports", () => {
+      const setup = createTestSetup();
+      const nullPrototypeTransport: Transport<""> = Object.assign(
+        Object.create(null) as object,
+        {
+          id: "" as const,
+          send: () =>
+            Promise.resolve(
+              createFailedReceipt<"">("Not implemented.", { provider: "" }),
+            ),
+          sendMany: async function* (
+            _messages: Iterable<Message> | AsyncIterable<Message>,
+            _options?: TransportOptions,
+          ): AsyncIterable<Receipt<"">> {},
+        },
+      );
+
+      assert.doesNotThrow(() => {
+        new OpenTelemetryTransport(nullPrototypeTransport, setup.config);
+      });
     });
   });
 
@@ -141,6 +169,35 @@ describe("OpenTelemetryTransport", () => {
       assert.equal(span.status?.code, 2); // ERROR
     });
 
+    it("should prefer structured receipt categories for metrics", async () => {
+      const setup = createTestSetup();
+      const transport = new OpenTelemetryTransport(
+        setup.mockTransport,
+        {
+          ...setup.config,
+          errorClassifier: () => "validation",
+        },
+      );
+      const message = createTestMessage();
+      setup.mockTransport.setNextReceipt(
+        createFailedReceipt("Provider throttled the request", {
+          provider: "mock",
+          statusCode: 429,
+        }),
+      );
+
+      const receipt = await transport.send(message);
+
+      assert.equal(receipt.successful, false);
+
+      const metrics = extractMetrics(setup.meterProvider);
+      const failureRecord = metrics
+        .flatMap((metric) => metric.records)
+        .find((record) => record.attributes?.status === "failure");
+
+      assert.equal(failureRecord?.attributes?.error_type, "rate-limit");
+    });
+
     it("should respect abort signals", async () => {
       const setup = createTestSetup();
       const transport = new OpenTelemetryTransport(
@@ -157,6 +214,43 @@ describe("OpenTelemetryTransport", () => {
         () => transport.send(message, { signal: controller.signal }),
         /AbortError/,
       );
+    });
+
+    it("should infer transport names when wrapped transports have no id", async () => {
+      class LegacyTransport {
+        send(
+          _message: Message,
+          _options?: TransportOptions,
+        ): Promise<Receipt> {
+          return Promise.resolve({
+            successful: true,
+            messageId: "legacy-message-id",
+          });
+        }
+
+        async *sendMany(
+          messages: Iterable<Message> | AsyncIterable<Message>,
+          options?: TransportOptions,
+        ): AsyncIterable<Receipt> {
+          for await (const message of messages) {
+            yield await this.send(message, options);
+          }
+        }
+      }
+
+      const setup = createTestSetup();
+      const transport = new OpenTelemetryTransport(
+        // @ts-expect-error Simulates an older JavaScript transport without id.
+        new LegacyTransport(),
+        setup.config,
+      );
+
+      await transport.send(createTestMessage());
+
+      const spans = extractSpans(setup.tracerProvider);
+      assertions.hasSpan(spans, "email send", {
+        "upyo.transport.name": "legacy",
+      });
     });
 
     it("should work with tracing disabled", async () => {

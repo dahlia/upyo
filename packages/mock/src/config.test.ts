@@ -9,6 +9,7 @@ describe("createMockConfig", () => {
     assert.deepEqual(config.defaultResponse, {
       successful: true,
       messageId: "mock-message-id",
+      provider: "mock",
     });
     assert.equal(config.delay, 0);
     assert.deepEqual(config.randomDelayRange, { min: 0, max: 0 });
@@ -51,6 +52,7 @@ describe("createMockConfig", () => {
     assert.deepEqual(config.defaultResponse, {
       successful: true,
       messageId: "mock-message-id",
+      provider: "mock",
     });
     assert.equal(config.delay, 50);
     assert.deepEqual(config.randomDelayRange, { min: 0, max: 0 });

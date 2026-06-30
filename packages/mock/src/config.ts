@@ -1,3 +1,5 @@
+import type { Receipt } from "@upyo/core";
+
 /**
  * Configuration interface for Mock transport.
  *
@@ -19,13 +21,7 @@ export interface MockConfig {
    *
    * @default { successful: true, messageId: "mock-message-id" }
    */
-  readonly defaultResponse?: {
-    readonly successful: true;
-    readonly messageId: string;
-  } | {
-    readonly successful: false;
-    readonly errorMessages: readonly string[];
-  };
+  readonly defaultResponse?: Receipt<"mock">;
 
   /**
    * Fixed delay in milliseconds for all send operations.
@@ -94,6 +90,7 @@ export function createMockConfig(
     defaultResponse: config.defaultResponse ?? {
       successful: true,
       messageId: "mock-message-id",
+      provider: "mock",
     },
     delay: config.delay ?? 0,
     randomDelayRange: config.randomDelayRange ?? { min: 0, max: 0 },

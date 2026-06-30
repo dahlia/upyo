@@ -17,7 +17,7 @@ import {
 
 describe(
   "SMTP Transport DKIM Mailpit Tests",
-  { skip: !isMailpitTestingEnabled() },
+  { skip: !isMailpitTestingEnabled(), concurrency: false },
   () => {
     if (!isMailpitTestingEnabled()) return;
 

@@ -1,7 +1,13 @@
-import type { Message, Receipt, Transport, TransportOptions } from "@upyo/core";
+import {
+  createFailedReceipt,
+  type Message,
+  type Receipt,
+  type Transport,
+  type TransportOptions,
+} from "@upyo/core";
 import type { ResendConfig, ResolvedResendConfig } from "./config.ts";
 import { createResendConfig } from "./config.ts";
-import { ResendHttpClient } from "./http-client.ts";
+import { ResendApiError, ResendHttpClient } from "./http-client.ts";
 import {
   convertMessage,
   convertMessagesBatch,
@@ -33,7 +39,9 @@ import {
  * }
  * ```
  */
-export class ResendTransport implements Transport {
+export class ResendTransport implements Transport<"resend"> {
+  readonly id = "resend";
+
   /**
    * The resolved Resend configuration used by this transport.
    */
@@ -85,7 +93,10 @@ export class ResendTransport implements Transport {
    * @returns A promise that resolves to a receipt indicating success or
    *          failure.
    */
-  async send(message: Message, options?: TransportOptions): Promise<Receipt> {
+  async send(
+    message: Message,
+    options?: TransportOptions,
+  ): Promise<Receipt<"resend">> {
     try {
       options?.signal?.throwIfAborted();
 
@@ -105,16 +116,18 @@ export class ResendTransport implements Transport {
       return {
         successful: true,
         messageId: response.id,
+        provider: "resend",
       };
     } catch (error) {
+      if (isCallerAbort(error, options?.signal)) {
+        throw error;
+      }
+
       const errorMessage = error instanceof Error
         ? error.message
         : String(error);
 
-      return {
-        successful: false,
-        errorMessages: [errorMessage],
-      };
+      return createResendFailure(errorMessage, error);
     }
   }
 
@@ -175,7 +188,7 @@ export class ResendTransport implements Transport {
   async *sendMany(
     messages: Iterable<Message> | AsyncIterable<Message>,
     options?: TransportOptions,
-  ): AsyncIterable<Receipt> {
+  ): AsyncIterable<Receipt<"resend">> {
     options?.signal?.throwIfAborted();
 
     const isAsyncIterable = Symbol.asyncIterator in messages;
@@ -209,7 +222,7 @@ export class ResendTransport implements Transport {
   private async *sendManyOptimized(
     messages: Message[],
     options?: TransportOptions,
-  ): AsyncIterable<Receipt> {
+  ): AsyncIterable<Receipt<"resend">> {
     if (messages.length === 0) {
       return;
     }
@@ -246,7 +259,7 @@ export class ResendTransport implements Transport {
   private async *sendBatch(
     messages: Message[],
     options?: TransportOptions,
-  ): AsyncIterable<Receipt> {
+  ): AsyncIterable<Receipt<"resend">> {
     options?.signal?.throwIfAborted();
 
     try {
@@ -269,19 +282,21 @@ export class ResendTransport implements Transport {
         yield {
           successful: true,
           messageId: result.id,
+          provider: "resend",
         };
       }
     } catch (error) {
+      if (isCallerAbort(error, options?.signal)) {
+        throw error;
+      }
+
       const errorMessage = error instanceof Error
         ? error.message
         : String(error);
 
       // If batch fails, yield error receipt for each message
       for (let i = 0; i < messages.length; i++) {
-        yield {
-          successful: false,
-          errorMessages: [errorMessage],
-        };
+        yield createResendFailure(errorMessage, error);
       }
     }
   }
@@ -318,4 +333,34 @@ export class ResendTransport implements Transport {
     }
     return chunks;
   }
+}
+
+function createResendFailure(
+  message: string,
+  error: unknown,
+): Receipt<"resend"> & { readonly successful: false } {
+  if (error instanceof ResendApiError) {
+    return createFailedReceipt(message, {
+      provider: "resend",
+      statusCode: error.statusCode,
+      retryAfterMilliseconds: error.retryAfterMilliseconds,
+      attempts: error.attempts,
+    });
+  }
+
+  return createFailedReceipt(message, {
+    provider: "resend",
+  });
+}
+
+function isAbortError(error: unknown): boolean {
+  return error instanceof Error && error.name === "AbortError";
+}
+
+function isCallerAbort(
+  error: unknown,
+  signal?: AbortSignal | null,
+): boolean {
+  return signal?.aborted === true &&
+    (isAbortError(error) || error === signal.reason);
 }

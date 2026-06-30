@@ -322,7 +322,7 @@ describe("OpenTelemetryTransport Integration Tests", () => {
           { error: new Error("401 Unauthorized"), expectedCategory: "auth" },
           {
             error: new Error("Rate limit exceeded"),
-            expectedCategory: "rate_limit",
+            expectedCategory: "rate-limit",
           },
           {
             error: new Error("DNS_PROBE_FINISHED_NXDOMAIN"),
@@ -330,7 +330,7 @@ describe("OpenTelemetryTransport Integration Tests", () => {
           },
           {
             error: new Error("500 Internal Server Error"),
-            expectedCategory: "server_error",
+            expectedCategory: "server-error",
           },
         ];
 

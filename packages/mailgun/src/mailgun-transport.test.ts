@@ -1,6 +1,7 @@
 import type { Message } from "@upyo/core";
 import { MailgunTransport } from "@upyo/mailgun";
 import assert from "node:assert/strict";
+import { createServer, type Server } from "node:http";
 import { describe, it } from "node:test";
 
 // Note: Tests are split into separate describe blocks instead of one unified block
@@ -8,6 +9,51 @@ import { describe, it } from "node:test";
 // globalThis.fetch mocking to interfere between tests. Node.js runs tests sequentially
 // so it doesn't have this issue. By separating each test into its own describe block,
 // we ensure that fetch mocking is isolated between tests in both environments.
+
+async function withHangingServer(
+  callback: (baseUrl: string) => Promise<void>,
+): Promise<void> {
+  const server = createServer((_request, _response) => {});
+  const port = await new Promise<number>((resolve, reject) => {
+    server.once("error", reject);
+    server.listen(0, "127.0.0.1", () => {
+      const address = server.address();
+      if (address == null || typeof address === "string") {
+        reject(new TypeError("Expected TCP server address."));
+        return;
+      }
+      resolve(address.port);
+    });
+  });
+
+  try {
+    await callback(`http://127.0.0.1:${port}`);
+  } finally {
+    const closeableServer = server as Server & {
+      closeAllConnections?: () => void;
+    };
+    await new Promise<void>((resolve, reject) => {
+      if (!server.listening) {
+        closeableServer.closeAllConnections?.();
+        resolve();
+        return;
+      }
+
+      server.close((error) => {
+        const code = typeof error === "object" && error !== null &&
+            "code" in error
+          ? error.code
+          : undefined;
+        if (error != null && code !== "ERR_SERVER_NOT_RUNNING") {
+          reject(error);
+          return;
+        }
+        resolve();
+      });
+      closeableServer.closeAllConnections?.();
+    });
+  }
+}
 
 describe("MailgunTransport - Send Message", () => {
   it("should send a message successfully", async () => {
@@ -31,6 +77,7 @@ describe("MailgunTransport - Send Message", () => {
       const transport = new MailgunTransport({
         apiKey: "test-key",
         domain: "test-domain.com",
+        retries: 0,
       });
 
       const message: Message = {
@@ -80,6 +127,7 @@ describe("MailgunTransport - API Errors", () => {
       const transport = new MailgunTransport({
         apiKey: "test-key",
         domain: "test-domain.com",
+        retries: 0,
       });
 
       const message: Message = {
@@ -98,10 +146,108 @@ describe("MailgunTransport - API Errors", () => {
 
       const receipt = await transport.send(message);
 
-      assert.equal(receipt.successful, false);
+      assert.ok(!receipt.successful);
       if (!receipt.successful) {
         assert.equal(receipt.errorMessages.length, 1);
         assert.equal(receipt.errorMessages[0], "Bad Request");
+        assert.equal(receipt.provider, "mailgun");
+        assert.ok(!receipt.retryable);
+        assert.equal(receipt.attempts, 1);
+        assert.equal(receipt.errors?.[0]?.category, "validation");
+        assert.equal(receipt.errors?.[0]?.statusCode, 400);
+      }
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+  });
+});
+
+describe("MailgunTransport - Long Error Bodies", () => {
+  it("should truncate non-JSON error response bodies", async () => {
+    const originalFetch = globalThis.fetch;
+    try {
+      const longBody = "x".repeat(600);
+      // deno-lint-ignore require-await
+      globalThis.fetch = async () => new Response(longBody, { status: 500 });
+
+      const transport = new MailgunTransport({
+        apiKey: "test-key",
+        domain: "test-domain.com",
+        retries: 0,
+      });
+
+      const message: Message = {
+        sender: { address: "sender@example.com" },
+        recipients: [{ address: "recipient@example.com" }],
+        ccRecipients: [],
+        bccRecipients: [],
+        replyRecipients: [],
+        subject: "Test Subject",
+        content: { text: "Test content" },
+        attachments: [],
+        priority: "normal",
+        tags: [],
+        headers: new Headers(),
+      };
+
+      const receipt = await transport.send(message);
+
+      assert.ok(!receipt.successful);
+      assert.equal(receipt.errorMessages[0], `${"x".repeat(500)}...`);
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+  });
+});
+
+describe("MailgunTransport - Structured Rate Limit Errors", () => {
+  it("should expose rate limit retry metadata", async () => {
+    const originalFetch = globalThis.fetch;
+    try {
+      // deno-lint-ignore require-await
+      globalThis.fetch = async () => {
+        return new Response(
+          JSON.stringify({
+            message: "Too Many Requests",
+          }),
+          {
+            status: 429,
+            headers: {
+              "Content-Type": "application/json",
+              "Retry-After": "45",
+            },
+          },
+        );
+      };
+
+      const transport = new MailgunTransport({
+        apiKey: "test-key",
+        domain: "test-domain.com",
+        retries: 0,
+      });
+
+      const message: Message = {
+        sender: { address: "sender@example.com" },
+        recipients: [{ address: "recipient@example.com" }],
+        ccRecipients: [],
+        bccRecipients: [],
+        replyRecipients: [],
+        subject: "Test Subject",
+        content: { text: "Test content" },
+        attachments: [],
+        priority: "normal",
+        tags: [],
+        headers: new Headers(),
+      };
+
+      const receipt = await transport.send(message);
+
+      assert.ok(!receipt.successful);
+      if (!receipt.successful) {
+        assert.ok(receipt.retryable);
+        assert.equal(receipt.errors?.[0]?.category, "rate-limit");
+        assert.equal(receipt.errors?.[0]?.code, "http.429");
+        assert.equal(receipt.errors?.[0]?.retryAfterMilliseconds, 45_000);
       }
     } finally {
       globalThis.fetch = originalFetch;
@@ -122,6 +268,7 @@ describe("MailgunTransport - Network Errors", () => {
       const transport = new MailgunTransport({
         apiKey: "test-key",
         domain: "test-domain.com",
+        retries: 0,
       });
 
       const message: Message = {
@@ -140,11 +287,64 @@ describe("MailgunTransport - Network Errors", () => {
 
       const receipt = await transport.send(message);
 
-      assert.equal(receipt.successful, false);
+      assert.ok(!receipt.successful);
       if (!receipt.successful) {
         assert.equal(receipt.errorMessages.length, 1);
         assert.equal(receipt.errorMessages[0], "Network error");
+        assert.equal(receipt.provider, "mailgun");
+        assert.equal(receipt.retryable, true);
+        assert.equal(receipt.attempts, 1);
+        assert.equal(receipt.errors?.[0]?.category, "network");
       }
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+  });
+});
+
+describe("MailgunTransport - Retry Backoff Abort Signal", () => {
+  it("should reject caller aborts during retry backoff", async () => {
+    const originalFetch = globalThis.fetch;
+    const controller = new AbortController();
+    const reason = new Error("Stop retrying.");
+    let attempts = 0;
+
+    try {
+      // deno-lint-ignore require-await
+      globalThis.fetch = async () => {
+        attempts++;
+        setTimeout(() => controller.abort(reason), 0);
+        return new Response("Server Error", { status: 500 });
+      };
+
+      const transport = new MailgunTransport({
+        apiKey: "test-key",
+        domain: "test-domain.com",
+        retries: 1,
+      });
+
+      const message: Message = {
+        sender: { address: "sender@example.com" },
+        recipients: [{ address: "recipient@example.com" }],
+        ccRecipients: [],
+        bccRecipients: [],
+        replyRecipients: [],
+        subject: "Test Subject",
+        content: { text: "Test content" },
+        attachments: [],
+        priority: "normal",
+        tags: [],
+        headers: new Headers(),
+      };
+
+      const startedAt = Date.now();
+      await assert.rejects(
+        () => transport.send(message, { signal: controller.signal }),
+        (error: unknown) => error === reason,
+      );
+
+      assert.equal(attempts, 1);
+      assert.ok(Date.now() - startedAt < 500);
     } finally {
       globalThis.fetch = originalFetch;
     }
@@ -173,6 +373,7 @@ describe("MailgunTransport - Multiple Messages", () => {
       const transport = new MailgunTransport({
         apiKey: "test-key",
         domain: "test-domain.com",
+        retries: 0,
       });
 
       const messages: Message[] = [
@@ -247,7 +448,9 @@ describe("MailgunTransport - Abort Signal", () => {
 
           options?.signal?.addEventListener("abort", () => {
             clearTimeout(timeout);
-            reject(new DOMException("The operation was aborted", "AbortError"));
+            reject(
+              new DOMException("The operation was aborted", "AbortError"),
+            );
           });
         });
       };
@@ -255,6 +458,7 @@ describe("MailgunTransport - Abort Signal", () => {
       const transport = new MailgunTransport({
         apiKey: "test-key",
         domain: "test-domain.com",
+        retries: 0,
       });
 
       const message: Message = {
@@ -280,6 +484,85 @@ describe("MailgunTransport - Abort Signal", () => {
       } catch (error) {
         assert.equal((error as Error).name, "AbortError");
       }
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+  });
+
+  it("should reject caller aborts during fetch", async () => {
+    const controller = new AbortController();
+
+    await withHangingServer(async (baseUrl) => {
+      const transport = new MailgunTransport({
+        apiKey: "test-key",
+        domain: "test-domain.com",
+        baseUrl,
+        retries: 0,
+      });
+
+      const message: Message = {
+        sender: { address: "sender@example.com" },
+        recipients: [{ address: "recipient@example.com" }],
+        ccRecipients: [],
+        bccRecipients: [],
+        replyRecipients: [],
+        subject: "Test Subject",
+        content: { text: "Test content" },
+        attachments: [],
+        priority: "normal",
+        tags: [],
+        headers: new Headers(),
+      };
+
+      const send = transport.send(message, { signal: controller.signal });
+      setTimeout(() => controller.abort(), 0);
+
+      await assert.rejects(
+        () => send,
+        (error: unknown) =>
+          error instanceof Error && error.name === "AbortError",
+      );
+    });
+  });
+});
+
+describe("MailgunTransport - Fetch Abort Reason", () => {
+  it("should reject caller abort reasons during fetch", async () => {
+    const originalFetch = globalThis.fetch;
+    const controller = new AbortController();
+    const reason = new Error("Stop sending.");
+
+    try {
+      globalThis.fetch = (_url, options) => {
+        assert.ok(options?.signal instanceof AbortSignal);
+        controller.abort(reason);
+        return Promise.reject(options.signal.reason);
+      };
+
+      const transport = new MailgunTransport({
+        apiKey: "test-key",
+        domain: "test-domain.com",
+        retries: 0,
+      });
+
+      const message: Message = {
+        sender: { address: "sender@example.com" },
+        recipients: [{ address: "recipient@example.com" }],
+        ccRecipients: [],
+        bccRecipients: [],
+        replyRecipients: [],
+        subject: "Test Subject",
+        content: { text: "Test content" },
+        attachments: [],
+        priority: "normal",
+        tags: [],
+        headers: new Headers(),
+      };
+
+      await assert.rejects(
+        () => transport.send(message, { signal: controller.signal }),
+        (error: unknown) => error === reason,
+      );
     } finally {
       globalThis.fetch = originalFetch;
     }
@@ -489,16 +772,20 @@ describe("MailgunTransport - Connection Timeouts", () => {
   it("should handle fetch timeout errors", async () => {
     const originalFetch = globalThis.fetch;
     try {
-      // Mock timeout behavior
-      // deno-lint-ignore require-await
-      globalThis.fetch = async () => {
-        throw new DOMException("The operation was aborted", "AbortError");
-      };
+      globalThis.fetch = (_url, options) =>
+        new Promise<Response>((_resolve, reject) => {
+          options?.signal?.addEventListener("abort", () => {
+            reject(
+              new DOMException("The operation was aborted.", "AbortError"),
+            );
+          }, { once: true });
+        });
 
       const transport = new MailgunTransport({
         apiKey: "test-key",
         domain: "test-domain.com",
         timeout: 100, // Short timeout
+        retries: 0,
       });
 
       const message: Message = {
@@ -517,13 +804,12 @@ describe("MailgunTransport - Connection Timeouts", () => {
 
       const receipt = await transport.send(message);
 
-      assert.equal(receipt.successful, false);
+      assert.ok(!receipt.successful);
       if (!receipt.successful) {
         assert.equal(receipt.errorMessages.length, 1);
-        assert.ok(
-          receipt.errorMessages[0].includes("aborted") ||
-            receipt.errorMessages[0].includes("timeout"),
-        );
+        assert.equal(receipt.errors?.[0]?.category, "timeout");
+        assert.ok(receipt.retryable);
+        assert.equal(receipt.attempts, 1);
       }
     } finally {
       globalThis.fetch = originalFetch;
@@ -569,6 +855,7 @@ describe("MailgunTransport - Concurrent Error Handling", () => {
       const transport = new MailgunTransport({
         apiKey: "test-key",
         domain: "test-domain.com",
+        retries: 0,
       });
 
       const messages: Message[] = Array.from({ length: 4 }, (_, i) => ({
@@ -601,7 +888,9 @@ describe("MailgunTransport - Concurrent Error Handling", () => {
 
       // If the mocking works as expected, we should have some failures
       // But the exact distribution might vary based on implementation
-      console.log(`Successful: ${successful.length}, Failed: ${failed.length}`);
+      console.log(
+        `Successful: ${successful.length}, Failed: ${failed.length}`,
+      );
 
       // At minimum, we should have processed all messages
       assert.ok(receipts.length === 4);

@@ -1,3 +1,4 @@
+import { combineSignals, parseRetryAfter } from "@upyo/core";
 import type { ResolvedMailgunConfig } from "./config.ts";
 
 /**
@@ -69,6 +70,8 @@ export class MailgunHttpClient {
    * @param url The URL to make the request to.
    * @param options Fetch options.
    * @returns Promise that resolves to the parsed response.
+   * @throws {MailgunApiError} If Mailgun returns an error response or all
+   *                           retry attempts are exhausted.
    */
   private async makeRequest(
     url: string,
@@ -97,8 +100,11 @@ export class MailgunHttpClient {
           // Using `||` is intentional here to treat empty strings as falsy
           // and ensure a non-empty error message for the tests.
           throw new MailgunApiError(
-            errorMessage || text || `HTTP ${response.status}`,
+            errorMessage || truncateErrorBody(text) ||
+              `HTTP ${response.status}`,
             response.status,
+            parseRetryAfter(response.headers.get("Retry-After")),
+            attempt + 1,
           );
         }
 
@@ -116,6 +122,15 @@ export class MailgunHttpClient {
       } catch (error) {
         lastError = error instanceof Error ? error : new Error(String(error));
 
+        if (options.signal?.aborted) {
+          throw createAbortError(options.signal);
+        }
+
+        // Don't retry caller cancellation.
+        if (isAbortError(error)) {
+          throw error;
+        }
+
         // Don't retry on client errors (4xx) or if it's the last attempt
         if (
           error instanceof MailgunApiError &&
@@ -127,12 +142,20 @@ export class MailgunHttpClient {
         }
 
         if (attempt === this.config.retries) {
-          throw error;
+          if (lastError instanceof MailgunApiError) {
+            throw lastError;
+          }
+          throw new MailgunApiError(
+            lastError.message,
+            undefined,
+            undefined,
+            attempt + 1,
+          );
         }
 
         // Wait before retrying (exponential backoff)
         const delay = Math.pow(2, attempt) * 1000;
-        await new Promise((resolve) => setTimeout(resolve, delay));
+        await sleep(delay, options.signal);
       }
     }
 
@@ -145,6 +168,8 @@ export class MailgunHttpClient {
    * @param url The URL to make the request to.
    * @param options Fetch options.
    * @returns Promise that resolves to the fetch response.
+   * @throws {Error} If the configured request timeout is reached.
+   * @throws {DOMException} If the caller aborts the request.
    */
   private async fetchWithAuth(
     url: string,
@@ -164,33 +189,108 @@ export class MailgunHttpClient {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), this.config.timeout);
 
-    // Combine signals if provided
-    let signal = controller.signal;
-    if (options.signal) {
-      signal = AbortSignal.any([controller.signal, options.signal]);
-    }
+    const combinedSignal = combineSignals(controller.signal, options.signal);
 
     try {
       return await globalThis.fetch(url, {
         ...options,
         headers,
-        signal,
+        signal: combinedSignal.signal,
       });
+    } catch (error) {
+      if (
+        isAbortError(error) &&
+        controller.signal.aborted &&
+        !options.signal?.aborted
+      ) {
+        throw new Error(
+          `Mailgun API request timed out after ${this.config.timeout} ms.`,
+        );
+      }
+      throw error;
     } finally {
+      combinedSignal.cleanup();
       clearTimeout(timeoutId);
     }
   }
 }
 
 /**
- * Custom error class for Mailgun API errors.
+ * Error thrown when a Mailgun API request fails.
+ *
+ * @since 0.5.0
  */
 export class MailgunApiError extends Error {
+  /**
+   * HTTP status code returned by Mailgun, if the request reached the API.
+   */
   public statusCode?: number;
 
-  constructor(message: string, statusCode?: number) {
+  /**
+   * Retry delay from Mailgun's `Retry-After` response header.
+   */
+  public retryAfterMilliseconds?: number;
+
+  /**
+   * Number of attempts made before this error was produced.
+   */
+  public attempts?: number;
+
+  /**
+   * Creates a Mailgun API error.
+   *
+   * @param message Error message.
+   * @param statusCode HTTP status code returned by Mailgun.
+   * @param retryAfterMilliseconds Retry delay from the response.
+   * @param attempts Number of attempts made before this error.
+   */
+  constructor(
+    message: string,
+    statusCode?: number,
+    retryAfterMilliseconds?: number,
+    attempts?: number,
+  ) {
     super(message);
     this.name = "MailgunApiError";
     this.statusCode = statusCode;
+    this.retryAfterMilliseconds = retryAfterMilliseconds;
+    this.attempts = attempts;
   }
+}
+
+function isAbortError(error: unknown): boolean {
+  return error instanceof Error && error.name === "AbortError";
+}
+
+function sleep(
+  milliseconds: number,
+  signal?: AbortSignal | null,
+): Promise<void> {
+  if (signal?.aborted) {
+    return Promise.reject(createAbortError(signal));
+  }
+
+  return new Promise((resolve, reject) => {
+    function abort() {
+      clearTimeout(timeoutId);
+      signal?.removeEventListener("abort", abort);
+      reject(createAbortError(signal));
+    }
+
+    const timeoutId = setTimeout(() => {
+      signal?.removeEventListener("abort", abort);
+      resolve();
+    }, milliseconds);
+
+    signal?.addEventListener("abort", abort, { once: true });
+  });
+}
+
+function createAbortError(signal?: AbortSignal | null): unknown {
+  return signal?.reason ??
+    new DOMException("The operation was aborted.", "AbortError");
+}
+
+function truncateErrorBody(text: string): string {
+  return text.length > 500 ? `${text.slice(0, 500)}...` : text;
 }

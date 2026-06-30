@@ -317,6 +317,10 @@ describe("SmtpTransport", () => {
             m.includes("refused")
           ),
         );
+        assert.equal(receipt.provider, "smtp");
+        assert.equal(receipt.attempts, 1);
+        assert.equal(receipt.retryable, true);
+        assert.equal(receipt.errors?.[0]?.category, "network");
       }
     });
 

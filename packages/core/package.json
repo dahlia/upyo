@@ -49,6 +49,14 @@
       "import": "./dist/index.js",
       "require": "./dist/index.cjs"
     },
+    "./abort-signal": {
+      "types": {
+        "import": "./dist/abort-signal.d.ts",
+        "require": "./dist/abort-signal.d.cts"
+      },
+      "import": "./dist/abort-signal.js",
+      "require": "./dist/abort-signal.cjs"
+    },
     "./address": {
       "types": {
         "import": "./dist/address.d.ts",

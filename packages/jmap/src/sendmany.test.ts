@@ -364,6 +364,135 @@ describe("sendMany batch - partial failure", () => {
   });
 });
 
+describe("sendMany batch - attachment upload timeout", () => {
+  it("should return retryable timeout receipts", async () => {
+    const originalFetch = globalThis.fetch;
+
+    try {
+      globalThis.fetch = (
+        input: RequestInfo | URL,
+        init?: RequestInit,
+      ): Promise<Response> => {
+        const url = typeof input === "string"
+          ? input
+          : input instanceof URL
+          ? input.href
+          : input.url;
+
+        const body = init?.body && typeof init.body === "string"
+          ? JSON.parse(init.body)
+          : null;
+
+        if (url.includes(".well-known/jmap")) {
+          return Promise.resolve(
+            new Response(
+              JSON.stringify({
+                capabilities: {},
+                accounts: {
+                  "acc-1": {
+                    name: "Test",
+                    isPersonal: true,
+                    isReadOnly: false,
+                    accountCapabilities: { "urn:ietf:params:jmap:mail": {} },
+                  },
+                },
+                primaryAccounts: {},
+                username: "test@example.com",
+                apiUrl: "https://jmap.example.com/api",
+                downloadUrl: "https://jmap.example.com/download/{blobId}",
+                uploadUrl: "https://jmap.example.com/upload/{accountId}",
+                state: "123",
+              }),
+              { status: 200 },
+            ),
+          );
+        }
+
+        if (body?.methodCalls?.[0]?.[0] === "Mailbox/get") {
+          return Promise.resolve(
+            new Response(
+              JSON.stringify({
+                methodResponses: [
+                  ["Mailbox/get", {
+                    list: [{
+                      id: "drafts-123",
+                      role: "drafts",
+                      name: "Drafts",
+                    }],
+                  }, "c0"],
+                ],
+              }),
+              { status: 200 },
+            ),
+          );
+        }
+
+        if (body?.methodCalls?.[0]?.[0] === "Identity/get") {
+          return Promise.resolve(
+            new Response(
+              JSON.stringify({
+                methodResponses: [
+                  ["Identity/get", {
+                    list: [{ id: "id-1", email: "sender@example.com" }],
+                  }, "c0"],
+                ],
+              }),
+              { status: 200 },
+            ),
+          );
+        }
+
+        if (url.includes("/upload/")) {
+          return new Promise((_resolve, reject) => {
+            assert.ok(init?.signal instanceof AbortSignal);
+            init.signal.addEventListener("abort", () => {
+              reject(init.signal?.reason);
+            }, { once: true });
+          });
+        }
+
+        return Promise.resolve(new Response("Not found", { status: 404 }));
+      };
+
+      const transport = new JmapTransport({
+        sessionUrl: "https://jmap.example.com/.well-known/jmap",
+        bearerToken: "test-token",
+        retries: 0,
+        timeout: 1,
+      });
+
+      const messages = [{
+        ...baseMessage,
+        attachments: [{
+          filename: "timeout.txt",
+          contentType: "text/plain" as const,
+          content: new Uint8Array([1, 2, 3]),
+          contentId: "timeout-attachment",
+          inline: false,
+        }],
+      }];
+
+      const receipts: Awaited<ReturnType<typeof transport.send>>[] = [];
+      for await (const receipt of transport.sendMany(messages)) {
+        receipts.push(receipt);
+      }
+
+      assert.equal(receipts.length, 1);
+      const receipt = receipts[0];
+      assert.ok(!receipt.successful);
+      if (!receipt.successful) {
+        assert.equal(receipt.provider, "jmap");
+        assert.equal(receipt.retryable, true);
+        assert.equal(receipt.errors?.[0]?.category, "timeout");
+        assert.equal(receipt.errors?.[0]?.retryable, true);
+        assert.equal(receipt.errors?.[0]?.code, "abort");
+      }
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+  });
+});
+
 describe("sendMany batch - empty", () => {
   it("should yield empty for no messages", async () => {
     const transport = new JmapTransport({

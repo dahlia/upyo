@@ -1,4 +1,6 @@
 import type { Message } from "@upyo/core";
+import { createResendConfig } from "./config.ts";
+import { ResendHttpClient } from "./http-client.ts";
 import { ResendTransport } from "./resend-transport.ts";
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
@@ -8,6 +10,45 @@ import { describe, it } from "node:test";
 // globalThis.fetch mocking to interfere between tests. Node.js runs tests sequentially
 // so it doesn't have this issue. By separating each test into its own describe block,
 // we ensure that fetch mocking is isolated between tests in both environments.
+
+let fetchMockChain = Promise.resolve();
+
+async function withMockedFetch<T>(
+  fetchMock: typeof globalThis.fetch,
+  callback: () => Promise<T>,
+): Promise<T> {
+  const previous = fetchMockChain;
+  let release: () => void = () => {};
+  fetchMockChain = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  await previous;
+
+  const originalFetch = globalThis.fetch;
+  try {
+    globalThis.fetch = fetchMock;
+    return await callback();
+  } finally {
+    globalThis.fetch = originalFetch;
+    release();
+  }
+}
+
+function createTestMessage(): Message {
+  return {
+    sender: { address: "sender@example.com" },
+    recipients: [{ address: "recipient@example.com" }],
+    ccRecipients: [],
+    bccRecipients: [],
+    replyRecipients: [],
+    subject: "Test Subject",
+    content: { text: "Test content" },
+    attachments: [],
+    priority: "normal",
+    tags: [],
+    headers: new Headers(),
+  };
+}
 
 describe("ResendTransport - Send Message", () => {
   it("should send a message successfully", async () => {
@@ -59,50 +100,263 @@ describe("ResendTransport - Send Message", () => {
 
 describe("ResendTransport - API Errors", () => {
   it("should handle API errors", async () => {
-    const originalFetch = globalThis.fetch;
-    try {
-      // Mock error response
-      // deno-lint-ignore require-await
-      globalThis.fetch = async () => {
-        return new Response(
-          JSON.stringify({
-            message: "Invalid API key",
-          }),
-          {
-            status: 401,
-            headers: { "Content-Type": "application/json" },
-          },
+    await withMockedFetch(
+      () =>
+        Promise.resolve(
+          new Response(
+            JSON.stringify({
+              message: "Invalid API key",
+            }),
+            {
+              status: 401,
+              headers: { "Content-Type": "application/json" },
+            },
+          ),
+        ),
+      async () => {
+        const transport = new ResendTransport({
+          apiKey: "invalid-key",
+        });
+
+        const message: Message = {
+          sender: { address: "sender@example.com" },
+          recipients: [{ address: "recipient@example.com" }],
+          ccRecipients: [],
+          bccRecipients: [],
+          replyRecipients: [],
+          subject: "Test Subject",
+          content: { text: "Test content" },
+          attachments: [],
+          priority: "normal",
+          tags: [],
+          headers: new Headers(),
+        };
+
+        const receipt = await transport.send(message);
+
+        assert.equal(receipt.successful, false);
+        if (!receipt.successful) {
+          assert.ok(receipt.errorMessages.length > 0);
+          assert.ok(receipt.errorMessages[0].includes("Invalid API key"));
+          assert.equal(receipt.provider, "resend");
+          assert.equal(receipt.retryable, false);
+          assert.equal(receipt.attempts, 1);
+          assert.equal(receipt.errors?.[0]?.category, "auth");
+          assert.equal(receipt.errors?.[0]?.statusCode, 401);
+        }
+      },
+    );
+  });
+
+  it("should truncate non-JSON error response bodies", async () => {
+    const longBody = "x".repeat(600);
+    await withMockedFetch(
+      () => Promise.resolve(new Response(longBody, { status: 500 })),
+      async () => {
+        const transport = new ResendTransport({
+          apiKey: "test-key",
+          retries: 0,
+        });
+
+        const message: Message = {
+          sender: { address: "sender@example.com" },
+          recipients: [{ address: "recipient@example.com" }],
+          ccRecipients: [],
+          bccRecipients: [],
+          replyRecipients: [],
+          subject: "Test Subject",
+          content: { text: "Test content" },
+          attachments: [],
+          priority: "normal",
+          tags: [],
+          headers: new Headers(),
+        };
+
+        const receipt = await transport.send(message);
+
+        assert.ok(!receipt.successful);
+        assert.equal(receipt.errorMessages[0], `${"x".repeat(500)}...`);
+      },
+    );
+  });
+
+  it("should expose rate limit retry metadata", async () => {
+    await withMockedFetch(
+      () =>
+        Promise.resolve(
+          new Response(
+            JSON.stringify({
+              message: "Rate limit exceeded",
+            }),
+            {
+              status: 429,
+              headers: { "Retry-After": "20" },
+            },
+          ),
+        ),
+      async () => {
+        const transport = new ResendTransport({
+          apiKey: "test-key",
+          retries: 0,
+        });
+
+        const message: Message = {
+          sender: { address: "sender@example.com" },
+          recipients: [{ address: "recipient@example.com" }],
+          ccRecipients: [],
+          bccRecipients: [],
+          replyRecipients: [],
+          subject: "Test Subject",
+          content: { text: "Test content" },
+          attachments: [],
+          priority: "normal",
+          tags: [],
+          headers: new Headers(),
+        };
+
+        const receipt = await transport.send(message);
+
+        assert.equal(receipt.successful, false);
+        if (!receipt.successful) {
+          assert.equal(receipt.provider, "resend");
+          assert.equal(receipt.retryable, true);
+          assert.equal(receipt.errors?.[0]?.category, "rate-limit");
+          assert.equal(receipt.errors?.[0]?.retryAfterMilliseconds, 20_000);
+        }
+      },
+    );
+  });
+});
+
+describe("ResendHttpClient - Abort Signal", () => {
+  it("should pass an already aborted signal to fetch", async () => {
+    await withMockedFetch(
+      (_url, init) => {
+        assert.ok(init?.signal instanceof AbortSignal);
+        assert.ok(init.signal.aborted);
+        return Promise.reject(
+          new DOMException("The operation was aborted.", "AbortError"),
         );
-      };
+      },
+      async () => {
+        const client = new ResendHttpClient(
+          createResendConfig({ apiKey: "test-key", retries: 0 }),
+        );
+        const controller = new AbortController();
+        controller.abort();
 
-      const transport = new ResendTransport({
-        apiKey: "invalid-key",
-      });
+        await assert.rejects(
+          () => client.sendMessage({}, controller.signal),
+          { name: "AbortError" },
+        );
+      },
+    );
+  });
 
-      const message: Message = {
-        sender: { address: "sender@example.com" },
-        recipients: [{ address: "recipient@example.com" }],
-        ccRecipients: [],
-        bccRecipients: [],
-        replyRecipients: [],
-        subject: "Test Subject",
-        content: { text: "Test content" },
-        attachments: [],
-        priority: "normal",
-        tags: [],
-        headers: new Headers(),
-      };
+  it("falls back when AbortSignal.any is unavailable", async () => {
+    const originalAny = AbortSignal.any;
+    const controller = new AbortController();
+    let addedAbortListeners = 0;
+    let removedAbortListeners = 0;
+    const addEventListener = controller.signal.addEventListener.bind(
+      controller.signal,
+    );
+    const removeEventListener = controller.signal.removeEventListener.bind(
+      controller.signal,
+    );
 
-      const receipt = await transport.send(message);
+    Object.defineProperty(controller.signal, "addEventListener", {
+      value: (
+        type: string,
+        listener: EventListenerOrEventListenerObject,
+        options?: boolean | AddEventListenerOptions,
+      ) => {
+        if (type === "abort") addedAbortListeners++;
+        addEventListener(type, listener, options);
+      },
+    });
+    Object.defineProperty(controller.signal, "removeEventListener", {
+      value: (
+        type: string,
+        listener: EventListenerOrEventListenerObject,
+        options?: boolean | EventListenerOptions,
+      ) => {
+        if (type === "abort") removedAbortListeners++;
+        removeEventListener(type, listener, options);
+      },
+    });
 
-      assert.equal(receipt.successful, false);
-      if (!receipt.successful) {
-        assert.ok(receipt.errorMessages.length > 0);
-        assert.ok(receipt.errorMessages[0].includes("Invalid API key"));
-      }
-    } finally {
-      globalThis.fetch = originalFetch;
-    }
+    await withMockedFetch(
+      (_url, init) => {
+        assert.ok(init?.signal instanceof AbortSignal);
+        return Promise.resolve(
+          new Response(JSON.stringify({ id: "msg_fallback" })),
+        );
+      },
+      async () => {
+        Object.defineProperty(AbortSignal, "any", {
+          value: undefined,
+          configurable: true,
+          writable: true,
+        });
+        try {
+          const client = new ResendHttpClient(
+            createResendConfig({ apiKey: "test-key", retries: 0 }),
+          );
+
+          await client.sendMessage({}, controller.signal);
+
+          assert.ok(addedAbortListeners > 0);
+          assert.equal(removedAbortListeners, addedAbortListeners);
+        } finally {
+          Object.defineProperty(AbortSignal, "any", {
+            value: originalAny,
+            configurable: true,
+            writable: true,
+          });
+        }
+      },
+    );
+  });
+
+  it("preserves abort reasons without AbortSignal.any", async () => {
+    const originalAny = AbortSignal.any;
+    const abortReason = new Error("Stop resend request.");
+    const controller = new AbortController();
+
+    await withMockedFetch(
+      (_url, init) =>
+        new Promise((_resolve, reject) => {
+          assert.ok(init?.signal instanceof AbortSignal);
+          init.signal.addEventListener("abort", () => {
+            reject(init.signal?.reason);
+          }, { once: true });
+          setTimeout(() => controller.abort(abortReason), 0);
+        }),
+      async () => {
+        Object.defineProperty(AbortSignal, "any", {
+          value: undefined,
+          configurable: true,
+          writable: true,
+        });
+        try {
+          const client = new ResendHttpClient(
+            createResendConfig({ apiKey: "test-key", retries: 0 }),
+          );
+
+          await assert.rejects(
+            () => client.sendMessage({}, controller.signal),
+            (error: unknown) => error === abortReason,
+          );
+        } finally {
+          Object.defineProperty(AbortSignal, "any", {
+            value: originalAny,
+            configurable: true,
+            writable: true,
+          });
+        }
+      },
+    );
   });
 });
 
@@ -140,6 +394,10 @@ describe("ResendTransport - Network Errors", () => {
       if (!receipt.successful) {
         assert.ok(receipt.errorMessages.length > 0);
         assert.ok(receipt.errorMessages[0].includes("Network error"));
+        assert.equal(receipt.provider, "resend");
+        assert.equal(receipt.retryable, true);
+        assert.equal(receipt.attempts, 4);
+        assert.equal(receipt.errors?.[0]?.category, "network");
       }
     } finally {
       globalThis.fetch = originalFetch;
@@ -187,17 +445,30 @@ describe("ResendTransport - Abort Signal", () => {
       const controller = new AbortController();
       controller.abort();
 
-      const receipt = await transport.send(message, {
-        signal: controller.signal,
-      });
-
-      assert.equal(receipt.successful, false);
-      if (!receipt.successful) {
-        assert.ok(receipt.errorMessages.length > 0);
+      try {
+        await transport.send(message, { signal: controller.signal });
+        assert.fail("Should have thrown AbortError");
+      } catch (error) {
+        assert.ok(error instanceof Error);
+        assert.equal(error.name, "AbortError");
       }
     } finally {
       globalThis.fetch = originalFetch;
     }
+  });
+
+  it("should preserve custom abort reasons in send", async () => {
+    const abortReason = new Error("Stop resend send.");
+    const controller = new AbortController();
+    controller.abort(abortReason);
+    const transport = new ResendTransport({
+      apiKey: "test-key",
+    });
+
+    await assert.rejects(
+      () => transport.send(createTestMessage(), { signal: controller.signal }),
+      (error: unknown) => error === abortReason,
+    );
   });
 });
 

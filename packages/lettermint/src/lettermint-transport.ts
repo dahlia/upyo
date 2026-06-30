@@ -1,10 +1,18 @@
-import type { Message, Receipt, Transport, TransportOptions } from "@upyo/core";
+import {
+  createFailedReceipt,
+  type Message,
+  type Receipt,
+  type Transport,
+  type TransportOptions,
+} from "@upyo/core";
 import type { LettermintConfig, ResolvedLettermintConfig } from "./config.ts";
 import { createLettermintConfig } from "./config.ts";
 import {
+  LettermintApiError,
   LettermintHttpClient,
   type LettermintResponse,
   type LettermintStatus,
+  LettermintTimeoutError,
 } from "./http-client.ts";
 import {
   convertMessage,
@@ -36,7 +44,9 @@ const MAX_BATCH_SIZE = 500;
  *
  * @since 0.5.0
  */
-export class LettermintTransport implements Transport {
+export class LettermintTransport implements Transport<"lettermint"> {
+  readonly id = "lettermint";
+
   /**
    * The resolved Lettermint configuration used by this transport.
    */
@@ -61,7 +71,10 @@ export class LettermintTransport implements Transport {
    * @param options Optional transport options including `AbortSignal`.
    * @returns A receipt indicating success or failure.
    */
-  async send(message: Message, options?: TransportOptions): Promise<Receipt> {
+  async send(
+    message: Message,
+    options?: TransportOptions,
+  ): Promise<Receipt<"lettermint">> {
     try {
       options?.signal?.throwIfAborted();
 
@@ -78,11 +91,11 @@ export class LettermintTransport implements Transport {
 
       return responseToReceipt(response);
     } catch (error) {
-      if (isAbortError(error)) throw error;
-      return {
-        successful: false,
-        errorMessages: [error instanceof Error ? error.message : String(error)],
-      };
+      if (isCallerAbort(error, options?.signal)) throw error;
+      return createLettermintFailure(
+        error instanceof Error ? error.message : String(error),
+        error,
+      );
     }
   }
 
@@ -98,7 +111,7 @@ export class LettermintTransport implements Transport {
   async *sendMany(
     messages: Iterable<Message> | AsyncIterable<Message>,
     options?: TransportOptions,
-  ): AsyncIterable<Receipt> {
+  ): AsyncIterable<Receipt<"lettermint">> {
     options?.signal?.throwIfAborted();
 
     let chunk: Message[] = [];
@@ -116,7 +129,7 @@ export class LettermintTransport implements Transport {
   private async *sendBatch(
     messages: readonly Message[],
     options?: TransportOptions,
-  ): AsyncIterable<Receipt> {
+  ): AsyncIterable<Receipt<"lettermint">> {
     if (messages.length === 0) return;
 
     if (messages.some(hasIdempotencyKey)) {
@@ -130,19 +143,17 @@ export class LettermintTransport implements Transport {
       messages[0]?.idempotencyKey,
     );
     const batchData: LettermintEmail[] = [];
-    const receipts: (Receipt | undefined)[] = [];
+    const receipts: (Receipt<"lettermint"> | undefined)[] = [];
 
     for (const message of messages) {
       try {
         batchData.push(await convertMessage(message, this.config));
         receipts.push(undefined);
       } catch (error) {
-        receipts.push({
-          successful: false,
-          errorMessages: [
-            error instanceof Error ? error.message : String(error),
-          ],
-        });
+        receipts.push(createLettermintFailure(
+          error instanceof Error ? error.message : String(error),
+          error,
+        ));
       }
     }
 
@@ -174,7 +185,7 @@ export class LettermintTransport implements Transport {
         yield responseToReceipt(result);
       }
     } catch (error) {
-      if (isAbortError(error)) throw error;
+      if (isCallerAbort(error, options?.signal)) throw error;
       const errorMessage = error instanceof Error
         ? error.message
         : String(error);
@@ -184,8 +195,7 @@ export class LettermintTransport implements Transport {
           continue;
         }
         yield {
-          successful: false,
-          errorMessages: [errorMessage],
+          ...createLettermintFailure(errorMessage, error),
         };
       }
     }
@@ -202,27 +212,72 @@ function hasIdempotencyKey(message: Message): boolean {
   return message.idempotencyKey != null && message.idempotencyKey !== "";
 }
 
-function responseToReceipt(response: LettermintResponse | undefined): Receipt {
+function responseToReceipt(
+  response: LettermintResponse | undefined,
+): Receipt<"lettermint"> {
   if (response?.message_id == null || response.message_id === "") {
-    return {
-      successful: false,
-      errorMessages: ["Lettermint response is missing a message ID."],
-    };
+    return createFailedReceipt("Lettermint response is missing a message ID.", {
+      provider: "lettermint",
+      category: "unknown",
+      code: "lettermint.missing_message_id",
+      retryable: false,
+    });
   }
 
   if (isSuccessfulStatus(response.status)) {
     return {
       successful: true,
       messageId: response.message_id,
+      provider: "lettermint",
     };
   }
 
-  return {
-    successful: false,
-    errorMessages: [
-      `Lettermint reported message status "${response.status}".`,
-    ],
-  };
+  return createFailedReceipt(
+    `Lettermint reported message status "${response.status}".`,
+    {
+      provider: "lettermint",
+      category: "rejected",
+      code: `lettermint.${response.status}`,
+      retryable: response.status === "soft_bounced",
+    },
+  );
+}
+
+function createLettermintFailure(
+  message: string,
+  error: unknown,
+): Receipt<"lettermint"> & { readonly successful: false } {
+  if (error instanceof LettermintApiError) {
+    return createFailedReceipt(message, {
+      provider: "lettermint",
+      statusCode: error.statusCode,
+      retryAfterMilliseconds: error.retryAfterMilliseconds,
+      attempts: error.attempts,
+    });
+  }
+
+  if (error instanceof LettermintTimeoutError) {
+    return createFailedReceipt(message, {
+      provider: "lettermint",
+      category: "timeout",
+      code: "timeout",
+      retryable: true,
+      attempts: error.attempts,
+    });
+  }
+
+  return createFailedReceipt(message, {
+    provider: "lettermint",
+    attempts: getErrorAttempts(error),
+  });
+}
+
+function getErrorAttempts(error: unknown): number | undefined {
+  if (typeof error !== "object" || error == null || !("attempts" in error)) {
+    return undefined;
+  }
+  const attempts = (error as { readonly attempts?: unknown }).attempts;
+  return typeof attempts === "number" ? attempts : undefined;
 }
 
 function isSuccessfulStatus(status: LettermintStatus): boolean {
@@ -248,4 +303,9 @@ function isSuccessfulStatus(status: LettermintStatus): boolean {
 
 function isAbortError(error: unknown): boolean {
   return error instanceof Error && error.name === "AbortError";
+}
+
+function isCallerAbort(error: unknown, signal?: AbortSignal): boolean {
+  return signal?.aborted === true &&
+    (isAbortError(error) || error === signal.reason);
 }

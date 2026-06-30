@@ -1,3 +1,4 @@
+import { combineSignals, parseRetryAfter } from "@upyo/core";
 import type { ResolvedResendConfig } from "./config.ts";
 
 /**
@@ -36,15 +37,45 @@ export interface ResendError {
 }
 
 /**
- * Resend API error class for handling API-specific errors.
+ * Error thrown when a Resend API request fails.
+ *
+ * @since 0.5.0
  */
 export class ResendApiError extends Error {
-  readonly statusCode: number;
+  /**
+   * HTTP status code returned by Resend, if the request reached the API.
+   */
+  readonly statusCode?: number;
 
-  constructor(message: string, statusCode: number) {
+  /**
+   * Retry delay from Resend's `Retry-After` response header.
+   */
+  readonly retryAfterMilliseconds?: number;
+
+  /**
+   * Number of attempts made before this error was produced.
+   */
+  readonly attempts?: number;
+
+  /**
+   * Creates a Resend API error.
+   *
+   * @param message Error message.
+   * @param statusCode HTTP status code returned by Resend.
+   * @param retryAfterMilliseconds Retry delay from the response.
+   * @param attempts Number of attempts made before this error.
+   */
+  constructor(
+    message: string,
+    statusCode?: number,
+    retryAfterMilliseconds?: number,
+    attempts?: number,
+  ) {
     super(message);
     this.name = "ResendApiError";
     this.statusCode = statusCode;
+    this.retryAfterMilliseconds = retryAfterMilliseconds;
+    this.attempts = attempts;
   }
 }
 
@@ -148,15 +179,20 @@ export class ResendHttpClient {
             // Ignore if JSON parsing fails, as the body may be non-JSON
           }
 
-          // Fallback logic for creating a meaningful error message.
-          // 1. Use the parsed `errorMessage` if available.
-          // 2. Otherwise, use the raw `text` response.
-          // 3. If the raw `text` is also empty, fall back to the HTTP status.
-          // Using `||` is intentional here to treat empty strings as falsy
-          // and ensure a non-empty error message for the tests.
+          const parsedErrorMessage = errorMessage === ""
+            ? undefined
+            : errorMessage;
+          const responseMessage = truncateErrorBody(text);
+          const fallbackMessage = responseMessage === ""
+            ? undefined
+            : responseMessage;
+
           throw new ResendApiError(
-            errorMessage || text || `HTTP ${response.status}`,
+            parsedErrorMessage ?? fallbackMessage ??
+              `HTTP ${response.status}`,
             response.status,
+            parseRetryAfter(response.headers.get("Retry-After")),
+            attempt + 1,
           );
         }
 
@@ -172,11 +208,17 @@ export class ResendHttpClient {
           );
         }
       } catch (error) {
+        if (isCallerAbort(error, options.signal)) {
+          throw error;
+        }
+
         lastError = error instanceof Error ? error : new Error(String(error));
 
         // Don't retry on client errors (4xx) or AbortError
         if (
-          error instanceof ResendApiError && error.statusCode >= 400 &&
+          error instanceof ResendApiError &&
+          error.statusCode !== undefined &&
+          error.statusCode >= 400 &&
           error.statusCode < 500
         ) {
           throw error;
@@ -188,7 +230,15 @@ export class ResendHttpClient {
 
         // If this is the last attempt, throw the error
         if (attempt === this.config.retries) {
-          throw lastError;
+          if (lastError instanceof ResendApiError) {
+            throw lastError;
+          }
+          throw new ResendApiError(
+            lastError.message,
+            undefined,
+            undefined,
+            attempt + 1,
+          );
         }
 
         // Wait before retrying with exponential backoff
@@ -224,30 +274,46 @@ export class ResendHttpClient {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), this.config.timeout);
 
-    // Combine signals if one is provided
-    let signal: AbortSignal;
-    if (options.signal) {
-      const combinedController = new AbortController();
-      const onAbort = () => combinedController.abort();
-
-      options.signal.addEventListener("abort", onAbort, { once: true });
-      controller.signal.addEventListener("abort", onAbort, { once: true });
-
-      signal = combinedController.signal;
-    } else {
-      signal = controller.signal;
-    }
+    const combinedSignal = combineSignals(controller.signal, options.signal);
 
     try {
       const response = await fetch(url, {
         ...options,
         headers,
-        signal,
+        signal: combinedSignal.signal,
       });
 
       return response;
+    } catch (error) {
+      if (
+        isAbortError(error) &&
+        controller.signal.aborted &&
+        !options.signal?.aborted
+      ) {
+        throw new Error(
+          `Resend API request timed out after ${this.config.timeout} ms.`,
+        );
+      }
+      throw error;
     } finally {
+      combinedSignal.cleanup();
       clearTimeout(timeoutId);
     }
   }
+}
+
+function isAbortError(error: unknown): boolean {
+  return error instanceof Error && error.name === "AbortError";
+}
+
+function isCallerAbort(
+  error: unknown,
+  signal?: AbortSignal | null,
+): boolean {
+  return signal?.aborted === true &&
+    (isAbortError(error) || error === signal.reason);
+}
+
+function truncateErrorBody(text: string): string {
+  return text.length > 500 ? `${text.slice(0, 500)}...` : text;
 }

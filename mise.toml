@@ -124,7 +124,15 @@ for package in $packages {
 
 if ($junit_path | is-not-empty) {
   let files = (glob ($junit_dir | path join "*.xml") | sort)
-  let reports = ($files | each { |file| open $file })
+  let reports = (
+    $files
+    | each { |file|
+      open --raw $file
+      | ansi strip
+      | str replace --all --regex "[\u{0000}-\u{0008}\u{000B}\u{000C}\u{000E}-\u{001F}]" ""
+      | from xml
+    }
+  )
   let sum_attr = {|name|
     $reports
     | each { |report| $report.attributes | get --optional $name | default "0" | into float }
@@ -161,15 +169,15 @@ if ($failed | is-not-empty) {
 
 [tasks."test:node"]
 description = "Run Node.js tests for all packages"
-run = "mise run '//packages/...:test:node'"
+run = "mise run --jobs 1 '//packages/...:test:node'"
 
 [tasks."test:bun"]
 description = "Run Bun tests for all packages"
-run = "mise run '//packages/...:test:bun'"
+run = "mise run --jobs 1 '//packages/...:test:bun'"
 
 [tasks.test]
 description = "Run tests across Deno, Node.js, and Bun"
-depends = ["test:deno", "test:node", "test:bun"]
+run = ["mise run test:deno", "mise run test:node", "mise run test:bun"]
 
 [tasks."docs:dev"]
 description = "Start the documentation dev server"

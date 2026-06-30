@@ -1,3 +1,4 @@
+import { combineSignals } from "@upyo/core";
 import type { ResolvedJmapConfig } from "./config.ts";
 import { JmapApiError } from "./errors.ts";
 
@@ -58,16 +59,14 @@ export async function uploadBlob(
   const timeoutId = setTimeout(() => controller.abort(), config.timeout);
 
   // Combine signals if an external signal is provided
-  const combinedSignal = signal
-    ? combineSignals(signal, controller.signal)
-    : controller.signal;
+  const combinedSignal = combineSignals(controller.signal, signal);
 
   try {
     const response = await fetch(url, {
       method: "POST",
       headers,
       body: blob,
-      signal: combinedSignal,
+      signal: combinedSignal.signal,
     });
 
     if (!response.ok) {
@@ -82,27 +81,7 @@ export async function uploadBlob(
     const result = (await response.json()) as BlobUploadResponse;
     return result;
   } finally {
+    combinedSignal.cleanup();
     clearTimeout(timeoutId);
   }
-}
-
-/**
- * Combine multiple abort signals into one.
- */
-function combineSignals(
-  ...signals: AbortSignal[]
-): AbortSignal {
-  const controller = new AbortController();
-
-  for (const signal of signals) {
-    if (signal.aborted) {
-      controller.abort(signal.reason);
-      break;
-    }
-    signal.addEventListener("abort", () => controller.abort(signal.reason), {
-      once: true,
-    });
-  }
-
-  return controller.signal;
 }

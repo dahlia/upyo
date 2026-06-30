@@ -1,7 +1,13 @@
-import type { Message, Receipt, Transport, TransportOptions } from "@upyo/core";
+import {
+  createFailedReceipt,
+  type Message,
+  type Receipt,
+  type Transport,
+  type TransportOptions,
+} from "@upyo/core";
 import type { ResolvedSesConfig, SesConfig } from "./config.ts";
 import { createSesConfig } from "./config.ts";
-import { SesHttpClient } from "./http-client.ts";
+import { SesApiError, SesHttpClient } from "./http-client.ts";
 import { convertMessage } from "./message-converter.ts";
 
 /**
@@ -40,7 +46,9 @@ import { convertMessage } from "./message-converter.ts";
  *
  * @since 0.2.0
  */
-export class SesTransport implements Transport {
+export class SesTransport implements Transport<"ses"> {
+  readonly id = "ses";
+
   /** Resolved configuration with defaults applied */
   config: ResolvedSesConfig;
 
@@ -84,7 +92,10 @@ export class SesTransport implements Transport {
    * @param options Optional transport options (e.g., abort signal).
    * @returns A promise that resolves to a receipt with the result.
    */
-  async send(message: Message, options?: TransportOptions): Promise<Receipt> {
+  async send(
+    message: Message,
+    options?: TransportOptions,
+  ): Promise<Receipt<"ses">> {
     options?.signal?.throwIfAborted();
 
     try {
@@ -102,16 +113,18 @@ export class SesTransport implements Transport {
       return {
         successful: true,
         messageId,
+        provider: "ses",
       };
     } catch (error) {
+      if (isCallerAbort(error, options?.signal)) {
+        throw error;
+      }
+
       const errorMessage = error instanceof Error
         ? error.message
         : String(error);
 
-      return {
-        successful: false,
-        errorMessages: [errorMessage],
-      };
+      return createSesFailure(errorMessage, error);
     }
   }
 
@@ -147,7 +160,7 @@ export class SesTransport implements Transport {
   async *sendMany(
     messages: Iterable<Message> | AsyncIterable<Message>,
     options?: TransportOptions,
-  ): AsyncIterable<Receipt> {
+  ): AsyncIterable<Receipt<"ses">> {
     options?.signal?.throwIfAborted();
 
     const isAsyncIterable = Symbol.asyncIterator in messages;
@@ -180,7 +193,7 @@ export class SesTransport implements Transport {
   private async sendConcurrent(
     messages: Message[],
     options?: TransportOptions,
-  ): Promise<Receipt[]> {
+  ): Promise<Receipt<"ses">[]> {
     options?.signal?.throwIfAborted();
 
     const sendPromises = messages.map((message) => this.send(message, options));
@@ -218,4 +231,32 @@ export class SesTransport implements Transport {
 
     return `ses-${timestamp}-${random}`;
   }
+}
+
+function createSesFailure(
+  message: string,
+  error: unknown,
+): Receipt<"ses"> & { readonly successful: false } {
+  if (error instanceof SesApiError) {
+    return createFailedReceipt(message, {
+      provider: "ses",
+      statusCode: error.statusCode,
+      retryAfterMilliseconds: error.retryAfterMilliseconds,
+      providerDetails: error.errors,
+      attempts: error.attempts,
+    });
+  }
+
+  return createFailedReceipt(message, {
+    provider: "ses",
+  });
+}
+
+function isCallerAbort(error: unknown, signal?: AbortSignal): boolean {
+  return signal?.aborted === true &&
+    (isAbortError(error) || error === signal.reason);
+}
+
+function isAbortError(error: unknown): boolean {
+  return error instanceof Error && error.name === "AbortError";
 }

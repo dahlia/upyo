@@ -200,10 +200,12 @@ export interface CreateOpenTelemetryTransportConfig
  *
  * @since 0.2.0
  */
-export function createOpenTelemetryTransport(
-  baseTransport: Transport,
+export function createOpenTelemetryTransport<
+  TProviderId extends string = string,
+>(
+  baseTransport: Transport<TProviderId>,
   config: CreateOpenTelemetryTransportConfig = {},
-): OpenTelemetryTransport {
+): OpenTelemetryTransport<TProviderId> {
   const {
     serviceName = "email-service",
     serviceVersion,

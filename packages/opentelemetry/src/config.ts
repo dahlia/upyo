@@ -249,16 +249,17 @@ export function createOpenTelemetryConfig(
  * import { defaultErrorClassifier } from "@upyo/opentelemetry";
  *
  * console.log(defaultErrorClassifier(new Error("401 Unauthorized"))); // "auth"
- * console.log(defaultErrorClassifier(new Error("Rate limit exceeded"))); // "rate_limit"
+ * console.log(defaultErrorClassifier(new Error("Rate limit exceeded"))); // "rate-limit"
  * console.log(defaultErrorClassifier(new Error("Connection timeout"))); // "network"
  * console.log(defaultErrorClassifier(new Error("Invalid email format"))); // "validation"
- * console.log(defaultErrorClassifier(new Error("500 Internal Server Error"))); // "server_error"
+ * console.log(defaultErrorClassifier(new Error("500 Internal Server Error"))); // "server-error"
  * console.log(defaultErrorClassifier(new Error("Something else"))); // "unknown"
  * ```
  *
  * @param error The error to classify.
- * @returns A string category such as `"auth"`, `"rate_limit"`, `"network"`,
- *          `"validation"`, `"server_error"`, or `"unknown"`.
+ * @returns A string category such as `"auth"`, `"rate-limit"`, `"network"`,
+ *          `"validation"`, `"service-unavailable"`, `"server-error"`, or
+ *          `"unknown"`.
  * @since 0.2.0
  */
 export function defaultErrorClassifier(
@@ -281,7 +282,7 @@ export function defaultErrorClassifier(
       message.includes("rate limit") || message.includes("429") ||
       message.includes("quota exceeded") || message.includes("throttle")
     ) {
-      return "rate_limit";
+      return "rate-limit";
     }
 
     // Server errors (check before network errors to catch "504 Gateway Timeout")
@@ -289,7 +290,7 @@ export function defaultErrorClassifier(
       message.includes("500") || message.includes("502") ||
       message.includes("504") || message.includes("internal server error")
     ) {
-      return "server_error";
+      return "server-error";
     }
 
     // Network errors
@@ -314,7 +315,7 @@ export function defaultErrorClassifier(
       message.includes("503") || message.includes("service unavailable") ||
       message.includes("temporarily unavailable")
     ) {
-      return "service_unavailable";
+      return "service-unavailable";
     }
   }
 

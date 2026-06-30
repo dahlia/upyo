@@ -1,4 +1,10 @@
-import type { Message, Receipt, Transport, TransportOptions } from "@upyo/core";
+import {
+  createFailedReceipt,
+  type Message,
+  type Receipt,
+  type Transport,
+  type TransportOptions,
+} from "@upyo/core";
 import {
   createMockConfig,
   type MockConfig,
@@ -13,14 +19,16 @@ import {
  * comprehensive testing capabilities including message verification,
  * behavior simulation, and async utilities.
  */
-export class MockTransport implements Transport {
+export class MockTransport implements Transport<"mock"> {
+  readonly id = "mock";
+
   /**
    * The resolved configuration used by this mock transport.
    */
   config: ResolvedMockConfig;
 
   private sentMessages: Message[] = [];
-  private nextResponse: Receipt | null = null;
+  private nextResponse: Receipt<"mock"> | null = null;
   private messageIdCounter: number = 1;
 
   /**
@@ -43,7 +51,10 @@ export class MockTransport implements Transport {
    * @returns A promise that resolves to a receipt indicating success or failure.
    * @throws {DOMException} When the operation is aborted via `AbortSignal`.
    */
-  async send(message: Message, options?: TransportOptions): Promise<Receipt> {
+  async send(
+    message: Message,
+    options?: TransportOptions,
+  ): Promise<Receipt<"mock">> {
     // Check for cancellation
     if (options?.signal?.aborted) {
       throw new DOMException("The operation was aborted.", "AbortError");
@@ -80,7 +91,7 @@ export class MockTransport implements Transport {
   async *sendMany(
     messages: Iterable<Message> | AsyncIterable<Message>,
     options?: TransportOptions,
-  ): AsyncIterable<Receipt> {
+  ): AsyncIterable<Receipt<"mock">> {
     for await (const message of messages) {
       if (options?.signal?.aborted) {
         throw new DOMException("The operation was aborted.", "AbortError");
@@ -134,7 +145,7 @@ export class MockTransport implements Transport {
    *
    * @param receipt The receipt to return for the next send operation.
    */
-  setNextResponse(receipt: Receipt): void {
+  setNextResponse(receipt: Receipt<"mock">): void {
     this.nextResponse = receipt;
   }
 
@@ -146,7 +157,7 @@ export class MockTransport implements Transport {
    *
    * @param receipt The default receipt to return for send operations.
    */
-  setDefaultResponse(receipt: Receipt): void {
+  setDefaultResponse(receipt: Receipt<"mock">): void {
     this.config = {
       ...this.config,
       defaultResponse: receipt,
@@ -349,15 +360,18 @@ export class MockTransport implements Transport {
     }
   }
 
-  private getResponse(): Receipt {
+  private getResponse(): Receipt<"mock"> {
     // Check for random failure first
     if (
       this.config.failureRate > 0 && Math.random() < this.config.failureRate
     ) {
-      return {
-        successful: false,
-        errorMessages: ["Simulated random failure"],
-      };
+      return createFailedReceipt("Simulated random failure", {
+        provider: "mock",
+        category: "unknown",
+        code: "mock.random_failure",
+        retryable: true,
+        attempts: 1,
+      });
     }
 
     // Use next response if set
@@ -372,9 +386,13 @@ export class MockTransport implements Transport {
       this.config.defaultResponse.successful &&
       this.config.generateUniqueMessageIds
     ) {
+      const { attempts, timestamp } = this.config.defaultResponse;
       return {
         successful: true,
         messageId: `mock-message-${this.messageIdCounter++}`,
+        provider: "mock",
+        ...(attempts == null ? {} : { attempts }),
+        ...(timestamp == null ? {} : { timestamp }),
       };
     }
 

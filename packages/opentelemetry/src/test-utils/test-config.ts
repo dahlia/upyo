@@ -8,9 +8,11 @@ import {
 /**
  * Mock transport implementation for testing OpenTelemetry integration.
  */
-export class MockTransport implements Transport {
+export class MockTransport implements Transport<"mock"> {
+  readonly id = "mock";
+
   public readonly sentMessages: Message[] = [];
-  public nextReceipt: Receipt | null = null;
+  public nextReceipt: Receipt<"mock"> | null = null;
   public shouldThrow: Error | null = null;
   public delay: number = 0;
   private messageIdCounter = 1;
@@ -18,7 +20,7 @@ export class MockTransport implements Transport {
   /**
    * Configures the next receipt to be returned.
    */
-  setNextReceipt(receipt: Receipt): void {
+  setNextReceipt(receipt: Receipt<"mock">): void {
     this.nextReceipt = receipt;
   }
 
@@ -36,7 +38,10 @@ export class MockTransport implements Transport {
     this.delay = ms;
   }
 
-  async send(message: Message, options?: TransportOptions): Promise<Receipt> {
+  async send(
+    message: Message,
+    options?: TransportOptions,
+  ): Promise<Receipt<"mock">> {
     // Check for abort signal
     if (options?.signal?.aborted) {
       throw new DOMException("The operation was aborted.", "AbortError");
@@ -71,13 +76,14 @@ export class MockTransport implements Transport {
     return {
       successful: true,
       messageId: `test-msg-${this.messageIdCounter++}`,
+      provider: "mock",
     };
   }
 
   async *sendMany(
     messages: Iterable<Message> | AsyncIterable<Message>,
     options?: TransportOptions,
-  ): AsyncIterable<Receipt> {
+  ): AsyncIterable<Receipt<"mock">> {
     for await (const message of messages) {
       yield await this.send(message, options);
     }

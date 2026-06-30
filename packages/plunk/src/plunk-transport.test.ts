@@ -62,16 +62,54 @@ describe("PlunkTransport - AbortSignal (send)", () => {
     controller.abort();
 
     const message = createTestMessage();
-    const receipt = await transport.send(message, {
-      signal: controller.signal,
-    });
+    try {
+      await transport.send(message, { signal: controller.signal });
+      assert.fail("Should have thrown AbortError");
+    } catch (error) {
+      assert.ok(error instanceof Error);
+      assert.equal(error.name, "AbortError");
+    }
+  });
 
-    assert.equal(receipt.successful, false);
-    assert.ok(
-      receipt.errorMessages.some((msg) =>
-        msg.includes("aborted") || msg.includes("Abort")
-      ),
-    );
+  it("should preserve abort reasons without AbortSignal.any", async () => {
+    const originalAny = AbortSignal.any;
+    const originalFetch = globalThis.fetch;
+    const abortReason = new Error("Stop plunk request.");
+    const controller = new AbortController();
+
+    try {
+      Object.defineProperty(AbortSignal, "any", {
+        value: undefined,
+        configurable: true,
+        writable: true,
+      });
+      globalThis.fetch = (_input, init) =>
+        new Promise((_resolve, reject) => {
+          assert.ok(init?.signal instanceof AbortSignal);
+          init.signal.addEventListener("abort", () => {
+            reject(init.signal?.reason);
+          }, { once: true });
+          setTimeout(() => controller.abort(abortReason), 0);
+        });
+
+      const transport = new PlunkTransport({
+        apiKey: "test-key",
+        retries: 0,
+      });
+
+      await assert.rejects(
+        () =>
+          transport.send(createTestMessage(), { signal: controller.signal }),
+        (error: unknown) => error === abortReason,
+      );
+    } finally {
+      globalThis.fetch = originalFetch;
+      Object.defineProperty(AbortSignal, "any", {
+        value: originalAny,
+        configurable: true,
+        writable: true,
+      });
+    }
   });
 });
 
@@ -117,6 +155,40 @@ describe("PlunkTransport - HTTP 500 error", () => {
       const receipt = await transport.send(message);
 
       assert.equal(receipt.successful, false);
+      if (!receipt.successful) {
+        assert.equal(receipt.provider, "plunk");
+        assert.equal(receipt.retryable, true);
+        assert.equal(receipt.errors?.[0]?.category, "server-error");
+        assert.equal(receipt.errors?.[0]?.statusCode, 500);
+      }
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+  });
+
+  it("should truncate long error response bodies", async () => {
+    const originalFetch = globalThis.fetch;
+    try {
+      const longBody = "x".repeat(600);
+      // deno-lint-ignore require-await
+      globalThis.fetch = async () =>
+        new Response(longBody, {
+          status: 500,
+          statusText: "Internal Server Error",
+        });
+
+      const transport = new PlunkTransport({
+        apiKey: "test-key",
+        retries: 0,
+      });
+
+      const receipt = await transport.send(createTestMessage());
+
+      assert.ok(!receipt.successful);
+      assert.equal(
+        receipt.errorMessages[0],
+        `HTTP 500: Internal Server Error. ${"x".repeat(500)}...`,
+      );
     } finally {
       globalThis.fetch = originalFetch;
     }
@@ -141,6 +213,12 @@ describe("PlunkTransport - HTTP 400 error", () => {
 
       assert.equal(receipt.successful, false);
       assert.ok(Array.isArray(receipt.errorMessages));
+      if (!receipt.successful) {
+        assert.equal(receipt.provider, "plunk");
+        assert.equal(receipt.retryable, false);
+        assert.equal(receipt.errors?.[0]?.category, "validation");
+        assert.equal(receipt.errors?.[0]?.statusCode, 400);
+      }
     } finally {
       globalThis.fetch = originalFetch;
     }

@@ -264,11 +264,11 @@ The transport automatically classifies errors into standard categories:
 | Category              | Description             | Example Errors                          |
 | --------------------- | ----------------------- | --------------------------------------- |
 | `auth`                | Authentication failures | Invalid API key, unauthorized           |
-| `rate_limit`          | Rate limiting           | Quota exceeded, too many requests       |
+| `rate-limit`          | Rate limiting           | Quota exceeded, too many requests       |
 | `network`             | Network connectivity    | Timeout, DNS resolution, abort          |
 | `validation`          | Input validation        | Invalid email format, malformed request |
-| `service_unavailable` | Service outages         | HTTP 503, temporarily unavailable       |
-| `server_error`        | Server errors           | HTTP 500, internal server error         |
+| `service-unavailable` | Service outages         | HTTP 503, temporarily unavailable       |
+| `server-error`        | Server errors           | HTTP 500, internal server error         |
 | `unknown`             | Unclassified errors     | Any other errors                        |
 
 ### Custom Error Classification

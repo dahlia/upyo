@@ -11,7 +11,8 @@ import type { Strategy, TransportSelection } from "./strategy.ts";
  * equivalent and one is selected randomly.
  * @since 0.3.0
  */
-export class PriorityStrategy implements Strategy {
+export class PriorityStrategy<TProviderId extends string = string>
+  implements Strategy<TProviderId> {
   /**
    * Selects the highest priority transport that hasn't been attempted.
    *
@@ -24,9 +25,9 @@ export class PriorityStrategy implements Strategy {
    */
   select(
     _message: Message,
-    transports: readonly ResolvedTransportEntry[],
-    attemptedIndices: Set<number>,
-  ): TransportSelection | undefined {
+    transports: readonly ResolvedTransportEntry<TProviderId>[],
+    attemptedIndices: ReadonlySet<number>,
+  ): TransportSelection<TProviderId> | undefined {
     // Filter to enabled transports that haven't been attempted
     const availableTransports = transports
       .map((entry, index) => ({ entry, index }))

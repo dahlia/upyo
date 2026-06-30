@@ -1,3 +1,4 @@
+import { combineSignals, parseRetryAfter } from "@upyo/core";
 import type { ResolvedSendGridConfig } from "./config.ts";
 
 /**
@@ -86,6 +87,9 @@ export class SendGridHttpClient {
    * @param url The URL to make the request to.
    * @param options Fetch options.
    * @returns Promise that resolves to the parsed response.
+   * @throws {DOMException} If the caller aborts the request.
+   * @throws {SendGridApiError} If SendGrid returns a client error or all retry
+   *                            attempts are exhausted.
    */
   async makeRequest(
     url: string,
@@ -121,9 +125,16 @@ export class SendGridHttpClient {
           errorData.message || `HTTP ${response.status}`,
           response.status,
           errorData.errors,
+          parseRetryAfter(response.headers.get("Retry-After")),
+          attempt + 1,
         );
       } catch (error) {
         lastError = error instanceof Error ? error : new Error(String(error));
+
+        // Don't retry caller cancellation.
+        if (isCallerAbort(error, options.signal)) {
+          throw error;
+        }
 
         // Don't retry on client errors (4xx) or if it's the last attempt
         if (
@@ -136,12 +147,21 @@ export class SendGridHttpClient {
         }
 
         if (attempt === this.config.retries) {
-          throw error;
+          if (lastError instanceof SendGridApiError) {
+            throw lastError;
+          }
+          throw new SendGridApiError(
+            lastError.message,
+            undefined,
+            undefined,
+            undefined,
+            attempt + 1,
+          );
         }
 
         // Wait before retrying (exponential backoff)
         const delay = Math.pow(2, attempt) * 1000;
-        await new Promise((resolve) => setTimeout(resolve, delay));
+        await sleep(delay, options.signal);
       }
     }
 
@@ -154,6 +174,8 @@ export class SendGridHttpClient {
    * @param url The URL to make the request to.
    * @param options Fetch options.
    * @returns Promise that resolves to the fetch response.
+   * @throws {Error} If the configured request timeout is reached.
+   * @throws {DOMException} If the caller aborts the request.
    */
   async fetchWithAuth(
     url: string,
@@ -172,27 +194,27 @@ export class SendGridHttpClient {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), this.config.timeout);
 
-    // Combine signals if provided
-    let signal = controller.signal;
-    if (options.signal) {
-      // Use the external signal if provided, timeout will still work
-      signal = options.signal;
-      // If the external signal is already aborted, abort our controller too
-      if (options.signal.aborted) {
-        controller.abort();
-      } else {
-        // Listen for abort on the external signal
-        options.signal.addEventListener("abort", () => controller.abort());
-      }
-    }
+    const combinedSignal = combineSignals(controller.signal, options.signal);
 
     try {
       return await globalThis.fetch(url, {
         ...options,
         headers,
-        signal,
+        signal: combinedSignal.signal,
       });
+    } catch (error) {
+      if (
+        isAbortError(error) &&
+        controller.signal.aborted &&
+        !options.signal?.aborted
+      ) {
+        throw new Error(
+          `SendGrid API request timed out after ${this.config.timeout} ms.`,
+        );
+      }
+      throw error;
     } finally {
+      combinedSignal.cleanup();
       clearTimeout(timeoutId);
     }
   }
@@ -213,16 +235,44 @@ export class SendGridHttpClient {
 }
 
 /**
- * Custom error class for SendGrid API errors.
+ * Error thrown when a SendGrid API request fails.
+ *
+ * @since 0.5.0
  */
 export class SendGridApiError extends Error {
+  /**
+   * HTTP status code returned by SendGrid, if the request reached the API.
+   */
   readonly statusCode?: number;
+
+  /**
+   * Provider-supplied SendGrid error details.
+   */
   readonly errors?: {
     readonly message: string;
     readonly field?: string;
     readonly help?: string;
   }[];
 
+  /**
+   * Retry delay from SendGrid's `Retry-After` response header.
+   */
+  readonly retryAfterMilliseconds?: number;
+
+  /**
+   * Number of attempts made before this error was produced.
+   */
+  readonly attempts?: number;
+
+  /**
+   * Creates a SendGrid API error.
+   *
+   * @param message Error message.
+   * @param statusCode HTTP status code returned by SendGrid.
+   * @param errors Provider-supplied SendGrid error details.
+   * @param retryAfterMilliseconds Retry delay from the response.
+   * @param attempts Number of attempts made before this error.
+   */
   constructor(
     message: string,
     statusCode?: number,
@@ -231,10 +281,52 @@ export class SendGridApiError extends Error {
       field?: string;
       help?: string;
     }>,
+    retryAfterMilliseconds?: number,
+    attempts?: number,
   ) {
     super(message);
     this.name = "SendGridApiError";
     this.statusCode = statusCode;
     this.errors = errors;
+    this.retryAfterMilliseconds = retryAfterMilliseconds;
+    this.attempts = attempts;
   }
+}
+
+function isAbortError(error: unknown): boolean {
+  return error instanceof Error && error.name === "AbortError";
+}
+
+function isCallerAbort(error: unknown, signal?: AbortSignal | null): boolean {
+  return signal?.aborted === true &&
+    (isAbortError(error) || error === signal.reason);
+}
+
+function sleep(
+  milliseconds: number,
+  signal?: AbortSignal | null,
+): Promise<void> {
+  if (signal?.aborted) {
+    return Promise.reject(createAbortError(signal));
+  }
+
+  return new Promise((resolve, reject) => {
+    function abort() {
+      clearTimeout(timeoutId);
+      signal?.removeEventListener("abort", abort);
+      reject(createAbortError(signal));
+    }
+
+    const timeoutId = setTimeout(() => {
+      signal?.removeEventListener("abort", abort);
+      resolve();
+    }, milliseconds);
+
+    signal?.addEventListener("abort", abort, { once: true });
+  });
+}
+
+function createAbortError(signal?: AbortSignal | null): unknown {
+  return signal?.reason ??
+    new DOMException("The operation was aborted.", "AbortError");
 }

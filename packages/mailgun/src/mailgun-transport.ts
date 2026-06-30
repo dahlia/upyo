@@ -1,7 +1,13 @@
-import type { Message, Receipt, Transport, TransportOptions } from "@upyo/core";
+import {
+  createFailedReceipt,
+  type Message,
+  type Receipt,
+  type Transport,
+  type TransportOptions,
+} from "@upyo/core";
 import type { MailgunConfig, ResolvedMailgunConfig } from "./config.ts";
 import { createMailgunConfig } from "./config.ts";
-import { MailgunHttpClient } from "./http-client.ts";
+import { MailgunApiError, MailgunHttpClient } from "./http-client.ts";
 import { convertMessage } from "./message-converter.ts";
 
 /**
@@ -28,7 +34,9 @@ import { convertMessage } from "./message-converter.ts";
  * }
  * ```
  */
-export class MailgunTransport implements Transport {
+export class MailgunTransport implements Transport<"mailgun"> {
+  readonly id = "mailgun";
+
   /**
    * The resolved Mailgun configuration used by this transport.
    */
@@ -79,7 +87,10 @@ export class MailgunTransport implements Transport {
    * @returns A promise that resolves to a receipt indicating success or
    *          failure.
    */
-  async send(message: Message, options?: TransportOptions): Promise<Receipt> {
+  async send(
+    message: Message,
+    options?: TransportOptions,
+  ): Promise<Receipt<"mailgun">> {
     options?.signal?.throwIfAborted();
 
     try {
@@ -95,16 +106,18 @@ export class MailgunTransport implements Transport {
       return {
         successful: true,
         messageId: response.id,
+        provider: "mailgun",
       };
     } catch (error) {
+      if (isCallerAbort(error, options?.signal)) {
+        throw error;
+      }
+
       const errorMessage = error instanceof Error
         ? error.message
         : String(error);
 
-      return {
-        successful: false,
-        errorMessages: [errorMessage],
-      };
+      return createMailgunFailure(errorMessage, error);
     }
   }
 
@@ -163,7 +176,7 @@ export class MailgunTransport implements Transport {
   async *sendMany(
     messages: Iterable<Message> | AsyncIterable<Message>,
     options?: TransportOptions,
-  ): AsyncIterable<Receipt> {
+  ): AsyncIterable<Receipt<"mailgun">> {
     options?.signal?.throwIfAborted();
 
     const isAsyncIterable = Symbol.asyncIterator in messages;
@@ -180,4 +193,31 @@ export class MailgunTransport implements Transport {
       }
     }
   }
+}
+
+function createMailgunFailure(
+  message: string,
+  error: unknown,
+): Receipt<"mailgun"> & { readonly successful: false } {
+  if (error instanceof MailgunApiError) {
+    return createFailedReceipt(message, {
+      provider: "mailgun",
+      statusCode: error.statusCode,
+      retryAfterMilliseconds: error.retryAfterMilliseconds,
+      attempts: error.attempts,
+    });
+  }
+
+  return createFailedReceipt(message, {
+    provider: "mailgun",
+  });
+}
+
+function isCallerAbort(error: unknown, signal?: AbortSignal): boolean {
+  return signal?.aborted === true &&
+    (isAbortError(error) || error === signal.reason);
+}
+
+function isAbortError(error: unknown): boolean {
+  return error instanceof Error && error.name === "AbortError";
 }

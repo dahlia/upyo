@@ -173,7 +173,7 @@ describe("index", () => {
       // Should fall back to default classifier for rate limit
       assert.equal(
         classifier(new Error("Rate limit exceeded")),
-        "rate_limit",
+        "rate-limit",
       );
 
       // Should use default fallback for unmatched errors

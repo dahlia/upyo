@@ -2,7 +2,15 @@ import assert from "node:assert/strict";
 import { describe, test } from "node:test";
 import { PoolTransport } from "./pool-transport.ts";
 import { MockTransport } from "@upyo/mock";
-import type { Receipt } from "@upyo/core";
+import {
+  createFailedReceipt,
+  createReceiptError,
+  type Message,
+  type Receipt,
+  type ReceiptError,
+  type Transport,
+  type TransportOptions,
+} from "@upyo/core";
 import {
   createFailureTransport,
   createSuccessTransport,
@@ -10,6 +18,65 @@ import {
 } from "./test-utils/test-config.ts";
 
 describe("PoolTransport", () => {
+  class FixedFailureTransport<TProviderId extends string>
+    implements Transport<TProviderId> {
+    readonly id: TProviderId;
+    private readonly receipt: Receipt<TProviderId> & {
+      readonly successful: false;
+    };
+
+    constructor(
+      id: TProviderId,
+      receipt: Receipt<TProviderId> & { readonly successful: false },
+    ) {
+      this.id = id;
+      this.receipt = receipt;
+    }
+
+    send(
+      _message: Message,
+      _options?: TransportOptions,
+    ): Promise<Receipt<TProviderId>> {
+      return Promise.resolve(this.receipt);
+    }
+
+    async *sendMany(
+      messages: Iterable<Message> | AsyncIterable<Message>,
+      _options?: TransportOptions,
+    ): AsyncIterable<Receipt<TProviderId>> {
+      for await (const _message of messages) {
+        yield this.receipt;
+      }
+    }
+  }
+
+  class ThrowingTransport<TProviderId extends string>
+    implements Transport<TProviderId> {
+    readonly id: TProviderId;
+    private readonly error: unknown;
+
+    constructor(id: TProviderId, error: unknown) {
+      this.id = id;
+      this.error = error;
+    }
+
+    send(
+      _message: Message,
+      _options?: TransportOptions,
+    ): Promise<Receipt<TProviderId>> {
+      return Promise.reject(this.error);
+    }
+
+    async *sendMany(
+      messages: Iterable<Message> | AsyncIterable<Message>,
+      options?: TransportOptions,
+    ): AsyncIterable<Receipt<TProviderId>> {
+      for await (const message of messages) {
+        yield await this.send(message, options);
+      }
+    }
+  }
+
   describe("round-robin strategy", () => {
     test("should distribute messages across transports", async () => {
       const transport1 = new MockTransport();
@@ -77,19 +144,23 @@ describe("PoolTransport", () => {
         ],
       });
 
-      // Send many messages to observe distribution
-      const messageCount = 100;
-      for (let i = 0; i < messageCount; i++) {
-        await pool.send(createTestMessage({ subject: `Message ${i}` }));
+      const originalRandom = Math.random;
+      const randomValues = [0.125, 0.375, 0.625, 0.875];
+      try {
+        Math.random = () => randomValues.shift() ?? 0.875;
+
+        for (let i = 0; i < 4; i++) {
+          await pool.send(createTestMessage({ subject: `Message ${i}` }));
+        }
+      } finally {
+        Math.random = originalRandom;
       }
 
       const count1 = transport1.getSentMessagesCount();
       const count2 = transport2.getSentMessagesCount();
 
-      // Transport2 should receive roughly 3x more messages
-      assert.equal(count1 + count2, messageCount);
-      assert.ok(count2 > count1 * 1.5); // At least 1.5x more
-      assert.ok(count2 < count1 * 5); // At most 5x more
+      assert.equal(count1, 1);
+      assert.equal(count2, 3);
     });
   });
 
@@ -257,6 +328,134 @@ describe("PoolTransport", () => {
       assert.ok(receipt.errorMessages.includes("Failed 2"));
     });
 
+    test("should preserve transport ids in structured failures", async () => {
+      const primary = new FixedFailureTransport(
+        "mailgun",
+        createFailedReceipt("Too many requests", {
+          provider: "mailgun",
+          statusCode: 429,
+        }),
+      );
+      const secondary = new FixedFailureTransport<"sendgrid">("sendgrid", {
+        successful: false,
+        errorMessages: ["Invalid API key"],
+      });
+
+      const pool = new PoolTransport({
+        strategy: "round-robin",
+        transports: [
+          { transport: primary },
+          { transport: secondary },
+        ],
+      });
+
+      const receipt = await pool.send(createTestMessage());
+
+      assert.ok(!receipt.successful);
+      if (!receipt.successful) {
+        assert.equal(receipt.provider, "pool");
+        assert.equal(receipt.attempts, 2);
+        assert.deepEqual(
+          receipt.errors?.map((error) => error.provider),
+          ["mailgun", "sendgrid"],
+        );
+        assert.equal(receipt.errors?.[0]?.category, "rate-limit");
+        assert.equal(receipt.errors?.[1]?.category, "auth");
+      }
+    });
+
+    test("should preserve retryable legacy child failures", async () => {
+      const pool = new PoolTransport({
+        strategy: "round-robin",
+        transports: [
+          {
+            transport: new FixedFailureTransport<"legacy">("legacy", {
+              successful: false,
+              errorMessages: ["Try again later"],
+              retryable: true,
+              provider: "legacy",
+            }),
+          },
+        ],
+      });
+
+      const receipt = await pool.send(createTestMessage());
+
+      assert.ok(!receipt.successful);
+      if (!receipt.successful) {
+        assert.equal(receipt.retryable, true);
+        assert.equal(receipt.errors?.[0]?.retryable, true);
+        assert.equal(receipt.errors?.[0]?.provider, "legacy");
+      }
+    });
+
+    test("should preserve structured errors thrown by transports", async () => {
+      const thrownError: ReceiptError<"mailgun"> = createReceiptError(
+        "Too many requests",
+        { provider: "mailgun", statusCode: 429 },
+      );
+      const thrownReceipt = createFailedReceipt("Invalid API key", {
+        provider: "sendgrid",
+        category: "auth",
+      });
+
+      const pool = new PoolTransport({
+        strategy: "round-robin",
+        transports: [
+          { transport: new ThrowingTransport("mailgun", thrownError) },
+          { transport: new ThrowingTransport("sendgrid", thrownReceipt) },
+        ],
+      });
+
+      const receipt = await pool.send(createTestMessage());
+
+      assert.ok(!receipt.successful);
+      if (!receipt.successful) {
+        assert.deepEqual(receipt.errorMessages, [
+          "Too many requests",
+          "Invalid API key",
+        ]);
+        assert.deepEqual(
+          receipt.errors?.map((error) => error.category),
+          ["rate-limit", "auth"],
+        );
+        assert.deepEqual(
+          receipt.errors?.map((error) => error.provider),
+          ["mailgun", "sendgrid"],
+        );
+      }
+    });
+
+    test("should preserve thrown Error receipt messages", async () => {
+      class ThrownReceiptError extends Error
+        implements ReceiptError<"mailgun"> {
+        readonly code = "http.429";
+        readonly category = "rate-limit";
+        readonly retryable = true;
+      }
+
+      const pool = new PoolTransport({
+        strategy: "round-robin",
+        transports: [
+          {
+            transport: new ThrowingTransport(
+              "mailgun",
+              new ThrownReceiptError("Too many requests"),
+            ),
+          },
+        ],
+      });
+
+      const receipt = await pool.send(createTestMessage());
+
+      assert.ok(!receipt.successful);
+      if (!receipt.successful) {
+        assert.equal(receipt.errorMessages[0], "Too many requests");
+        assert.equal(receipt.errors?.[0]?.message, "Too many requests");
+        assert.equal(receipt.errors?.[0]?.provider, "mailgun");
+      }
+    });
+
     test("should respect maxRetries limit", async () => {
       const transport1 = createFailureTransport("Failed");
       const transport2 = createFailureTransport("Failed");
@@ -269,7 +468,7 @@ describe("PoolTransport", () => {
           { transport: transport2 },
           { transport: transport3 },
         ],
-        maxRetries: 2, // Only try 2 transports
+        maxRetries: 1,
       });
 
       const receipt = await pool.send(createTestMessage());
@@ -279,6 +478,26 @@ describe("PoolTransport", () => {
       assert.equal(transport1.getSentMessagesCount(), 1);
       assert.equal(transport2.getSentMessagesCount(), 1);
       assert.equal(transport3.getSentMessagesCount(), 0);
+    });
+
+    test("should make an initial attempt when retries are disabled", async () => {
+      const transport1 = createFailureTransport("Failed");
+      const transport2 = createSuccessTransport("success");
+
+      const pool = new PoolTransport({
+        strategy: "round-robin",
+        transports: [
+          { transport: transport1 },
+          { transport: transport2 },
+        ],
+        maxRetries: 0,
+      });
+
+      const receipt = await pool.send(createTestMessage());
+      assert.ok(!receipt.successful);
+
+      assert.equal(transport1.getSentMessagesCount(), 1);
+      assert.equal(transport2.getSentMessagesCount(), 0);
     });
   });
 
@@ -376,6 +595,139 @@ describe("PoolTransport", () => {
         {
           name: "AbortError",
         },
+      );
+    });
+
+    test("should pass through aborts that happen during selection", async () => {
+      const controller = new AbortController();
+      const transport: Transport<"delayed"> = {
+        id: "delayed",
+        send(_message, options) {
+          assert.ok(options?.signal?.aborted);
+          return Promise.reject(
+            new DOMException("The operation was aborted.", "AbortError"),
+          );
+        },
+        async *sendMany(messages) {
+          for await (const message of messages) {
+            yield await this.send(message);
+          }
+        },
+      };
+      const pool = new PoolTransport({
+        strategy: {
+          select(_message, transports) {
+            controller.abort();
+            return { entry: transports[0], index: 0 };
+          },
+          reset() {},
+        },
+        transports: [{ transport }],
+        timeout: 1000,
+      });
+
+      await assert.rejects(
+        () => pool.send(createTestMessage(), { signal: controller.signal }),
+        { name: "AbortError" },
+      );
+    });
+
+    test("should preserve caller abort reasons with timeout", async () => {
+      const abortReason = new Error("Stop pooled send.");
+      const controller = new AbortController();
+      const transport: Transport<"delayed"> = {
+        id: "delayed",
+        send(_message, options) {
+          return new Promise((_resolve, reject) => {
+            options?.signal?.addEventListener("abort", () => {
+              reject(options.signal?.reason);
+            }, { once: true });
+            setTimeout(() => controller.abort(abortReason), 0);
+          });
+        },
+        async *sendMany(messages, options) {
+          for await (const message of messages) {
+            yield await this.send(message, options);
+          }
+        },
+      };
+      const pool = new PoolTransport({
+        strategy: "round-robin",
+        transports: [{ transport }],
+        timeout: 1000,
+      });
+
+      await assert.rejects(
+        () => pool.send(createTestMessage(), { signal: controller.signal }),
+        (error: unknown) => error === abortReason,
+      );
+    });
+
+    test("should keep timeout receipts when callers abort later", async () => {
+      const controller = new AbortController();
+      const transport: Transport<"slow"> = {
+        id: "slow",
+        send(_message, options) {
+          return new Promise((_, reject) => {
+            options?.signal?.addEventListener("abort", () => {
+              setTimeout(() => {
+                reject(
+                  new DOMException(
+                    "The operation was aborted.",
+                    "AbortError",
+                  ),
+                );
+              }, 20);
+            }, { once: true });
+          });
+        },
+        async *sendMany(messages, options) {
+          for await (const message of messages) {
+            yield await this.send(message, options);
+          }
+        },
+      };
+      const pool = new PoolTransport({
+        strategy: "round-robin",
+        transports: [{ transport }],
+        timeout: 5,
+      });
+
+      setTimeout(() => controller.abort(), 10);
+      const receipt = await pool.send(createTestMessage(), {
+        signal: controller.signal,
+      });
+
+      assert.ok(!receipt.successful);
+      if (!receipt.successful) {
+        assert.equal(receipt.errors?.[0]?.category, "timeout");
+        assert.ok(receipt.retryable);
+      }
+    });
+
+    test("should rethrow caller aborts before returning final failures", async () => {
+      const abortReason = new Error("Stop final failure.");
+      const controller = new AbortController();
+      const transport: Transport<"failing"> = {
+        id: "failing",
+        send() {
+          controller.abort(abortReason);
+          return Promise.reject(new Error("Network failure."));
+        },
+        async *sendMany(messages, options) {
+          for await (const message of messages) {
+            yield await this.send(message, options);
+          }
+        },
+      };
+      const pool = new PoolTransport({
+        strategy: "round-robin",
+        transports: [{ transport }],
+      });
+
+      await assert.rejects(
+        () => pool.send(createTestMessage(), { signal: controller.signal }),
+        (error: unknown) => error === abortReason,
       );
     });
   });
