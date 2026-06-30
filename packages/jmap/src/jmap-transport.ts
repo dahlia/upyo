@@ -64,10 +64,9 @@ export class JmapTransport implements Transport<"jmap"> {
     options?: TransportOptions,
   ): Promise<Receipt<"jmap">> {
     const signal = options?.signal;
+    signal?.throwIfAborted();
 
     try {
-      signal?.throwIfAborted();
-
       // Get or refresh session
       const session = await this.getSession(signal);
       signal?.throwIfAborted();
@@ -829,5 +828,6 @@ function getAttemptCount(error: unknown): number {
 }
 
 function getAbortReason(signal: AbortSignal, fallback: unknown): unknown {
-  return signal.reason ?? fallback;
+  return signal.reason ?? fallback ??
+    new DOMException("The operation was aborted.", "AbortError");
 }

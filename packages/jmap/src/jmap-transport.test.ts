@@ -104,6 +104,41 @@ describe("JmapTransport", () => {
       }
     });
 
+    it("should reject caller aborts with AbortError without a reason", async () => {
+      const originalFetch = globalThis.fetch;
+      const controller = new AbortController();
+      Object.defineProperty(controller.signal, "reason", {
+        value: undefined,
+      });
+
+      try {
+        globalThis.fetch = (
+          _input: RequestInfo | URL,
+          init?: RequestInit,
+        ): Promise<Response> =>
+          new Promise((_resolve, reject) => {
+            init?.signal?.addEventListener("abort", () => {
+              reject(undefined);
+            }, { once: true });
+            setTimeout(() => controller.abort(), 0);
+          });
+
+        const transport = new JmapTransport({
+          sessionUrl: "https://jmap.example.com/.well-known/jmap",
+          bearerToken: "test-token",
+          retries: 0,
+        });
+
+        await assert.rejects(
+          () => transport.send(baseMessage, { signal: controller.signal }),
+          (error: unknown) =>
+            error instanceof Error && error.name === "AbortError",
+        );
+      } finally {
+        globalThis.fetch = originalFetch;
+      }
+    });
+
     it("should preserve attempt counts from retried failures", async () => {
       const originalFetch = globalThis.fetch;
 
