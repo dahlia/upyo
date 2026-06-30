@@ -209,8 +209,6 @@ export class RetryTransport<TProviderId extends string = string>
         launchPromise != null ||
         !inputDone
       ) {
-        if (hasLaunchError) throw launchError;
-
         while (completed.has(nextYieldIndex)) {
           const result = completed.get(nextYieldIndex);
           completed.delete(nextYieldIndex);
@@ -220,6 +218,8 @@ export class RetryTransport<TProviderId extends string = string>
           nextYieldIndex++;
           startLaunch();
         }
+
+        if (hasLaunchError) throw launchError;
 
         startLaunch();
         if (inFlight.size <= 0 && launchPromise == null) break;

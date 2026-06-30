@@ -438,6 +438,43 @@ describe("RetryTransport", () => {
     await assert.rejects(() => iterator.next(), inputError);
   });
 
+  it("yields queued sendMany receipts before launch errors", async () => {
+    const inputError = new TypeError("Input failed.");
+    const messages: Iterable<Message> = {
+      [Symbol.iterator]() {
+        let index = 0;
+        return {
+          next(): IteratorResult<Message> {
+            if (index++ === 0) {
+              return { done: false, value: message("First") };
+            }
+            throw inputError;
+          },
+        };
+      },
+    };
+    const base = new TrackingTransport((_message, index) =>
+      Promise.resolve({
+        successful: true,
+        messageId: `message-${index}`,
+      })
+    );
+    const transport = createRetryTransport(base, {
+      maxAttempts: 1,
+      sendMany: { maxConcurrent: 2 },
+    });
+
+    const iterator = transport.sendMany(messages)[Symbol.asyncIterator]();
+    const first = await iterator.next();
+    assert.ok(!first.done);
+    assert.ok(first.value.successful);
+    if (first.value.successful) {
+      assert.equal(first.value.messageId, "message-0");
+    }
+
+    await assert.rejects(() => iterator.next(), inputError);
+  });
+
   it("does not hang when closed with a pending sendMany input pull", async () => {
     const never = Promise.withResolvers<void>();
     async function* messages(): AsyncIterable<Message> {
