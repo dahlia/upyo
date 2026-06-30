@@ -39,7 +39,7 @@ describe("RetryTransport", () => {
     const receipt = await transport.send(message());
 
     assert.equal(base.calls, 2);
-    assert.equal(receipt.successful, true);
+    assert.ok(receipt.successful);
     assert.equal(receipt.messageId, "delivered");
     assert.equal(receipt.provider, "base");
     assert.equal(receipt.attempts, 2);
@@ -67,7 +67,7 @@ describe("RetryTransport", () => {
     const receipt = await transport.send(message());
 
     assert.equal(base.calls, 1);
-    assert.equal(receipt.successful, false);
+    assert.ok(!receipt.successful);
     assert.deepEqual(receipt.errorMessages, ["Invalid recipient"]);
     assert.equal(receipt.provider, "base");
     assert.equal(receipt.attempts, 1);
@@ -116,9 +116,9 @@ describe("RetryTransport", () => {
     const receipt = await transport.send(message());
 
     assert.equal(base.calls, 2);
-    assert.equal(receipt.successful, false);
+    assert.ok(!receipt.successful);
     assert.deepEqual(receipt.errorMessages, ["Connection reset by peer"]);
-    assert.equal(receipt.retryable, true);
+    assert.ok(receipt.retryable);
     assert.equal(receipt.provider, "base");
     assert.equal(receipt.attempts, 2);
     assert.equal(receipt.errors?.[0]?.category, "network");
@@ -138,7 +138,26 @@ describe("RetryTransport", () => {
     const receipt = await transport.send(message());
 
     assert.equal(base.calls, 2);
-    assert.equal(receipt.successful, true);
+    assert.ok(receipt.successful);
+    assert.equal(receipt.messageId, "delivered");
+    assert.equal(receipt.attempts, 2);
+  });
+
+  it("retries provider AbortErrors without timeout messages", async () => {
+    const base = new SequenceTransport([
+      createAbortError(),
+      { successful: true, messageId: "delivered" },
+    ]);
+    const transport = createRetryTransport(base, {
+      maxAttempts: 2,
+      jitter: false,
+      wait: () => Promise.resolve(),
+    });
+
+    const receipt = await transport.send(message());
+
+    assert.equal(base.calls, 2);
+    assert.ok(receipt.successful);
     assert.equal(receipt.messageId, "delivered");
     assert.equal(receipt.attempts, 2);
   });
@@ -164,7 +183,7 @@ describe("RetryTransport", () => {
     const receipt = await transport.send(message());
 
     assert.equal(base.calls, 2);
-    assert.equal(receipt.successful, true);
+    assert.ok(receipt.successful);
     assert.equal(errors.length, 1);
     assert.equal(errors[0], base.results[0]);
   });
@@ -256,9 +275,9 @@ describe("RetryTransport", () => {
 
     assert.equal(base.calls, 2);
     assert.deepEqual(delays, [5_000]);
-    assert.equal(receipt.successful, false);
+    assert.ok(!receipt.successful);
     assert.deepEqual(receipt.errorMessages, ["Rate limited."]);
-    assert.equal(receipt.retryable, true);
+    assert.ok(receipt.retryable);
     assert.equal(receipt.provider, "base");
     assert.equal(receipt.attempts, 2);
     assert.deepEqual(receipt.errors, [error]);
@@ -370,21 +389,81 @@ describe("RetryTransport", () => {
 
     assert.ok(firstSettled);
     const first = await firstResult;
-    assert.equal(first.done, false);
-    assert.equal(first.value.successful, true);
+    assert.ok(!first.done);
+    assert.ok(first.value.successful);
     if (first.value.successful) {
       assert.equal(first.value.messageId, "message-0");
     }
 
     releaseSecond.resolve();
     const second = await iterator.next();
-    assert.equal(second.done, false);
-    assert.equal(second.value.successful, true);
+    assert.ok(!second.done);
+    assert.ok(second.value.successful);
     if (second.value.successful) {
       assert.equal(second.value.messageId, "message-1");
     }
     const done = await iterator.next();
-    assert.equal(done.done, true);
+    assert.ok(done.done);
+  });
+
+  it("surfaces sendMany input errors after yielding ready receipts", async () => {
+    const inputError = new TypeError("Input failed.");
+    const releaseFailure = Promise.withResolvers<void>();
+    async function* messages(): AsyncIterable<Message> {
+      yield message("First");
+      await releaseFailure.promise;
+      throw inputError;
+    }
+    const base = new TrackingTransport((_message, index) =>
+      Promise.resolve({
+        successful: true,
+        messageId: `message-${index}`,
+      })
+    );
+    const transport = createRetryTransport(base, {
+      maxAttempts: 1,
+      sendMany: { maxConcurrent: 2 },
+    });
+
+    const iterator = transport.sendMany(messages())[Symbol.asyncIterator]();
+    const first = await iterator.next();
+    assert.ok(!first.done);
+    assert.ok(first.value.successful);
+    if (first.value.successful) {
+      assert.equal(first.value.messageId, "message-0");
+    }
+
+    releaseFailure.resolve();
+
+    await assert.rejects(() => iterator.next(), inputError);
+  });
+
+  it("does not hang when closed with a pending sendMany input pull", async () => {
+    const never = Promise.withResolvers<void>();
+    async function* messages(): AsyncIterable<Message> {
+      yield message("First");
+      await never.promise;
+      yield message("Second");
+    }
+    const base = new TrackingTransport((_message, index) =>
+      Promise.resolve({
+        successful: true,
+        messageId: `message-${index}`,
+      })
+    );
+    const transport = createRetryTransport(base, {
+      maxAttempts: 1,
+      sendMany: { maxConcurrent: 2 },
+    });
+
+    const iterator = transport.sendMany(messages())[Symbol.asyncIterator]();
+    const first = await iterator.next();
+    assert.ok(!first.done);
+    assert.ok(first.value.successful);
+
+    const returned = iterator.return?.();
+    assert.ok(returned != null);
+    assert.ok(await settlesWithin(returned, 50));
   });
 
   it("yields completed sendMany receipts while throttling launches", async () => {
@@ -415,21 +494,21 @@ describe("RetryTransport", () => {
 
     assert.ok(firstSettled);
     const first = await firstResult;
-    assert.equal(first.done, false);
-    assert.equal(first.value.successful, true);
+    assert.ok(!first.done);
+    assert.ok(first.value.successful);
     if (first.value.successful) {
       assert.equal(first.value.messageId, "message-0");
     }
 
     releaseThrottle.resolve();
     const second = await iterator.next();
-    assert.equal(second.done, false);
-    assert.equal(second.value.successful, true);
+    assert.ok(!second.done);
+    assert.ok(second.value.successful);
     if (second.value.successful) {
       assert.equal(second.value.messageId, "message-1");
     }
     const done = await iterator.next();
-    assert.equal(done.done, true);
+    assert.ok(done.done);
   });
 
   it("refills sendMany concurrency when later messages finish first", async () => {
@@ -494,15 +573,15 @@ describe("RetryTransport", () => {
     releaseFirst.resolve();
 
     const first = await iterator.next();
-    assert.equal(first.done, false);
-    assert.equal(first.value.successful, true);
+    assert.ok(!first.done);
+    assert.ok(first.value.successful);
     if (first.value.successful) {
       assert.equal(first.value.messageId, "first");
     }
 
     const second = await iterator.next();
-    assert.equal(second.done, false);
-    assert.equal(second.value.successful, false);
+    assert.ok(!second.done);
+    assert.ok(!second.value.successful);
     if (!second.value.successful) {
       assert.deepEqual(second.value.errorMessages, [
         "The operation was aborted.",
@@ -531,11 +610,12 @@ describe("RetryTransport", () => {
     });
 
     for await (const receipt of transport.sendMany(messages())) {
-      assert.equal(receipt.successful, true);
+      assert.ok(receipt.successful);
       break;
     }
 
-    assert.equal(closed, true);
+    await waitFor(() => closed);
+    assert.ok(closed);
   });
 
   it("cancels pending sendMany launch waits when consumers stop early", async () => {
@@ -568,7 +648,7 @@ describe("RetryTransport", () => {
       message("Second"),
     ])[Symbol.asyncIterator]();
     const first = await iterator.next();
-    assert.equal(first.done, false);
+    assert.ok(!first.done);
     assert.ok(waitStarted);
 
     await iterator.return?.();
@@ -583,8 +663,8 @@ describe("RetryTransport", () => {
 
     await transport[Symbol.asyncDispose]();
 
-    assert.equal(base.asyncDisposed, true);
-    assert.equal(base.disposed, false);
+    assert.ok(base.asyncDisposed);
+    assert.ok(!base.disposed);
   });
 
   it("disposes wrapped sync disposable transports", async () => {
@@ -593,8 +673,8 @@ describe("RetryTransport", () => {
 
     await transport[Symbol.asyncDispose]();
 
-    assert.equal(base.asyncDisposed, false);
-    assert.equal(base.disposed, true);
+    assert.ok(!base.asyncDisposed);
+    assert.ok(base.disposed);
   });
 
   it("prefers wrapped async disposal when both forms are available", async () => {
@@ -606,8 +686,8 @@ describe("RetryTransport", () => {
 
     await transport[Symbol.asyncDispose]();
 
-    assert.equal(base.asyncDisposed, true);
-    assert.equal(base.disposed, false);
+    assert.ok(base.asyncDisposed);
+    assert.ok(!base.disposed);
   });
 });
 

@@ -137,6 +137,9 @@ export class RetryTransport<TProviderId extends string = string>
     let nextLaunchIndex = 0;
     let nextYieldIndex = 0;
     let launchPromise: Promise<void> | undefined;
+    let launchError: unknown;
+    let hasLaunchError = false;
+    let pullingInput = false;
     let closed = false;
     const controller = new AbortController();
     const combinedSignal = combineSignals(controller.signal, options?.signal);
@@ -149,7 +152,13 @@ export class RetryTransport<TProviderId extends string = string>
       if (inputDone) return;
       combinedSignal.signal.throwIfAborted();
 
-      const next = await iterator.next();
+      pullingInput = true;
+      let next: IteratorResult<Message>;
+      try {
+        next = await iterator.next();
+      } finally {
+        pullingInput = false;
+      }
       if (closed) return;
       if (next.done) {
         inputDone = true;
@@ -181,9 +190,14 @@ export class RetryTransport<TProviderId extends string = string>
         inFlight.size >= this.config.sendMany.maxConcurrent
       ) return;
 
-      launchPromise = launchNext().finally(() => {
-        launchPromise = undefined;
-      });
+      launchPromise = launchNext()
+        .catch((error) => {
+          launchError = error;
+          hasLaunchError = true;
+        })
+        .finally(() => {
+          launchPromise = undefined;
+        });
     };
 
     try {
@@ -195,6 +209,8 @@ export class RetryTransport<TProviderId extends string = string>
         launchPromise != null ||
         !inputDone
       ) {
+        if (hasLaunchError) throw launchError;
+
         while (completed.has(nextYieldIndex)) {
           const result = completed.get(nextYieldIndex);
           completed.delete(nextYieldIndex);
@@ -220,6 +236,7 @@ export class RetryTransport<TProviderId extends string = string>
         completed.set(result.index, result);
         startLaunch();
       }
+      if (hasLaunchError) throw launchError;
     } finally {
       closed = true;
       controller.abort(
@@ -227,7 +244,16 @@ export class RetryTransport<TProviderId extends string = string>
       );
       launchPromise?.catch(() => {});
       try {
-        if (!inputDone) await iterator.return?.();
+        const closeIterator = async (): Promise<void> => {
+          if (!inputDone) await iterator.return?.();
+        };
+        if (pullingInput) {
+          launchPromise?.finally(() => {
+            void closeIterator().catch(() => {});
+          });
+        } else {
+          await closeIterator();
+        }
       } finally {
         combinedSignal.cleanup();
       }
@@ -278,8 +304,9 @@ export class RetryTransport<TProviderId extends string = string>
   private shouldRetryReceipt(
     receipt: Receipt<TProviderId> & { readonly successful: false },
   ): boolean {
-    if (this.config.shouldRetry != null) {
-      return this.config.shouldRetry({ kind: "receipt", receipt });
+    const shouldRetry = this.config.shouldRetry;
+    if (shouldRetry != null) {
+      return shouldRetry({ kind: "receipt", receipt });
     }
     if (receipt.retryable != null) return receipt.retryable;
     return this.hasRetryableError(receipt.errors);
@@ -287,14 +314,16 @@ export class RetryTransport<TProviderId extends string = string>
 
   private shouldRetryError(error: unknown): boolean {
     const receiptError = toReceiptError<TProviderId>(error);
-    if (this.config.shouldRetry != null) {
-      return this.config.shouldRetry({
+    const shouldRetry = this.config.shouldRetry;
+    if (shouldRetry != null) {
+      return shouldRetry({
         kind: "error",
         error,
         receiptError,
       });
     }
     if (receiptError != null) return receiptError.retryable;
+    if (error instanceof Error && error.name === "AbortError") return true;
     return classifyReceiptError(error).retryable;
   }
 
@@ -330,20 +359,23 @@ export class RetryTransport<TProviderId extends string = string>
       return computedDelay;
     }
 
-    return Math.floor(this.config.random() * computedDelay);
+    const random = this.config.random;
+    return Math.floor(random() * computedDelay);
   }
 
   private waitBeforeRetry(
     context: DelayContext<TProviderId>,
     signal?: AbortSignal,
   ): Promise<void> {
-    return this.config.wait(context, signal);
+    const wait = this.config.wait;
+    return wait(context, signal);
   }
 
   private waitBetweenSendMany(signal?: AbortSignal): Promise<void> {
     const delayMilliseconds = this.config.sendMany.intervalMilliseconds;
     if (delayMilliseconds <= 0) return Promise.resolve();
-    return this.config.wait({
+    const wait = this.config.wait;
+    return wait({
       attempt: 0,
       nextAttempt: 0,
       maxAttempts: this.config.maxAttempts,
