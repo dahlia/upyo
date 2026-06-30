@@ -122,7 +122,6 @@ You can override classification with `shouldRetry` when a provider needs
 application-specific logic:
 
 ~~~~ typescript twoslash
-import { type Receipt } from "@upyo/core";
 import { MockTransport } from "@upyo/mock";
 import { RetryTransport } from "@upyo/retry";
 
@@ -130,23 +129,14 @@ const baseTransport = new MockTransport();
 
 const transport = new RetryTransport(baseTransport, {
   shouldRetry(failure) {
-    if (isFailedReceipt(failure)) {
-      return failure.errorMessages.some((message) =>
+    if (failure.kind === "receipt") {
+      return failure.receipt.errorMessages.some((message) =>
         message.includes("temporary")
       );
     }
-    return failure instanceof TypeError;
+    return failure.error instanceof TypeError;
   },
 });
-
-function isFailedReceipt(
-  value: unknown,
-): value is Receipt & { readonly successful: false } {
-  return typeof value === "object" &&
-    value != null &&
-    "successful" in value &&
-    value.successful === false;
-}
 ~~~~
 
 

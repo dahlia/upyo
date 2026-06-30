@@ -6,6 +6,7 @@ import {
   createReceiptError,
   type Message,
   type Receipt,
+  type ReceiptError,
   type Transport,
   type TransportOptions,
 } from "@upyo/core";
@@ -151,9 +152,12 @@ describe("RetryTransport", () => {
     const transport = createRetryTransport(base, {
       maxAttempts: 2,
       wait: () => Promise.resolve(),
-      shouldRetry: (result) => {
-        if (result instanceof Error) errors.push(result);
-        return result instanceof Error && result.name === "AbortError";
+      shouldRetry: (failure) => {
+        if (failure.kind === "error" && failure.error instanceof Error) {
+          errors.push(failure.error);
+          return failure.error.name === "AbortError";
+        }
+        return false;
       },
     });
 
@@ -204,6 +208,60 @@ describe("RetryTransport", () => {
       { name: "AbortError" },
     );
     assert.equal(base.calls, 1);
+  });
+
+  it("preserves custom abort reasons during the default retry wait", async () => {
+    const controller = new AbortController();
+    const reason = new TypeError("Stop retrying.");
+    const base = new SequenceTransport([
+      createFailedReceipt("Service unavailable", {
+        provider: "base",
+        statusCode: 503,
+      }),
+      { successful: true, messageId: "should-not-send" },
+    ]);
+    const transport = createRetryTransport(base, {
+      maxAttempts: 2,
+      backoff: { baseDelayMilliseconds: 1_000 },
+      jitter: false,
+    });
+
+    const sending = transport.send(message(), { signal: controller.signal });
+    controller.abort(reason);
+
+    await assert.rejects(sending, reason);
+    assert.equal(base.calls, 1);
+  });
+
+  it("preserves structured thrown receipt errors", async () => {
+    const error = createReceiptError("Rate limited.", {
+      provider: "base",
+      statusCode: 429,
+      retryAfterMilliseconds: 5_000,
+      providerDetails: { requestId: "req-1" },
+    });
+    const delays: number[] = [];
+    const base = new SequenceTransport([error, error]);
+    const transport = createRetryTransport(base, {
+      maxAttempts: 2,
+      backoff: { maxDelayMilliseconds: 10_000 },
+      jitter: false,
+      wait: (context) => {
+        delays.push(context.delayMilliseconds);
+        return Promise.resolve();
+      },
+    });
+
+    const receipt = await transport.send(message());
+
+    assert.equal(base.calls, 2);
+    assert.deepEqual(delays, [5_000]);
+    assert.equal(receipt.successful, false);
+    assert.deepEqual(receipt.errorMessages, ["Rate limited."]);
+    assert.equal(receipt.retryable, true);
+    assert.equal(receipt.provider, "base");
+    assert.equal(receipt.attempts, 2);
+    assert.deepEqual(receipt.errors, [error]);
   });
 
   it("retries sendMany messages in input order", async () => {
@@ -286,6 +344,92 @@ describe("RetryTransport", () => {
       receipts.map((receipt) => receipt.successful && receipt.messageId),
       ["message-0", "message-1"],
     );
+  });
+
+  it("yields completed sendMany receipts before slow async input", async () => {
+    const releaseSecond = Promise.withResolvers<void>();
+    async function* messages(): AsyncIterable<Message> {
+      yield message("First");
+      await releaseSecond.promise;
+      yield message("Second");
+    }
+    const base = new TrackingTransport((_message, index) =>
+      Promise.resolve({
+        successful: true,
+        messageId: `message-${index}`,
+      })
+    );
+    const transport = createRetryTransport(base, {
+      maxAttempts: 1,
+      sendMany: { maxConcurrent: 2 },
+    });
+
+    const iterator = transport.sendMany(messages())[Symbol.asyncIterator]();
+    const firstResult = iterator.next();
+    const firstSettled = await settlesWithin(firstResult);
+
+    assert.ok(firstSettled);
+    const first = await firstResult;
+    assert.equal(first.done, false);
+    assert.equal(first.value.successful, true);
+    if (first.value.successful) {
+      assert.equal(first.value.messageId, "message-0");
+    }
+
+    releaseSecond.resolve();
+    const second = await iterator.next();
+    assert.equal(second.done, false);
+    assert.equal(second.value.successful, true);
+    if (second.value.successful) {
+      assert.equal(second.value.messageId, "message-1");
+    }
+    const done = await iterator.next();
+    assert.equal(done.done, true);
+  });
+
+  it("yields completed sendMany receipts while throttling launches", async () => {
+    const releaseThrottle = Promise.withResolvers<void>();
+    const base = new TrackingTransport((_message, index) =>
+      Promise.resolve({
+        successful: true,
+        messageId: `message-${index}`,
+      })
+    );
+    const transport = createRetryTransport(base, {
+      maxAttempts: 1,
+      sendMany: { maxConcurrent: 2, intervalMilliseconds: 1_000 },
+      wait: (context) => {
+        if (context.reason === "sendMany-throttle") {
+          return releaseThrottle.promise;
+        }
+        return Promise.resolve();
+      },
+    });
+
+    const iterator = transport.sendMany([
+      message("First"),
+      message("Second"),
+    ])[Symbol.asyncIterator]();
+    const firstResult = iterator.next();
+    const firstSettled = await settlesWithin(firstResult);
+
+    assert.ok(firstSettled);
+    const first = await firstResult;
+    assert.equal(first.done, false);
+    assert.equal(first.value.successful, true);
+    if (first.value.successful) {
+      assert.equal(first.value.messageId, "message-0");
+    }
+
+    releaseThrottle.resolve();
+    const second = await iterator.next();
+    assert.equal(second.done, false);
+    assert.equal(second.value.successful, true);
+    if (second.value.successful) {
+      assert.equal(second.value.messageId, "message-1");
+    }
+    const done = await iterator.next();
+    assert.equal(done.done, true);
   });
 
   it("refills sendMany concurrency when later messages finish first", async () => {
@@ -394,6 +538,45 @@ describe("RetryTransport", () => {
     assert.equal(closed, true);
   });
 
+  it("cancels pending sendMany launch waits when consumers stop early", async () => {
+    const events: string[] = [];
+    let waitStarted = false;
+    let waitAborted = false;
+    const base = new TrackingTransport((_message, index) => {
+      events.push(`start:${index}`);
+      return Promise.resolve({
+        successful: true,
+        messageId: `message-${index}`,
+      });
+    });
+    const transport = createRetryTransport(base, {
+      maxAttempts: 1,
+      sendMany: { maxConcurrent: 2, intervalMilliseconds: 1_000 },
+      wait: (_context, signal) => {
+        waitStarted = true;
+        return new Promise<void>((_resolve, reject) => {
+          signal?.addEventListener("abort", () => {
+            waitAborted = true;
+            reject(signal.reason);
+          }, { once: true });
+        });
+      },
+    });
+
+    const iterator = transport.sendMany([
+      message("First"),
+      message("Second"),
+    ])[Symbol.asyncIterator]();
+    const first = await iterator.next();
+    assert.equal(first.done, false);
+    assert.ok(waitStarted);
+
+    await iterator.return?.();
+
+    await waitFor(() => waitAborted);
+    assert.deepEqual(events, ["start:0"]);
+  });
+
   it("disposes wrapped async disposable transports", async () => {
     const base = new DisposableTransport({ asyncDisposable: true });
     const transport = createRetryTransport(base);
@@ -444,8 +627,29 @@ async function collect<T>(values: AsyncIterable<T>): Promise<T[]> {
 }
 
 async function waitFor(predicate: () => boolean): Promise<void> {
+  const deadline = Date.now() + 1_000;
   while (!predicate()) {
-    await Promise.resolve();
+    if (Date.now() >= deadline) {
+      assert.fail("Timed out waiting for condition.");
+    }
+    await new Promise((resolve) => setTimeout(resolve, 0));
+  }
+}
+
+async function settlesWithin<T>(
+  promise: Promise<T>,
+  milliseconds = 10,
+): Promise<boolean> {
+  let timeout: ReturnType<typeof setTimeout> | undefined;
+  try {
+    return await Promise.race([
+      promise.then(() => true, () => true),
+      new Promise<boolean>((resolve) => {
+        timeout = setTimeout(() => resolve(false), milliseconds);
+      }),
+    ]);
+  } finally {
+    if (timeout != null) clearTimeout(timeout);
   }
 }
 
@@ -457,6 +661,7 @@ function createAbortError(
 
 type SequenceResult =
   | Receipt<"base">
+  | ReceiptError<"base">
   | Error
   | ((message: Message, options?: TransportOptions) => Receipt<"base">);
 
@@ -474,6 +679,7 @@ class SequenceTransport implements Transport<"base"> {
     options?.signal?.throwIfAborted();
     const result = this.results[this.calls++];
     if (result instanceof Error) return Promise.reject(result);
+    if (isReceiptError(result)) return Promise.reject(result);
     if (typeof result === "function") return Promise.resolve(result(message));
     if (result == null) {
       return Promise.resolve({ successful: true, messageId: "fallback" });
@@ -489,6 +695,11 @@ class SequenceTransport implements Transport<"base"> {
       yield await this.send(item, options);
     }
   }
+}
+
+function isReceiptError(value: unknown): value is ReceiptError<"base"> {
+  return typeof value === "object" && value != null && "category" in value &&
+    "retryable" in value && "message" in value;
 }
 
 class TrackingTransport implements Transport<"base"> {

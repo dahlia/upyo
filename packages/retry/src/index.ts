@@ -5,6 +5,7 @@ export type {
   JitterConfig,
   RetryClassifier,
   RetryConfig,
+  RetryFailure,
   SendManyRetryConfig,
   WaitFunction,
 } from "./config.ts";

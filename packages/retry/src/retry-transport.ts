@@ -1,5 +1,6 @@
 import {
   classifyReceiptError,
+  combineSignals,
   createFailedReceipt,
   createReceiptError,
   type Message,
@@ -102,7 +103,10 @@ export class RetryTransport<TProviderId extends string = string>
           attempt,
           nextAttempt: attempt + 1,
           maxAttempts: this.config.maxAttempts,
-          delayMilliseconds: this.calculateDelay(attempt),
+          delayMilliseconds: this.calculateDelay(
+            attempt,
+            toReceiptError<TProviderId>(error),
+          ),
           error,
           reason: "retry",
         }, options?.signal);
@@ -132,20 +136,30 @@ export class RetryTransport<TProviderId extends string = string>
     let inputDone = false;
     let nextLaunchIndex = 0;
     let nextYieldIndex = 0;
+    let launchPromise: Promise<void> | undefined;
+    let closed = false;
+    const controller = new AbortController();
+    const combinedSignal = combineSignals(controller.signal, options?.signal);
+    const sendOptions: TransportOptions = {
+      ...options,
+      signal: combinedSignal.signal,
+    };
 
     const launchNext = async (): Promise<void> => {
       if (inputDone) return;
-      options?.signal?.throwIfAborted();
+      combinedSignal.signal.throwIfAborted();
 
       const next = await iterator.next();
+      if (closed) return;
       if (next.done) {
         inputDone = true;
         return;
       }
 
       const index = nextLaunchIndex++;
-      if (index > 0) await this.waitBetweenSendMany(options?.signal);
-      const promise = this.send(next.value, options).then(
+      if (index > 0) await this.waitBetweenSendMany(combinedSignal.signal);
+      if (closed) return;
+      const promise = this.send(next.value, sendOptions).then(
         (receipt): SendManyResult<TProviderId> => ({
           index,
           successful: true,
@@ -160,18 +174,27 @@ export class RetryTransport<TProviderId extends string = string>
       inFlight.set(index, promise);
     };
 
-    const launchAvailable = async (): Promise<void> => {
-      while (
-        !inputDone && inFlight.size < this.config.sendMany.maxConcurrent
-      ) {
-        await launchNext();
-      }
+    const startLaunch = (): void => {
+      if (
+        launchPromise != null ||
+        inputDone ||
+        inFlight.size >= this.config.sendMany.maxConcurrent
+      ) return;
+
+      launchPromise = launchNext().finally(() => {
+        launchPromise = undefined;
+      });
     };
 
     try {
-      await launchAvailable();
+      startLaunch();
 
-      while (inFlight.size > 0 || completed.has(nextYieldIndex)) {
+      while (
+        inFlight.size > 0 ||
+        completed.has(nextYieldIndex) ||
+        launchPromise != null ||
+        !inputDone
+      ) {
         while (completed.has(nextYieldIndex)) {
           const result = completed.get(nextYieldIndex);
           completed.delete(nextYieldIndex);
@@ -179,18 +202,35 @@ export class RetryTransport<TProviderId extends string = string>
           if (!result.successful) throw result.error;
           yield result.receipt;
           nextYieldIndex++;
-          await launchAvailable();
+          startLaunch();
         }
 
-        if (inFlight.size <= 0) break;
+        startLaunch();
+        if (inFlight.size <= 0 && launchPromise == null) break;
 
-        const result = await Promise.race(inFlight.values());
+        const launch = launchPromise?.then((): LaunchResult => ({
+          launched: true,
+        }));
+        const result = await Promise.race([
+          ...inFlight.values(),
+          ...(launch == null ? [] : [launch]),
+        ]);
+        if ("launched" in result) continue;
         inFlight.delete(result.index);
         completed.set(result.index, result);
-        if (result.index !== nextYieldIndex) await launchAvailable();
+        startLaunch();
       }
     } finally {
-      if (!inputDone) await iterator.return?.();
+      closed = true;
+      controller.abort(
+        new DOMException("The operation was aborted.", "AbortError"),
+      );
+      launchPromise?.catch(() => {});
+      try {
+        if (!inputDone) await iterator.return?.();
+      } finally {
+        combinedSignal.cleanup();
+      }
     }
   }
 
@@ -239,14 +279,22 @@ export class RetryTransport<TProviderId extends string = string>
     receipt: Receipt<TProviderId> & { readonly successful: false },
   ): boolean {
     if (this.config.shouldRetry != null) {
-      return this.config.shouldRetry(receipt);
+      return this.config.shouldRetry({ kind: "receipt", receipt });
     }
     if (receipt.retryable != null) return receipt.retryable;
     return this.hasRetryableError(receipt.errors);
   }
 
   private shouldRetryError(error: unknown): boolean {
-    if (this.config.shouldRetry != null) return this.config.shouldRetry(error);
+    const receiptError = toReceiptError<TProviderId>(error);
+    if (this.config.shouldRetry != null) {
+      return this.config.shouldRetry({
+        kind: "error",
+        error,
+        receiptError,
+      });
+    }
+    if (receiptError != null) return receiptError.retryable;
     return classifyReceiptError(error).retryable;
   }
 
@@ -258,9 +306,11 @@ export class RetryTransport<TProviderId extends string = string>
 
   private calculateDelay(
     attempt: number,
-    receipt?: Receipt<TProviderId> & { readonly successful: false },
+    failure?:
+      | (Receipt<TProviderId> & { readonly successful: false })
+      | ReceiptError<TProviderId>,
   ): number {
-    const retryAfterMilliseconds = getRetryAfterMilliseconds(receipt);
+    const retryAfterMilliseconds = getRetryAfterMilliseconds(failure);
     const cappedRetryAfter = retryAfterMilliseconds == null
       ? undefined
       : Math.min(
@@ -306,6 +356,14 @@ export class RetryTransport<TProviderId extends string = string>
     error: unknown,
     attempts: number,
   ): Receipt<TProviderId> & { readonly successful: false } {
+    const receiptError = toReceiptError<TProviderId>(error);
+    if (receiptError != null) {
+      return createFailedReceipt(receiptError, {
+        provider: receiptError.provider ?? this.id,
+        attempts,
+      });
+    }
+
     const message = error instanceof Error ? error.message : String(error);
     const classification = classifyReceiptError(error);
     return createFailedReceipt(
@@ -335,6 +393,10 @@ type SendManyResult<TProviderId extends string> =
     readonly error: unknown;
   };
 
+interface LaunchResult {
+  readonly launched: true;
+}
+
 /**
  * Creates a retrying transport around another transport.
  *
@@ -352,16 +414,36 @@ export function createRetryTransport<TProviderId extends string = string>(
 }
 
 function getRetryAfterMilliseconds<TProviderId extends string>(
-  receipt: (Receipt<TProviderId> & { readonly successful: false }) | undefined,
+  failure:
+    | (Receipt<TProviderId> & { readonly successful: false })
+    | ReceiptError<TProviderId>
+    | undefined,
 ): number | undefined {
-  const receiptDelay = receipt?.errors
-    ?.map((error) => error.retryAfterMilliseconds)
-    .find((delay) => delay != null);
-  return receiptDelay;
+  if (failure == null) return undefined;
+  if (isReceiptError(failure)) return failure.retryAfterMilliseconds;
+  return failure.errors?.find((error) => error.retryAfterMilliseconds != null)
+    ?.retryAfterMilliseconds;
 }
 
 async function* toAsyncIterator<T>(
   values: Iterable<T> | AsyncIterable<T>,
 ): AsyncIterator<T> {
   for await (const value of values) yield value;
+}
+
+function toReceiptError<TProviderId extends string>(
+  value: unknown,
+): ReceiptError<TProviderId> | undefined {
+  return isReceiptError<TProviderId>(value) ? value : undefined;
+}
+
+function isReceiptError<TProviderId extends string>(
+  value: unknown,
+): value is ReceiptError<TProviderId> {
+  return typeof value === "object" && value != null &&
+    typeof (value as { readonly message?: unknown }).message === "string" &&
+    typeof (value as { readonly code?: unknown }).code === "string" &&
+    typeof (value as { readonly category?: unknown }).category === "string" &&
+    typeof (value as { readonly retryable?: unknown }).retryable ===
+      "boolean";
 }

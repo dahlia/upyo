@@ -1,4 +1,4 @@
-import type { Receipt } from "@upyo/core";
+import type { Receipt, ReceiptError } from "@upyo/core";
 
 /**
  * Jitter mode for computed retry delays.
@@ -92,16 +92,30 @@ export type WaitFunction<TProviderId extends string = string> = (
 ) => Promise<void>;
 
 /**
+ * Failure passed to a custom retry classifier.
+ *
+ * @since 0.5.0
+ */
+export type RetryFailure<TProviderId extends string = string> =
+  | {
+    readonly kind: "receipt";
+    readonly receipt: Receipt<TProviderId> & { readonly successful: false };
+  }
+  | {
+    readonly kind: "error";
+    readonly error: unknown;
+    readonly receiptError?: ReceiptError<TProviderId>;
+  };
+
+/**
  * Function that decides whether a failure should be retried.
  *
- * @param failure Failed receipt or thrown error.
+ * @param failure Failed receipt or thrown error metadata.
  * @returns Whether another attempt should be made.
  * @since 0.5.0
  */
 export type RetryClassifier<TProviderId extends string = string> = (
-  failure:
-    | (Receipt<TProviderId> & { readonly successful: false })
-    | unknown,
+  failure: RetryFailure<TProviderId>,
 ) => boolean;
 
 /**
@@ -261,7 +275,7 @@ async function defaultWait(
     const abort = () => {
       clearTimeout(timeout);
       cleanup();
-      reject(createAbortError());
+      reject(signal?.reason ?? createAbortError());
     };
 
     if (signal?.aborted) {
