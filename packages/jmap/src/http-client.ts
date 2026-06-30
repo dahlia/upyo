@@ -139,7 +139,17 @@ export class JmapHttpClient {
         lastError = error instanceof Error ? error : new Error(String(error));
 
         if (attempt === this.config.retries) {
-          throw error;
+          if (error instanceof JmapApiError) {
+            throw error;
+          }
+          throw new JmapApiError(
+            lastError.message,
+            undefined,
+            undefined,
+            undefined,
+            undefined,
+            attempt + 1,
+          );
         }
 
         // Exponential backoff
@@ -148,7 +158,10 @@ export class JmapHttpClient {
       }
     }
 
-    throw lastError || new Error("Request failed after all retries");
+    if (lastError != null) {
+      throw lastError;
+    }
+    throw new Error("Request failed after all retries");
   }
 
   /**
