@@ -371,9 +371,11 @@ describe(
       });
 
       const receipt = await transport.send(message);
-      validateErrorReceipt(receipt, ["aborted"]);
+      validateErrorReceipt(receipt, ["timed out"]);
 
       if (!receipt.successful) {
+        assert.equal(receipt.errors?.[0]?.category, "timeout");
+        assert.equal(receipt.retryable, true);
         console.log(
           `✓ Network timeout handled correctly: ${receipt.errorMessages[0]}`,
         );
