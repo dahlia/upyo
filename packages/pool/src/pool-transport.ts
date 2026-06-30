@@ -1,4 +1,5 @@
 import {
+  combineSignals,
   createFailedReceipt,
   createReceiptError,
   type Message,
@@ -113,6 +114,7 @@ export class PoolTransport<TProviderId extends string = string>
     const attemptedIndices = new Set<number>();
     const errorMessages: string[] = [];
     const errors: ReceiptError<TProviderId | "pool">[] = [];
+    let checkCallerAbortBeforeFailure = false;
 
     for (let attempt = 0; attempt <= this.config.maxRetries; attempt++) {
       // Check for cancellation
@@ -165,6 +167,7 @@ export class PoolTransport<TProviderId extends string = string>
         // Collect error messages for failed attempts
         errorMessages.push(...receipt.errorMessages);
         errors.push(...getReceiptErrors(receipt, selection.entry.transport.id));
+        checkCallerAbortBeforeFailure = true;
       } catch (error) {
         // Handle transport errors
         if (abortedByCaller && isCallerAbort(error, options?.signal)) {
@@ -178,11 +181,13 @@ export class PoolTransport<TProviderId extends string = string>
         if (thrownErrors.length > 0) {
           errorMessages.push(...thrownErrors.map((item) => item.message));
           errors.push(...thrownErrors);
+          checkCallerAbortBeforeFailure = true;
           continue;
         }
 
         const timeoutMessage = "Transport send timed out.";
-        const errorMessage = isAbortError(error)
+        const abortError = isAbortError(error);
+        const errorMessage = abortError
           ? timeoutMessage
           : error instanceof Error
           ? error.message
@@ -190,13 +195,18 @@ export class PoolTransport<TProviderId extends string = string>
         errorMessages.push(errorMessage);
         errors.push(createReceiptError(errorMessage, {
           provider: selection.entry.transport.id,
-          category: isAbortError(error) ? "timeout" : undefined,
-          retryable: isAbortError(error) ? true : undefined,
+          category: abortError ? "timeout" : undefined,
+          retryable: abortError ? true : undefined,
         }));
+        checkCallerAbortBeforeFailure ||= !abortError;
       }
     }
 
     // All attempts failed
+    if (checkCallerAbortBeforeFailure) {
+      options?.signal?.throwIfAborted();
+    }
+
     return createFailedReceipt<TProviderId | "pool">(
       errorMessages.length > 0
         ? errorMessages
@@ -371,51 +381,6 @@ export class PoolTransport<TProviderId extends string = string>
       },
     };
   }
-}
-
-interface CombinedSignal {
-  readonly signal: AbortSignal;
-  cleanup(): void;
-}
-
-function combineSignals(
-  timeoutSignal: AbortSignal,
-  externalSignal: AbortSignal,
-): CombinedSignal {
-  if (typeof AbortSignal.any === "function") {
-    return {
-      signal: AbortSignal.any([timeoutSignal, externalSignal]),
-      cleanup: () => {},
-    };
-  }
-
-  const controller = new AbortController();
-  const abort = (signal: AbortSignal) => {
-    controller.abort(getAbortReason(signal));
-  };
-  const abortTimeout = () => abort(timeoutSignal);
-  const abortExternal = () => abort(externalSignal);
-
-  timeoutSignal.addEventListener("abort", abortTimeout, { once: true });
-  externalSignal.addEventListener("abort", abortExternal, { once: true });
-
-  if (timeoutSignal.aborted) {
-    abortTimeout();
-  } else if (externalSignal.aborted) {
-    abortExternal();
-  }
-
-  return {
-    signal: controller.signal,
-    cleanup: () => {
-      timeoutSignal.removeEventListener("abort", abortTimeout);
-      externalSignal.removeEventListener("abort", abortExternal);
-    },
-  };
-}
-
-function getAbortReason(signal: AbortSignal): unknown {
-  return signal.reason ?? createAbortError();
 }
 
 function createAbortError(): DOMException {

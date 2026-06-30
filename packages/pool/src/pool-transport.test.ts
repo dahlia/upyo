@@ -649,6 +649,32 @@ describe("PoolTransport", () => {
         assert.ok(receipt.retryable);
       }
     });
+
+    test("should rethrow caller aborts before returning final failures", async () => {
+      const abortReason = new Error("Stop final failure.");
+      const controller = new AbortController();
+      const transport: Transport<"failing"> = {
+        id: "failing",
+        send() {
+          controller.abort(abortReason);
+          return Promise.reject(new Error("Network failure."));
+        },
+        async *sendMany(messages, options) {
+          for await (const message of messages) {
+            yield await this.send(message, options);
+          }
+        },
+      };
+      const pool = new PoolTransport({
+        strategy: "round-robin",
+        transports: [{ transport }],
+      });
+
+      await assert.rejects(
+        () => pool.send(createTestMessage(), { signal: controller.signal }),
+        (error: unknown) => error === abortReason,
+      );
+    });
   });
 
   describe("AsyncDisposable", () => {
