@@ -41,6 +41,7 @@ describe("Receipt errors", () => {
 
   it("parses Retry-After seconds and HTTP dates", () => {
     assert.equal(parseRetryAfter("120"), 120_000);
+    assert.equal(parseRetryAfter("0"), 0);
 
     const now = new Date("2026-06-30T00:00:00.000Z");
     const retryAt = "Tue, 30 Jun 2026 00:02:00 GMT";
@@ -52,7 +53,6 @@ describe("Receipt errors", () => {
 
     assert.equal(parseRetryAfter(null, now), undefined);
     assert.equal(parseRetryAfter("", now), undefined);
-    assert.equal(parseRetryAfter("0", now), undefined);
     assert.equal(parseRetryAfter("not a date", now), undefined);
     assert.equal(
       parseRetryAfter("Mon, 29 Jun 2026 00:00:00 GMT", now),

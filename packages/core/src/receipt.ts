@@ -387,7 +387,7 @@ export function parseRetryAfter(
   const trimmed = value.trim();
   if (/^\d+$/.test(trimmed)) {
     const delay = Number(trimmed) * 1000;
-    return delay > 0 ? delay : undefined;
+    return delay;
   }
 
   const timestamp = Date.parse(trimmed);
