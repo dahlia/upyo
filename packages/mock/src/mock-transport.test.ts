@@ -37,6 +37,21 @@ describe("MockTransport", () => {
     assert.notEqual(receipt1.messageId, receipt2.messageId);
   });
 
+  test("should not copy failure fields into unique success receipts", async () => {
+    const defaultResponse = {
+      successful: true as const,
+      messageId: "base-id",
+      errorMessages: ["should not be copied"],
+    };
+    const transport = new MockTransport({ defaultResponse });
+
+    const receipt = await transport.send(createTestMessage());
+
+    validateSuccessfulReceipt(receipt);
+    assert.equal(receipt.messageId, "mock-message-1");
+    assert.ok(!("errorMessages" in receipt));
+  });
+
   test("should store messages in order", async () => {
     const transport = createTestMockTransport();
     const messages = [

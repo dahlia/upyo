@@ -333,7 +333,9 @@ export class OpenTelemetryTransport<TProviderId extends string = string>
   }
 
   private extractTransportName(transport: Transport<TProviderId>): string {
-    if (transport.id !== "") return transport.id;
+    if (typeof transport.id === "string" && transport.id !== "") {
+      return transport.id;
+    }
 
     // Try to extract from constructor name
     const constructorName = transport.constructor.name;

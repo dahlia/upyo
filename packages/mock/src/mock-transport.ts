@@ -386,11 +386,13 @@ export class MockTransport implements Transport<"mock"> {
       this.config.defaultResponse.successful &&
       this.config.generateUniqueMessageIds
     ) {
+      const { attempts, timestamp } = this.config.defaultResponse;
       return {
-        ...this.config.defaultResponse,
         successful: true,
         messageId: `mock-message-${this.messageIdCounter++}`,
         provider: "mock",
+        ...(attempts == null ? {} : { attempts }),
+        ...(timestamp == null ? {} : { timestamp }),
       };
     }
 

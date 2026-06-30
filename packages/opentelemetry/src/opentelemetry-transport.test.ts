@@ -1,6 +1,12 @@
 import { describe, it } from "node:test";
 import { strict as assert } from "node:assert";
-import { createFailedReceipt, type Receipt, type Transport } from "@upyo/core";
+import {
+  createFailedReceipt,
+  type Message,
+  type Receipt,
+  type Transport,
+  type TransportOptions,
+} from "@upyo/core";
 import { OpenTelemetryTransport } from "./opentelemetry-transport.ts";
 import {
   assertions,
@@ -186,6 +192,43 @@ describe("OpenTelemetryTransport", () => {
         () => transport.send(message, { signal: controller.signal }),
         /AbortError/,
       );
+    });
+
+    it("should infer transport names when wrapped transports have no id", async () => {
+      class LegacyTransport {
+        send(
+          _message: Message,
+          _options?: TransportOptions,
+        ): Promise<Receipt> {
+          return Promise.resolve({
+            successful: true,
+            messageId: "legacy-message-id",
+          });
+        }
+
+        async *sendMany(
+          messages: Iterable<Message> | AsyncIterable<Message>,
+          options?: TransportOptions,
+        ): AsyncIterable<Receipt> {
+          for await (const message of messages) {
+            yield await this.send(message, options);
+          }
+        }
+      }
+
+      const setup = createTestSetup();
+      const transport = new OpenTelemetryTransport(
+        // @ts-expect-error Simulates an older JavaScript transport without id.
+        new LegacyTransport(),
+        setup.config,
+      );
+
+      await transport.send(createTestMessage());
+
+      const spans = extractSpans(setup.tracerProvider);
+      assertions.hasSpan(spans, "email send", {
+        "upyo.transport.name": "legacy",
+      });
     });
 
     it("should work with tracing disabled", async () => {
