@@ -187,6 +187,7 @@ export class RetryTransport<TProviderId extends string = string>
       if (
         launchPromise != null ||
         inputDone ||
+        hasLaunchError ||
         inFlight.size >= this.config.sendMany.maxConcurrent
       ) return;
 
@@ -219,7 +220,7 @@ export class RetryTransport<TProviderId extends string = string>
           startLaunch();
         }
 
-        if (hasLaunchError) throw launchError;
+        if (hasLaunchError && inFlight.size <= 0) throw launchError;
 
         startLaunch();
         if (inFlight.size <= 0 && launchPromise == null) break;
@@ -263,6 +264,8 @@ export class RetryTransport<TProviderId extends string = string>
   /**
    * Disposes the wrapped transport when it supports disposal.
    *
+   * @throws {unknown} If the wrapped transport's async or sync disposal hook
+   *   throws or rejects.
    * @since 0.5.0
    */
   async [Symbol.asyncDispose](): Promise<void> {

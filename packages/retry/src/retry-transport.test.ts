@@ -496,6 +496,60 @@ describe("RetryTransport", () => {
     await assert.rejects(() => iterator.next(), inputError);
   });
 
+  it("drains already-launched sendMany receipts before launch errors", async () => {
+    const inputError = new TypeError("Input failed.");
+    const events: string[] = [];
+    const releaseFirst = Promise.withResolvers<void>();
+    const messages: Iterable<Message> = {
+      [Symbol.iterator]() {
+        let index = 0;
+        return {
+          next(): IteratorResult<Message> {
+            if (index < 2) {
+              return { done: false, value: message(`Message ${index++}`) };
+            }
+            events.push("input-error");
+            throw inputError;
+          },
+        };
+      },
+    };
+    const base = new TrackingTransport(async (_message, index) => {
+      events.push(`start:${index}`);
+      if (index === 0) await releaseFirst.promise;
+      events.push(`finish:${index}`);
+      return { successful: true, messageId: `message-${index}` };
+    });
+    const transport = createRetryTransport(base, {
+      maxAttempts: 1,
+      sendMany: { maxConcurrent: 2 },
+    });
+
+    const iterator = transport.sendMany(messages)[Symbol.asyncIterator]();
+    const firstResult = iterator.next();
+
+    await waitFor(() => events.includes("input-error"));
+    assert.ok(!await settlesWithin(firstResult));
+
+    releaseFirst.resolve();
+
+    const first = await firstResult;
+    assert.ok(!first.done);
+    assert.ok(first.value.successful);
+    if (first.value.successful) {
+      assert.equal(first.value.messageId, "message-0");
+    }
+
+    const second = await iterator.next();
+    assert.ok(!second.done);
+    assert.ok(second.value.successful);
+    if (second.value.successful) {
+      assert.equal(second.value.messageId, "message-1");
+    }
+
+    await assert.rejects(() => iterator.next(), inputError);
+  });
+
   it("does not hang when closed with a pending sendMany input pull", async () => {
     const never = Promise.withResolvers<void>();
     async function* messages(): AsyncIterable<Message> {
