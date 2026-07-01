@@ -102,6 +102,38 @@ describe("RetryTransport", () => {
     assert.deepEqual(delays, [2_000]);
   });
 
+  it("ignores invalid Retry-After metadata", async () => {
+    const invalidRetryAfterValues = [NaN, -1, Infinity];
+
+    for (const retryAfterMilliseconds of invalidRetryAfterValues) {
+      const delays: number[] = [];
+      const base = new SequenceTransport([
+        createFailedReceipt(createReceiptError("Rate limited", {
+          provider: "base",
+          statusCode: 429,
+          retryAfterMilliseconds,
+        })),
+        { successful: true, messageId: "delivered" },
+      ]);
+      const transport = createRetryTransport(base, {
+        maxAttempts: 2,
+        backoff: {
+          baseDelayMilliseconds: 100,
+          maxDelayMilliseconds: 2_000,
+        },
+        jitter: false,
+        wait: (context) => {
+          delays.push(context.delayMilliseconds);
+          return Promise.resolve();
+        },
+      });
+
+      await transport.send(message());
+
+      assert.deepEqual(delays, [100]);
+    }
+  });
+
   it("retries transient thrown errors and converts exhaustion to a receipt", async () => {
     const base = new SequenceTransport([
       new Error("Connection reset by peer"),
@@ -222,6 +254,23 @@ describe("RetryTransport", () => {
       { name: "AbortError" },
     );
     assert.equal(base.calls, 0);
+  });
+
+  it("rejects caller aborts after wrapped sends", async () => {
+    const controller = new AbortController();
+    const reason = new TypeError("Stop after send.");
+    const releaseSend = Promise.withResolvers<void>();
+    const base = new TrackingTransport(async () => {
+      await releaseSend.promise;
+      return { successful: true, messageId: "should-not-deliver" };
+    });
+    const transport = createRetryTransport(base);
+
+    const sending = transport.send(message(), { signal: controller.signal });
+    controller.abort(reason);
+    releaseSend.resolve();
+
+    await assert.rejects(sending, (error) => error === reason);
   });
 
   it("stops retrying when aborted during the retry wait", async () => {
@@ -478,6 +527,42 @@ describe("RetryTransport", () => {
     await assert.rejects(() => iterator.next(), inputError);
   });
 
+  it("rejects pending sendMany input pulls when aborted", async () => {
+    const controller = new AbortController();
+    const reason = new TypeError("Stop reading input.");
+    const releaseSecond = Promise.withResolvers<void>();
+    async function* messages(): AsyncIterable<Message> {
+      yield message("First");
+      await releaseSecond.promise;
+      yield message("Second");
+    }
+    const base = new TrackingTransport((_message, index) =>
+      Promise.resolve({
+        successful: true,
+        messageId: `message-${index}`,
+      })
+    );
+    const transport = createRetryTransport(base, {
+      maxAttempts: 1,
+      sendMany: { maxConcurrent: 2 },
+    });
+
+    const iterator = transport.sendMany(messages(), {
+      signal: controller.signal,
+    })[Symbol.asyncIterator]();
+    const first = await iterator.next();
+    assert.ok(!first.done);
+    assert.ok(first.value.successful);
+
+    const next = iterator.next();
+    controller.abort(reason);
+
+    await assert.rejects(
+      () => Promise.race([next, rejectAfter(50)]),
+      (error) => error === reason,
+    );
+  });
+
   it("yields queued sendMany receipts before launch errors", async () => {
     const inputError = new TypeError("Input failed.");
     const messages: Iterable<Message> = {
@@ -566,7 +651,10 @@ describe("RetryTransport", () => {
       assert.equal(second.value.messageId, "message-1");
     }
 
-    await assert.rejects(() => iterator.next(), inputError);
+    await assert.rejects(
+      () => iterator.next(),
+      (error) => error === inputError,
+    );
   });
 
   it("does not hang when closed with a pending sendMany input pull", async () => {
@@ -641,6 +729,7 @@ describe("RetryTransport", () => {
     const returned = iterator.return?.();
     assert.ok(returned != null);
     assert.ok(await settlesWithin(returned, 50));
+    await returned;
     await waitFor(() => closed);
 
     assert.ok(closed);
@@ -800,14 +889,16 @@ describe("RetryTransport", () => {
 
   it("cancels pending sendMany launch waits when consumers stop early", async () => {
     const events: string[] = [];
+    const releaseFirst = Promise.withResolvers<void>();
     let waitStarted = false;
     let waitAborted = false;
-    const base = new TrackingTransport((_message, index) => {
+    const base = new TrackingTransport(async (_message, index) => {
       events.push(`start:${index}`);
-      return Promise.resolve({
+      if (index === 0) await releaseFirst.promise;
+      return {
         successful: true,
         messageId: `message-${index}`,
-      });
+      };
     });
     const transport = createRetryTransport(base, {
       maxAttempts: 1,
@@ -827,7 +918,11 @@ describe("RetryTransport", () => {
       message("First"),
       message("Second"),
     ])[Symbol.asyncIterator]();
-    const first = await iterator.next();
+    const firstResult = iterator.next();
+    await waitFor(() => waitStarted);
+    releaseFirst.resolve();
+
+    const first = await firstResult;
     assert.ok(!first.done);
     assert.ok(waitStarted);
 
@@ -911,6 +1006,15 @@ async function settlesWithin<T>(
   } finally {
     if (timeout != null) clearTimeout(timeout);
   }
+}
+
+function rejectAfter(milliseconds: number): Promise<never> {
+  return new Promise((_resolve, reject) => {
+    setTimeout(
+      () => reject(new Error("Timed out waiting for rejection.")),
+      milliseconds,
+    );
+  });
 }
 
 function createAbortError(

@@ -96,6 +96,8 @@ export class RetryTransport<TProviderId extends string = string>
         continue;
       }
 
+      options?.signal?.throwIfAborted();
+
       if (receipt.successful) {
         return this.withSuccessMetadata(receipt, attempt);
       }
@@ -159,12 +161,16 @@ export class RetryTransport<TProviderId extends string = string>
       combinedSignal.signal.throwIfAborted();
 
       pullingInput = true;
-      let next: IteratorResult<Message>;
+      let inputPull: Promise<IteratorResult<Message>>;
       try {
-        next = await iterator.next();
-      } finally {
-        pullingInput = false;
+        inputPull = Promise.resolve(iterator.next());
+      } catch (error) {
+        inputPull = Promise.reject(error);
       }
+      inputPull = inputPull.finally(() => {
+        pullingInput = false;
+      });
+      const next = await raceWithAbort(inputPull, combinedSignal.signal);
       if (closed) return;
       if (next.done) {
         inputDone = true;
@@ -348,7 +354,9 @@ export class RetryTransport<TProviderId extends string = string>
       | ReceiptError<TProviderId>,
   ): number {
     const retryAfterMilliseconds = getRetryAfterMilliseconds(failure);
-    const cappedRetryAfter = retryAfterMilliseconds == null
+    const cappedRetryAfter = retryAfterMilliseconds == null ||
+        !Number.isFinite(retryAfterMilliseconds) ||
+        retryAfterMilliseconds <= 0
       ? undefined
       : Math.min(
         retryAfterMilliseconds,
@@ -478,11 +486,11 @@ function toAsyncIterator<T>(
 
   const iterator = values[Symbol.iterator]();
   return {
-    next(): Promise<IteratorResult<T>> {
-      return Promise.resolve(iterator.next());
+    async next(): Promise<IteratorResult<T>> {
+      return await Promise.resolve(iterator.next());
     },
-    return(value?: unknown): Promise<IteratorResult<T>> {
-      return Promise.resolve(
+    async return(value?: unknown): Promise<IteratorResult<T>> {
+      return await Promise.resolve(
         iterator.return?.(value as T) ?? {
           done: true,
           value: value as T,
@@ -490,6 +498,34 @@ function toAsyncIterator<T>(
       );
     },
   };
+}
+
+function raceWithAbort<T>(
+  promise: Promise<T>,
+  signal: AbortSignal,
+): Promise<T> {
+  if (signal.aborted) return Promise.reject(signal.reason);
+
+  return new Promise((resolve, reject) => {
+    const abort = () => {
+      cleanup();
+      reject(signal.reason);
+    };
+    const cleanup = () => {
+      signal.removeEventListener("abort", abort);
+    };
+    signal.addEventListener("abort", abort, { once: true });
+    promise.then(
+      (value) => {
+        cleanup();
+        resolve(value);
+      },
+      (error) => {
+        cleanup();
+        reject(error);
+      },
+    );
+  });
 }
 
 function toReceiptError<TProviderId extends string>(
