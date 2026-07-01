@@ -245,15 +245,14 @@ export class RetryTransport<TProviderId extends string = string>
       );
       launchPromise?.catch(() => {});
       try {
-        const closeIterator = async (): Promise<void> => {
-          if (!inputDone) await iterator.return?.();
-        };
+        const closeIterator = ():
+          | Promise<IteratorResult<Message>>
+          | undefined => inputDone ? undefined : iterator.return?.();
+        const closePromise = closeIterator();
         if (pullingInput) {
-          launchPromise?.finally(() => {
-            void closeIterator().catch(() => {});
-          });
+          closePromise?.catch(() => {});
         } else {
-          await closeIterator();
+          await closePromise;
         }
       } finally {
         combinedSignal.cleanup();
@@ -466,10 +465,25 @@ function getRetryAfterMilliseconds<TProviderId extends string>(
     ?.retryAfterMilliseconds;
 }
 
-async function* toAsyncIterator<T>(
+function toAsyncIterator<T>(
   values: Iterable<T> | AsyncIterable<T>,
 ): AsyncIterator<T> {
-  for await (const value of values) yield value;
+  if (Symbol.asyncIterator in values) return values[Symbol.asyncIterator]();
+
+  const iterator = values[Symbol.iterator]();
+  return {
+    next(): Promise<IteratorResult<T>> {
+      return Promise.resolve(iterator.next());
+    },
+    return(value?: unknown): Promise<IteratorResult<T>> {
+      return Promise.resolve(
+        iterator.return?.(value as T) ?? {
+          done: true,
+          value: value as T,
+        },
+      );
+    },
+  };
 }
 
 function toReceiptError<TProviderId extends string>(

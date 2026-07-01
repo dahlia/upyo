@@ -578,6 +578,55 @@ describe("RetryTransport", () => {
     assert.ok(await settlesWithin(returned, 50));
   });
 
+  it("closes pending sendMany input pulls when consumers stop early", async () => {
+    const pendingPullStarted = Promise.withResolvers<void>();
+    let closed = false;
+    const messages: AsyncIterable<Message> = {
+      [Symbol.asyncIterator]() {
+        let index = 0;
+        return {
+          next(): Promise<IteratorResult<Message>> {
+            if (index++ === 0) {
+              return Promise.resolve({
+                done: false,
+                value: message("First"),
+              });
+            }
+            pendingPullStarted.resolve();
+            return new Promise<IteratorResult<Message>>(() => {});
+          },
+          return(): Promise<IteratorResult<Message>> {
+            closed = true;
+            return Promise.resolve({ done: true, value: undefined });
+          },
+        };
+      },
+    };
+    const base = new TrackingTransport((_message, index) =>
+      Promise.resolve({
+        successful: true,
+        messageId: `message-${index}`,
+      })
+    );
+    const transport = createRetryTransport(base, {
+      maxAttempts: 1,
+      sendMany: { maxConcurrent: 2 },
+    });
+
+    const iterator = transport.sendMany(messages)[Symbol.asyncIterator]();
+    const first = await iterator.next();
+    assert.ok(!first.done);
+    assert.ok(first.value.successful);
+    await pendingPullStarted.promise;
+
+    const returned = iterator.return?.();
+    assert.ok(returned != null);
+    assert.ok(await settlesWithin(returned, 50));
+    await waitFor(() => closed);
+
+    assert.ok(closed);
+  });
+
   it("yields completed sendMany receipts while throttling launches", async () => {
     const releaseThrottle = Promise.withResolvers<void>();
     const base = new TrackingTransport((_message, index) =>
