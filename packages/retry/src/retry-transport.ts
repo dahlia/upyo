@@ -224,6 +224,8 @@ export class RetryTransport<TProviderId extends string = string>
         launchPromise != null ||
         !inputDone
       ) {
+        combinedSignal.signal.throwIfAborted();
+
         while (completed.has(nextYieldIndex)) {
           const result = completed.get(nextYieldIndex);
           completed.delete(nextYieldIndex);
@@ -242,10 +244,13 @@ export class RetryTransport<TProviderId extends string = string>
         const launch = launchPromise?.then((): LaunchResult => ({
           launched: true,
         }));
-        const result = await Promise.race([
-          ...inFlight.values(),
-          ...(launch == null ? [] : [launch]),
-        ]);
+        const result = await raceWithAbort(
+          Promise.race([
+            ...inFlight.values(),
+            ...(launch == null ? [] : [launch]),
+          ]),
+          combinedSignal.signal,
+        );
         if ("launched" in result) continue;
         inFlight.delete(result.index);
         completed.set(result.index, result);
@@ -366,7 +371,7 @@ export class RetryTransport<TProviderId extends string = string>
     const retryAfterMilliseconds = getRetryAfterMilliseconds(failure);
     const cappedRetryAfter = retryAfterMilliseconds == null ||
         !Number.isFinite(retryAfterMilliseconds) ||
-        retryAfterMilliseconds <= 0
+        retryAfterMilliseconds < 0
       ? undefined
       : Math.min(
         retryAfterMilliseconds,

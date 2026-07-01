@@ -102,6 +102,31 @@ describe("RetryTransport", () => {
     assert.deepEqual(delays, [2_000]);
   });
 
+  it("preserves zero Retry-After metadata", async () => {
+    const delays: number[] = [];
+    const base = new SequenceTransport([
+      createFailedReceipt(createReceiptError("Rate limited", {
+        provider: "base",
+        statusCode: 429,
+        retryAfterMilliseconds: 0,
+      })),
+      { successful: true, messageId: "delivered" },
+    ]);
+    const transport = createRetryTransport(base, {
+      maxAttempts: 2,
+      backoff: { baseDelayMilliseconds: 100 },
+      jitter: false,
+      wait: (context) => {
+        delays.push(context.delayMilliseconds);
+        return Promise.resolve();
+      },
+    });
+
+    await transport.send(message());
+
+    assert.deepEqual(delays, [0]);
+  });
+
   it("ignores invalid Retry-After metadata", async () => {
     const invalidRetryAfterValues = [NaN, -1, Infinity];
 
@@ -561,6 +586,40 @@ describe("RetryTransport", () => {
       () => Promise.race([next, rejectAfter(50)]),
       (error) => error === reason,
     );
+  });
+
+  it("rejects pending sendMany sends when aborted", async () => {
+    const controller = new AbortController();
+    const reason = new TypeError("Stop pending sends.");
+    const releaseSend = createDeferred<void>();
+    const events: string[] = [];
+    const base = new TrackingTransport(async (_message, index) => {
+      events.push(`start:${index}`);
+      await releaseSend.promise;
+      return { successful: true, messageId: `message-${index}` };
+    });
+    const transport = createRetryTransport(base, {
+      maxAttempts: 1,
+      sendMany: { maxConcurrent: 1 },
+    });
+
+    const iterator = transport.sendMany([message("First")], {
+      signal: controller.signal,
+    })[Symbol.asyncIterator]();
+    const next = iterator.next();
+
+    await waitFor(() => events.includes("start:0"));
+    controller.abort(reason);
+
+    try {
+      await assert.rejects(
+        () => Promise.race([next, rejectAfter(50)]),
+        (error) => error === reason,
+      );
+    } finally {
+      releaseSend.resolve();
+      await next.catch(() => undefined);
+    }
   });
 
   it("yields queued sendMany receipts before launch errors", async () => {
