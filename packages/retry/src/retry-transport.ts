@@ -147,6 +147,7 @@ export class RetryTransport<TProviderId extends string = string>
     let launchPromise: Promise<void> | undefined;
     let launchError: unknown;
     let hasLaunchError = false;
+    let hasQueuedFailure = false;
     let pullingInput = false;
     let closed = false;
     const controller = new AbortController();
@@ -200,6 +201,7 @@ export class RetryTransport<TProviderId extends string = string>
         launchPromise != null ||
         inputDone ||
         hasLaunchError ||
+        hasQueuedFailure ||
         inFlight.size >= this.config.sendMany.maxConcurrent
       ) return;
 
@@ -247,6 +249,7 @@ export class RetryTransport<TProviderId extends string = string>
         if ("launched" in result) continue;
         inFlight.delete(result.index);
         completed.set(result.index, result);
+        if (!result.successful) hasQueuedFailure = true;
         startLaunch();
       }
       if (hasLaunchError) throw launchError;
@@ -280,16 +283,23 @@ export class RetryTransport<TProviderId extends string = string>
    * @since 0.5.0
    */
   async [Symbol.asyncDispose](): Promise<void> {
-    const asyncDisposable = this.wrappedTransport as Partial<AsyncDisposable>;
-    const asyncDispose = asyncDisposable[Symbol.asyncDispose];
-    if (typeof asyncDispose === "function") {
-      await asyncDispose.call(asyncDisposable);
-      return;
+    const wrappedTransport = Object(this.wrappedTransport) as {
+      readonly [key: symbol]: unknown;
+    };
+    const asyncDisposeSymbol = Symbol.asyncDispose;
+    if (typeof asyncDisposeSymbol === "symbol") {
+      const asyncDispose = wrappedTransport[asyncDisposeSymbol];
+      if (typeof asyncDispose === "function") {
+        await asyncDispose.call(wrappedTransport);
+        return;
+      }
     }
 
-    const disposable = this.wrappedTransport as Partial<Disposable>;
-    const dispose = disposable[Symbol.dispose];
-    if (typeof dispose === "function") dispose.call(disposable);
+    const disposeSymbol = Symbol.dispose;
+    if (typeof disposeSymbol === "symbol") {
+      const dispose = wrappedTransport[disposeSymbol];
+      if (typeof dispose === "function") dispose.call(wrappedTransport);
+    }
   }
 
   private withSuccessMetadata(
@@ -482,9 +492,13 @@ function getRetryAfterMilliseconds<TProviderId extends string>(
 function toAsyncIterator<T>(
   values: Iterable<T> | AsyncIterable<T>,
 ): AsyncIterator<T> {
-  if (Symbol.asyncIterator in values) return values[Symbol.asyncIterator]();
+  const asyncIterator =
+    (values as { readonly [Symbol.asyncIterator]?: unknown })[
+      Symbol.asyncIterator
+    ];
+  if (typeof asyncIterator === "function") return asyncIterator.call(values);
 
-  const iterator = values[Symbol.iterator]();
+  const iterator = (values as Iterable<T>)[Symbol.iterator]();
   return {
     async next(): Promise<IteratorResult<T>> {
       return await Promise.resolve(iterator.next());
@@ -504,12 +518,12 @@ function raceWithAbort<T>(
   promise: Promise<T>,
   signal: AbortSignal,
 ): Promise<T> {
-  if (signal.aborted) return Promise.reject(signal.reason);
+  if (signal.aborted) return Promise.reject(getAbortReason(signal));
 
   return new Promise((resolve, reject) => {
     const abort = () => {
       cleanup();
-      reject(signal.reason);
+      reject(getAbortReason(signal));
     };
     const cleanup = () => {
       signal.removeEventListener("abort", abort);
@@ -526,6 +540,11 @@ function raceWithAbort<T>(
       },
     );
   });
+}
+
+function getAbortReason(signal: AbortSignal): unknown {
+  return signal.reason ??
+    new DOMException("The operation was aborted.", "AbortError");
 }
 
 function toReceiptError<TProviderId extends string>(

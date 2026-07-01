@@ -600,6 +600,31 @@ describe("RetryTransport", () => {
     await assert.rejects(() => iterator.next(), inputError);
   });
 
+  it("accepts primitive sync iterables in sendMany", async () => {
+    let calls = 0;
+    const base = new TrackingTransport((_message, index) => {
+      calls++;
+      return Promise.resolve({
+        successful: true,
+        messageId: `message-${index}`,
+      });
+    });
+    const transport = createRetryTransport(base, {
+      maxAttempts: 1,
+      sendMany: { maxConcurrent: 1 },
+    });
+
+    const receipts = await collect(
+      transport.sendMany("ab" as unknown as Iterable<Message>),
+    );
+
+    assert.equal(calls, 2);
+    assert.deepEqual(
+      receipts.map((receipt) => receipt.successful && receipt.messageId),
+      ["message-0", "message-1"],
+    );
+  });
+
   it("drains already-launched sendMany receipts before launch errors", async () => {
     const inputError = new TypeError("Input failed.");
     const events: string[] = [];
@@ -818,6 +843,49 @@ describe("RetryTransport", () => {
       receipts.map((receipt) => receipt.successful && receipt.messageId),
       ["message-0", "message-1", "message-2"],
     );
+  });
+
+  it("stops launching sendMany messages after queued send failures", async () => {
+    const sendError = new TypeError("Retry policy failed.");
+    const releaseFirst = Promise.withResolvers<void>();
+    const events: string[] = [];
+    const base = new TrackingTransport(async (_message, index) => {
+      events.push(`start:${index}`);
+      if (index === 0) {
+        await releaseFirst.promise;
+        return { successful: true, messageId: "first" };
+      }
+      return createFailedReceipt("Service unavailable.", {
+        provider: "base",
+        retryable: true,
+      });
+    });
+    const transport = createRetryTransport(base, {
+      maxAttempts: 2,
+      sendMany: { maxConcurrent: 2 },
+      wait: () => Promise.reject(sendError),
+    });
+
+    const iterator = transport.sendMany([
+      message("First"),
+      message("Second"),
+      message("Third"),
+    ])[Symbol.asyncIterator]();
+    const firstResult = iterator.next();
+
+    await waitFor(() => events.includes("start:1"));
+    await Promise.resolve();
+    assert.deepEqual(events, ["start:0", "start:1"]);
+
+    releaseFirst.resolve();
+    const first = await firstResult;
+    assert.ok(!first.done);
+    assert.ok(first.value.successful);
+    await assert.rejects(
+      () => iterator.next(),
+      (error) => error === sendError,
+    );
+    assert.deepEqual(events, ["start:0", "start:1"]);
   });
 
   it("keeps later sendMany thrown failures ordered", async () => {
