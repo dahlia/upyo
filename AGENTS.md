@@ -38,6 +38,7 @@ functions.  It's structured as a monorepo with multiple packages:
  -  *@upyo/mailgun*: Mailgun transport implementation
  -  *@upyo/sendgrid*: SendGrid transport implementation
  -  *@upyo/ses*: Amazon SES transport implementation
+ -  *@upyo/retry*: Retry and backoff decorator transport
  -  *@upyo/mock*: Mock transport for testing
  -  *@upyo/opentelemetry*: OpenTelemetry observability transport
  -  *docs*: VitePress documentation site
@@ -275,6 +276,8 @@ the application.
 
 #### Utility transports
 
+ -  *@upyo/retry*: Decorator transport that retries transient failures with
+    configurable backoff, jitter, and `sendMany()` throttling
  -  *@upyo/mock*: Testing transport that captures sent messages for inspection
     without external dependencies
  -  *@upyo/opentelemetry*: Decorator transport that adds OpenTelemetry

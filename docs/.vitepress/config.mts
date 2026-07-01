@@ -19,6 +19,7 @@ const packages: readonly string[] = [
   "resend",
   "smtp",
   "pool",
+  "retry",
   "mock",
 ];
 const jsrRefPlugins: any[] = [];
@@ -80,8 +81,9 @@ const NAV = [
       { text: "Resend", link: "/transports/resend" },
       { text: "SendGrid", link: "/transports/sendgrid" },
       { text: "Amazon SES", link: "/transports/ses" },
-      { text: "OpenTelemetry", link: "/transports/opentelemetry" },
       { text: "Pool transport", link: "/transports/pool" },
+      { text: "Retry transport", link: "/transports/retry" },
+      { text: "OpenTelemetry", link: "/transports/opentelemetry" },
       { text: "Mock transport", link: "/transports/mock" },
       { text: "Custom transport", link: "/transports/custom" },
     ],
@@ -98,6 +100,7 @@ const NAV = [
       { text: "@upyo/resend", link: "https://jsr.io/@upyo/resend/doc" },
       { text: "@upyo/sendgrid", link: "https://jsr.io/@upyo/sendgrid/doc" },
       { text: "@upyo/ses", link: "https://jsr.io/@upyo/ses/doc" },
+      { text: "@upyo/retry", link: "https://jsr.io/@upyo/retry/doc" },
       {
         text: "@upyo/opentelemetry",
         link: "https://jsr.io/@upyo/opentelemetry/doc",
