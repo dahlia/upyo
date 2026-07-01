@@ -38,6 +38,7 @@ export class RetryTransport<TProviderId extends string = string>
    * @param transport The transport to wrap.
    * @param config Retry configuration.
    * @throws {RangeError} If retry configuration is invalid.
+   * @since 0.5.0
    */
   constructor(
     transport: Transport<TProviderId>,
@@ -55,6 +56,7 @@ export class RetryTransport<TProviderId extends string = string>
    * @param options Optional transport options.
    * @returns The final delivery receipt.
    * @throws {DOMException} If the operation is aborted.
+   * @since 0.5.0
    */
   async send(
     message: Message,
@@ -66,28 +68,9 @@ export class RetryTransport<TProviderId extends string = string>
     for (let attempt = 1; attempt <= this.config.maxAttempts; attempt++) {
       options?.signal?.throwIfAborted();
 
+      let receipt: Receipt<TProviderId>;
       try {
-        const receipt = await this.wrappedTransport.send(message, options);
-        if (receipt.successful) {
-          return this.withSuccessMetadata(receipt, attempt);
-        }
-
-        const failedReceipt = this.withFailureMetadata(receipt, attempt);
-        if (
-          attempt >= this.config.maxAttempts ||
-          !this.shouldRetryReceipt(failedReceipt)
-        ) {
-          return failedReceipt;
-        }
-
-        await this.waitBeforeRetry({
-          attempt,
-          nextAttempt: attempt + 1,
-          maxAttempts: this.config.maxAttempts,
-          delayMilliseconds: this.calculateDelay(attempt, failedReceipt),
-          receipt: failedReceipt,
-          reason: "retry",
-        }, options?.signal);
+        receipt = await this.wrappedTransport.send(message, options);
       } catch (error) {
         options?.signal?.throwIfAborted();
 
@@ -110,7 +93,29 @@ export class RetryTransport<TProviderId extends string = string>
           error,
           reason: "retry",
         }, options?.signal);
+        continue;
       }
+
+      if (receipt.successful) {
+        return this.withSuccessMetadata(receipt, attempt);
+      }
+
+      const failedReceipt = this.withFailureMetadata(receipt, attempt);
+      if (
+        attempt >= this.config.maxAttempts ||
+        !this.shouldRetryReceipt(failedReceipt)
+      ) {
+        return failedReceipt;
+      }
+
+      await this.waitBeforeRetry({
+        attempt,
+        nextAttempt: attempt + 1,
+        maxAttempts: this.config.maxAttempts,
+        delayMilliseconds: this.calculateDelay(attempt, failedReceipt),
+        receipt: failedReceipt,
+        reason: "retry",
+      }, options?.signal);
     }
 
     return this.createThrownFailure(lastThrownError, this.config.maxAttempts);
@@ -125,6 +130,7 @@ export class RetryTransport<TProviderId extends string = string>
    * @param options Optional transport options.
    * @returns An async iterable of receipts.
    * @throws {DOMException} If the operation is aborted.
+   * @since 0.5.0
    */
   async *sendMany(
     messages: Iterable<Message> | AsyncIterable<Message>,

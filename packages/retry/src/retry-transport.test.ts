@@ -250,6 +250,25 @@ describe("RetryTransport", () => {
     assert.equal(base.calls, 1);
   });
 
+  it("propagates custom retry wait rejections", async () => {
+    const waitError = new TypeError("Retry scheduler failed.");
+    const base = new SequenceTransport([
+      createFailedReceipt("Service unavailable", {
+        provider: "base",
+        statusCode: 503,
+      }),
+      { successful: true, messageId: "should-not-send" },
+    ]);
+    const transport = createRetryTransport(base, {
+      maxAttempts: 2,
+      jitter: false,
+      wait: () => Promise.reject(waitError),
+    });
+
+    await assert.rejects(() => transport.send(message()), waitError);
+    assert.equal(base.calls, 1);
+  });
+
   it("preserves custom abort reasons during the default retry wait", async () => {
     const controller = new AbortController();
     const reason = new TypeError("Stop retrying.");
