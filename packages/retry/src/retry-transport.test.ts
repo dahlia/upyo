@@ -259,7 +259,7 @@ describe("RetryTransport", () => {
   it("rejects caller aborts after wrapped sends", async () => {
     const controller = new AbortController();
     const reason = new TypeError("Stop after send.");
-    const releaseSend = Promise.withResolvers<void>();
+    const releaseSend = createDeferred<void>();
     const base = new TrackingTransport(async () => {
       await releaseSend.promise;
       return { successful: true, messageId: "should-not-deliver" };
@@ -403,8 +403,8 @@ describe("RetryTransport", () => {
     const events: string[] = [];
     let active = 0;
     let maxActive = 0;
-    const releaseFirst = Promise.withResolvers<void>();
-    const releaseSecond = Promise.withResolvers<void>();
+    const releaseFirst = createDeferred<void>();
+    const releaseSecond = createDeferred<void>();
     const releases = [releaseFirst.promise, releaseSecond.promise];
     const base = new TrackingTransport(async (_message, index) => {
       active++;
@@ -455,7 +455,7 @@ describe("RetryTransport", () => {
   });
 
   it("yields completed sendMany receipts before slow async input", async () => {
-    const releaseSecond = Promise.withResolvers<void>();
+    const releaseSecond = createDeferred<void>();
     async function* messages(): AsyncIterable<Message> {
       yield message("First");
       await releaseSecond.promise;
@@ -497,7 +497,7 @@ describe("RetryTransport", () => {
 
   it("surfaces sendMany input errors after yielding ready receipts", async () => {
     const inputError = new TypeError("Input failed.");
-    const releaseFailure = Promise.withResolvers<void>();
+    const releaseFailure = createDeferred<void>();
     async function* messages(): AsyncIterable<Message> {
       yield message("First");
       await releaseFailure.promise;
@@ -530,7 +530,7 @@ describe("RetryTransport", () => {
   it("rejects pending sendMany input pulls when aborted", async () => {
     const controller = new AbortController();
     const reason = new TypeError("Stop reading input.");
-    const releaseSecond = Promise.withResolvers<void>();
+    const releaseSecond = createDeferred<void>();
     async function* messages(): AsyncIterable<Message> {
       yield message("First");
       await releaseSecond.promise;
@@ -628,7 +628,7 @@ describe("RetryTransport", () => {
   it("drains already-launched sendMany receipts before launch errors", async () => {
     const inputError = new TypeError("Input failed.");
     const events: string[] = [];
-    const releaseFirst = Promise.withResolvers<void>();
+    const releaseFirst = createDeferred<void>();
     const messages: Iterable<Message> = {
       [Symbol.iterator]() {
         let index = 0;
@@ -683,7 +683,7 @@ describe("RetryTransport", () => {
   });
 
   it("does not hang when closed with a pending sendMany input pull", async () => {
-    const never = Promise.withResolvers<void>();
+    const never = createDeferred<void>();
     async function* messages(): AsyncIterable<Message> {
       yield message("First");
       await never.promise;
@@ -711,7 +711,7 @@ describe("RetryTransport", () => {
   });
 
   it("closes pending sendMany input pulls when consumers stop early", async () => {
-    const pendingPullStarted = Promise.withResolvers<void>();
+    const pendingPullStarted = createDeferred<void>();
     let closed = false;
     const messages: AsyncIterable<Message> = {
       [Symbol.asyncIterator]() {
@@ -761,7 +761,7 @@ describe("RetryTransport", () => {
   });
 
   it("yields completed sendMany receipts while throttling launches", async () => {
-    const releaseThrottle = Promise.withResolvers<void>();
+    const releaseThrottle = createDeferred<void>();
     const base = new TrackingTransport((_message, index) =>
       Promise.resolve({
         successful: true,
@@ -807,7 +807,7 @@ describe("RetryTransport", () => {
 
   it("refills sendMany concurrency when later messages finish first", async () => {
     const events: string[] = [];
-    const releaseFirst = Promise.withResolvers<void>();
+    const releaseFirst = createDeferred<void>();
     const base = new TrackingTransport(async (_message, index) => {
       events.push(`start:${index}`);
       if (index === 0) await releaseFirst.promise;
@@ -847,7 +847,7 @@ describe("RetryTransport", () => {
 
   it("stops launching sendMany messages after queued send failures", async () => {
     const sendError = new TypeError("Retry policy failed.");
-    const releaseFirst = Promise.withResolvers<void>();
+    const releaseFirst = createDeferred<void>();
     const events: string[] = [];
     const base = new TrackingTransport(async (_message, index) => {
       events.push(`start:${index}`);
@@ -889,7 +889,7 @@ describe("RetryTransport", () => {
   });
 
   it("keeps later sendMany thrown failures ordered", async () => {
-    const releaseFirst = Promise.withResolvers<void>();
+    const releaseFirst = createDeferred<void>();
     const base = new TrackingTransport(async (_message, index) => {
       if (index === 1) throw createAbortError();
       await releaseFirst.promise;
@@ -957,7 +957,7 @@ describe("RetryTransport", () => {
 
   it("cancels pending sendMany launch waits when consumers stop early", async () => {
     const events: string[] = [];
-    const releaseFirst = Promise.withResolvers<void>();
+    const releaseFirst = createDeferred<void>();
     let waitStarted = false;
     let waitAborted = false;
     const base = new TrackingTransport(async (_message, index) => {
@@ -1047,6 +1047,24 @@ async function collect<T>(values: AsyncIterable<T>): Promise<T[]> {
   const result: T[] = [];
   for await (const value of values) result.push(value);
   return result;
+}
+
+interface Deferred<T> {
+  readonly promise: Promise<T>;
+  readonly resolve: (value: T | PromiseLike<T>) => void;
+  readonly reject: (reason?: unknown) => void;
+}
+
+function createDeferred<T>(): Deferred<T> {
+  let resolve: Deferred<T>["resolve"] | undefined;
+  let reject: Deferred<T>["reject"] | undefined;
+  const promise = new Promise<T>((promiseResolve, promiseReject) => {
+    resolve = promiseResolve;
+    reject = promiseReject;
+  });
+  assert.ok(resolve != null);
+  assert.ok(reject != null);
+  return { promise, resolve, reject };
 }
 
 async function waitFor(predicate: () => boolean): Promise<void> {
