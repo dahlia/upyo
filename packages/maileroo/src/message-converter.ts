@@ -148,6 +148,14 @@ interface NativeBase64Converter {
   toBase64?: (options?: Base64Options) => string;
 }
 
+interface BufferBase64Converter {
+  from(
+    buffer: ArrayBufferLike,
+    byteOffset: number,
+    byteLength: number,
+  ): { toString: (encoding: "base64") => string };
+}
+
 function convertAddress(address: Address): MailerooEmailAddress {
   return address.name == null || address.name === ""
     ? { address: address.address }
@@ -230,6 +238,13 @@ function uint8ArrayToBase64(bytes: Uint8Array): string {
     return nativeToBase64();
   }
 
+  const bufferConverter = getBufferBase64Converter();
+  if (bufferConverter != null) {
+    return bufferConverter
+      .from(bytes.buffer, bytes.byteOffset, bytes.byteLength)
+      .toString("base64");
+  }
+
   const chunkSize = 4096;
   const chunks: string[] = [];
 
@@ -249,6 +264,13 @@ function getNativeToBase64(
   const toBase64 = candidate.toBase64;
   if (typeof toBase64 !== "function") return undefined;
   return () => toBase64.call(bytes);
+}
+
+function getBufferBase64Converter(): BufferBase64Converter | undefined {
+  const candidate = (globalThis as typeof globalThis & {
+    readonly Buffer?: BufferBase64Converter;
+  }).Buffer;
+  return typeof candidate?.from === "function" ? candidate : undefined;
 }
 
 function isStandardHeader(headerName: string): boolean {

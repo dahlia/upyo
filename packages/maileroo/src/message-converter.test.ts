@@ -23,6 +23,25 @@ function createBaseMessage(overrides: Partial<Message> = {}): Message {
   };
 }
 
+let globalMutationChain = Promise.resolve();
+
+async function withGlobalMutationLock<T>(
+  callback: () => Promise<T>,
+): Promise<T> {
+  const previous = globalMutationChain;
+  let release: () => void = () => {};
+  globalMutationChain = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  await previous;
+
+  try {
+    return await callback();
+  } finally {
+    release();
+  }
+}
+
 describe("convertMessage", { concurrency: false }, () => {
   it("converts a basic text message", async () => {
     const result = await convertMessage(createBaseMessage(), baseConfig);
@@ -277,46 +296,115 @@ describe("convertMessage", { concurrency: false }, () => {
     assert.equal(result.attachments?.[0]?.content, "native-base64");
   });
 
-  it("keeps fallback base64 chunks small", async () => {
-    const content = new Uint8Array(9000);
-    Object.defineProperty(content, "toBase64", {
-      configurable: true,
-      value: undefined,
-    });
-    const originalFromCharCode = String.fromCharCode;
-    const chunkLengths: number[] = [];
-    Object.defineProperty(String, "fromCharCode", {
-      configurable: true,
-      value(...codes: number[]) {
-        chunkLengths.push(codes.length);
-        return originalFromCharCode(...codes);
-      },
-    });
-
-    try {
-      await convertMessage(
-        createBaseMessage({
-          attachments: [
-            {
-              filename: "large.bin",
-              content,
-              contentType: "application/octet-stream",
-              inline: false,
-              contentId: "",
-            },
-          ],
-        }),
-        baseConfig,
+  it("uses Buffer base64 conversion when available", async () => {
+    await withGlobalMutationLock(async () => {
+      const content = new Uint8Array([1, 2, 3]);
+      Object.defineProperty(content, "toBase64", {
+        configurable: true,
+        value: undefined,
+      });
+      const originalBuffer = Object.getOwnPropertyDescriptor(
+        globalThis,
+        "Buffer",
       );
-    } finally {
+      let capturedBytes: Uint8Array | undefined;
+      Object.defineProperty(globalThis, "Buffer", {
+        configurable: true,
+        value: {
+          from(
+            buffer: ArrayBufferLike,
+            byteOffset: number,
+            byteLength: number,
+          ) {
+            capturedBytes = new Uint8Array(buffer, byteOffset, byteLength);
+            return {
+              toString(encoding: string) {
+                assert.equal(encoding, "base64");
+                return "buffer-base64";
+              },
+            };
+          },
+        },
+      });
+
+      try {
+        const result = await convertMessage(
+          createBaseMessage({
+            attachments: [
+              {
+                filename: "buffer.bin",
+                content,
+                contentType: "application/octet-stream",
+                inline: false,
+                contentId: "",
+              },
+            ],
+          }),
+          baseConfig,
+        );
+
+        assert.deepEqual([...(capturedBytes ?? [])], [1, 2, 3]);
+        assert.equal(result.attachments?.[0]?.content, "buffer-base64");
+      } finally {
+        if (originalBuffer == null) {
+          delete (globalThis as { Buffer?: unknown }).Buffer;
+        } else {
+          Object.defineProperty(globalThis, "Buffer", originalBuffer);
+        }
+      }
+    });
+  });
+
+  it("keeps fallback base64 chunks small", async () => {
+    await withGlobalMutationLock(async () => {
+      const content = new Uint8Array(9000);
+      Object.defineProperty(content, "toBase64", {
+        configurable: true,
+        value: undefined,
+      });
+      const originalBuffer = Object.getOwnPropertyDescriptor(
+        globalThis,
+        "Buffer",
+      );
+      delete (globalThis as { Buffer?: unknown }).Buffer;
+      const originalFromCharCode = String.fromCharCode;
+      const chunkLengths: number[] = [];
       Object.defineProperty(String, "fromCharCode", {
         configurable: true,
-        value: originalFromCharCode,
+        value(...codes: number[]) {
+          chunkLengths.push(codes.length);
+          return originalFromCharCode(...codes);
+        },
       });
-    }
 
-    assert.ok(chunkLengths.every((length) => length <= 4096));
-    assert.ok(chunkLengths.includes(4096));
-    assert.ok(chunkLengths.includes(808));
+      try {
+        await convertMessage(
+          createBaseMessage({
+            attachments: [
+              {
+                filename: "large.bin",
+                content,
+                contentType: "application/octet-stream",
+                inline: false,
+                contentId: "",
+              },
+            ],
+          }),
+          baseConfig,
+        );
+      } finally {
+        Object.defineProperty(String, "fromCharCode", {
+          configurable: true,
+          value: originalFromCharCode,
+        });
+        if (originalBuffer != null) {
+          Object.defineProperty(globalThis, "Buffer", originalBuffer);
+        }
+      }
+
+      assert.ok(chunkLengths.every((length) => length <= 4096));
+      assert.ok(chunkLengths.includes(4096));
+      assert.ok(chunkLengths.includes(808));
+    });
   });
 });
