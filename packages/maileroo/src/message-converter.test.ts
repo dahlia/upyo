@@ -23,7 +23,7 @@ function createBaseMessage(overrides: Partial<Message> = {}): Message {
   };
 }
 
-describe("convertMessage", () => {
+describe("convertMessage", { concurrency: false }, () => {
   it("converts a basic text message", async () => {
     const result = await convertMessage(createBaseMessage(), baseConfig);
 
@@ -275,5 +275,48 @@ describe("convertMessage", () => {
     );
 
     assert.equal(result.attachments?.[0]?.content, "native-base64");
+  });
+
+  it("keeps fallback base64 chunks small", async () => {
+    const content = new Uint8Array(9000);
+    Object.defineProperty(content, "toBase64", {
+      configurable: true,
+      value: undefined,
+    });
+    const originalFromCharCode = String.fromCharCode;
+    const chunkLengths: number[] = [];
+    Object.defineProperty(String, "fromCharCode", {
+      configurable: true,
+      value(...codes: number[]) {
+        chunkLengths.push(codes.length);
+        return originalFromCharCode(...codes);
+      },
+    });
+
+    try {
+      await convertMessage(
+        createBaseMessage({
+          attachments: [
+            {
+              filename: "large.bin",
+              content,
+              contentType: "application/octet-stream",
+              inline: false,
+              contentId: "",
+            },
+          ],
+        }),
+        baseConfig,
+      );
+    } finally {
+      Object.defineProperty(String, "fromCharCode", {
+        configurable: true,
+        value: originalFromCharCode,
+      });
+    }
+
+    assert.ok(chunkLengths.every((length) => length <= 4096));
+    assert.ok(chunkLengths.includes(4096));
+    assert.ok(chunkLengths.includes(808));
   });
 });
