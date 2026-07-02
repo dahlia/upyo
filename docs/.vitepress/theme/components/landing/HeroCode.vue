@@ -19,6 +19,12 @@ const providers = [
     config: ["apiKey: process.env.SENDGRID_KEY,"],
   },
   {
+    label: "Maileroo",
+    cls: "MailerooTransport",
+    pkg: "maileroo",
+    config: ["apiKey: process.env.MAILEROO_API_KEY,"],
+  },
+  {
     label: "Resend",
     cls: "ResendTransport",
     pkg: "resend",

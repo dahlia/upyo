@@ -1,0 +1,66 @@
+{
+  "name": "@upyo/maileroo",
+  "version": "0.6.0",
+  "description": "Maileroo transport for Upyo email library",
+  "keywords": [
+    "email",
+    "mail",
+    "sendmail",
+    "maileroo"
+  ],
+  "license": "MIT",
+  "author": {
+    "name": "Hong Minhee",
+    "email": "hong@minhee.org",
+    "url": "https://hongminhee.org/"
+  },
+  "homepage": "https://upyo.org/transports/maileroo",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/dahlia/upyo.git",
+    "directory": "packages/maileroo/"
+  },
+  "bugs": {
+    "url": "https://github.com/dahlia/upyo/issues"
+  },
+  "funding": [
+    "https://github.com/sponsors/dahlia"
+  ],
+  "engines": {
+    "node": ">=20.0.0",
+    "bun": ">=1.2.0",
+    "deno": ">=2.3.0"
+  },
+  "files": [
+    "dist/",
+    "package.json",
+    "README.md"
+  ],
+  "type": "module",
+  "module": "./dist/index.js",
+  "main": "./dist/index.cjs",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": {
+        "import": "./dist/index.d.ts",
+        "require": "./dist/index.d.cts"
+      },
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    },
+    "./package.json": "./package.json"
+  },
+  "sideEffects": false,
+  "peerDependencies": {
+    "@upyo/core": "workspace:*"
+  },
+  "devDependencies": {
+    "tsdown": "catalog:",
+    "typescript": "catalog:"
+  },
+  "scripts": {
+    "prepack": "mise run --no-deps :build",
+    "prepublish": "mise run --no-deps :build"
+  }
+}

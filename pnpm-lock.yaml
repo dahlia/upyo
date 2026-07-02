@@ -62,6 +62,9 @@ importers:
       '@upyo/lettermint':
         specifier: 'workspace:'
         version: link:../packages/lettermint
+      '@upyo/maileroo':
+        specifier: 'workspace:'
+        version: link:../packages/maileroo
       '@upyo/mailgun':
         specifier: 'workspace:'
         version: link:../packages/mailgun
@@ -140,6 +143,19 @@ importers:
         version: 5.8.3
 
   packages/lettermint:
+    dependencies:
+      '@upyo/core':
+        specifier: workspace:*
+        version: link:../core
+    devDependencies:
+      tsdown:
+        specifier: 'catalog:'
+        version: 0.12.9(typescript@5.8.3)
+      typescript:
+        specifier: 'catalog:'
+        version: 5.8.3
+
+  packages/maileroo:
     dependencies:
       '@upyo/core':
         specifier: workspace:*

@@ -57,6 +57,9 @@ strengths and use cases:
 :   Transactional email API with routes, metadata, idempotency, and batch
     sending
 
+[Maileroo](./transports/maileroo.md)
+:   JSON Email API with attachments, tags, custom headers, and tracking
+
 [Resend](./transports/resend.md)
 :   Modern email service provider that offers a developer-friendly API
 

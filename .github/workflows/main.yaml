@@ -42,6 +42,9 @@ jobs:
       LETTERMINT_API_TOKEN: ${{ secrets.LETTERMINT_API_TOKEN }}
       LETTERMINT_FROM: ${{ secrets.LETTERMINT_FROM }}
       LETTERMINT_TO: ${{ secrets.LETTERMINT_TO }}
+      MAILEROO_API_KEY: ${{ secrets.MAILEROO_API_KEY }}
+      MAILEROO_FROM: ${{ secrets.MAILEROO_FROM }}
+      MAILEROO_TO: ${{ secrets.MAILEROO_TO }}
     steps:
     - uses: actions/checkout@v4
     - uses: jdx/mise-action@v4
@@ -95,6 +98,9 @@ jobs:
       LETTERMINT_API_TOKEN: ${{ secrets.LETTERMINT_API_TOKEN }}
       LETTERMINT_FROM: ${{ secrets.LETTERMINT_FROM }}
       LETTERMINT_TO: ${{ secrets.LETTERMINT_TO }}
+      MAILEROO_API_KEY: ${{ secrets.MAILEROO_API_KEY }}
+      MAILEROO_FROM: ${{ secrets.MAILEROO_FROM }}
+      MAILEROO_TO: ${{ secrets.MAILEROO_TO }}
     steps:
     - uses: actions/checkout@v4
     - uses: jdx/mise-action@v4
@@ -157,6 +163,9 @@ jobs:
       LETTERMINT_API_TOKEN: ${{ secrets.LETTERMINT_API_TOKEN }}
       LETTERMINT_FROM: ${{ secrets.LETTERMINT_FROM }}
       LETTERMINT_TO: ${{ secrets.LETTERMINT_TO }}
+      MAILEROO_API_KEY: ${{ secrets.MAILEROO_API_KEY }}
+      MAILEROO_FROM: ${{ secrets.MAILEROO_FROM }}
+      MAILEROO_TO: ${{ secrets.MAILEROO_TO }}
     steps:
     - uses: actions/checkout@v4
     - uses: jdx/mise-action@v4

@@ -76,6 +76,7 @@ run = ["deno fmt", "hongdown --write", "mise fmt"]
 
 [tasks.build]
 description = "Build all npm packages"
+depends = ["deps"]
 run = "mise run '//packages/...:build'"
 
 [tasks."test:deno"]

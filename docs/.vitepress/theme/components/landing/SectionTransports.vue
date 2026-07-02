@@ -20,6 +20,7 @@ const providers = [
   { name: "SMTP", desc: "Any SMTP server, with pooling and TLS.", link: "/transports/smtp" },
   { name: "JMAP", desc: "The modern JSON mail protocol.", link: "/transports/jmap" },
   { name: "Lettermint", desc: "Transactional API with batching.", link: "/transports/lettermint" },
+  { name: "Maileroo", desc: "JSON email API with tags and tracking.", link: "/transports/maileroo" },
   { name: "Mailgun", desc: "US and EU regions, analytics.", link: "/transports/mailgun" },
   { name: "Plunk", desc: "Cloud-hosted or self-hosted.", link: "/transports/plunk" },
   { name: "Resend", desc: "A developer-first email API.", link: "/transports/resend" },
