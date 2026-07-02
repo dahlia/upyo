@@ -148,12 +148,12 @@ interface NativeBase64Converter {
   toBase64?: (options?: Base64Options) => string;
 }
 
-interface BufferBase64Converter {
-  from(
+interface BufferConstructorLike {
+  from?: (
     buffer: ArrayBufferLike,
     byteOffset: number,
     byteLength: number,
-  ): { toString: (encoding: "base64") => string };
+  ) => unknown;
 }
 
 function convertAddress(address: Address): MailerooEmailAddress {
@@ -271,11 +271,9 @@ function uint8ArrayToBase64(bytes: Uint8Array): string {
     return nativeToBase64();
   }
 
-  const bufferConverter = getBufferBase64Converter();
-  if (bufferConverter != null) {
-    return bufferConverter
-      .from(bytes.buffer, bytes.byteOffset, bytes.byteLength)
-      .toString("base64");
+  const bufferBase64 = getBufferBase64(bytes);
+  if (bufferBase64 != null) {
+    return bufferBase64;
   }
 
   const chunkSize = 4096;
@@ -299,11 +297,30 @@ function getNativeToBase64(
   return () => toBase64.call(bytes);
 }
 
-function getBufferBase64Converter(): BufferBase64Converter | undefined {
+function getBufferBase64(bytes: Uint8Array): string | undefined {
   const candidate = (globalThis as typeof globalThis & {
-    readonly Buffer?: BufferBase64Converter;
+    readonly Buffer?: BufferConstructorLike;
   }).Buffer;
-  return typeof candidate?.from === "function" ? candidate : undefined;
+  if (typeof candidate?.from !== "function") return undefined;
+
+  try {
+    const buffer = candidate.from(
+      bytes.buffer,
+      bytes.byteOffset,
+      bytes.byteLength,
+    );
+    if (
+      buffer == null ||
+      typeof (buffer as { toString?: unknown }).toString !== "function"
+    ) {
+      return undefined;
+    }
+    const base64 = (buffer as { toString: (encoding: "base64") => unknown })
+      .toString("base64");
+    return typeof base64 === "string" ? base64 : undefined;
+  } catch {
+    return undefined;
+  }
 }
 
 function isStandardHeader(headerName: string): boolean {

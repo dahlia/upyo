@@ -263,6 +263,40 @@ describe("MailerooTransport - send", { concurrency: false }, () => {
     );
   });
 
+  it("does not retry malformed successful responses", async () => {
+    let calls = 0;
+
+    await withMockedFetch(
+      () => {
+        calls++;
+        return Promise.resolve(
+          new Response("not json", {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          }),
+        );
+      },
+      async () => {
+        const transport = new MailerooTransport({
+          apiKey: "test-key",
+          retries: 1,
+        });
+        const receipt = await transport.send(createMessage());
+
+        assert.equal(calls, 1);
+        assert.ok(!receipt.successful);
+        if (!receipt.successful) {
+          assert.match(
+            receipt.errorMessages[0],
+            /^Invalid JSON response from Maileroo API:/,
+          );
+          assert.equal(receipt.errors?.[0]?.category, "validation");
+          assert.ok(!receipt.retryable);
+        }
+      },
+    );
+  });
+
   it("falls back for non-object JSON API error bodies", async () => {
     await withMockedFetch(
       () =>

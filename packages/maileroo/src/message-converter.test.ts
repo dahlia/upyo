@@ -359,6 +359,53 @@ describe("convertMessage", { concurrency: false }, () => {
     });
   });
 
+  it("falls back when the Buffer base64 converter is incomplete", async () => {
+    await withGlobalMutationLock(async () => {
+      const content = new Uint8Array([1, 2, 3]);
+      Object.defineProperty(content, "toBase64", {
+        configurable: true,
+        value: undefined,
+      });
+      const originalBuffer = Object.getOwnPropertyDescriptor(
+        globalThis,
+        "Buffer",
+      );
+      Object.defineProperty(globalThis, "Buffer", {
+        configurable: true,
+        value: {
+          from() {
+            return { toString: undefined };
+          },
+        },
+      });
+
+      try {
+        const result = await convertMessage(
+          createBaseMessage({
+            attachments: [
+              {
+                filename: "fallback.bin",
+                content,
+                contentType: "application/octet-stream",
+                inline: false,
+                contentId: "",
+              },
+            ],
+          }),
+          baseConfig,
+        );
+
+        assert.equal(result.attachments?.[0]?.content, "AQID");
+      } finally {
+        if (originalBuffer == null) {
+          delete (globalThis as { Buffer?: unknown }).Buffer;
+        } else {
+          Object.defineProperty(globalThis, "Buffer", originalBuffer);
+        }
+      }
+    });
+  });
+
   it("keeps fallback base64 chunks small", async () => {
     await withGlobalMutationLock(async () => {
       const content = new Uint8Array(9000);

@@ -150,6 +150,7 @@ export class MailerooHttpClient {
     for (let attempt = 0; attempt <= this.config.retries; attempt++) {
       signal?.throwIfAborted();
 
+      let responseText: string;
       try {
         const { response, text } = await this.fetchWithAuth(url, body, signal);
 
@@ -162,7 +163,7 @@ export class MailerooHttpClient {
           );
         }
 
-        return parseResponse(text);
+        responseText = text;
       } catch (error) {
         lastError = error instanceof Error ? error : new Error(String(error));
 
@@ -179,7 +180,10 @@ export class MailerooHttpClient {
         }
 
         await sleep(calculateRetryDelay(attempt, lastError), signal);
+        continue;
       }
+
+      return parseResponse(responseText);
     }
 
     throw lastError ?? new Error("Request failed after all retry attempts.");
