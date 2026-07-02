@@ -145,7 +145,7 @@ export class MailerooHttpClient {
     body: MailerooEmail,
     signal?: AbortSignal,
   ): Promise<MailerooResponse> {
-    let lastError: Error | null = null;
+    let lastError: Error | undefined;
 
     for (let attempt = 0; attempt <= this.config.retries; attempt++) {
       signal?.throwIfAborted();
