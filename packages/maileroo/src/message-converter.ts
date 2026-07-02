@@ -228,7 +228,12 @@ function waitForAttachmentContent(
   content: Uint8Array | Promise<Uint8Array>,
   signal?: AbortSignal,
 ): Promise<Uint8Array> {
-  if (signal == null) return Promise.resolve(content);
+  if (content instanceof Uint8Array) {
+    return signal?.aborted
+      ? Promise.reject(abortReason(signal))
+      : Promise.resolve(content);
+  }
+  if (signal == null) return content;
   if (signal.aborted) return Promise.reject(abortReason(signal));
 
   return new Promise((resolve, reject) => {

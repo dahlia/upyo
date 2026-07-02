@@ -272,6 +272,45 @@ describe("convertMessage", { concurrency: false }, () => {
     );
   });
 
+  it("does not attach abort listeners for immediate attachment content", async () => {
+    const controller = new AbortController();
+    const addEventListener = controller.signal.addEventListener.bind(
+      controller.signal,
+    );
+    let abortListeners = 0;
+
+    Object.defineProperty(controller.signal, "addEventListener", {
+      configurable: true,
+      value: (
+        type: string,
+        listener: EventListenerOrEventListenerObject,
+        options?: boolean | AddEventListenerOptions,
+      ) => {
+        if (type === "abort") abortListeners++;
+        addEventListener(type, listener, options);
+      },
+    });
+
+    const result = await convertMessage(
+      createBaseMessage({
+        attachments: [
+          {
+            filename: "immediate.txt",
+            content: new TextEncoder().encode("hello"),
+            contentType: "text/plain",
+            inline: false,
+            contentId: "",
+          },
+        ],
+      }),
+      baseConfig,
+      controller.signal,
+    );
+
+    assert.equal(result.attachments?.[0]?.content, "aGVsbG8=");
+    assert.equal(abortListeners, 0);
+  });
+
   it("uses native Uint8Array base64 conversion when available", async () => {
     const content = new Uint8Array([1, 2, 3]);
     Object.defineProperty(content, "toBase64", {
