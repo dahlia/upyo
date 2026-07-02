@@ -2,6 +2,8 @@ import { combineSignals, parseRetryAfter } from "@upyo/core";
 import type { ResolvedMailerooConfig } from "./config.ts";
 import type { MailerooEmail } from "./message-converter.ts";
 
+const maxErrorMessageLength = 500;
+
 /**
  * Response from Maileroo API for sending a single message.
  *
@@ -31,6 +33,11 @@ export interface MailerooError {
   readonly error?: string;
   /** Validation errors from Maileroo. */
   readonly errors?: readonly unknown[];
+}
+
+interface MailerooHttpResult {
+  readonly response: Response;
+  readonly text: string;
 }
 
 /**
@@ -142,8 +149,7 @@ export class MailerooHttpClient {
       signal?.throwIfAborted();
 
       try {
-        const response = await this.fetchWithAuth(url, body, signal);
-        const text = await response.text();
+        const { response, text } = await this.fetchWithAuth(url, body, signal);
 
         if (!response.ok) {
           throw new MailerooApiError(
@@ -166,15 +172,11 @@ export class MailerooHttpClient {
       } catch (error) {
         lastError = error instanceof Error ? error : new Error(String(error));
 
-        if (error instanceof MailerooApiError && !isRetryable(error)) {
+        if (signal?.aborted) {
           throw error;
         }
 
-        if (
-          error instanceof Error &&
-          error.name === "AbortError" &&
-          signal?.aborted
-        ) {
+        if (error instanceof MailerooApiError && !isRetryable(error)) {
           throw error;
         }
 
@@ -193,7 +195,7 @@ export class MailerooHttpClient {
     url: string,
     body: MailerooEmail,
     signal?: AbortSignal,
-  ): Promise<Response> {
+  ): Promise<MailerooHttpResult> {
     const headers = new Headers({
       "Content-Type": "application/json",
       "X-API-Key": this.config.apiKey,
@@ -210,12 +212,14 @@ export class MailerooHttpClient {
     const requestSignal = combineSignals(timeoutController.signal, signal);
 
     try {
-      return await globalThis.fetch(url, {
+      const response = await globalThis.fetch(url, {
         method: "POST",
         headers,
         body: JSON.stringify(body),
         signal: requestSignal.signal,
       });
+      const text = await response.text();
+      return { response, text };
     } catch (error) {
       if (
         error instanceof Error &&
@@ -265,44 +269,58 @@ function parseErrorMessage(text: string, statusCode: number): string {
   try {
     const errorBody = JSON.parse(text) as MailerooError;
     if (typeof errorBody.message === "string" && errorBody.message !== "") {
-      return errorBody.message;
+      return truncateErrorMessage(errorBody.message);
     }
     if (typeof errorBody.error === "string" && errorBody.error !== "") {
-      return errorBody.error;
+      return truncateErrorMessage(errorBody.error);
     }
     if (Array.isArray(errorBody.errors) && errorBody.errors.length > 0) {
-      return JSON.stringify(errorBody.errors);
+      return truncateErrorMessage(JSON.stringify(errorBody.errors));
     }
   } catch {
     // Ignore if JSON parsing fails, as the body may be non-JSON.
   }
 
-  return text || `HTTP ${statusCode}`;
+  return truncateErrorMessage(text) || `HTTP ${statusCode}`;
+}
+
+function truncateErrorMessage(message: string): string {
+  return message.length > maxErrorMessageLength
+    ? `${message.slice(0, maxErrorMessageLength)}...`
+    : message;
+}
+
+function abortReason(signal?: AbortSignal): unknown {
+  return signal?.reason ??
+    new DOMException("The operation was aborted.", "AbortError");
 }
 
 function sleep(ms: number, signal?: AbortSignal): Promise<void> {
   return new Promise((resolve, reject) => {
     if (signal?.aborted) {
-      reject(new DOMException("The operation was aborted.", "AbortError"));
+      reject(abortReason(signal));
       return;
     }
 
+    const timeoutState: { id?: ReturnType<typeof setTimeout> } = {};
     const onAbort = () => {
-      clearTimeout(timeoutId);
+      if (timeoutState.id !== undefined) {
+        clearTimeout(timeoutState.id);
+      }
       signal?.removeEventListener("abort", onAbort);
-      reject(new DOMException("The operation was aborted.", "AbortError"));
+      reject(abortReason(signal));
     };
 
-    const timeoutId = setTimeout(() => {
-      signal?.removeEventListener("abort", onAbort);
-      resolve();
-    }, ms);
+    signal?.addEventListener("abort", onAbort, { once: true });
 
     if (signal?.aborted) {
       onAbort();
       return;
     }
 
-    signal?.addEventListener("abort", onAbort, { once: true });
+    timeoutState.id = setTimeout(() => {
+      signal?.removeEventListener("abort", onAbort);
+      resolve();
+    }, ms);
   });
 }

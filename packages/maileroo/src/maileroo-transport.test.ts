@@ -183,6 +183,30 @@ describe("MailerooTransport - send", { concurrency: false }, () => {
     );
   });
 
+  it("truncates non-JSON API response bodies in failure receipts", async () => {
+    await withMockedFetch(
+      () =>
+        Promise.resolve(
+          new Response("x".repeat(600), {
+            status: 503,
+            headers: { "Content-Type": "text/html" },
+          }),
+        ),
+      async () => {
+        const transport = new MailerooTransport({
+          apiKey: "test-key",
+          retries: 0,
+        });
+        const receipt = await transport.send(createMessage());
+
+        assert.equal(receipt.successful, false);
+        if (!receipt.successful) {
+          assert.equal(receipt.errorMessages[0], `${"x".repeat(500)}...`);
+        }
+      },
+    );
+  });
+
   it("returns failed receipts for unsuccessful JSON responses", async () => {
     await withMockedFetch(
       () =>
@@ -276,6 +300,45 @@ describe("MailerooTransport - send", { concurrency: false }, () => {
     );
   });
 
+  it("keeps request timeouts active while reading response bodies", async () => {
+    await withMockedFetch(
+      (_url, init) => {
+        const response = new Response(null, {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+        Object.defineProperty(response, "text", {
+          value: () =>
+            new Promise<string>((_resolve, reject) => {
+              init?.signal?.addEventListener("abort", () => {
+                reject(
+                  new DOMException("The operation was aborted.", "AbortError"),
+                );
+              }, { once: true });
+              setTimeout(() => {
+                reject(new Error("Body read was not aborted."));
+              }, 50);
+            }),
+        });
+        return Promise.resolve(response);
+      },
+      async () => {
+        const transport = new MailerooTransport({
+          apiKey: "test-key",
+          timeout: 1,
+          retries: 0,
+        });
+        const receipt = await transport.send(createMessage());
+
+        assert.equal(receipt.successful, false);
+        if (!receipt.successful) {
+          assert.equal(receipt.errors?.[0]?.category, "timeout");
+          assert.equal(receipt.retryable, true);
+        }
+      },
+    );
+  });
+
   it("retries request timeouts from the transport config", async () => {
     let calls = 0;
 
@@ -311,6 +374,33 @@ describe("MailerooTransport - send", { concurrency: false }, () => {
 
         assert.equal(calls, 2);
         assert.equal(receipt.successful, true);
+      },
+    );
+  });
+
+  it("preserves custom caller abort reasons during retry delays", async () => {
+    const controller = new AbortController();
+    const reason = new Error("Stop retrying Maileroo send.");
+
+    await withMockedFetch(
+      () =>
+        Promise.resolve(
+          new Response(
+            JSON.stringify({ message: "Too many requests" }),
+            { status: 429, headers: { "Content-Type": "application/json" } },
+          ),
+        ),
+      async () => {
+        const transport = new MailerooTransport({
+          apiKey: "test-key",
+          retries: 1,
+        });
+        setTimeout(() => controller.abort(reason), 0);
+
+        await assert.rejects(
+          () => transport.send(createMessage(), { signal: controller.signal }),
+          (error: unknown) => error === reason,
+        );
       },
     );
   });
