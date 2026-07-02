@@ -242,10 +242,7 @@ describe("convertMessage", { concurrency: false }, () => {
   it("propagates aborts while converting attachments", async () => {
     const controller = new AbortController();
     const reason = new Error("Stop converting Maileroo message.");
-    let resolveContent: (content: Uint8Array) => void = () => {};
-    const content = new Promise<Uint8Array>((resolve) => {
-      resolveContent = resolve;
-    });
+    const content = new Promise<Uint8Array>(() => {});
     const conversion = convertMessage(
       createBaseMessage({
         attachments: [
@@ -263,9 +260,16 @@ describe("convertMessage", { concurrency: false }, () => {
     );
 
     controller.abort(reason);
-    resolveContent(new TextEncoder().encode("slow"));
 
-    await assert.rejects(conversion, (error: unknown) => error === reason);
+    await assert.rejects(
+      Promise.race([
+        conversion,
+        new Promise<never>((_resolve, reject) => {
+          setTimeout(() => reject(new Error("Conversion did not abort.")), 50);
+        }),
+      ]),
+      (error: unknown) => error === reason,
+    );
   });
 
   it("uses native Uint8Array base64 conversion when available", async () => {

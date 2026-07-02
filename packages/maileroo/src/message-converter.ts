@@ -214,7 +214,7 @@ async function convertAttachment(
   signal?: AbortSignal,
 ): Promise<MailerooAttachment> {
   signal?.throwIfAborted();
-  const content = await attachment.content;
+  const content = await waitForAttachmentContent(attachment.content, signal);
   signal?.throwIfAborted();
   return {
     file_name: getAttachmentFileName(attachment),
@@ -222,6 +222,39 @@ async function convertAttachment(
     content: uint8ArrayToBase64(content),
     inline: attachment.inline || undefined,
   };
+}
+
+function waitForAttachmentContent(
+  content: Uint8Array | Promise<Uint8Array>,
+  signal?: AbortSignal,
+): Promise<Uint8Array> {
+  if (signal == null) return Promise.resolve(content);
+  if (signal.aborted) return Promise.reject(abortReason(signal));
+
+  return new Promise((resolve, reject) => {
+    const onAbort = () => {
+      signal.removeEventListener("abort", onAbort);
+      reject(abortReason(signal));
+    };
+
+    signal.addEventListener("abort", onAbort, { once: true });
+
+    Promise.resolve(content).then(
+      (value) => {
+        signal.removeEventListener("abort", onAbort);
+        resolve(value);
+      },
+      (error: unknown) => {
+        signal.removeEventListener("abort", onAbort);
+        reject(error);
+      },
+    );
+  });
+}
+
+function abortReason(signal: AbortSignal): unknown {
+  return signal.reason ??
+    new DOMException("The operation was aborted.", "AbortError");
 }
 
 function getAttachmentFileName(attachment: Attachment): string {
