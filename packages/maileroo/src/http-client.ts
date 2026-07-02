@@ -162,15 +162,7 @@ export class MailerooHttpClient {
           );
         }
 
-        try {
-          return JSON.parse(text) as MailerooResponse;
-        } catch (error) {
-          throw new SyntaxError(
-            `Invalid JSON response from Maileroo API: ${
-              error instanceof Error ? error.message : String(error)
-            }.`,
-          );
-        }
+        return parseResponse(text);
       } catch (error) {
         lastError = error instanceof Error ? error : new Error(String(error));
 
@@ -269,21 +261,49 @@ function calculateRetryDelay(attempt: number, error?: Error): number {
 
 function parseErrorMessage(text: string, statusCode: number): string {
   try {
-    const errorBody = JSON.parse(text) as MailerooError;
-    if (typeof errorBody.message === "string" && errorBody.message !== "") {
-      return truncateErrorMessage(errorBody.message);
-    }
-    if (typeof errorBody.error === "string" && errorBody.error !== "") {
-      return truncateErrorMessage(errorBody.error);
-    }
-    if (Array.isArray(errorBody.errors) && errorBody.errors.length > 0) {
-      return truncateErrorMessage(JSON.stringify(errorBody.errors));
+    const errorBody = JSON.parse(text);
+    if (errorBody != null && typeof errorBody === "object") {
+      const mailerooError = errorBody as MailerooError;
+      if (
+        typeof mailerooError.message === "string" &&
+        mailerooError.message !== ""
+      ) {
+        return truncateErrorMessage(mailerooError.message);
+      }
+      if (
+        typeof mailerooError.error === "string" &&
+        mailerooError.error !== ""
+      ) {
+        return truncateErrorMessage(mailerooError.error);
+      }
+      if (
+        Array.isArray(mailerooError.errors) &&
+        mailerooError.errors.length > 0
+      ) {
+        return truncateErrorMessage(JSON.stringify(mailerooError.errors));
+      }
     }
   } catch {
     // Ignore if JSON parsing fails, as the body may be non-JSON.
   }
 
   return truncateErrorMessage(text) || `HTTP ${statusCode}`;
+}
+
+function parseResponse(text: string): MailerooResponse {
+  try {
+    const response = JSON.parse(text);
+    if (response == null || typeof response !== "object") {
+      throw new SyntaxError("response is not an object");
+    }
+    return response as MailerooResponse;
+  } catch (error) {
+    throw new SyntaxError(
+      `Invalid JSON response from Maileroo API: ${
+        error instanceof Error ? error.message : String(error)
+      }.`,
+    );
+  }
 }
 
 function truncateErrorMessage(message: string): string {

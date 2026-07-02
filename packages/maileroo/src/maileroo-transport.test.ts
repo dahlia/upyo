@@ -235,6 +235,60 @@ describe("MailerooTransport - send", { concurrency: false }, () => {
     );
   });
 
+  it("returns failed receipts for non-object success responses", async () => {
+    await withMockedFetch(
+      () =>
+        Promise.resolve(
+          new Response("null", {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          }),
+        ),
+      async () => {
+        const transport = new MailerooTransport({
+          apiKey: "test-key",
+          retries: 0,
+        });
+        const receipt = await transport.send(createMessage());
+
+        assert.ok(!receipt.successful);
+        if (!receipt.successful) {
+          assert.deepEqual(receipt.errorMessages, [
+            "Invalid JSON response from Maileroo API: response is not an object.",
+          ]);
+          assert.equal(receipt.errors?.[0]?.category, "validation");
+          assert.ok(!receipt.retryable);
+        }
+      },
+    );
+  });
+
+  it("falls back for non-object JSON API error bodies", async () => {
+    await withMockedFetch(
+      () =>
+        Promise.resolve(
+          new Response("null", {
+            status: 400,
+            headers: { "Content-Type": "application/json" },
+          }),
+        ),
+      async () => {
+        const transport = new MailerooTransport({
+          apiKey: "test-key",
+          retries: 0,
+        });
+        const receipt = await transport.send(createMessage());
+
+        assert.ok(!receipt.successful);
+        if (!receipt.successful) {
+          assert.deepEqual(receipt.errorMessages, ["null"]);
+          assert.equal(receipt.errors?.[0]?.category, "validation");
+          assert.ok(!receipt.retryable);
+        }
+      },
+    );
+  });
+
   it("returns failed receipts when the reference ID is missing", async () => {
     await withMockedFetch(
       () =>
