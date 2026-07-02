@@ -22,7 +22,7 @@ const providers = [
     label: "Maileroo",
     cls: "MailerooTransport",
     pkg: "maileroo",
-    config: ["apiKey: process.env.MAILEROO_KEY,"],
+    config: ["apiKey: process.env.MAILEROO_API_KEY,"],
   },
   {
     label: "Resend",
