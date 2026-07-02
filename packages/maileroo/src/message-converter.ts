@@ -62,6 +62,7 @@ export interface MailerooEmail {
   readonly tags?: Record<string, string>;
   readonly headers?: Record<string, string>;
   readonly attachments?: readonly MailerooAttachment[];
+  readonly reference_id?: string;
 }
 
 /**
@@ -85,7 +86,10 @@ export async function convertMessage(
     from: convertAddress(message.sender),
     to: convertAddressList(message.recipients),
     subject: message.subject,
+    reference_id: createMailerooReference(message.idempotencyKey),
   };
+
+  signal?.throwIfAborted();
 
   const cc = convertOptionalAddressList(message.ccRecipients);
   if (cc !== undefined) emailData.cc = cc;
@@ -154,6 +158,36 @@ interface BufferConstructorLike {
     byteOffset: number,
     byteLength: number,
   ) => unknown;
+}
+
+function createMailerooReference(
+  idempotencyKey?: string,
+): string {
+  if (idempotencyKey == null || idempotencyKey === "") {
+    const bytes = new Uint8Array(12);
+    crypto.getRandomValues(bytes);
+    return bytesToHex(bytes);
+  }
+
+  return hashReference(idempotencyKey);
+}
+
+function bytesToHex(bytes: Uint8Array): string {
+  return [...bytes].map((byte) => byte.toString(16).padStart(2, "0")).join("");
+}
+
+function hashReference(value: string): string {
+  const bytes = new TextEncoder().encode(value);
+  const seeds = [0x811c9dc5, 0x9e3779b9, 0x85ebca6b];
+
+  return seeds.map((seed) => {
+    let hash = seed;
+    for (const byte of bytes) {
+      hash ^= byte;
+      hash = Math.imul(hash, 0x01000193);
+    }
+    return (hash >>> 0).toString(16).padStart(8, "0");
+  }).join("");
 }
 
 function convertAddress(address: Address): MailerooEmailAddress {

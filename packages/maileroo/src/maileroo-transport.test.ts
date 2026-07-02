@@ -107,7 +107,10 @@ describe("MailerooTransport - send", { concurrency: false }, () => {
 
         assert.equal(capturedUrl, "https://api.example.com/emails");
         assert.equal(capturedHeaders.get("X-API-Key"), "test-key");
-        assert.deepEqual(capturedBody, {
+        const body = capturedBody as { reference_id?: string };
+        assert.match(body.reference_id ?? "", /^[0-9a-f]{24}$/);
+        delete body.reference_id;
+        assert.deepEqual(body, {
           from: { address: "sender@example.com" },
           to: { address: "recipient@example.com" },
           subject: "Test Subject",
@@ -530,6 +533,53 @@ describe("MailerooTransport - send", { concurrency: false }, () => {
     );
   });
 
+  it("reuses Maileroo reference IDs across retries", async () => {
+    let calls = 0;
+    const referenceIds: string[] = [];
+
+    await withMockedFetch(
+      (_url, init) => {
+        calls++;
+        const body = JSON.parse(String(init?.body)) as {
+          reference_id?: string;
+        };
+        if (body.reference_id != null) referenceIds.push(body.reference_id);
+
+        if (calls === 1) {
+          return Promise.resolve(
+            new Response(
+              JSON.stringify({ message: "Temporary server error" }),
+              { status: 500, headers: { "Content-Type": "application/json" } },
+            ),
+          );
+        }
+        return Promise.resolve(
+          new Response(
+            JSON.stringify({
+              success: true,
+              data: { reference_id: "c843204e3af03193bd14f339" },
+            }),
+            { status: 200, headers: { "Content-Type": "application/json" } },
+          ),
+        );
+      },
+      async () => {
+        const transport = new MailerooTransport({
+          apiKey: "test-key",
+          retries: 1,
+        });
+        const receipt = await transport.send(
+          createMessage({ idempotencyKey: "retry-maileroo-message" }),
+        );
+
+        assert.equal(calls, 2);
+        assert.ok(receipt.successful);
+        assert.deepEqual(referenceIds, [referenceIds[0], referenceIds[0]]);
+        assert.match(referenceIds[0] ?? "", /^[0-9a-f]{24}$/);
+      },
+    );
+  });
+
   it("respects Retry-After delays before retrying rate limits", async () => {
     let calls = 0;
     const originalRandom = Math.random;
@@ -745,6 +795,10 @@ describe("MailerooTransport - sendMany", { concurrency: false }, () => {
           receipts.push(receipt);
         }
 
+        for (const body of capturedBodies as { reference_id?: string }[]) {
+          assert.match(body.reference_id ?? "", /^[0-9a-f]{24}$/);
+          delete body.reference_id;
+        }
         assert.deepEqual(capturedBodies, [
           {
             from: { address: "sender@example.com" },

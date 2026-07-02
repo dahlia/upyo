@@ -162,6 +162,26 @@ describe("convertMessage", { concurrency: false }, () => {
     });
   });
 
+  it("uses idempotency keys as stable Maileroo references", async () => {
+    const first = await convertMessage(
+      createBaseMessage({ idempotencyKey: "welcome-message-1" }),
+      baseConfig,
+    );
+    const second = await convertMessage(
+      createBaseMessage({ idempotencyKey: "welcome-message-1" }),
+      baseConfig,
+    );
+
+    assert.match(first.reference_id ?? "", /^[0-9a-f]{24}$/);
+    assert.equal(first.reference_id, second.reference_id);
+  });
+
+  it("generates Maileroo references when idempotency keys are missing", async () => {
+    const result = await convertMessage(createBaseMessage(), baseConfig);
+
+    assert.match(result.reference_id ?? "", /^[0-9a-f]{24}$/);
+  });
+
   it("converts priority and custom headers", async () => {
     const headers = new Headers();
     headers.set("X-Custom-Header", "custom-value");
