@@ -37,9 +37,8 @@ describeE2E("MailerooTransport E2E", { concurrency: false }, () => {
     readonly successful: true;
     readonly messageId: string;
   } {
-    assert.equal(
+    assert.ok(
       receipt.successful,
-      true,
       receipt.successful ? undefined : receipt.errorMessages.join(", "),
     );
     assert.ok(receipt.messageId);

@@ -37,7 +37,23 @@ describe("createMailerooConfig", () => {
     assert.equal(resolved.timeout, 60000);
     assert.equal(resolved.retries, 5);
     assert.deepEqual(resolved.headers, { "X-Custom": "value" });
-    assert.equal(resolved.tracking, false);
+    assert.ok(!resolved.tracking);
+    assert.deepEqual(resolved.tags, { campaign: "welcome" });
+  });
+
+  it("clones mutable header and tag defaults", () => {
+    const headers = { "X-Custom": "value" };
+    const tags = { campaign: "welcome" };
+    const resolved = createMailerooConfig({
+      apiKey: "test-key",
+      headers,
+      tags,
+    });
+
+    headers["X-Custom"] = "changed";
+    tags.campaign = "changed";
+
+    assert.deepEqual(resolved.headers, { "X-Custom": "value" });
     assert.deepEqual(resolved.tags, { campaign: "welcome" });
   });
 

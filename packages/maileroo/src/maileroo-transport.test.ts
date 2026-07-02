@@ -68,7 +68,7 @@ describe("MailerooTransport - config", { concurrency: false }, () => {
     assert.equal(transport.config.baseUrl, "https://maileroo.example.com/api");
     assert.equal(transport.config.timeout, 10000);
     assert.equal(transport.config.retries, 1);
-    assert.equal(transport.config.tracking, true);
+    assert.ok(transport.config.tracking);
     assert.deepEqual(transport.config.tags, { source: "upyo-test" });
   });
 });
@@ -113,7 +113,7 @@ describe("MailerooTransport - send", { concurrency: false }, () => {
           subject: "Test Subject",
           plain: "Test content",
         });
-        assert.equal(receipt.successful, true);
+        assert.ok(receipt.successful);
         if (receipt.successful) {
           assert.equal(receipt.messageId, "c843204e3af03193bd14f339");
           assert.equal(receipt.provider, "maileroo");
@@ -171,11 +171,11 @@ describe("MailerooTransport - send", { concurrency: false }, () => {
         });
         const receipt = await transport.send(createMessage());
 
-        assert.equal(receipt.successful, false);
+        assert.ok(!receipt.successful);
         if (!receipt.successful) {
           assert.deepEqual(receipt.errorMessages, ["Invalid API key"]);
           assert.equal(receipt.provider, "maileroo");
-          assert.equal(receipt.retryable, false);
+          assert.ok(!receipt.retryable);
           assert.equal(receipt.errors?.[0]?.category, "auth");
           assert.equal(receipt.errors?.[0]?.statusCode, 401);
         }
@@ -199,7 +199,7 @@ describe("MailerooTransport - send", { concurrency: false }, () => {
         });
         const receipt = await transport.send(createMessage());
 
-        assert.equal(receipt.successful, false);
+        assert.ok(!receipt.successful);
         if (!receipt.successful) {
           assert.equal(receipt.errorMessages[0], `${"x".repeat(500)}...`);
         }
@@ -223,11 +223,11 @@ describe("MailerooTransport - send", { concurrency: false }, () => {
         const transport = new MailerooTransport({ apiKey: "test-key" });
         const receipt = await transport.send(createMessage());
 
-        assert.equal(receipt.successful, false);
+        assert.ok(!receipt.successful);
         if (!receipt.successful) {
           assert.deepEqual(receipt.errorMessages, ["Message rejected"]);
           assert.equal(receipt.provider, "maileroo");
-          assert.equal(receipt.retryable, false);
+          assert.ok(!receipt.retryable);
           assert.equal(receipt.errors?.[0]?.category, "rejected");
           assert.equal(receipt.errors?.[0]?.code, "maileroo.unsuccessful");
         }
@@ -248,7 +248,7 @@ describe("MailerooTransport - send", { concurrency: false }, () => {
         const transport = new MailerooTransport({ apiKey: "test-key" });
         const receipt = await transport.send(createMessage());
 
-        assert.equal(receipt.successful, false);
+        assert.ok(!receipt.successful);
         if (!receipt.successful) {
           assert.deepEqual(receipt.errorMessages, [
             "Maileroo response is missing a reference ID.",
@@ -330,10 +330,10 @@ describe("MailerooTransport - send", { concurrency: false }, () => {
         });
         const receipt = await transport.send(createMessage());
 
-        assert.equal(receipt.successful, false);
+        assert.ok(!receipt.successful);
         if (!receipt.successful) {
           assert.equal(receipt.errors?.[0]?.category, "timeout");
-          assert.equal(receipt.retryable, true);
+          assert.ok(receipt.retryable);
         }
       },
     );
@@ -373,7 +373,7 @@ describe("MailerooTransport - send", { concurrency: false }, () => {
         const receipt = await transport.send(createMessage());
 
         assert.equal(calls, 2);
-        assert.equal(receipt.successful, true);
+        assert.ok(receipt.successful);
       },
     );
   });
@@ -437,7 +437,7 @@ describe("MailerooTransport - send", { concurrency: false }, () => {
         const receipt = await transport.send(createMessage());
 
         assert.equal(calls, 2);
-        assert.equal(receipt.successful, true);
+        assert.ok(receipt.successful);
       },
     );
   });
@@ -484,7 +484,7 @@ describe("MailerooTransport - send", { concurrency: false }, () => {
           const receipt = await transport.send(createMessage());
 
           assert.equal(calls, 2);
-          assert.equal(receipt.successful, true);
+          assert.ok(receipt.successful);
           assert.ok(performance.now() - startedAt >= 900);
         } finally {
           Math.random = originalRandom;
@@ -512,10 +512,10 @@ describe("MailerooTransport - send", { concurrency: false }, () => {
         });
         const receipt = await transport.send(createMessage());
 
-        assert.equal(receipt.successful, false);
+        assert.ok(!receipt.successful);
         if (!receipt.successful) {
           assert.equal(receipt.provider, "maileroo");
-          assert.equal(receipt.retryable, true);
+          assert.ok(receipt.retryable);
           assert.equal(receipt.errors?.[0]?.category, "rate-limit");
           assert.equal(receipt.errors?.[0]?.retryAfterMilliseconds, 20_000);
         }
@@ -544,7 +544,7 @@ describe("MailerooTransport - send", { concurrency: false }, () => {
         const receipt = await transport.send(createMessage());
 
         assert.equal(calls, 1);
-        assert.equal(receipt.successful, false);
+        assert.ok(!receipt.successful);
         if (!receipt.successful) {
           assert.deepEqual(receipt.errorMessages, ["HTTP 302"]);
         }
@@ -611,7 +611,7 @@ describe("MailerooTransport - send", { concurrency: false }, () => {
             { signal: controller.signal },
           );
 
-          assert.equal(receipt.successful, true);
+          assert.ok(receipt.successful);
           assert.ok(addedAbortListeners > 0);
           assert.equal(removedAbortListeners, addedAbortListeners);
         } finally {
@@ -775,9 +775,9 @@ describe("MailerooTransport - sendMany", { concurrency: false }, () => {
         }
 
         assert.equal(receipts.length, 3);
-        assert.equal(receipts[0].successful, true);
-        assert.equal(receipts[1].successful, false);
-        assert.equal(receipts[2].successful, true);
+        assert.ok(receipts[0].successful);
+        assert.ok(!receipts[1].successful);
+        assert.ok(receipts[2].successful);
         if (!receipts[1].successful) {
           assert.deepEqual(receipts[1].errorMessages, ["Message rejected"]);
         }

@@ -43,7 +43,7 @@ export class MailerooTransport implements Transport<"maileroo"> {
   /**
    * The resolved Maileroo configuration used by this transport.
    */
-  config: ResolvedMailerooConfig;
+  readonly config: ResolvedMailerooConfig;
 
   private httpClient: MailerooHttpClient;
 
@@ -63,6 +63,7 @@ export class MailerooTransport implements Transport<"maileroo"> {
    * @param message The email message to send.
    * @param options Optional transport options including `AbortSignal`.
    * @returns A receipt indicating success or failure.
+   * @throws {Error} If the caller aborts the operation.
    */
   async send(
     message: Message,
@@ -71,7 +72,11 @@ export class MailerooTransport implements Transport<"maileroo"> {
     try {
       options?.signal?.throwIfAborted();
 
-      const emailData = await convertMessage(message, this.config);
+      const emailData = await convertMessage(
+        message,
+        this.config,
+        options?.signal,
+      );
 
       options?.signal?.throwIfAborted();
 

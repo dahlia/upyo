@@ -12,6 +12,16 @@ export interface TestConfig {
 }
 
 /**
+ * Error thrown when Maileroo E2E test configuration is incomplete.
+ */
+export class MailerooTestConfigError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "MailerooTestConfigError";
+  }
+}
+
+/**
  * Checks whether Maileroo E2E testing is configured.
  *
  * @returns `true` if all required environment variables are present.
@@ -28,7 +38,8 @@ export function isE2eTestingEnabled(): boolean {
  * Reads Maileroo E2E test configuration from environment variables.
  *
  * @returns Maileroo E2E test configuration.
- * @throws {Error} If required environment variables are missing.
+ * @throws {MailerooTestConfigError} If required environment variables are
+ * missing.
  */
 export function getTestConfig(): TestConfig {
   const apiKey = process.env.MAILEROO_API_KEY;
@@ -36,7 +47,7 @@ export function getTestConfig(): TestConfig {
   const to = process.env.MAILEROO_TO;
 
   if (!apiKey || !from || !to) {
-    throw new Error(
+    throw new MailerooTestConfigError(
       "MAILEROO_API_KEY, MAILEROO_FROM, and MAILEROO_TO are required.",
     );
   }
@@ -60,6 +71,8 @@ export function getTestConfig(): TestConfig {
  *
  * @param overrides Message fields to override.
  * @returns A test message.
+ * @throws {MailerooTestConfigError} If required environment variables are
+ * missing.
  */
 export function createTestMessage(overrides: Partial<Message> = {}): Message {
   const config = getTestConfig();

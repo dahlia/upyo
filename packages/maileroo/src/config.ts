@@ -30,6 +30,8 @@ export interface MailerooConfig {
   /**
    * HTTP request timeout in milliseconds.
    *
+   * Set to `0` to disable request timeouts.
+   *
    * @default 30000
    */
   readonly timeout?: number;
@@ -88,7 +90,7 @@ export function createMailerooConfig(
     ),
     timeout: config.timeout ?? 30000,
     retries: config.retries ?? 3,
-    headers: config.headers ?? {},
+    headers: config.headers == null ? {} : { ...config.headers },
     tracking: config.tracking,
     tags: config.tags == null ? undefined : { ...config.tags },
   };

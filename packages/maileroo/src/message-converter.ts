@@ -69,13 +69,18 @@ export interface MailerooEmail {
  *
  * @param message The Upyo message to convert.
  * @param config The resolved Maileroo configuration.
+ * @param signal Optional abort signal for cancellation.
  * @returns JSON object ready for Maileroo API submission.
+ * @throws {Error} If the caller aborts the operation.
  * @since 0.6.0
  */
 export async function convertMessage(
   message: Message,
   config: ResolvedMailerooConfig,
+  signal?: AbortSignal,
 ): Promise<MailerooEmail> {
+  signal?.throwIfAborted();
+
   const emailData: MutableMailerooEmail = {
     from: convertAddress(message.sender),
     to: convertAddressList(message.recipients),
@@ -116,9 +121,16 @@ export async function convertMessage(
 
   if (message.attachments.length > 0) {
     emailData.attachments = await Promise.all(
-      message.attachments.map(convertAttachment),
+      message.attachments.map((attachment) =>
+        convertAttachment(
+          attachment,
+          signal,
+        )
+      ),
     );
   }
+
+  signal?.throwIfAborted();
 
   return emailData;
 }
@@ -191,8 +203,11 @@ function convertHeaders(message: Message): Record<string, string> {
 
 async function convertAttachment(
   attachment: Attachment,
+  signal?: AbortSignal,
 ): Promise<MailerooAttachment> {
+  signal?.throwIfAborted();
   const content = await attachment.content;
+  signal?.throwIfAborted();
   return {
     file_name: getAttachmentFileName(attachment),
     content_type: attachment.contentType,

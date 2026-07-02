@@ -129,6 +129,8 @@ export class MailerooHttpClient {
    * @param messageData The JSON data to send to Maileroo.
    * @param signal Optional AbortSignal for cancellation.
    * @returns Promise that resolves to the Maileroo response.
+   * @throws {MailerooApiError} If Maileroo returns an API error.
+   * @throws {MailerooTimeoutError} If the request timeout elapses.
    */
   sendMessage(
     messageData: MailerooEmail,

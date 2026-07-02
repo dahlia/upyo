@@ -118,7 +118,7 @@ describe("convertMessage", () => {
 
     const result = await convertMessage(createBaseMessage(), config);
 
-    assert.equal(result.tracking, false);
+    assert.ok(!result.tracking);
     assert.deepEqual(result.tags, {
       campaign: "welcome-2026",
       environment: "test",
@@ -218,6 +218,35 @@ describe("convertMessage", () => {
     );
 
     assert.equal(result.attachments?.[0]?.file_name, "logo.png");
+  });
+
+  it("propagates aborts while converting attachments", async () => {
+    const controller = new AbortController();
+    const reason = new Error("Stop converting Maileroo message.");
+    let resolveContent: (content: Uint8Array) => void = () => {};
+    const content = new Promise<Uint8Array>((resolve) => {
+      resolveContent = resolve;
+    });
+    const conversion = convertMessage(
+      createBaseMessage({
+        attachments: [
+          {
+            filename: "slow.txt",
+            content,
+            contentType: "text/plain",
+            inline: false,
+            contentId: "",
+          },
+        ],
+      }),
+      baseConfig,
+      controller.signal,
+    );
+
+    controller.abort(reason);
+    resolveContent(new TextEncoder().encode("slow"));
+
+    await assert.rejects(conversion, (error: unknown) => error === reason);
   });
 
   it("uses native Uint8Array base64 conversion when available", async () => {
