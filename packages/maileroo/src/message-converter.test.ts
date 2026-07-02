@@ -201,6 +201,25 @@ describe("convertMessage", () => {
     ]);
   });
 
+  it("uses the filename for inline attachments without content IDs", async () => {
+    const result = await convertMessage(
+      createBaseMessage({
+        attachments: [
+          {
+            filename: "logo.png",
+            content: new Uint8Array([1, 2, 3]),
+            contentType: "image/png",
+            inline: true,
+            contentId: "",
+          },
+        ],
+      }),
+      baseConfig,
+    );
+
+    assert.equal(result.attachments?.[0]?.file_name, "logo.png");
+  });
+
   it("uses native Uint8Array base64 conversion when available", async () => {
     const content = new Uint8Array([1, 2, 3]);
     Object.defineProperty(content, "toBase64", {

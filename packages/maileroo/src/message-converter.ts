@@ -202,7 +202,9 @@ async function convertAttachment(
 }
 
 function getAttachmentFileName(attachment: Attachment): string {
-  return attachment.inline && attachment.contentId !== ""
+  return attachment.inline &&
+      typeof attachment.contentId === "string" &&
+      attachment.contentId !== ""
     ? attachment.contentId
     : attachment.filename;
 }
