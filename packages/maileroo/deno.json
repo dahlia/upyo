@@ -1,0 +1,9 @@
+{
+  "name": "@upyo/maileroo",
+  "version": "0.6.0",
+  "license": "MIT",
+  "exports": "./src/index.ts",
+  "exclude": [
+    "dist/"
+  ]
+}

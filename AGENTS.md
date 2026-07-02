@@ -35,6 +35,7 @@ functions.  It's structured as a monorepo with multiple packages:
  -  *@upyo/core*: Shared types and interfaces for email messages
  -  *@upyo/smtp*: SMTP transport implementation
  -  *@upyo/lettermint*: Lettermint transport implementation
+ -  *@upyo/maileroo*: Maileroo transport implementation
  -  *@upyo/mailgun*: Mailgun transport implementation
  -  *@upyo/sendgrid*: SendGrid transport implementation
  -  *@upyo/ses*: Amazon SES transport implementation
@@ -267,6 +268,8 @@ the application.
     support, and authentication
  -  *@upyo/lettermint*: Lettermint HTTP API transport with idempotency, batch
     sending, routes, tags, metadata, and tracking settings
+ -  *@upyo/maileroo*: Maileroo HTTP API transport with attachments, custom
+    headers, tags, and tracking settings
  -  *@upyo/mailgun*: Mailgun HTTP API transport with support for US/EU regions
     and batch operations
  -  *@upyo/sendgrid*: SendGrid HTTP API transport with template support and

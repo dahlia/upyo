@@ -10,6 +10,7 @@
     "@upyo/core": "workspace:",
     "@upyo/jmap": "workspace:",
     "@upyo/lettermint": "workspace:",
+    "@upyo/maileroo": "workspace:",
     "@upyo/mailgun": "workspace:",
     "@upyo/mock": "workspace:",
     "@upyo/opentelemetry": "workspace:",
