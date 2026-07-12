@@ -7,9 +7,9 @@ Upyo
 
 Upyo is a cross-runtime email library that provides a unified, type-safe API
 for sending emails across Node.js, Deno, Bun, and edge functions. Switch
-between SMTP and HTTP-based providers (Lettermint, Maileroo, Mailgun, Resend,
-SendGrid, Amazon SES) without changing your application code, while enjoying
-full TypeScript support, consistent error handling, and built-in testing
+between SMTP and HTTP-based providers (Lettermint, Maileroo, Mailgun, Mailtrap,
+Resend, SendGrid, Amazon SES) without changing your application code, while
+enjoying full TypeScript support, consistent error handling, and built-in testing
 capabilities with mock transports across all runtimes.
 
 Here's a quick demo of sending an email using the Mailgun transport:
@@ -71,6 +71,7 @@ sending messages.  The following is a list of the available packages:
 | [@upyo/jmap](/packages/jmap/)                   | [JSR][jsr:@upyo/jmap]          | [npm][npm:@upyo/jmap]          | [JMAP] transport (RFC 8620/8621)                   |
 | [@upyo/lettermint](/packages/lettermint/)       | [JSR][jsr:@upyo/lettermint]    | [npm][npm:@upyo/lettermint]    | [Lettermint] transport                             |
 | [@upyo/maileroo](/packages/maileroo/)           | [JSR][jsr:@upyo/maileroo]      | [npm][npm:@upyo/maileroo]      | [Maileroo] transport                               |
+| [@upyo/mailtrap](/packages/mailtrap/)           | [JSR][jsr:@upyo/mailtrap]      | [npm][npm:@upyo/mailtrap]      | [Mailtrap] transport                               |
 | [@upyo/mailgun](/packages/mailgun/)             | [JSR][jsr:@upyo/mailgun]       | [npm][npm:@upyo/mailgun]       | [Mailgun] transport                                |
 | [@upyo/plunk](/packages/plunk/)                 | [JSR][jsr:@upyo/plunk]         | [npm][npm:@upyo/plunk]         | [Plunk] transport                                  |
 | [@upyo/resend](/packages/resend/)               | [JSR][jsr:@upyo/resend]        | [npm][npm:@upyo/resend]        | [Resend] transport                                 |
@@ -93,6 +94,9 @@ sending messages.  The following is a list of the available packages:
 [jsr:@upyo/maileroo]: https://jsr.io/@upyo/maileroo
 [npm:@upyo/maileroo]: https://www.npmjs.com/package/@upyo/maileroo
 [Maileroo]: https://maileroo.com/
+[jsr:@upyo/mailtrap]: https://jsr.io/@upyo/mailtrap
+[npm:@upyo/mailtrap]: https://www.npmjs.com/package/@upyo/mailtrap
+[Mailtrap]: https://mailtrap.io/
 [jsr:@upyo/mailgun]: https://jsr.io/@upyo/mailgun
 [npm:@upyo/mailgun]: https://www.npmjs.com/package/@upyo/mailgun
 [Mailgun]: https://www.mailgun.com/

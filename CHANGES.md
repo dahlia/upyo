@@ -23,6 +23,22 @@ To be released.
 [#30]: https://github.com/dahlia/upyo/issues/30
 [#31]: https://github.com/dahlia/upyo/pull/31
 
+### @upyo/mailtrap
+
+ -  Added [Mailtrap] transport.  [[#32]]
+
+     -  Added `MailtrapTransport` class.
+     -  Added `MailtrapConfig` interface.
+     -  Added `ResolvedMailtrapConfig` type.
+     -  Added `MailtrapApiError` class.
+     -  Added `MailtrapTimeoutError` class.
+     -  Supports Email API and Email Sandbox sending, batch sends,
+        attachments, categories, custom variables, config-level metadata,
+        structured failure receipts, and `AbortSignal` cancellation.
+
+[Mailtrap]: https://mailtrap.io/
+[#32]: https://github.com/dahlia/upyo/pull/32
+
 
 Version 0.5.0
 -------------
@@ -61,20 +77,6 @@ Released on July 1, 2026.
  -  Updated `JmapTransport` to return structured failure receipts with
     provider ids, retryability, HTTP status codes, retry delay metadata from
     `Retry-After`, and attempt counts where available.  [[#25], [#27]]
-
-### @upyo/mailtrap
-
- -  Added [Mailtrap] transport.
-
-     -  Added `MailtrapTransport` class.
-     -  Added `MailtrapConfig` interface.
-     -  Added `ResolvedMailtrapConfig` type.
-     -  Added `MailtrapApiError` class.
-     -  Added `MailtrapTimeoutError` class.
-     -  Supports Email API and Email Sandbox sending, batch sends,
-        attachments, categories, custom variables, and config-level metadata.
-
-[Mailtrap]: https://mailtrap.io/
 
 ### @upyo/lettermint
 
