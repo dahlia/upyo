@@ -52,7 +52,7 @@ describe("MailtrapTransport - Send Message", () => {
 
       const receipt = await transport.send(createMessage());
 
-      assert.equal(receipt.successful, true);
+      assert.ok(receipt.successful);
       if (receipt.successful) {
         assert.equal(receipt.messageId, "test-message-id");
         assert.equal(receipt.provider, "mailtrap");
@@ -96,7 +96,7 @@ describe("MailtrapTransport - Sandbox URL", () => {
 
       const receipt = await transport.send(createMessage());
 
-      assert.equal(receipt.successful, true);
+      assert.ok(receipt.successful);
       if (receipt.successful) {
         assert.equal(receipt.messageId, "sandbox-message-id");
       }
@@ -130,7 +130,7 @@ describe("MailtrapTransport - API Errors", () => {
 
       const receipt = await transport.send(createMessage());
 
-      assert.equal(receipt.successful, false);
+      assert.ok(!receipt.successful);
       if (!receipt.successful) {
         assert.match(receipt.errorMessages[0], /Invalid API token/);
         assert.equal(receipt.provider, "mailtrap");
@@ -159,7 +159,7 @@ describe("MailtrapTransport - API Errors", () => {
 
       const receipt = await transport.send(createMessage());
 
-      assert.equal(receipt.successful, false);
+      assert.ok(!receipt.successful);
       if (!receipt.successful) {
         assert.equal(receipt.errorMessages[0], `${"x".repeat(500)}...`);
       }
@@ -188,7 +188,7 @@ describe("MailtrapTransport - API Errors", () => {
 
       const receipt = await transport.send(createMessage());
 
-      assert.equal(receipt.successful, false);
+      assert.ok(!receipt.successful);
       if (!receipt.successful) {
         assert.equal(receipt.errorMessages[0], "Invalid from address");
         assert.equal(receipt.provider, "mailtrap");
@@ -241,8 +241,8 @@ describe("MailtrapTransport - Batch Send", () => {
       }
 
       assert.equal(receipts.length, 2);
-      assert.equal(receipts[0]?.successful, true);
-      assert.equal(receipts[1]?.successful, true);
+      assert.ok(receipts[0]?.successful);
+      assert.ok(receipts[1]?.successful);
       if (receipts[0]?.successful) {
         assert.equal(receipts[0].messageId, "id-1");
       }
@@ -285,8 +285,8 @@ describe("MailtrapTransport - Batch Send", () => {
         receipts.push(receipt);
       }
 
-      assert.equal(receipts[0]?.successful, true);
-      assert.equal(receipts[1]?.successful, false);
+      assert.ok(receipts[0]?.successful);
+      assert.ok(!receipts[1]?.successful);
       if (receipts[1] && !receipts[1].successful) {
         assert.equal(receipts[1].errorMessages[0], "Invalid recipient");
       }

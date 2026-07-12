@@ -209,48 +209,39 @@ export class MailtrapTransport implements Transport<"mailtrap"> {
 function responseToReceipt(
   response: MailtrapSendResponse,
 ): Receipt<"mailtrap"> {
-  if (response.success === false) {
-    return createFailedReceipt(
-      formatErrors(response.errors) ?? "Mailtrap reported send failure.",
-      {
-        provider: "mailtrap",
-        category: "rejected",
-        code: "mailtrap.unsuccessful",
-        retryable: false,
-        providerDetails: response,
-      },
-    );
-  }
-
-  const messageId = response.message_ids?.[0];
-  if (messageId == null || messageId === "") {
-    return createFailedReceipt("Mailtrap response is missing a message ID.", {
-      provider: "mailtrap",
-      category: "unknown",
-      code: "mailtrap.missing_message_id",
-      retryable: false,
-      providerDetails: response,
-    });
-  }
-
-  return {
-    successful: true,
-    messageId,
-    provider: "mailtrap",
-  };
+  return toReceipt(response, {
+    unsuccessfulMessage: "Mailtrap reported send failure.",
+    unsuccessfulCode: "mailtrap.unsuccessful",
+    missingMessageIdMessage: "Mailtrap response is missing a message ID.",
+  });
 }
 
 function itemResponseToReceipt(
   response: MailtrapBatchItemResponse | undefined,
 ): Receipt<"mailtrap"> {
+  return toReceipt(response, {
+    unsuccessfulMessage: "Mailtrap reported batch item failure.",
+    unsuccessfulCode: "mailtrap.batch_item_failed",
+    missingMessageIdMessage:
+      "Mailtrap batch response is missing a message ID.",
+  });
+}
+
+function toReceipt(
+  response: MailtrapSendResponse | MailtrapBatchItemResponse | undefined,
+  options: {
+    readonly unsuccessfulMessage: string;
+    readonly unsuccessfulCode: string;
+    readonly missingMessageIdMessage: string;
+  },
+): Receipt<"mailtrap"> {
   if (response?.success === false) {
     return createFailedReceipt(
-      formatErrors(response.errors) ??
-        "Mailtrap reported batch item failure.",
+      formatErrors(response.errors) ?? options.unsuccessfulMessage,
       {
         provider: "mailtrap",
         category: "rejected",
-        code: "mailtrap.batch_item_failed",
+        code: options.unsuccessfulCode,
         retryable: false,
         providerDetails: response,
       },
@@ -259,16 +250,13 @@ function itemResponseToReceipt(
 
   const messageId = response?.message_ids?.[0];
   if (messageId == null || messageId === "") {
-    return createFailedReceipt(
-      "Mailtrap batch response is missing a message ID.",
-      {
-        provider: "mailtrap",
-        category: "unknown",
-        code: "mailtrap.missing_message_id",
-        retryable: false,
-        providerDetails: response,
-      },
-    );
+    return createFailedReceipt(options.missingMessageIdMessage, {
+      provider: "mailtrap",
+      category: "unknown",
+      code: "mailtrap.missing_message_id",
+      retryable: false,
+      providerDetails: response,
+    });
   }
 
   return {
