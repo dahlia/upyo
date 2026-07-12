@@ -1,6 +1,8 @@
 import type { ResolvedMailtrapConfig } from "./config.ts";
 import type { MailtrapEmail } from "./message-converter.ts";
 
+const maxErrorMessageLength = 500;
+
 /**
  * Response from Mailtrap API for sending a single message.
  *
@@ -319,16 +321,27 @@ function parseErrorMessage(text: string, statusCode: number): string {
   try {
     const errorBody = JSON.parse(text) as MailtrapError;
     if (typeof errorBody.message === "string" && errorBody.message !== "") {
-      return errorBody.message;
+      return truncateErrorMessage(errorBody.message);
     }
     if (Array.isArray(errorBody.errors) && errorBody.errors.length > 0) {
-      return errorBody.errors.join("; ");
+      return truncateErrorMessage(errorBody.errors.join("; "));
     }
   } catch {
     // Ignore if JSON parsing fails, as the body may be non-JSON.
   }
 
-  return text || `HTTP ${statusCode}`;
+  return truncateErrorMessage(text) || `HTTP ${statusCode}`;
+}
+
+function truncateErrorMessage(message: string): string {
+  return message.length > maxErrorMessageLength
+    ? `${message.slice(0, maxErrorMessageLength)}...`
+    : message;
+}
+
+function abortReason(signal?: AbortSignal): unknown {
+  return signal?.reason ??
+    new DOMException("The operation was aborted.", "AbortError");
 }
 
 interface CombinedSignal {
@@ -373,26 +386,29 @@ function combineSignals(
 function sleep(ms: number, signal?: AbortSignal): Promise<void> {
   return new Promise((resolve, reject) => {
     if (signal?.aborted) {
-      reject(new DOMException("The operation was aborted.", "AbortError"));
+      reject(abortReason(signal));
       return;
     }
 
+    const timeoutState: { id?: ReturnType<typeof setTimeout> } = {};
     const onAbort = () => {
-      clearTimeout(timeoutId);
+      if (timeoutState.id !== undefined) {
+        clearTimeout(timeoutState.id);
+      }
       signal?.removeEventListener("abort", onAbort);
-      reject(new DOMException("The operation was aborted.", "AbortError"));
+      reject(abortReason(signal));
     };
 
-    const timeoutId = setTimeout(() => {
-      signal?.removeEventListener("abort", onAbort);
-      resolve();
-    }, ms);
+    signal?.addEventListener("abort", onAbort, { once: true });
 
     if (signal?.aborted) {
       onAbort();
       return;
     }
 
-    signal?.addEventListener("abort", onAbort, { once: true });
+    timeoutState.id = setTimeout(() => {
+      signal?.removeEventListener("abort", onAbort);
+      resolve();
+    }, ms);
   });
 }

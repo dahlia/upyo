@@ -125,6 +125,7 @@ describe("MailtrapTransport - API Errors", () => {
 
       const transport = new MailtrapTransport({
         apiToken: "invalid-token",
+        retries: 0,
       });
 
       const receipt = await transport.send(createMessage());
@@ -134,6 +135,33 @@ describe("MailtrapTransport - API Errors", () => {
         assert.match(receipt.errorMessages[0], /Invalid API token/);
         assert.equal(receipt.provider, "mailtrap");
         assert.equal(receipt.errors?.[0]?.statusCode, 401);
+      }
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+  });
+
+  it("truncates non-JSON API response bodies in failure receipts", async () => {
+    const originalFetch = globalThis.fetch;
+    try {
+      // deno-lint-ignore require-await
+      globalThis.fetch = async () => {
+        return new Response("x".repeat(600), {
+          status: 503,
+          headers: { "Content-Type": "text/html" },
+        });
+      };
+
+      const transport = new MailtrapTransport({
+        apiToken: "test-token",
+        retries: 0,
+      });
+
+      const receipt = await transport.send(createMessage());
+
+      assert.equal(receipt.successful, false);
+      if (!receipt.successful) {
+        assert.equal(receipt.errorMessages[0], `${"x".repeat(500)}...`);
       }
     } finally {
       globalThis.fetch = originalFetch;
