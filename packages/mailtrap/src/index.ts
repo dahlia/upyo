@@ -5,7 +5,7 @@
  * Mailtrap's HTTP API.  It supports Email API and Email Sandbox sending,
  * single messages, batch sending, attachments, and retry logic.
  *
- * @since 0.5.0
+ * @since 0.6.0
  */
 
 export { MailtrapTransport } from "./mailtrap-transport.ts";

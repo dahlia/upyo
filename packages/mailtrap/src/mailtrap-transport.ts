@@ -1,10 +1,18 @@
-import type { Message, Receipt, Transport, TransportOptions } from "@upyo/core";
+import {
+  createFailedReceipt,
+  type Message,
+  type Receipt,
+  type Transport,
+  type TransportOptions,
+} from "@upyo/core";
 import type { MailtrapConfig, ResolvedMailtrapConfig } from "./config.ts";
 import { createMailtrapConfig } from "./config.ts";
 import {
   type MailtrapBatchItemResponse,
+  MailtrapApiError,
   MailtrapHttpClient,
   type MailtrapSendResponse,
+  MailtrapTimeoutError,
 } from "./http-client.ts";
 import { convertMessage } from "./message-converter.ts";
 
@@ -32,13 +40,15 @@ const MAX_BATCH_SIZE = 500;
  * }));
  * ```
  *
- * @since 0.5.0
+ * @since 0.6.0
  */
-export class MailtrapTransport implements Transport {
+export class MailtrapTransport implements Transport<"mailtrap"> {
+  readonly id = "mailtrap";
+
   /**
    * The resolved Mailtrap configuration used by this transport.
    */
-  config: ResolvedMailtrapConfig;
+  readonly config: ResolvedMailtrapConfig;
 
   private httpClient: MailtrapHttpClient;
 
@@ -58,8 +68,12 @@ export class MailtrapTransport implements Transport {
    * @param message The email message to send.
    * @param options Optional transport options including `AbortSignal`.
    * @returns A receipt indicating success or failure.
+   * @throws {Error} If the caller aborts the operation.
    */
-  async send(message: Message, options?: TransportOptions): Promise<Receipt> {
+  async send(
+    message: Message,
+    options?: TransportOptions,
+  ): Promise<Receipt<"mailtrap">> {
     try {
       options?.signal?.throwIfAborted();
 
@@ -74,11 +88,11 @@ export class MailtrapTransport implements Transport {
 
       return responseToReceipt(response);
     } catch (error) {
-      if (isAbortError(error)) throw error;
-      return {
-        successful: false,
-        errorMessages: [error instanceof Error ? error.message : String(error)],
-      };
+      if (isCallerAbort(error, options?.signal)) throw error;
+      return createMailtrapFailure(
+        error instanceof Error ? error.message : String(error),
+        error,
+      );
     }
   }
 
@@ -94,7 +108,7 @@ export class MailtrapTransport implements Transport {
   async *sendMany(
     messages: Iterable<Message> | AsyncIterable<Message>,
     options?: TransportOptions,
-  ): AsyncIterable<Receipt> {
+  ): AsyncIterable<Receipt<"mailtrap">> {
     options?.signal?.throwIfAborted();
 
     let chunk: Message[] = [];
@@ -112,23 +126,21 @@ export class MailtrapTransport implements Transport {
   private async *sendBatch(
     messages: readonly Message[],
     options?: TransportOptions,
-  ): AsyncIterable<Receipt> {
+  ): AsyncIterable<Receipt<"mailtrap">> {
     if (messages.length === 0) return;
 
     const batchData = [];
-    const receipts: (Receipt | undefined)[] = [];
+    const receipts: (Receipt<"mailtrap"> | undefined)[] = [];
 
     for (const message of messages) {
       try {
         batchData.push(await convertMessage(message, this.config));
         receipts.push(undefined);
       } catch (error) {
-        receipts.push({
-          successful: false,
-          errorMessages: [
-            error instanceof Error ? error.message : String(error),
-          ],
-        });
+        receipts.push(createMailtrapFailure(
+          error instanceof Error ? error.message : String(error),
+          error,
+        ));
       }
     }
 
@@ -155,10 +167,13 @@ export class MailtrapTransport implements Transport {
             yield receipt;
             continue;
           }
-          yield {
-            successful: false,
-            errorMessages: [errorMessage],
-          };
+          yield createFailedReceipt(errorMessage, {
+            provider: "mailtrap",
+            category: "rejected",
+            code: "mailtrap.batch_failed",
+            retryable: false,
+            providerDetails: response,
+          });
         }
         return;
       }
@@ -176,7 +191,7 @@ export class MailtrapTransport implements Transport {
         yield itemResponseToReceipt(item);
       }
     } catch (error) {
-      if (isAbortError(error)) throw error;
+      if (isCallerAbort(error, options?.signal)) throw error;
       const errorMessage = error instanceof Error
         ? error.message
         : String(error);
@@ -185,70 +200,133 @@ export class MailtrapTransport implements Transport {
           yield receipt;
           continue;
         }
-        yield {
-          successful: false,
-          errorMessages: [errorMessage],
-        };
+        yield createMailtrapFailure(errorMessage, error);
       }
     }
   }
 }
 
-function responseToReceipt(response: MailtrapSendResponse): Receipt {
+function responseToReceipt(
+  response: MailtrapSendResponse,
+): Receipt<"mailtrap"> {
   if (response.success === false) {
-    return {
-      successful: false,
-      errorMessages: [
-        formatErrors(response.errors) ?? "Mailtrap reported send failure.",
-      ],
-    };
+    return createFailedReceipt(
+      formatErrors(response.errors) ?? "Mailtrap reported send failure.",
+      {
+        provider: "mailtrap",
+        category: "rejected",
+        code: "mailtrap.unsuccessful",
+        retryable: false,
+        providerDetails: response,
+      },
+    );
   }
 
   const messageId = response.message_ids?.[0];
   if (messageId == null || messageId === "") {
-    return {
-      successful: false,
-      errorMessages: ["Mailtrap response is missing a message ID."],
-    };
+    return createFailedReceipt("Mailtrap response is missing a message ID.", {
+      provider: "mailtrap",
+      category: "unknown",
+      code: "mailtrap.missing_message_id",
+      retryable: false,
+      providerDetails: response,
+    });
   }
 
   return {
     successful: true,
     messageId,
+    provider: "mailtrap",
   };
 }
 
 function itemResponseToReceipt(
   response: MailtrapBatchItemResponse | undefined,
-): Receipt {
+): Receipt<"mailtrap"> {
   if (response?.success === false) {
-    return {
-      successful: false,
-      errorMessages: [
-        formatErrors(response.errors) ?? "Mailtrap reported batch item failure.",
-      ],
-    };
+    return createFailedReceipt(
+      formatErrors(response.errors) ??
+        "Mailtrap reported batch item failure.",
+      {
+        provider: "mailtrap",
+        category: "rejected",
+        code: "mailtrap.batch_item_failed",
+        retryable: false,
+        providerDetails: response,
+      },
+    );
   }
 
   const messageId = response?.message_ids?.[0];
   if (messageId == null || messageId === "") {
-    return {
-      successful: false,
-      errorMessages: ["Mailtrap batch response is missing a message ID."],
-    };
+    return createFailedReceipt(
+      "Mailtrap batch response is missing a message ID.",
+      {
+        provider: "mailtrap",
+        category: "unknown",
+        code: "mailtrap.missing_message_id",
+        retryable: false,
+        providerDetails: response,
+      },
+    );
   }
 
   return {
     successful: true,
     messageId,
+    provider: "mailtrap",
   };
 }
 
-function formatErrors(errors: readonly string[] | undefined): string | undefined {
+function createMailtrapFailure(
+  message: string,
+  error: unknown,
+): Receipt<"mailtrap"> & { readonly successful: false } {
+  if (error instanceof MailtrapApiError) {
+    return createFailedReceipt(message, {
+      provider: "mailtrap",
+      statusCode: error.statusCode,
+      retryAfterMilliseconds: error.retryAfterMilliseconds,
+      attempts: error.attempts,
+    });
+  }
+
+  if (error instanceof MailtrapTimeoutError) {
+    return createFailedReceipt(message, {
+      provider: "mailtrap",
+      category: "timeout",
+      code: "timeout",
+      retryable: true,
+      attempts: error.attempts,
+    });
+  }
+
+  return createFailedReceipt(message, {
+    provider: "mailtrap",
+    attempts: getErrorAttempts(error),
+  });
+}
+
+function formatErrors(
+  errors: readonly string[] | undefined,
+): string | undefined {
   if (errors == null || errors.length === 0) return undefined;
   return errors.join("; ");
 }
 
+function getErrorAttempts(error: unknown): number | undefined {
+  if (typeof error !== "object" || error == null || !("attempts" in error)) {
+    return undefined;
+  }
+  const attempts = (error as { readonly attempts?: unknown }).attempts;
+  return typeof attempts === "number" ? attempts : undefined;
+}
+
 function isAbortError(error: unknown): boolean {
   return error instanceof Error && error.name === "AbortError";
+}
+
+function isCallerAbort(error: unknown, signal?: AbortSignal): boolean {
+  return signal?.aborted === true &&
+    (isAbortError(error) || error === signal.reason);
 }

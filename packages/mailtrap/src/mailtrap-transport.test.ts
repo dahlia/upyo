@@ -55,10 +55,16 @@ describe("MailtrapTransport - Send Message", () => {
       assert.equal(receipt.successful, true);
       if (receipt.successful) {
         assert.equal(receipt.messageId, "test-message-id");
+        assert.equal(receipt.provider, "mailtrap");
       }
     } finally {
       globalThis.fetch = originalFetch;
     }
+  });
+
+  it("exposes the mailtrap provider id", () => {
+    const transport = new MailtrapTransport({ apiToken: "test-token" });
+    assert.equal(transport.id, "mailtrap");
   });
 });
 
@@ -126,6 +132,8 @@ describe("MailtrapTransport - API Errors", () => {
       assert.equal(receipt.successful, false);
       if (!receipt.successful) {
         assert.match(receipt.errorMessages[0], /Invalid API token/);
+        assert.equal(receipt.provider, "mailtrap");
+        assert.equal(receipt.errors?.[0]?.statusCode, 401);
       }
     } finally {
       globalThis.fetch = originalFetch;
@@ -155,6 +163,8 @@ describe("MailtrapTransport - API Errors", () => {
       assert.equal(receipt.successful, false);
       if (!receipt.successful) {
         assert.equal(receipt.errorMessages[0], "Invalid from address");
+        assert.equal(receipt.provider, "mailtrap");
+        assert.equal(receipt.errors?.[0]?.code, "mailtrap.unsuccessful");
       }
     } finally {
       globalThis.fetch = originalFetch;

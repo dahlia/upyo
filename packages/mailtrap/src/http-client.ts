@@ -4,7 +4,7 @@ import type { MailtrapEmail } from "./message-converter.ts";
 /**
  * Response from Mailtrap API for sending a single message.
  *
- * @since 0.5.0
+ * @since 0.6.0
  */
 export interface MailtrapSendResponse {
   readonly success?: boolean;
@@ -15,7 +15,7 @@ export interface MailtrapSendResponse {
 /**
  * Response for an individual message in a Mailtrap batch send.
  *
- * @since 0.5.0
+ * @since 0.6.0
  */
 export interface MailtrapBatchItemResponse {
   readonly success?: boolean;
@@ -26,7 +26,7 @@ export interface MailtrapBatchItemResponse {
 /**
  * Response from Mailtrap API for sending batch messages.
  *
- * @since 0.5.0
+ * @since 0.6.0
  */
 export interface MailtrapBatchResponse {
   readonly success?: boolean;
@@ -37,7 +37,7 @@ export interface MailtrapBatchResponse {
 /**
  * Error response from Mailtrap API.
  *
- * @since 0.5.0
+ * @since 0.6.0
  */
 export interface MailtrapError {
   readonly message?: string;
@@ -47,48 +47,73 @@ export interface MailtrapError {
 /**
  * Mailtrap API error class for API-specific failures.
  *
- * @since 0.5.0
+ * @since 0.6.0
  */
 export class MailtrapApiError extends Error {
   readonly statusCode: number;
+  readonly retryAfterMilliseconds?: number;
+  readonly attempts?: number;
 
   /**
    * Creates a Mailtrap API error.
    *
    * @param message Error message.
    * @param statusCode HTTP status code.
+   * @param retryAfterMilliseconds Retry delay from the response.
+   * @param attempts Number of attempts made before this error.
    */
-  constructor(message: string, statusCode: number) {
+  constructor(
+    message: string,
+    statusCode: number,
+    retryAfterMilliseconds?: number,
+    attempts?: number,
+  ) {
     super(message);
     this.name = "MailtrapApiError";
     this.statusCode = statusCode;
+    this.retryAfterMilliseconds = retryAfterMilliseconds;
+    this.attempts = attempts;
   }
 }
 
 /**
  * Mailtrap request timeout error.
  *
- * @since 0.5.0
+ * @since 0.6.0
  */
 export class MailtrapTimeoutError extends Error {
+  /**
+   * Request timeout in milliseconds.
+   *
+   * @since 0.6.0
+   */
   readonly timeout: number;
+
+  /**
+   * Number of attempts made before this error was produced.
+   *
+   * @since 0.6.0
+   */
+  readonly attempts?: number;
 
   /**
    * Creates a Mailtrap request timeout error.
    *
    * @param timeout Request timeout in milliseconds.
+   * @param attempts Number of attempts made before this error.
    */
-  constructor(timeout: number) {
+  constructor(timeout: number, attempts?: number) {
     super(`Mailtrap API request timed out after ${timeout} ms.`);
     this.name = "MailtrapTimeoutError";
     this.timeout = timeout;
+    this.attempts = attempts;
   }
 }
 
 /**
  * HTTP client wrapper for Mailtrap API requests.
  *
- * @since 0.5.0
+ * @since 0.6.0
  */
 export class MailtrapHttpClient {
   private config: ResolvedMailtrapConfig;
@@ -160,6 +185,8 @@ export class MailtrapHttpClient {
           throw new MailtrapApiError(
             parseErrorMessage(text, response.status),
             response.status,
+            parseRetryAfter(response.headers.get("Retry-After")),
+            attempt + 1,
           );
         }
 
@@ -188,10 +215,13 @@ export class MailtrapHttpClient {
         }
 
         if (attempt === this.config.retries) {
-          throw lastError;
+          throw withAttempts(lastError, attempt + 1);
         }
 
-        await sleep(calculateRetryDelay(attempt), signal);
+        await sleep(
+          calculateRetryDelay(attempt, lastError),
+          signal,
+        );
       }
     }
 
@@ -250,9 +280,39 @@ function isRetryable(error: MailtrapApiError): boolean {
     error.statusCode >= 500;
 }
 
-function calculateRetryDelay(attempt: number): number {
+function calculateRetryDelay(attempt: number, error: Error): number {
   const baseDelay = Math.min(1000 * Math.pow(2, attempt), 10000);
-  return Math.round(baseDelay / 2 + Math.random() * (baseDelay / 2));
+  const backoffDelay = Math.round(baseDelay / 2 + Math.random() * (baseDelay / 2));
+  if (error instanceof MailtrapApiError) {
+    return Math.max(backoffDelay, error.retryAfterMilliseconds ?? 0);
+  }
+  return backoffDelay;
+}
+
+function withAttempts(error: Error, attempts: number): Error {
+  if (error instanceof MailtrapTimeoutError) {
+    return new MailtrapTimeoutError(error.timeout, attempts);
+  }
+  if (error instanceof MailtrapApiError) {
+    return new MailtrapApiError(
+      error.message,
+      error.statusCode,
+      error.retryAfterMilliseconds,
+      attempts,
+    );
+  }
+  return Object.assign(error, { attempts });
+}
+
+function parseRetryAfter(header: string | null): number | undefined {
+  if (header == null || header === "") return undefined;
+  const asSeconds = Number(header);
+  if (Number.isFinite(asSeconds) && asSeconds >= 0) {
+    return Math.round(asSeconds * 1000);
+  }
+  const asDate = Date.parse(header);
+  if (Number.isNaN(asDate)) return undefined;
+  return Math.max(0, asDate - Date.now());
 }
 
 function parseErrorMessage(text: string, statusCode: number): string {

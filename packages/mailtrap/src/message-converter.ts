@@ -19,7 +19,7 @@ const STANDARD_HEADERS = new Set([
 /**
  * Mailtrap address object structure.
  *
- * @since 0.5.0
+ * @since 0.6.0
  */
 export interface MailtrapAddress {
   readonly email: string;
@@ -29,7 +29,7 @@ export interface MailtrapAddress {
 /**
  * Mailtrap attachment object structure.
  *
- * @since 0.5.0
+ * @since 0.6.0
  */
 export interface MailtrapAttachment {
   readonly content: string;
@@ -42,7 +42,7 @@ export interface MailtrapAttachment {
 /**
  * Mailtrap email object structure for API requests.
  *
- * @since 0.5.0
+ * @since 0.6.0
  */
 export interface MailtrapEmail {
   readonly from: MailtrapAddress;
@@ -66,7 +66,7 @@ export interface MailtrapEmail {
  * @param config The resolved Mailtrap configuration.
  * @returns JSON object ready for Mailtrap API submission.
  * @throws {RangeError} If the message has no text or HTML content.
- * @since 0.5.0
+ * @since 0.6.0
  */
 export async function convertMessage(
   message: Message,

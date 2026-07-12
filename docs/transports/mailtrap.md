@@ -7,7 +7,7 @@ description: >-
 Mailtrap
 ========
 
-*This transport is introduced in Upyo 0.5.0.*
+*This transport is introduced in Upyo 0.6.0.*
 
 [Mailtrap] provides both a production Email API and an Email Sandbox for
 capturing test messages in a virtual inbox. The HTTP API supports HTML and

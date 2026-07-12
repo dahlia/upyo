@@ -17,7 +17,7 @@ const DEFAULT_USER_AGENT = "@upyo/mailtrap";
  * };
  * ```
  *
- * @since 0.5.0
+ * @since 0.6.0
  */
 export interface MailtrapConfig {
   /**
@@ -107,7 +107,7 @@ export interface MailtrapConfig {
 /**
  * Resolved Mailtrap configuration with defaults applied.
  *
- * @since 0.5.0
+ * @since 0.6.0
  */
 export type ResolvedMailtrapConfig =
   & Required<
@@ -138,7 +138,7 @@ export type ResolvedMailtrapConfig =
  * @param config The Mailtrap configuration with optional fields.
  * @returns A resolved configuration with all defaults applied.
  * @throws {RangeError} If `sandbox` is `true` and `inboxId` is missing.
- * @since 0.5.0
+ * @since 0.6.0
  */
 export function createMailtrapConfig(
   config: MailtrapConfig,
