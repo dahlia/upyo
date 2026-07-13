@@ -216,15 +216,15 @@ export class LogTapeTransport<TProviderId extends string = "logtape">
 
   private logReceipt(
     receipt: Receipt<TProviderId>,
-    pending: PendingMessage | undefined,
+    pendingMessage: PendingMessage | undefined,
     operation: SendOperation,
   ): void {
-    const durationMilliseconds = pending == null
+    const durationMilliseconds = pendingMessage == null
       ? undefined
-      : performance.now() - pending.startedAt;
-    const messageProperties = pending == null
+      : performance.now() - pendingMessage.startedAt;
+    const messageProperties = pendingMessage == null
       ? {}
-      : this.getMessageProperties(pending.message);
+      : this.getMessageProperties(pendingMessage.message);
 
     if (receipt.successful) {
       this.log(this.config.levels.sent, "Email sent.", {
