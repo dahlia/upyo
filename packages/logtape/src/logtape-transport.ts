@@ -327,26 +327,7 @@ export class LogTapeTransport<TProviderId extends string = "logtape">
     message: string,
     properties: Readonly<Record<string, unknown>>,
   ): void {
-    switch (level) {
-      case "trace":
-        this.logger.trace(message, properties);
-        break;
-      case "debug":
-        this.logger.debug(message, properties);
-        break;
-      case "info":
-        this.logger.info(message, properties);
-        break;
-      case "warning":
-        this.logger.warning(message, properties);
-        break;
-      case "error":
-        this.logger.error(message, properties);
-        break;
-      case "fatal":
-        this.logger.fatal(message, properties);
-        break;
-    }
+    this.logger[level](message, properties);
   }
 }
 
