@@ -250,6 +250,57 @@ describe("LogTapeTransport", { concurrency: 1 }, () => {
     });
   });
 
+  it("logs buffered receipts when the sendMany consumer stops early", async () => {
+    await withRecorder(async (recorder) => {
+      const secondMessage = createMessage({
+        from: "sender@example.com",
+        to: "third@example.net",
+        subject: "Second message",
+        content: { text: "Another message." },
+      });
+      const base = new BufferedTransport();
+      const transport = new LogTapeTransport({ transport: base });
+
+      for await (
+        const _receipt of transport.sendMany([message, secondMessage])
+      ) {
+        break;
+      }
+
+      assert.deepEqual(base.sentMessages, [message, secondMessage]);
+      assert.equal(base.yieldedReceiptCount, 2);
+      assert.equal(
+        recorder.filter({ properties: { event: "email.sent" } }).length,
+        2,
+      );
+    });
+  });
+
+  it("does not send more messages when a sequential consumer stops early", async () => {
+    await withRecorder(async (recorder) => {
+      const secondMessage = createMessage({
+        from: "sender@example.com",
+        to: "third@example.net",
+        subject: "Second message",
+        content: { text: "Another message." },
+      });
+      const base = new RecordingTransport();
+      const transport = new LogTapeTransport({ transport: base });
+
+      for await (
+        const _receipt of transport.sendMany([message, secondMessage])
+      ) {
+        break;
+      }
+
+      assert.deepEqual(base.sentMessages, [message]);
+      assert.equal(
+        recorder.filter({ properties: { event: "email.sent" } }).length,
+        1,
+      );
+    });
+  });
+
   it("logs every pending message when sendMany throws", async () => {
     await withRecorder(async (recorder) => {
       const secondMessage = createMessage({
@@ -471,5 +522,31 @@ class ConsumingThenThrowingTransport implements Transport<"base"> {
     }
     yield* [] as Receipt<"base">[];
     throw this.error;
+  }
+}
+
+class BufferedTransport implements Transport<"base"> {
+  readonly id = "base";
+  readonly sentMessages: Message[] = [];
+  yieldedReceiptCount = 0;
+
+  send(): Promise<Receipt<"base">> {
+    return Promise.reject(new TypeError("Use sendMany()."));
+  }
+
+  async *sendMany(
+    messages: Iterable<Message> | AsyncIterable<Message>,
+  ): AsyncIterable<Receipt<"base">> {
+    for await (const message of messages) {
+      this.sentMessages.push(message);
+    }
+    for (let index = 0; index < this.sentMessages.length; index++) {
+      this.yieldedReceiptCount++;
+      yield {
+        successful: true,
+        messageId: `base-buffered-${index + 1}`,
+        provider: "base",
+      };
+    }
   }
 }

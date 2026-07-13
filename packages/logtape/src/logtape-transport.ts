@@ -82,6 +82,8 @@ export class LogTapeTransport<TProviderId extends string = "logtape">
    *
    * A wrapped transport's `sendMany()` implementation is used directly so
    * provider-specific batching and streaming behavior are preserved.
+   * When iteration stops early, receipts are still drained and logged for
+   * messages that the wrapped transport has already consumed.
    *
    * @param messages Email messages to send.
    * @param options Optional transport options, including cancellation.
@@ -112,45 +114,46 @@ export class LogTapeTransport<TProviderId extends string = "logtape">
       options,
       () => consumedCount++,
     );
+    const receipts = this.wrappedTransport.sendMany(
+      observedMessages,
+      options,
+    )[Symbol.asyncIterator]();
+    let iteratorDone = false;
+    let iteratorFailed = false;
 
     try {
-      for await (
-        const receipt of this.wrappedTransport.sendMany(
-          observedMessages,
-          options,
-        )
-      ) {
+      while (true) {
+        const result = await receipts.next();
+        if (result.done) {
+          iteratorDone = true;
+          break;
+        }
+
         const current = pending.dequeue();
         completedCount++;
-        this.logReceipt(receipt, current, "sendMany");
-        yield receipt;
+        this.logReceipt(result.value, current, "sendMany");
+        yield result.value;
       }
     } catch (error) {
-      const batchProperties = {
+      iteratorFailed = true;
+      this.logBatchThrownError(
+        error,
+        pending,
+        batchStartedAt,
         consumedCount,
         completedCount,
-        pendingCount: pending.size,
-      };
-      if (pending.size < 1) {
-        this.logThrownError(
-          error,
-          undefined,
-          "sendMany",
-          batchStartedAt,
-          batchProperties,
-        );
-      } else {
-        for (const pendingMessage of pending) {
-          this.logThrownError(
-            error,
-            pendingMessage.message,
-            "sendMany",
-            pendingMessage.startedAt,
-            batchProperties,
-          );
-        }
-      }
+      );
       throw error;
+    } finally {
+      if (!iteratorDone && !iteratorFailed) {
+        await this.drainPendingReceipts(
+          receipts,
+          pending,
+          batchStartedAt,
+          consumedCount,
+          completedCount,
+        );
+      }
     }
   }
 
@@ -289,6 +292,78 @@ export class LogTapeTransport<TProviderId extends string = "logtape">
         error,
       },
     );
+  }
+
+  private logBatchThrownError(
+    error: unknown,
+    pending: PendingQueue<PendingMessage>,
+    batchStartedAt: number,
+    consumedCount: number,
+    completedCount: number,
+  ): void {
+    const batchProperties = {
+      consumedCount,
+      completedCount,
+      pendingCount: pending.size,
+    };
+    if (pending.size < 1) {
+      this.logThrownError(
+        error,
+        undefined,
+        "sendMany",
+        batchStartedAt,
+        batchProperties,
+      );
+      return;
+    }
+
+    for (const pendingMessage of pending) {
+      this.logThrownError(
+        error,
+        pendingMessage.message,
+        "sendMany",
+        pendingMessage.startedAt,
+        batchProperties,
+      );
+    }
+  }
+
+  private async drainPendingReceipts(
+    receipts: AsyncIterator<Receipt<TProviderId>>,
+    pending: PendingQueue<PendingMessage>,
+    batchStartedAt: number,
+    consumedCount: number,
+    completedCount: number,
+  ): Promise<void> {
+    // Snapshot the backlog so closing this wrapper does not deliberately
+    // extend delivery beyond work that the wrapped transport started.
+    const receiptsToDrain = pending.size;
+    let drainedCount = 0;
+    let iteratorDone = false;
+    try {
+      for (let index = 0; index < receiptsToDrain; index++) {
+        const result = await receipts.next();
+        if (result.done) {
+          iteratorDone = true;
+          break;
+        }
+
+        const current = pending.dequeue();
+        drainedCount++;
+        this.logReceipt(result.value, current, "sendMany");
+      }
+    } catch (error) {
+      this.logBatchThrownError(
+        error,
+        pending,
+        batchStartedAt,
+        consumedCount,
+        completedCount + drainedCount,
+      );
+      throw error;
+    }
+
+    if (!iteratorDone) await receipts.return?.();
   }
 
   private getMessageProperties(message: Message): Record<string, unknown> {
