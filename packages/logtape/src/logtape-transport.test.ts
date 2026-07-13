@@ -329,6 +329,7 @@ describe("LogTapeTransport", { concurrency: 1 }, () => {
       }
 
       assert.deepEqual(base.sentMessages, [message, secondMessage]);
+      assert.ok(base.closed);
     });
   });
 
@@ -585,6 +586,7 @@ class BufferedTransport implements Transport<"base"> {
 class PrefetchingTransport implements Transport<"base"> {
   readonly id = "base";
   readonly sentMessages: Message[] = [];
+  closed = false;
 
   send(): Promise<Receipt<"base">> {
     return Promise.reject(new TypeError("Use sendMany()."));
@@ -593,26 +595,30 @@ class PrefetchingTransport implements Transport<"base"> {
   async *sendMany(
     messages: Iterable<Message> | AsyncIterable<Message>,
   ): AsyncIterable<Receipt<"base">> {
-    const iterator = Symbol.asyncIterator in messages
-      ? messages[Symbol.asyncIterator]()
-      : messages[Symbol.iterator]();
-    const first = await iterator.next();
-    const second = await iterator.next();
-    if (first.done || second.done) return;
-    this.sentMessages.push(first.value, second.value);
+    try {
+      const iterator = Symbol.asyncIterator in messages
+        ? messages[Symbol.asyncIterator]()
+        : messages[Symbol.iterator]();
+      const first = await iterator.next();
+      const second = await iterator.next();
+      if (first.done || second.done) return;
+      this.sentMessages.push(first.value, second.value);
 
-    yield {
-      successful: true,
-      messageId: "base-prefetched-1",
-      provider: "base",
-    };
+      yield {
+        successful: true,
+        messageId: "base-prefetched-1",
+        provider: "base",
+      };
 
-    const third = await iterator.next();
-    if (!third.done) this.sentMessages.push(third.value);
-    yield {
-      successful: true,
-      messageId: "base-prefetched-2",
-      provider: "base",
-    };
+      const third = await iterator.next();
+      if (!third.done) this.sentMessages.push(third.value);
+      yield {
+        successful: true,
+        messageId: "base-prefetched-2",
+        provider: "base",
+      };
+    } finally {
+      this.closed = true;
+    }
   }
 }
