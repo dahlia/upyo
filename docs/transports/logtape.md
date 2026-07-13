@@ -29,23 +29,23 @@ Install *@upyo/logtape* together with LogTape:
 
 ::: code-group
 
-~~~~ sh [npm]
+~~~~ bash [npm]
 npm add @upyo/logtape @logtape/logtape
 ~~~~
 
-~~~~ sh [pnpm]
+~~~~ bash [pnpm]
 pnpm add @upyo/logtape @logtape/logtape
 ~~~~
 
-~~~~ sh [Yarn]
+~~~~ bash [Yarn]
 yarn add @upyo/logtape @logtape/logtape
 ~~~~
 
-~~~~ sh [Deno]
+~~~~ bash [Deno]
 deno add jsr:@upyo/logtape jsr:@logtape/logtape
 ~~~~
 
-~~~~ sh [Bun]
+~~~~ bash [Bun]
 bun add @upyo/logtape @logtape/logtape
 ~~~~
 
