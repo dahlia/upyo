@@ -70,6 +70,7 @@ sending messages.  The following is a list of the available packages:
 | [@upyo/smtp](/packages/smtp/)                   | [JSR][jsr:@upyo/smtp]          | [npm][npm:@upyo/smtp]          | SMTP transport                                     |
 | [@upyo/jmap](/packages/jmap/)                   | [JSR][jsr:@upyo/jmap]          | [npm][npm:@upyo/jmap]          | [JMAP] transport (RFC 8620/8621)                   |
 | [@upyo/lettermint](/packages/lettermint/)       | [JSR][jsr:@upyo/lettermint]    | [npm][npm:@upyo/lettermint]    | [Lettermint] transport                             |
+| [@upyo/logtape](/packages/logtape/)             | [JSR][jsr:@upyo/logtape]       | [npm][npm:@upyo/logtape]       | [LogTape] observability transport                  |
 | [@upyo/maileroo](/packages/maileroo/)           | [JSR][jsr:@upyo/maileroo]      | [npm][npm:@upyo/maileroo]      | [Maileroo] transport                               |
 | [@upyo/mailgun](/packages/mailgun/)             | [JSR][jsr:@upyo/mailgun]       | [npm][npm:@upyo/mailgun]       | [Mailgun] transport                                |
 | [@upyo/plunk](/packages/plunk/)                 | [JSR][jsr:@upyo/plunk]         | [npm][npm:@upyo/plunk]         | [Plunk] transport                                  |
@@ -90,6 +91,9 @@ sending messages.  The following is a list of the available packages:
 [jsr:@upyo/lettermint]: https://jsr.io/@upyo/lettermint
 [npm:@upyo/lettermint]: https://www.npmjs.com/package/@upyo/lettermint
 [Lettermint]: https://lettermint.co/
+[jsr:@upyo/logtape]: https://jsr.io/@upyo/logtape
+[npm:@upyo/logtape]: https://www.npmjs.com/package/@upyo/logtape
+[LogTape]: https://logtape.org/
 [jsr:@upyo/maileroo]: https://jsr.io/@upyo/maileroo
 [npm:@upyo/maileroo]: https://www.npmjs.com/package/@upyo/maileroo
 [Maileroo]: https://maileroo.com/

@@ -14,6 +14,7 @@ const packages: readonly string[] = [
   "core",
   "jmap",
   "lettermint",
+  "logtape",
   "maileroo",
   "mailgun",
   "plunk",
@@ -85,6 +86,7 @@ const NAV = [
       { text: "Amazon SES", link: "/transports/ses" },
       { text: "Pool transport", link: "/transports/pool" },
       { text: "Retry transport", link: "/transports/retry" },
+      { text: "LogTape", link: "/transports/logtape" },
       { text: "OpenTelemetry", link: "/transports/opentelemetry" },
       { text: "Mock transport", link: "/transports/mock" },
       { text: "Custom transport", link: "/transports/custom" },
@@ -104,6 +106,7 @@ const NAV = [
       { text: "@upyo/sendgrid", link: "https://jsr.io/@upyo/sendgrid/doc" },
       { text: "@upyo/ses", link: "https://jsr.io/@upyo/ses/doc" },
       { text: "@upyo/retry", link: "https://jsr.io/@upyo/retry/doc" },
+      { text: "@upyo/logtape", link: "https://jsr.io/@upyo/logtape/doc" },
       {
         text: "@upyo/opentelemetry",
         link: "https://jsr.io/@upyo/opentelemetry/doc",

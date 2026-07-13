@@ -6,6 +6,12 @@ settings:
 
 catalogs:
   default:
+    '@logtape/logtape':
+      specifier: ^2.2.4
+      version: 2.2.4
+    '@logtape/testing':
+      specifier: ^2.2.4
+      version: 2.2.4
     '@opentelemetry/api':
       specifier: ^1.9.0
       version: 1.9.0
@@ -32,6 +38,9 @@ importers:
 
   docs:
     devDependencies:
+      '@logtape/logtape':
+        specifier: 'catalog:'
+        version: 2.2.4
       '@opentelemetry/api':
         specifier: 'catalog:'
         version: 1.9.0
@@ -62,6 +71,9 @@ importers:
       '@upyo/lettermint':
         specifier: 'workspace:'
         version: link:../packages/lettermint
+      '@upyo/logtape':
+        specifier: 'workspace:'
+        version: link:../packages/logtape
       '@upyo/maileroo':
         specifier: 'workspace:'
         version: link:../packages/maileroo
@@ -148,6 +160,25 @@ importers:
         specifier: workspace:*
         version: link:../core
     devDependencies:
+      tsdown:
+        specifier: 'catalog:'
+        version: 0.12.9(typescript@5.8.3)
+      typescript:
+        specifier: 'catalog:'
+        version: 5.8.3
+
+  packages/logtape:
+    dependencies:
+      '@upyo/core':
+        specifier: workspace:*
+        version: link:../core
+    devDependencies:
+      '@logtape/logtape':
+        specifier: 'catalog:'
+        version: 2.2.4
+      '@logtape/testing':
+        specifier: 'catalog:'
+        version: 2.2.4(@logtape/logtape@2.2.4)
       tsdown:
         specifier: 'catalog:'
         version: 0.12.9(typescript@5.8.3)
@@ -578,6 +609,14 @@ packages:
 
   '@jridgewell/trace-mapping@0.3.29':
     resolution: {integrity: sha512-uw6guiW/gcAGPDhLmd77/6lW8QLeiV5RUTsAX46Db6oLhGaVj4lhnPwb184s1bkc8kdVg/+h988dro8GRDpmYQ==}
+
+  '@logtape/logtape@2.2.4':
+    resolution: {integrity: sha512-2rALzv9m4ibE5FyB8/FMm5MPMMlK7ujgy3ufricVKIxj6e7SZbw4w6J16/fRAsXgdDlOXPUA0aa6XoEQvdlKxw==}
+
+  '@logtape/testing@2.2.4':
+    resolution: {integrity: sha512-39NV0o0Awyb1iDdhWuGMSz8a+6CXUZgFpyXV8MtQzXqz2eai0K4cbe4T7axj+o3HV+ArOmMa7Nyn1sDfdYq5EQ==}
+    peerDependencies:
+      '@logtape/logtape': ^2.2.4
 
   '@napi-rs/wasm-runtime@0.2.11':
     resolution: {integrity: sha512-9DPkXtvHydrcOsopiYpUgPHpmj0HWZKMUnL2dZqpvC42lsratuBG06V5ipyno0fUek5VlFsNQ+AcFATSrJXgMA==}
@@ -2014,6 +2053,12 @@ snapshots:
     dependencies:
       '@jridgewell/resolve-uri': 3.1.2
       '@jridgewell/sourcemap-codec': 1.5.5
+
+  '@logtape/logtape@2.2.4': {}
+
+  '@logtape/testing@2.2.4(@logtape/logtape@2.2.4)':
+    dependencies:
+      '@logtape/logtape': 2.2.4
 
   '@napi-rs/wasm-runtime@0.2.11':
     dependencies:

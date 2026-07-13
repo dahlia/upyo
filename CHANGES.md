@@ -6,6 +6,17 @@ Version 0.6.0
 
 To be released.
 
+### @upyo/logtape
+
+ -  Added LogTape observability transport.
+
+     -  Added `LogTapeTransport` class for logging email delivery lifecycle
+        events with configurable categories and levels.
+     -  Supports log-only development use and decorating another transport
+        without changing its receipts or errors.
+     -  Supports optional full-message logging, streaming `sendMany()`,
+        `AbortSignal` cancellation, and wrapped transport disposal.
+
 ### @upyo/maileroo
 
  -  Added [Maileroo] transport.  [[#30], [#31]]

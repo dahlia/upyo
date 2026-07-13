@@ -1,5 +1,6 @@
 {
   "devDependencies": {
+    "@logtape/logtape": "catalog:",
     "@opentelemetry/api": "catalog:",
     "@opentelemetry/resources": "catalog:",
     "@opentelemetry/sdk-metrics": "catalog:",
@@ -10,6 +11,7 @@
     "@upyo/core": "workspace:",
     "@upyo/jmap": "workspace:",
     "@upyo/lettermint": "workspace:",
+    "@upyo/logtape": "workspace:",
     "@upyo/maileroo": "workspace:",
     "@upyo/mailgun": "workspace:",
     "@upyo/mock": "workspace:",
