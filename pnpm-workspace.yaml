@@ -7,6 +7,8 @@ allowBuilds:
   workerd: true
 
 catalog:
+  '@logtape/logtape': ^2.2.4
+  '@logtape/testing': ^2.2.4
   '@opentelemetry/api': ^1.9.0
   '@opentelemetry/resources': ^1.25.1
   '@opentelemetry/sdk-metrics': ^1.25.1

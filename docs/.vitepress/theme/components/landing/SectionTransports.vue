@@ -32,6 +32,7 @@ const utilities = [
   { name: "Pool", desc: "Load-balance and fail over across transports.", link: "/transports/pool" },
   { name: "Retry", desc: "Backoff and jitter for transient failures.", link: "/transports/retry" },
   { name: "Mock", desc: "Capture messages in tests, send nothing.", link: "/transports/mock" },
+  { name: "LogTape", desc: "Structured lifecycle logs, with or without delivery.", link: "/transports/logtape" },
   { name: "OpenTelemetry", desc: "Traces and metrics for any transport.", link: "/transports/opentelemetry" },
   { name: "Custom", desc: "Build your own in a couple of methods.", link: "/transports/custom" },
 ];

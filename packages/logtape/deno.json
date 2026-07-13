@@ -1,0 +1,13 @@
+{
+  "name": "@upyo/logtape",
+  "version": "0.6.0",
+  "license": "MIT",
+  "exports": "./src/index.ts",
+  "imports": {
+    "@logtape/logtape": "jsr:@logtape/logtape@^2.2.4",
+    "@logtape/testing": "jsr:@logtape/testing@^2.2.4"
+  },
+  "exclude": [
+    "dist/"
+  ]
+}

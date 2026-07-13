@@ -9,10 +9,15 @@ const sent = transport.getSentMessages();
 sent[0].subject;                // "Hello from Upyo!"
 sent[0].recipients[0].address;  // "rachel@example.net"`;
 
-const otelCode = `const transport = createOpenTelemetryTransport(base, {
+const observabilityCode = `const traced = createOpenTelemetryTransport(base, {
   serviceName: "email-service",
   metrics: { enabled: true },
   tracing: { enabled: true },
+});
+
+const transport = new LogTapeTransport({
+  transport: traced,
+  category: ["app", "email"],
 });
 
 // your sending code stays the same
@@ -23,13 +28,13 @@ await transport.send(message);`;
   <section class="lp-section lp-section--paper">
     <div class="lp-container">
       <div class="lp-head lp-reveal">
-        <p class="lp-eyebrow">Testing &amp; telemetry</p>
+        <p class="lp-eyebrow">Testing &amp; observability</p>
         <h2 class="lp-heading">Built to be developed against</h2>
         <p class="lp-lead">
-          Two small things make day-to-day work easier: a mock transport for
-          your tests, and OpenTelemetry for when you need to see what's
-          happening in production. Both implement the same interface as every
-          other transport, so they slot in without touching your sending code.
+          Mock email workflows without sending, record structured lifecycle
+          logs with LogTape, and trace production delivery with OpenTelemetry.
+          Each uses the same interface as every other transport, so they slot
+          in without touching your sending code.
         </p>
       </div>
 
@@ -48,16 +53,21 @@ await transport.send(message);`;
         </div>
 
         <div class="lp-duo__col">
-          <h3 class="lp-duo__title">See what's happening in production</h3>
+          <h3 class="lp-duo__title">Observe every delivery</h3>
           <p class="lp-duo__desc">
-            Wrap any transport to get traces and metrics like delivery rates,
-            latency, and error classification, with nothing to change in the
-            code that actually sends.
+            Use LogTape for structured delivery logs, or wrap the same
+            transport with OpenTelemetry for traces and metrics. Stack them
+            when you want both views without changing the code that sends.
           </p>
-          <CodeBlock file="observe.ts" :code="otelCode" />
-          <a class="lp-arrow" :href="withBase('/transports/opentelemetry')">
-            OpenTelemetry transport <span class="lp-arrow__i">→</span>
-          </a>
+          <CodeBlock file="observe.ts" :code="observabilityCode" />
+          <div class="lp-duo__links">
+            <a class="lp-arrow" :href="withBase('/transports/logtape')">
+              LogTape transport <span class="lp-arrow__i">→</span>
+            </a>
+            <a class="lp-arrow" :href="withBase('/transports/opentelemetry')">
+              OpenTelemetry transport <span class="lp-arrow__i">→</span>
+            </a>
+          </div>
         </div>
       </div>
     </div>

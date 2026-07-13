@@ -10,8 +10,8 @@ description: >-
   Upyo is a small, cross-runtime email library for JavaScript and TypeScript.
   Write a message once and send it on Node.js, Deno, Bun, and edge functions,
   through SMTP or providers like Lettermint, Maileroo, Mailgun, Resend,
-  SendGrid, and Amazon SES, with retry, failover, testing, and telemetry
-  transports sharing the same type-safe API.
+  SendGrid, and Amazon SES, with retry, failover, testing, structured logging,
+  and telemetry transports sharing the same type-safe API.
 ---
 
 <script setup>

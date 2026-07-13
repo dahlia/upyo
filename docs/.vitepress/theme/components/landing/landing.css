@@ -728,6 +728,17 @@
   margin-top: 1.3rem;
 }
 
+.lp-duo__links {
+  margin-top: 1.3rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem 1.25rem;
+}
+
+.lp-duo__links .lp-arrow {
+  margin-top: 0;
+}
+
 /* ========================================================================== *
  * Sponsor / closing
  * ========================================================================== */

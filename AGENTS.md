@@ -35,6 +35,7 @@ functions.  It's structured as a monorepo with multiple packages:
  -  *@upyo/core*: Shared types and interfaces for email messages
  -  *@upyo/smtp*: SMTP transport implementation
  -  *@upyo/lettermint*: Lettermint transport implementation
+ -  *@upyo/logtape*: LogTape observability transport
  -  *@upyo/maileroo*: Maileroo transport implementation
  -  *@upyo/mailgun*: Mailgun transport implementation
  -  *@upyo/sendgrid*: SendGrid transport implementation
@@ -242,6 +243,8 @@ export interface Transport {
     inspection capabilities
  -  *OpenTelemetry transport*: Decorator pattern for adding observability to
     any transport
+ -  *LogTape transport*: Log-only or decorator transport for structured email
+    delivery logs
  -  *Configuration factories*: `createXConfig()` functions apply
     provider-specific defaults and validation
  -  *Provider-specific optimization*: Each transport optimizes for its protocol
@@ -281,6 +284,8 @@ the application.
 
  -  *@upyo/retry*: Decorator transport that retries transient failures with
     configurable backoff, jitter, and `sendMany()` throttling
+ -  *@upyo/logtape*: Log-only or decorator transport that records delivery
+    lifecycle events through LogTape
  -  *@upyo/mock*: Testing transport that captures sent messages for inspection
     without external dependencies
  -  *@upyo/opentelemetry*: Decorator transport that adds OpenTelemetry
@@ -296,6 +301,8 @@ the application.
     utilities
  -  *OpenTelemetry*: Transparent wrapper, metrics collection, distributed
     tracing, error classification
+ -  *LogTape*: Structured lifecycle logging with configurable categories and
+    levels
 
 ### Build system
 
@@ -317,6 +324,8 @@ the application.
     without external dependencies
  -  *Observability testing*: OpenTelemetry transport includes integration tests
     with real OpenTelemetry SDK
+ -  *Logging testing*: LogTape transport uses the LogTape recorder to verify
+    structured delivery events
  -  *Environment isolation*: *.env* files for test configuration with mise
     environment loading
 
@@ -819,7 +828,7 @@ Common tasks for agents
  -  *Bug fixes*: Ensure fixes work across all supported runtimes
  -  *Feature additions*: Maintain backward compatibility and update relevant
     documentation
- -  *Adding observability*: Use OpenTelemetry transport as decorator for any
-    transport
+ -  *Adding observability*: Use the OpenTelemetry or LogTape decorator around
+    any transport
  -  *Testing workflows*: Use mock transport for comprehensive testing without
     external dependencies
