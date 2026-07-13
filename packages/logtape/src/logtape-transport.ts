@@ -406,11 +406,13 @@ export class LogTapeTransport<TProviderId extends string = "logtape">
 }
 
 function isAsyncDisposable(value: object): value is object & AsyncDisposable {
-  return Symbol.asyncDispose in value &&
+  return typeof Symbol.asyncDispose !== "undefined" &&
+    Symbol.asyncDispose in value &&
     typeof value[Symbol.asyncDispose] === "function";
 }
 
 function isDisposable(value: object): value is object & Disposable {
-  return Symbol.dispose in value &&
+  return typeof Symbol.dispose !== "undefined" &&
+    Symbol.dispose in value &&
     typeof value[Symbol.dispose] === "function";
 }
