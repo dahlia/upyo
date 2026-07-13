@@ -120,8 +120,9 @@ The decorator preserves the wrapped provider id, forwards `AbortSignal`, uses
 the wrapped `sendMany()` implementation, and passes successful and failed
 receipts through unchanged.  Exceptions are logged with the original error
 object and then rethrown.  Explicit disposal is also forwarded to disposable
-wrapped transports.  If a caller stops reading a batch early, receipts are
-still logged for messages that the wrapped transport has already consumed.
+wrapped transports.  Completion logs are emitted as callers consume receipts.
+If a caller stops reading a batch early, the wrapped iterator is closed without
+being drained so the logging layer does not start additional delivery work.
 
 LogTape transport can be nested with retry, pool, and OpenTelemetry
 transports.  The outer decorator observes the complete operation performed by

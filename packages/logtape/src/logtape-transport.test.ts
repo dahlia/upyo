@@ -250,7 +250,7 @@ describe("LogTapeTransport", { concurrency: 1 }, () => {
     });
   });
 
-  it("logs buffered receipts when the sendMany consumer stops early", async () => {
+  it("closes buffered receipts when the sendMany consumer stops early", async () => {
     await withRecorder(async (recorder) => {
       const secondMessage = createMessage({
         from: "sender@example.com",
@@ -268,10 +268,10 @@ describe("LogTapeTransport", { concurrency: 1 }, () => {
       }
 
       assert.deepEqual(base.sentMessages, [message, secondMessage]);
-      assert.equal(base.yieldedReceiptCount, 2);
+      assert.equal(base.yieldedReceiptCount, 1);
       assert.equal(
         recorder.filter({ properties: { event: "email.sent" } }).length,
-        2,
+        1,
       );
     });
   });
@@ -298,6 +298,37 @@ describe("LogTapeTransport", { concurrency: 1 }, () => {
         recorder.filter({ properties: { event: "email.sent" } }).length,
         1,
       );
+    });
+  });
+
+  it("does not advance a prefetched batch after its consumer stops", async () => {
+    await withRecorder(async () => {
+      const secondMessage = createMessage({
+        from: "sender@example.com",
+        to: "third@example.net",
+        subject: "Second message",
+        content: { text: "Another message." },
+      });
+      const thirdMessage = createMessage({
+        from: "sender@example.com",
+        to: "fourth@example.net",
+        subject: "Third message",
+        content: { text: "One more message." },
+      });
+      const base = new PrefetchingTransport();
+      const transport = new LogTapeTransport({ transport: base });
+
+      for await (
+        const _receipt of transport.sendMany([
+          message,
+          secondMessage,
+          thirdMessage,
+        ])
+      ) {
+        break;
+      }
+
+      assert.deepEqual(base.sentMessages, [message, secondMessage]);
     });
   });
 
@@ -548,5 +579,40 @@ class BufferedTransport implements Transport<"base"> {
         provider: "base",
       };
     }
+  }
+}
+
+class PrefetchingTransport implements Transport<"base"> {
+  readonly id = "base";
+  readonly sentMessages: Message[] = [];
+
+  send(): Promise<Receipt<"base">> {
+    return Promise.reject(new TypeError("Use sendMany()."));
+  }
+
+  async *sendMany(
+    messages: Iterable<Message> | AsyncIterable<Message>,
+  ): AsyncIterable<Receipt<"base">> {
+    const iterator = Symbol.asyncIterator in messages
+      ? messages[Symbol.asyncIterator]()
+      : messages[Symbol.iterator]();
+    const first = await iterator.next();
+    const second = await iterator.next();
+    if (first.done || second.done) return;
+    this.sentMessages.push(first.value, second.value);
+
+    yield {
+      successful: true,
+      messageId: "base-prefetched-1",
+      provider: "base",
+    };
+
+    const third = await iterator.next();
+    if (!third.done) this.sentMessages.push(third.value);
+    yield {
+      successful: true,
+      messageId: "base-prefetched-2",
+      provider: "base",
+    };
   }
 }
