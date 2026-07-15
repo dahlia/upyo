@@ -14,10 +14,7 @@ export {
   type MailtrapConfig,
   type ResolvedMailtrapConfig,
 } from "./config.ts";
-export {
-  MailtrapApiError,
-  MailtrapTimeoutError,
-} from "./http-client.ts";
+export { MailtrapApiError, MailtrapTimeoutError } from "./http-client.ts";
 export type {
   MailtrapBatchItemResponse,
   MailtrapBatchResponse,

@@ -8,8 +8,8 @@ import {
 import type { MailtrapConfig, ResolvedMailtrapConfig } from "./config.ts";
 import { createMailtrapConfig } from "./config.ts";
 import {
-  type MailtrapBatchItemResponse,
   MailtrapApiError,
+  type MailtrapBatchItemResponse,
   MailtrapHttpClient,
   type MailtrapSendResponse,
   MailtrapTimeoutError,
@@ -222,8 +222,7 @@ function itemResponseToReceipt(
   return toReceipt(response, {
     unsuccessfulMessage: "Mailtrap reported batch item failure.",
     unsuccessfulCode: "mailtrap.batch_item_failed",
-    missingMessageIdMessage:
-      "Mailtrap batch response is missing a message ID.",
+    missingMessageIdMessage: "Mailtrap batch response is missing a message ID.",
   });
 }
 

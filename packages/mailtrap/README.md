@@ -1,7 +1,7 @@
 <!-- deno-fmt-ignore-file -->
 
 @upyo/mailtrap
-=============
+==============
 
 [![JSR][JSR badge]][JSR]
 [![npm][npm badge]][npm]

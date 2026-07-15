@@ -169,7 +169,9 @@ export class MailtrapHttpClient {
     return `${baseUrl}/api/${kind}${suffix}`;
   }
 
-  private async makeRequest<T extends MailtrapSendResponse | MailtrapBatchResponse>(
+  private async makeRequest<
+    T extends MailtrapSendResponse | MailtrapBatchResponse,
+  >(
     url: string,
     body: MailtrapEmail | { readonly requests: readonly MailtrapEmail[] },
     signal?: AbortSignal,
@@ -284,7 +286,9 @@ function isRetryable(error: MailtrapApiError): boolean {
 
 function calculateRetryDelay(attempt: number, error: Error): number {
   const baseDelay = Math.min(1000 * Math.pow(2, attempt), 10000);
-  const backoffDelay = Math.round(baseDelay / 2 + Math.random() * (baseDelay / 2));
+  const backoffDelay = Math.round(
+    baseDelay / 2 + Math.random() * (baseDelay / 2),
+  );
   if (error instanceof MailtrapApiError) {
     return Math.max(backoffDelay, error.retryAfterMilliseconds ?? 0);
   }

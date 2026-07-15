@@ -293,8 +293,8 @@ the application.
 
  -  *SMTP*: Direct protocol implementation, works with any SMTP server,
     supports connection reuse
- -  *HTTP-based* (Lettermint, Mailtrap, Mailgun, SendGrid, SES): Stateless, simpler
-    configuration, provider-specific features
+ -  *HTTP-based* (Lettermint, Mailtrap, Mailgun, SendGrid, SES): Stateless,
+    simpler configuration, provider-specific features
  -  *Mock*: In-memory storage, failure simulation, comprehensive testing
     utilities
  -  *OpenTelemetry*: Transparent wrapper, metrics collection, distributed
