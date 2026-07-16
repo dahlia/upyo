@@ -222,6 +222,36 @@ describe("MailtrapTransport - API Errors", () => {
       globalThis.fetch = originalFetch;
     }
   });
+
+  serialIt(
+    "does not retry invalid JSON from successful responses",
+    async () => {
+      const originalFetch = globalThis.fetch;
+      let requests = 0;
+      try {
+        // deno-lint-ignore require-await
+        globalThis.fetch = async () => {
+          requests++;
+          return new Response("not json", {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          });
+        };
+
+        const transport = new MailtrapTransport({
+          apiToken: "test-token",
+          retries: 1,
+        });
+
+        const receipt = await transport.send(createMessage());
+
+        assert.ok(!receipt.successful);
+        assert.equal(requests, 1);
+      } finally {
+        globalThis.fetch = originalFetch;
+      }
+    },
+  );
 });
 
 describe("MailtrapTransport - Batch Send", () => {

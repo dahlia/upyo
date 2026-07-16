@@ -181,26 +181,17 @@ export class MailtrapHttpClient {
     for (let attempt = 0; attempt <= this.config.retries; attempt++) {
       signal?.throwIfAborted();
 
+      let responseText: string;
       try {
         const response = await this.fetchWithAuth(url, body, signal);
-        const text = await response.text();
+        responseText = await response.text();
 
         if (!response.ok) {
           throw new MailtrapApiError(
-            parseErrorMessage(text, response.status),
+            parseErrorMessage(responseText, response.status),
             response.status,
             parseRetryAfter(response.headers.get("Retry-After")),
             attempt + 1,
-          );
-        }
-
-        try {
-          return JSON.parse(text) as T;
-        } catch (error) {
-          throw new SyntaxError(
-            `Invalid JSON response from Mailtrap API: ${
-              error instanceof Error ? error.message : String(error)
-            }.`,
           );
         }
       } catch (error) {
@@ -225,6 +216,17 @@ export class MailtrapHttpClient {
         await sleep(
           calculateRetryDelay(attempt, lastError),
           signal,
+        );
+        continue;
+      }
+
+      try {
+        return JSON.parse(responseText) as T;
+      } catch (error) {
+        throw new SyntaxError(
+          `Invalid JSON response from Mailtrap API: ${
+            error instanceof Error ? error.message : String(error)
+          }.`,
         );
       }
     }
