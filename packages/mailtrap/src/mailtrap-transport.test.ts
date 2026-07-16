@@ -20,8 +20,29 @@ function createMessage(overrides: Partial<Message> = {}): Message {
   };
 }
 
+// Deno runs node:test subtests concurrently, so serialize tests that replace
+// globalThis.fetch to keep their mocks isolated.
+let testChain = Promise.resolve();
+
+function serialIt(name: string, callback: () => Promise<void>): void {
+  it(name, async () => {
+    const previous = testChain;
+    let release: () => void = () => {};
+    testChain = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    await previous;
+
+    try {
+      await callback();
+    } finally {
+      release();
+    }
+  });
+}
+
 describe("MailtrapTransport - Send Message", () => {
-  it("should send a message successfully", async () => {
+  serialIt("should send a message successfully", async () => {
     const originalFetch = globalThis.fetch;
     try {
       // deno-lint-ignore require-await
@@ -69,7 +90,7 @@ describe("MailtrapTransport - Send Message", () => {
 });
 
 describe("MailtrapTransport - Sandbox URL", () => {
-  it("should use sandbox endpoint when configured", async () => {
+  serialIt("should use sandbox endpoint when configured", async () => {
     const originalFetch = globalThis.fetch;
     try {
       // deno-lint-ignore require-await
@@ -107,7 +128,7 @@ describe("MailtrapTransport - Sandbox URL", () => {
 });
 
 describe("MailtrapTransport - API Errors", () => {
-  it("should handle API errors", async () => {
+  serialIt("should handle API errors", async () => {
     const originalFetch = globalThis.fetch;
     try {
       // deno-lint-ignore require-await
@@ -141,34 +162,37 @@ describe("MailtrapTransport - API Errors", () => {
     }
   });
 
-  it("truncates non-JSON API response bodies in failure receipts", async () => {
-    const originalFetch = globalThis.fetch;
-    try {
-      // deno-lint-ignore require-await
-      globalThis.fetch = async () => {
-        return new Response("x".repeat(600), {
-          status: 503,
-          headers: { "Content-Type": "text/html" },
+  serialIt(
+    "truncates non-JSON API response bodies in failure receipts",
+    async () => {
+      const originalFetch = globalThis.fetch;
+      try {
+        // deno-lint-ignore require-await
+        globalThis.fetch = async () => {
+          return new Response("x".repeat(600), {
+            status: 503,
+            headers: { "Content-Type": "text/html" },
+          });
+        };
+
+        const transport = new MailtrapTransport({
+          apiToken: "test-token",
+          retries: 0,
         });
-      };
 
-      const transport = new MailtrapTransport({
-        apiToken: "test-token",
-        retries: 0,
-      });
+        const receipt = await transport.send(createMessage());
 
-      const receipt = await transport.send(createMessage());
-
-      assert.ok(!receipt.successful);
-      if (!receipt.successful) {
-        assert.equal(receipt.errorMessages[0], `${"x".repeat(500)}...`);
+        assert.ok(!receipt.successful);
+        if (!receipt.successful) {
+          assert.equal(receipt.errorMessages[0], `${"x".repeat(500)}...`);
+        }
+      } finally {
+        globalThis.fetch = originalFetch;
       }
-    } finally {
-      globalThis.fetch = originalFetch;
-    }
-  });
+    },
+  );
 
-  it("should handle provider-reported send failures", async () => {
+  serialIt("should handle provider-reported send failures", async () => {
     const originalFetch = globalThis.fetch;
     try {
       // deno-lint-ignore require-await
@@ -201,7 +225,7 @@ describe("MailtrapTransport - API Errors", () => {
 });
 
 describe("MailtrapTransport - Batch Send", () => {
-  it("should send a batch successfully", async () => {
+  serialIt("should send a batch successfully", async () => {
     const originalFetch = globalThis.fetch;
     try {
       // deno-lint-ignore require-await
@@ -254,7 +278,7 @@ describe("MailtrapTransport - Batch Send", () => {
     }
   });
 
-  it("should handle per-item batch failures", async () => {
+  serialIt("should handle per-item batch failures", async () => {
     const originalFetch = globalThis.fetch;
     try {
       // deno-lint-ignore require-await
