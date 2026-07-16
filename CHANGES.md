@@ -4,7 +4,7 @@ Upyo changelog
 Version 0.5.1
 -------------
 
-To be released.
+Released on July 16, 2026.
 
 ### @upyo/plunk
 
