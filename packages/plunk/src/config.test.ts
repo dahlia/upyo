@@ -12,7 +12,7 @@ describe("createPlunkConfig", () => {
     const resolved = createPlunkConfig(config);
 
     assert.equal(resolved.apiKey, "test-api-key");
-    assert.equal(resolved.baseUrl, "https://api.useplunk.com");
+    assert.equal(resolved.baseUrl, "https://next-api.useplunk.com");
     assert.equal(resolved.timeout, 30000);
     assert.equal(resolved.retries, 3);
     assert.equal(resolved.validateSsl, true);

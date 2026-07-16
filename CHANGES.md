@@ -53,6 +53,20 @@ To be released.
 [#32]: https://github.com/dahlia/upyo/pull/32
 
 
+Version 0.5.1
+-------------
+
+Released on July 16, 2026.
+
+### @upyo/plunk
+
+ -  Updated the default Plunk API base URL to
+    `https://next-api.useplunk.com` and adapted request and response handling
+    to the new API contract.  [[#35]]
+
+[#35]: https://github.com/dahlia/upyo/issues/35
+
+
 Version 0.5.0
 -------------
 
@@ -210,6 +224,18 @@ Released on July 1, 2026.
     OpenTelemetry metrics now prefer structured receipt categories when a
     wrapped transport returns them, then fall back to the configured error
     classifier.  [[#25], [#27]]
+
+
+Version 0.4.1
+-------------
+
+Released on July 16, 2026.
+
+### @upyo/plunk
+
+ -  Updated the default Plunk API base URL to
+    `https://next-api.useplunk.com` and adapted request and response handling
+    to the new API contract.  [[#35]]
 
 
 Version 0.4.0

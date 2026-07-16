@@ -23,7 +23,7 @@ import { convertMessage } from "./message-converter.ts";
  *
  * const transport = new PlunkTransport({
  *   apiKey: 'your-plunk-api-key',
- *   baseUrl: 'https://api.useplunk.com', // or self-hosted URL
+ *   baseUrl: 'https://next-api.useplunk.com', // or self-hosted URL
  *   timeout: 30000,
  *   retries: 3
  * });
@@ -202,8 +202,8 @@ export class PlunkTransport implements Transport<"plunk"> {
   /**
    * Extracts or generates a message ID from the Plunk response.
    *
-   * Plunk returns email details in the response, so we can use the contact ID
-   * and timestamp to create a meaningful message ID.
+   * Plunk returns its email record ID in the response. This ID can be used to
+   * correlate the send operation with webhook events.
    *
    * @param response The Plunk API response.
    * @param message The original message for fallback ID generation.
@@ -211,19 +211,13 @@ export class PlunkTransport implements Transport<"plunk"> {
    */
   private extractMessageId(
     response: {
-      emails?: readonly { contact?: { id?: string } }[];
-      timestamp?: string;
+      emails?: readonly { email?: string }[];
     },
     message: Message,
   ): string {
-    // Try to use contact ID from response if available
-    if (response.emails && response.emails.length > 0) {
-      const contactId = response.emails[0].contact?.id;
-      const timestamp = response.timestamp;
-
-      if (contactId && timestamp) {
-        return `plunk-${contactId}-${new Date(timestamp).getTime()}`;
-      }
+    const emailId = response.emails?.[0]?.email;
+    if (emailId) {
+      return emailId;
     }
 
     // Fallback: generate synthetic message ID

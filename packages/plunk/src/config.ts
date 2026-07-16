@@ -9,7 +9,7 @@
  * ```typescript
  * const config: PlunkConfig = {
  *   apiKey: 'your-api-key',
- *   baseUrl: 'https://api.useplunk.com', // or self-hosted URL
+ *   baseUrl: 'https://next-api.useplunk.com', // or self-hosted URL
  *   timeout: 30000,
  *   retries: 3
  * };
@@ -27,11 +27,11 @@ export interface PlunkConfig {
   /**
    * Base URL for the Plunk API.
    *
-   * For Plunk's hosted service, use "https://api.useplunk.com" (default).
+   * For Plunk's hosted service, use "https://next-api.useplunk.com" (default).
    * For self-hosted instances, use your domain with "/api" path
    * (e.g., "https://plunk.example.com/api").
    *
-   * @default "https://api.useplunk.com"
+   * @default "https://next-api.useplunk.com"
    */
   readonly baseUrl?: string;
 
@@ -86,7 +86,7 @@ export function createPlunkConfig(
 ): ResolvedPlunkConfig {
   return {
     apiKey: config.apiKey,
-    baseUrl: config.baseUrl ?? "https://api.useplunk.com",
+    baseUrl: config.baseUrl ?? "https://next-api.useplunk.com",
     timeout: config.timeout ?? 30000,
     retries: config.retries ?? 3,
     validateSsl: config.validateSsl ?? true,
