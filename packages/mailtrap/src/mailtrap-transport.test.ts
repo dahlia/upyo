@@ -348,4 +348,42 @@ describe("MailtrapTransport - Batch Send", () => {
       globalThis.fetch = originalFetch;
     }
   });
+
+  serialIt("chunks batches at the Mailtrap limit", async () => {
+    const originalFetch = globalThis.fetch;
+    const requestSizes: number[] = [];
+    try {
+      // deno-lint-ignore require-await
+      globalThis.fetch = async (_input, init) => {
+        const body = JSON.parse(String(init?.body));
+        requestSizes.push(body.requests.length);
+        return new Response(
+          JSON.stringify({
+            success: true,
+            responses: body.requests.map((_: unknown, index: number) => ({
+              success: true,
+              message_ids: [`id-${requestSizes.length}-${index}`],
+            })),
+          }),
+          { status: 200, headers: { "Content-Type": "application/json" } },
+        );
+      };
+
+      const transport = new MailtrapTransport({ apiToken: "test-token" });
+      const messages = Array.from(
+        { length: 501 },
+        (_, index) => createMessage({ subject: `Message ${index}` }),
+      );
+      let receipts = 0;
+
+      for await (const _receipt of transport.sendMany(messages)) {
+        receipts++;
+      }
+
+      assert.equal(receipts, 501);
+      assert.deepEqual(requestSizes, [500, 1]);
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+  });
 });

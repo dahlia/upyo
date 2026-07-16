@@ -82,7 +82,7 @@ describeE2E("MailtrapTransport E2E", { concurrency: false }, () => {
       await waitForRateLimit();
 
       const transport = new MailtrapTransport(getTestConfig().mailtrap);
-      const receipts = [];
+      const receipts: Receipt[] = [];
 
       for await (
         const receipt of transport.sendMany([

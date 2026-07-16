@@ -11,7 +11,7 @@ describe("createMailtrapConfig", () => {
     const resolved = createMailtrapConfig(config);
 
     assert.equal(resolved.apiToken, "test-token");
-    assert.equal(resolved.sandbox, false);
+    assert.ok(!resolved.sandbox);
     assert.equal(resolved.inboxId, undefined);
     assert.equal(resolved.sendBaseUrl, "https://send.api.mailtrap.io");
     assert.equal(resolved.sandboxBaseUrl, "https://sandbox.api.mailtrap.io");
@@ -19,7 +19,7 @@ describe("createMailtrapConfig", () => {
     assert.equal(resolved.userAgent, "@upyo/mailtrap");
     assert.equal(resolved.timeout, 30000);
     assert.equal(resolved.retries, 3);
-    assert.equal(resolved.validateSsl, true);
+    assert.ok(resolved.validateSsl);
     assert.deepEqual(resolved.headers, {});
     assert.equal(resolved.metadata, undefined);
   });
@@ -42,7 +42,7 @@ describe("createMailtrapConfig", () => {
     const resolved = createMailtrapConfig(config);
 
     assert.equal(resolved.apiToken, "test-token");
-    assert.equal(resolved.sandbox, true);
+    assert.ok(resolved.sandbox);
     assert.equal(resolved.inboxId, 12345);
     assert.equal(resolved.sendBaseUrl, "https://send.example.com");
     assert.equal(resolved.sandboxBaseUrl, "https://sandbox.example.com");

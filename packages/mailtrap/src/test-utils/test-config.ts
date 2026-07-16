@@ -1,4 +1,4 @@
-import type { Message } from "@upyo/core";
+import { isEmailAddress, type Message } from "@upyo/core";
 import process from "node:process";
 import type { MailtrapConfig } from "../config.ts";
 
@@ -17,11 +17,11 @@ export interface TestConfig {
  * @returns `true` if all required environment variables are present.
  */
 export function isE2eTestingEnabled(): boolean {
-  return !!(
+  return Boolean(
     process.env.MAILTRAP_API_TOKEN &&
-    process.env.MAILTRAP_INBOX_ID &&
-    process.env.MAILTRAP_FROM &&
-    process.env.MAILTRAP_TO
+      process.env.MAILTRAP_INBOX_ID &&
+      isEmailAddress(process.env.MAILTRAP_FROM) &&
+      isEmailAddress(process.env.MAILTRAP_TO),
   );
 }
 
@@ -30,6 +30,7 @@ export function isE2eTestingEnabled(): boolean {
  *
  * @returns Mailtrap E2E test configuration.
  * @throws {Error} If required environment variables are missing.
+ * @throws {TypeError} If the sender or recipient is not a valid email address.
  */
 export function getTestConfig(): TestConfig {
   const apiToken = process.env.MAILTRAP_API_TOKEN;
@@ -40,6 +41,12 @@ export function getTestConfig(): TestConfig {
   if (!apiToken || !inboxId || !from || !to) {
     throw new Error(
       "MAILTRAP_API_TOKEN, MAILTRAP_INBOX_ID, MAILTRAP_FROM, and MAILTRAP_TO are required.",
+    );
+  }
+
+  if (!isEmailAddress(from) || !isEmailAddress(to)) {
+    throw new TypeError(
+      "MAILTRAP_FROM and MAILTRAP_TO must be valid email addresses.",
     );
   }
 
@@ -55,8 +62,8 @@ export function getTestConfig(): TestConfig {
         sandboxBaseUrl: process.env.MAILTRAP_SANDBOX_BASE_URL,
       }),
     },
-    from: from as `${string}@${string}`,
-    to: to as `${string}@${string}`,
+    from,
+    to,
   };
 }
 
