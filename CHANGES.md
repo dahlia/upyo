@@ -25,7 +25,7 @@ To be released.
 
 ### @upyo/mailtrap
 
- -  Added [Mailtrap] transport.  [[#32]]
+ -  Added [Mailtrap] transport.  [[#32] by Narek Hovhannisyan]
 
      -  Added `MailtrapTransport` class.
      -  Added `MailtrapConfig` interface.
