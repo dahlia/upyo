@@ -41,6 +41,49 @@ function serialIt(name: string, callback: () => Promise<void>): void {
   });
 }
 
+function createDelayedJsonResponse(
+  signal: AbortSignal | null | undefined,
+  onBodyRead: () => void,
+  delay: number,
+): Response {
+  const body = new TextEncoder().encode(JSON.stringify({
+    success: true,
+    message_ids: ["test-message-id"],
+  }));
+  let started = false;
+
+  return new Response(
+    new ReadableStream<Uint8Array>({
+      pull(controller) {
+        if (started) return;
+        started = true;
+        onBodyRead();
+
+        if (signal?.aborted) {
+          controller.error(signal.reason);
+          return;
+        }
+
+        const onAbort = () => {
+          clearTimeout(timeoutId);
+          controller.error(signal?.reason);
+        };
+        signal?.addEventListener("abort", onAbort, { once: true });
+
+        const timeoutId = setTimeout(() => {
+          signal?.removeEventListener("abort", onAbort);
+          controller.enqueue(body);
+          controller.close();
+        }, delay);
+      },
+    }),
+    {
+      status: 200,
+      headers: { "Content-Type": "application/json" },
+    },
+  );
+}
+
 describe("MailtrapTransport - Send Message", () => {
   serialIt("should send a message successfully", async () => {
     const originalFetch = globalThis.fetch;
@@ -247,6 +290,70 @@ describe("MailtrapTransport - API Errors", () => {
 
         assert.ok(!receipt.successful);
         assert.equal(requests, 1);
+      } finally {
+        globalThis.fetch = originalFetch;
+      }
+    },
+  );
+
+  serialIt("times out while reading the response body", async () => {
+    const originalFetch = globalThis.fetch;
+    try {
+      // deno-lint-ignore require-await
+      globalThis.fetch = async (_input, init) => {
+        return createDelayedJsonResponse(init?.signal, () => {}, 100);
+      };
+
+      const transport = new MailtrapTransport({
+        apiToken: "test-token",
+        timeout: 10,
+        retries: 0,
+      });
+
+      const receipt = await transport.send(createMessage());
+
+      assert.ok(!receipt.successful);
+      if (!receipt.successful) {
+        assert.equal(
+          receipt.errorMessages[0],
+          "Mailtrap API request timed out after 10 ms.",
+        );
+        assert.equal(receipt.errors?.[0]?.category, "timeout");
+      }
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+  });
+
+  serialIt(
+    "propagates caller cancellation while reading the response body",
+    async () => {
+      const originalFetch = globalThis.fetch;
+      const controller = new AbortController();
+      let bodyRead: () => void = () => {};
+      const bodyReading = new Promise<void>((resolve) => {
+        bodyRead = resolve;
+      });
+
+      try {
+        // deno-lint-ignore require-await
+        globalThis.fetch = async (_input, init) => {
+          return createDelayedJsonResponse(init?.signal, bodyRead, 100);
+        };
+
+        const transport = new MailtrapTransport({
+          apiToken: "test-token",
+          timeout: 0,
+          retries: 0,
+        });
+        const sending = transport.send(createMessage(), {
+          signal: controller.signal,
+        });
+
+        await bodyReading;
+        controller.abort();
+
+        await assert.rejects(sending, { name: "AbortError" });
       } finally {
         globalThis.fetch = originalFetch;
       }

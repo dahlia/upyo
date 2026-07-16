@@ -46,6 +46,11 @@ export interface MailtrapError {
   readonly errors?: readonly string[];
 }
 
+interface MailtrapHttpResponse {
+  readonly response: Response;
+  readonly text: string;
+}
+
 /**
  * Mailtrap API error class for API-specific failures.
  *
@@ -183,8 +188,8 @@ export class MailtrapHttpClient {
 
       let responseText: string;
       try {
-        const response = await this.fetchWithAuth(url, body, signal);
-        responseText = await response.text();
+        const { response, text } = await this.fetchWithAuth(url, body, signal);
+        responseText = text;
 
         if (!response.ok) {
           throw new MailtrapApiError(
@@ -238,7 +243,7 @@ export class MailtrapHttpClient {
     url: string,
     body: MailtrapEmail | { readonly requests: readonly MailtrapEmail[] },
     signal?: AbortSignal,
-  ): Promise<Response> {
+  ): Promise<MailtrapHttpResponse> {
     const headers = new Headers({
       "Content-Type": "application/json",
       "Api-Token": this.config.apiToken,
@@ -256,12 +261,14 @@ export class MailtrapHttpClient {
     const requestSignal = combineSignals(timeoutController.signal, signal);
 
     try {
-      return await globalThis.fetch(url, {
+      const response = await globalThis.fetch(url, {
         method: "POST",
         headers,
         body: JSON.stringify(body),
         signal: requestSignal.signal,
       });
+      const text = await response.text();
+      return { response, text };
     } catch (error) {
       if (
         error instanceof Error &&
