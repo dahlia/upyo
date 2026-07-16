@@ -1,7 +1,56 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
+import { createServer } from "node:http";
 import { PlunkTransport } from "./plunk-transport.ts";
 import type { Message } from "@upyo/core";
+
+const successfulResponse = {
+  success: true,
+  data: {
+    emails: [{
+      contact: {
+        id: "contact-id",
+        email: "to@example.com",
+      },
+      email: "email-record-id",
+    }],
+    timestamp: "2023-01-01T12:00:00Z",
+  },
+};
+
+async function withPlunkServer(
+  fixture: {
+    readonly status?: number;
+    readonly body: unknown;
+  },
+  run: (baseUrl: string) => Promise<void>,
+): Promise<void> {
+  const server = createServer((_request, response) => {
+    response.writeHead(fixture.status ?? 200, {
+      "Connection": "close",
+      "Content-Type": "application/json",
+    });
+    response.end(JSON.stringify(fixture.body));
+  });
+
+  await new Promise<void>((resolve, reject) => {
+    server.once("error", reject);
+    server.listen(0, "127.0.0.1", () => {
+      server.off("error", reject);
+      resolve();
+    });
+  });
+
+  try {
+    const address = server.address();
+    assert.ok(address && typeof address !== "string");
+    await run(`http://127.0.0.1:${address.port}`);
+  } finally {
+    await new Promise<void>((resolve, reject) => {
+      server.close((error) => error ? reject(error) : resolve());
+    });
+  }
+}
 
 describe("PlunkTransport", () => {
   function createTestMessage(overrides: Partial<Message> = {}): Message {
@@ -68,18 +117,23 @@ describe("PlunkTransport", () => {
   });
 
   it("should handle errors gracefully and return failed receipt", async () => {
-    const transport = new PlunkTransport({
-      apiKey: "test-key",
-      baseUrl: "https://httpstat.us/500", // Returns 500 error
-      retries: 0,
-      timeout: 10000,
-    });
+    await withPlunkServer(
+      { status: 500, body: { message: "server error" } },
+      async (baseUrl) => {
+        const transport = new PlunkTransport({
+          apiKey: "test-key",
+          baseUrl,
+          retries: 0,
+        });
 
-    const message = createTestMessage();
-    const receipt = await transport.send(message);
+        const receipt = await transport.send(createTestMessage());
 
-    // Accept either successful or failed, just ensure it handles the request
-    assert.ok(typeof receipt.successful === "boolean");
+        assert.equal(receipt.successful, false);
+        if (!receipt.successful) {
+          assert.ok(receipt.errorMessages.length > 0);
+        }
+      },
+    );
   });
 
   it("should handle AbortSignal in sendMany method", async () => {
@@ -106,93 +160,84 @@ describe("PlunkTransport", () => {
   });
 
   it("should process async iterable messages", async () => {
-    const transport = new PlunkTransport({
-      apiKey: "test-key",
-      baseUrl: "https://httpstat.us/200", // Simple 200 response
-      retries: 0,
+    await withPlunkServer({ body: successfulResponse }, async (baseUrl) => {
+      const transport = new PlunkTransport({
+        apiKey: "test-key",
+        baseUrl,
+        retries: 0,
+      });
+
+      async function* generateMessages() {
+        yield createTestMessage({ subject: "Message 1" });
+        yield createTestMessage({ subject: "Message 2" });
+      }
+
+      const receipts = [];
+      for await (const receipt of transport.sendMany(generateMessages())) {
+        receipts.push(receipt);
+      }
+
+      assert.equal(receipts.length, 2);
+      assert.ok(receipts.every((receipt) => receipt.successful));
     });
-
-    async function* generateMessages() {
-      yield createTestMessage({ subject: "Message 1" });
-      yield createTestMessage({ subject: "Message 2" });
-    }
-
-    const receipts = [];
-    for await (const receipt of transport.sendMany(generateMessages())) {
-      receipts.push(receipt);
-    }
-
-    assert.equal(receipts.length, 2);
-    assert.ok(receipts.every((r) => typeof r.successful === "boolean"));
   });
 
   it("should process sync iterable messages", async () => {
-    const transport = new PlunkTransport({
-      apiKey: "test-key",
-      baseUrl: "https://httpstat.us/200", // Simple 200 response
-      retries: 0,
+    await withPlunkServer({ body: successfulResponse }, async (baseUrl) => {
+      const transport = new PlunkTransport({
+        apiKey: "test-key",
+        baseUrl,
+        retries: 0,
+      });
+
+      const messages = [
+        createTestMessage({ subject: "Message 1" }),
+        createTestMessage({ subject: "Message 2" }),
+      ];
+
+      const receipts = [];
+      for await (const receipt of transport.sendMany(messages)) {
+        receipts.push(receipt);
+      }
+
+      assert.equal(receipts.length, 2);
+      assert.ok(receipts.every((receipt) => receipt.successful));
     });
-
-    const messages = [
-      createTestMessage({ subject: "Message 1" }),
-      createTestMessage({ subject: "Message 2" }),
-    ];
-
-    const receipts = [];
-    for await (const receipt of transport.sendMany(messages)) {
-      receipts.push(receipt);
-    }
-
-    assert.equal(receipts.length, 2);
-    assert.ok(receipts.every((r) => typeof r.successful === "boolean"));
   });
 
   it("should generate message ID from fallback when no response data", async () => {
-    const transport = new PlunkTransport({
-      apiKey: "test-key",
-      baseUrl: "https://httpstat.us/400", // Returns 400 error
-      retries: 0,
-      timeout: 10000,
-    });
+    await withPlunkServer(
+      {
+        body: {
+          success: true,
+          data: {
+            emails: [],
+            timestamp: "2023-01-01T12:00:00Z",
+          },
+        },
+      },
+      async (baseUrl) => {
+        const transport = new PlunkTransport({
+          apiKey: "test-key",
+          baseUrl,
+          retries: 0,
+        });
 
-    const message = createTestMessage();
-    const receipt = await transport.send(message);
+        const receipt = await transport.send(createTestMessage());
 
-    // Just ensure it returns a valid receipt structure
-    assert.ok(typeof receipt.successful === "boolean");
-    if (!receipt.successful) {
-      assert.ok(Array.isArray(receipt.errorMessages));
-    } else {
-      assert.ok(typeof receipt.messageId === "string");
-    }
+        assert.equal(receipt.successful, true);
+        if (receipt.successful) {
+          assert.match(receipt.messageId, /^plunk-/);
+        }
+      },
+    );
   });
 
   it("should use the Plunk email record ID from the response", async () => {
-    const originalFetch = globalThis.fetch;
-
-    try {
-      globalThis.fetch = (() =>
-        Promise.resolve(
-          new Response(
-            JSON.stringify({
-              success: true,
-              data: {
-                emails: [{
-                  contact: {
-                    id: "contact-id",
-                    email: "to@example.com",
-                  },
-                  email: "email-record-id",
-                }],
-                timestamp: "2023-01-01T12:00:00Z",
-              },
-            }),
-            { status: 200 },
-          ),
-        )) as typeof fetch;
-
+    await withPlunkServer({ body: successfulResponse }, async (baseUrl) => {
       const transport = new PlunkTransport({
         apiKey: "test-key",
+        baseUrl,
         retries: 0,
       });
 
@@ -202,8 +247,6 @@ describe("PlunkTransport", () => {
         successful: true,
         messageId: "email-record-id",
       });
-    } finally {
-      globalThis.fetch = originalFetch;
-    }
+    });
   });
 });
