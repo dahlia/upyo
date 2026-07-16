@@ -24,7 +24,7 @@ export function getTestConfig(): TestEnvironmentConfig {
     );
   }
 
-  const baseUrl = process.env.PLUNK_BASE_URL || "https://api.useplunk.com";
+  const baseUrl = process.env.PLUNK_BASE_URL || "https://next-api.useplunk.com";
 
   return {
     plunk: {
