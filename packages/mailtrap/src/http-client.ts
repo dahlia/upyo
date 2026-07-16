@@ -1,3 +1,4 @@
+import { combineSignals } from "@upyo/core";
 import type { ResolvedMailtrapConfig } from "./config.ts";
 import type { MailtrapEmail } from "./message-converter.ts";
 
@@ -355,45 +356,6 @@ function truncateErrorMessage(message: string): string {
 function abortReason(signal?: AbortSignal): unknown {
   return signal?.reason ??
     new DOMException("The operation was aborted.", "AbortError");
-}
-
-interface CombinedSignal {
-  readonly signal: AbortSignal;
-  cleanup(): void;
-}
-
-function combineSignals(
-  timeoutSignal: AbortSignal,
-  externalSignal?: AbortSignal,
-): CombinedSignal {
-  if (externalSignal == null) {
-    return { signal: timeoutSignal, cleanup: () => {} };
-  }
-
-  if (typeof AbortSignal.any === "function") {
-    return {
-      signal: AbortSignal.any([timeoutSignal, externalSignal]),
-      cleanup: () => {},
-    };
-  }
-
-  const controller = new AbortController();
-  const abort = () => controller.abort();
-
-  timeoutSignal.addEventListener("abort", abort, { once: true });
-  externalSignal.addEventListener("abort", abort, { once: true });
-
-  if (timeoutSignal.aborted || externalSignal.aborted) {
-    controller.abort();
-  }
-
-  return {
-    signal: controller.signal,
-    cleanup: () => {
-      timeoutSignal.removeEventListener("abort", abort);
-      externalSignal.removeEventListener("abort", abort);
-    },
-  };
 }
 
 function sleep(ms: number, signal?: AbortSignal): Promise<void> {
