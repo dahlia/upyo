@@ -7,7 +7,7 @@ import type { ResolvedPlunkConfig } from "./config.ts";
 interface PlunkAttachment {
   filename: string;
   content: string;
-  type: string;
+  contentType: string;
 }
 
 /**
@@ -17,7 +17,6 @@ interface PlunkEmail {
   to: string | string[];
   subject: string;
   body: string;
-  subscribed?: boolean;
   name?: string;
   from?: string;
   reply?: string;
@@ -96,7 +95,6 @@ export async function convertMessage(
     to,
     subject: message.subject,
     body,
-    subscribed: false, // Default to false for transactional emails
   };
 
   // Add optional fields if present
@@ -142,7 +140,7 @@ async function convertAttachment(
     return {
       filename: attachment.filename,
       content: base64Content,
-      type: attachment.contentType,
+      contentType: attachment.contentType,
     };
   } catch (error) {
     // Log error but don't fail the entire send operation

@@ -17,6 +17,9 @@ export interface PlunkResponse {
       readonly id: string;
       readonly email: string;
     };
+    /**
+     * Plunk email record ID used to correlate webhook events.
+     */
     readonly email: string;
   }[];
 
@@ -196,7 +199,16 @@ export class PlunkHttpClient {
         );
       }
 
-      return data as PlunkResponse;
+      const responseData = "data" in data ? data.data : data;
+      if (typeof responseData !== "object" || responseData === null) {
+        throw new Error("Invalid response format: missing data field");
+      }
+
+      return {
+        success: true,
+        emails: (responseData as PlunkResponse).emails,
+        timestamp: (responseData as PlunkResponse).timestamp,
+      };
     } catch (error) {
       if (error instanceof SyntaxError) {
         throw new Error("Invalid JSON response from Plunk API");

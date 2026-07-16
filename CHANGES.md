@@ -6,6 +6,14 @@ Version 0.4.1
 
 To be released.
 
+### @upyo/plunk
+
+ -  Updated the default Plunk API base URL to
+    `https://next-api.useplunk.com` and adapted request and response handling
+    to the new API contract.  [[#35]]
+
+[#35]: https://github.com/dahlia/upyo/issues/35
+
 
 Version 0.4.0
 -------------

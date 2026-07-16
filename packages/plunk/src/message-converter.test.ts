@@ -31,7 +31,7 @@ describe("convertMessage", () => {
     assert.equal(result.to, "to@example.com");
     assert.equal(result.subject, "Test Subject");
     assert.equal(result.body, "Test message content");
-    assert.equal(result.subscribed, false);
+    assert.ok(!("subscribed" in result));
     assert.equal(result.name, "Sender Name");
     assert.equal(result.from, "from@example.com");
   });
@@ -177,7 +177,7 @@ describe("convertMessage", () => {
 
     assert.equal(result.attachments?.length, 1);
     assert.equal(result.attachments?.[0].filename, "test.txt");
-    assert.equal(result.attachments?.[0].type, "text/plain");
+    assert.equal(result.attachments?.[0].contentType, "text/plain");
 
     // Verify base64 encoding
     const expectedBase64 = btoa("Hello, attachment!");

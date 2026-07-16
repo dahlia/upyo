@@ -199,7 +199,7 @@ import { readFile } from "node:fs/promises";
 
 const transport = new PlunkTransport({
   apiKey: "sk_1234567890abcdef1234567890abcdef1234567890abcdef",
-  baseUrl: "https://api.useplunk.com",
+  baseUrl: "https://next-api.useplunk.com",
   timeout: 15000,
   retries: 5,
   validateSsl: true,
@@ -303,7 +303,7 @@ const devTransport = new PlunkTransport({
 // Testing configuration with environment variables
 const testTransport = new PlunkTransport({
   apiKey: process.env.PLUNK_TEST_API_KEY ?? "sk_test123",
-  baseUrl: process.env.PLUNK_TEST_URL ?? "https://api.useplunk.com",
+  baseUrl: process.env.PLUNK_TEST_URL ?? "https://next-api.useplunk.com",
   timeout: 10000,
   retries: 1, // Fewer retries for faster test execution
 });

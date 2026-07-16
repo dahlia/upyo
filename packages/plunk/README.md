@@ -72,7 +72,7 @@ See the [Plunk docs] for more information about configuration options.
 ### Available Options
 
  -  `apiKey`: Your Plunk API key
- -  `baseUrl`: API base URL (default: `https://api.useplunk.com`)
+ -  `baseUrl`: API base URL (default: `https://next-api.useplunk.com`)
  -  `timeout`: Request timeout in milliseconds (default: `30000`)
  -  `retries`: Number of retry attempts (default: `3`)
  -  `validateSsl`: Whether to validate SSL certificates (default: `true`)

@@ -28,7 +28,7 @@ describe("PlunkTransport", () => {
 
     assert.ok(transport);
     assert.equal(transport.config.apiKey, "test-api-key");
-    assert.equal(transport.config.baseUrl, "https://api.useplunk.com");
+    assert.equal(transport.config.baseUrl, "https://next-api.useplunk.com");
   });
 
   it("should create transport with custom config", () => {
@@ -167,8 +167,7 @@ describe("PlunkTransport", () => {
     }
   });
 
-  it("should generate fallback message ID when response lacks details", async () => {
-    // Mock successful fetch response without detailed IDs
+  it("should use the Plunk email record ID from the response", async () => {
     const originalFetch = globalThis.fetch;
 
     try {
@@ -177,8 +176,16 @@ describe("PlunkTransport", () => {
           new Response(
             JSON.stringify({
               success: true,
-              emails: [],
-              timestamp: "2023-01-01T12:00:00Z",
+              data: {
+                emails: [{
+                  contact: {
+                    id: "contact-id",
+                    email: "to@example.com",
+                  },
+                  email: "email-record-id",
+                }],
+                timestamp: "2023-01-01T12:00:00Z",
+              },
             }),
             { status: 200 },
           ),
@@ -189,14 +196,12 @@ describe("PlunkTransport", () => {
         retries: 0,
       });
 
-      const message = createTestMessage();
-      const receipt = await transport.send(message);
+      const receipt = await transport.send(createTestMessage());
 
-      assert.equal(receipt.successful, true);
-      if (receipt.successful) {
-        assert.ok(receipt.messageId.startsWith("plunk-"));
-        assert.ok(receipt.messageId.includes("to")); // from recipient
-      }
+      assert.deepEqual(receipt, {
+        successful: true,
+        messageId: "email-record-id",
+      });
     } finally {
       globalThis.fetch = originalFetch;
     }
