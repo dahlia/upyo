@@ -3,6 +3,8 @@ import type { ResolvedMailtrapConfig } from "./config.ts";
 import type { MailtrapEmail } from "./message-converter.ts";
 
 const maxErrorMessageLength = 500;
+const sandboxRateLimitWindowMilliseconds = 10_000;
+const sandboxRateLimitMessage = "too many emails per second";
 
 /**
  * Response from Mailtrap API for sending a single message.
@@ -67,7 +69,8 @@ export class MailtrapApiError extends Error {
    *
    * @param message Error message.
    * @param statusCode HTTP status code.
-   * @param retryAfterMilliseconds Retry delay from the response.
+   * @param retryAfterMilliseconds Retry delay from the response or Mailtrap's
+   * known sandbox rate-limit window.
    * @param attempts Number of attempts made before this error.
    */
   constructor(
@@ -193,10 +196,16 @@ export class MailtrapHttpClient {
         responseText = text;
 
         if (!response.ok) {
+          const message = parseErrorMessage(responseText, response.status);
           throw new MailtrapApiError(
-            parseErrorMessage(responseText, response.status),
+            message,
             response.status,
-            parseRetryAfter(response.headers.get("Retry-After")),
+            parseRetryAfter(response.headers.get("Retry-After")) ??
+              inferSandboxRetryAfter(
+                message,
+                response.status,
+                this.config.sandbox,
+              ),
             attempt + 1,
           );
         }
@@ -329,6 +338,20 @@ function parseRetryAfter(header: string | null): number | undefined {
   const asDate = Date.parse(header);
   if (Number.isNaN(asDate)) return undefined;
   return Math.max(0, asDate - Date.now());
+}
+
+function inferSandboxRetryAfter(
+  message: string,
+  statusCode: number,
+  sandbox: boolean,
+): number | undefined {
+  if (
+    sandbox && statusCode === 429 &&
+    message.toLowerCase().includes(sandboxRateLimitMessage)
+  ) {
+    return sandboxRateLimitWindowMilliseconds;
+  }
+  return undefined;
 }
 
 function parseErrorMessage(text: string, statusCode: number): string {

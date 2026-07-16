@@ -206,6 +206,135 @@ describe("MailtrapTransport - API Errors", () => {
   });
 
   serialIt(
+    "uses the sandbox rate-limit window when Retry-After is missing",
+    async () => {
+      const originalFetch = globalThis.fetch;
+      try {
+        // deno-lint-ignore require-await
+        globalThis.fetch = async () => {
+          return new Response(
+            JSON.stringify({
+              success: false,
+              errors: [
+                "Too many emails per second. Please upgrade your plan.",
+              ],
+            }),
+            {
+              status: 429,
+              headers: { "Content-Type": "application/json" },
+            },
+          );
+        };
+
+        const transport = new MailtrapTransport({
+          apiToken: "test-token",
+          sandbox: true,
+          inboxId: 12345,
+          retries: 0,
+        });
+
+        const receipt = await transport.send(createMessage());
+
+        assert.ok(!receipt.successful);
+        if (!receipt.successful) {
+          assert.equal(receipt.errors?.[0]?.statusCode, 429);
+          assert.equal(
+            receipt.errors?.[0]?.retryAfterMilliseconds,
+            10_000,
+          );
+        }
+      } finally {
+        globalThis.fetch = originalFetch;
+      }
+    },
+  );
+
+  serialIt(
+    "prefers Retry-After over the sandbox rate-limit window",
+    async () => {
+      const originalFetch = globalThis.fetch;
+      try {
+        // deno-lint-ignore require-await
+        globalThis.fetch = async () => {
+          return new Response(
+            JSON.stringify({
+              success: false,
+              errors: ["Too many emails per second."],
+            }),
+            {
+              status: 429,
+              headers: {
+                "Content-Type": "application/json",
+                "Retry-After": "12",
+              },
+            },
+          );
+        };
+
+        const transport = new MailtrapTransport({
+          apiToken: "test-token",
+          sandbox: true,
+          inboxId: 12345,
+          retries: 0,
+        });
+
+        const receipt = await transport.send(createMessage());
+
+        assert.ok(!receipt.successful);
+        if (!receipt.successful) {
+          assert.equal(
+            receipt.errors?.[0]?.retryAfterMilliseconds,
+            12_000,
+          );
+        }
+      } finally {
+        globalThis.fetch = originalFetch;
+      }
+    },
+  );
+
+  serialIt(
+    "does not infer a delay for unrelated sandbox rate limits",
+    async () => {
+      const originalFetch = globalThis.fetch;
+      try {
+        // deno-lint-ignore require-await
+        globalThis.fetch = async () => {
+          return new Response(
+            JSON.stringify({
+              success: false,
+              errors: ["Monthly testing limit exhausted."],
+            }),
+            {
+              status: 429,
+              headers: { "Content-Type": "application/json" },
+            },
+          );
+        };
+
+        const transport = new MailtrapTransport({
+          apiToken: "test-token",
+          sandbox: true,
+          inboxId: 12345,
+          retries: 0,
+        });
+
+        const receipt = await transport.send(createMessage());
+
+        assert.ok(!receipt.successful);
+        if (!receipt.successful) {
+          assert.equal(
+            receipt.errors?.[0]?.retryAfterMilliseconds,
+            undefined,
+          );
+        }
+      } finally {
+        globalThis.fetch = originalFetch;
+      }
+    },
+  );
+
+  serialIt(
     "truncates non-JSON API response bodies in failure receipts",
     async () => {
       const originalFetch = globalThis.fetch;
