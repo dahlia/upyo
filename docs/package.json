@@ -13,6 +13,7 @@
     "@upyo/lettermint": "workspace:",
     "@upyo/logtape": "workspace:",
     "@upyo/maileroo": "workspace:",
+    "@upyo/mailtrap": "workspace:",
     "@upyo/mailgun": "workspace:",
     "@upyo/mock": "workspace:",
     "@upyo/opentelemetry": "workspace:",

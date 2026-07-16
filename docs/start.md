@@ -60,6 +60,9 @@ strengths and use cases:
 [Maileroo](./transports/maileroo.md)
 :   JSON Email API with attachments, tags, custom headers, and tracking
 
+[Mailtrap](./transports/mailtrap.md)
+:   Email API and Email Sandbox for production delivery and test inbox capture
+
 [Resend](./transports/resend.md)
 :   Modern email service provider that offers a developer-friendly API
 

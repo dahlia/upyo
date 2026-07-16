@@ -37,6 +37,7 @@ functions.  It's structured as a monorepo with multiple packages:
  -  *@upyo/lettermint*: Lettermint transport implementation
  -  *@upyo/logtape*: LogTape observability transport
  -  *@upyo/maileroo*: Maileroo transport implementation
+ -  *@upyo/mailtrap*: Mailtrap transport implementation
  -  *@upyo/mailgun*: Mailgun transport implementation
  -  *@upyo/sendgrid*: SendGrid transport implementation
  -  *@upyo/ses*: Amazon SES transport implementation
@@ -273,6 +274,8 @@ the application.
     sending, routes, tags, metadata, and tracking settings
  -  *@upyo/maileroo*: Maileroo HTTP API transport with attachments, custom
     headers, tags, and tracking settings
+ -  *@upyo/mailtrap*: Mailtrap HTTP API transport with Email API and Email
+    Sandbox support, batch sending, categories, and metadata
  -  *@upyo/mailgun*: Mailgun HTTP API transport with support for US/EU regions
     and batch operations
  -  *@upyo/sendgrid*: SendGrid HTTP API transport with template support and
@@ -295,8 +298,8 @@ the application.
 
  -  *SMTP*: Direct protocol implementation, works with any SMTP server,
     supports connection reuse
- -  *HTTP-based* (Lettermint, Mailgun, SendGrid, SES): Stateless, simpler
-    configuration, provider-specific features
+ -  *HTTP-based* (Lettermint, Mailtrap, Mailgun, SendGrid, SES): Stateless,
+    simpler configuration, provider-specific features
  -  *Mock*: In-memory storage, failure simulation, comprehensive testing
     utilities
  -  *OpenTelemetry*: Transparent wrapper, metrics collection, distributed
