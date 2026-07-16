@@ -51,7 +51,7 @@ jobs:
         run_install: true
     - uses: actions/setup-node@v4
       with:
-        node-version: latest
+        node-version: "24"
     - name: Start Stalwart
       run: docker compose -f packages/jmap/docker-compose.yml up -d
     - name: Setup Stalwart test accounts
