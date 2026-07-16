@@ -152,6 +152,37 @@ describe("convertMessage", () => {
     assert.equal(result.attachments?.[0]?.content, btoa("hello"));
   });
 
+  it("propagates aborts while converting attachments", async () => {
+    const controller = new AbortController();
+    const reason = new Error("Stop converting Mailtrap message.");
+    const content = new Promise<Uint8Array>(() => {});
+    const conversion = convertMessage(
+      createBaseMessage({
+        attachments: [{
+          inline: false,
+          filename: "slow.txt",
+          content,
+          contentType: "text/plain",
+          contentId: "",
+        }],
+      }),
+      baseConfig,
+      controller.signal,
+    );
+
+    controller.abort(reason);
+
+    await assert.rejects(
+      Promise.race([
+        conversion,
+        new Promise<never>((_resolve, reject) => {
+          setTimeout(() => reject(new Error("Conversion did not abort.")), 50);
+        }),
+      ]),
+      (error: unknown) => error === reason,
+    );
+  });
+
   it("rejects messages without text or HTML content", async () => {
     await assert.rejects(
       () =>

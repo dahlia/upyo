@@ -77,7 +77,11 @@ export class MailtrapTransport implements Transport<"mailtrap"> {
     try {
       options?.signal?.throwIfAborted();
 
-      const emailData = await convertMessage(message, this.config);
+      const emailData = await convertMessage(
+        message,
+        this.config,
+        options?.signal,
+      );
 
       options?.signal?.throwIfAborted();
 
@@ -134,9 +138,16 @@ export class MailtrapTransport implements Transport<"mailtrap"> {
 
     for (const message of messages) {
       try {
-        batchData.push(await convertMessage(message, this.config));
+        batchData.push(
+          await convertMessage(
+            message,
+            this.config,
+            options?.signal,
+          ),
+        );
         receipts.push(undefined);
       } catch (error) {
+        if (isCallerAbort(error, options?.signal)) throw error;
         receipts.push(createMailtrapFailure(
           error instanceof Error ? error.message : String(error),
           error,

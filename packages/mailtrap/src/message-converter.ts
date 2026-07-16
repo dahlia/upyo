@@ -64,14 +64,19 @@ export interface MailtrapEmail {
  *
  * @param message The Upyo message to convert.
  * @param config The resolved Mailtrap configuration.
+ * @param signal Optional abort signal for cancellation.
  * @returns JSON object ready for Mailtrap API submission.
  * @throws {RangeError} If the message has no text or HTML content.
+ * @throws {Error} If the caller aborts the operation.
  * @since 0.6.0
  */
 export async function convertMessage(
   message: Message,
   config: ResolvedMailtrapConfig,
+  signal?: AbortSignal,
 ): Promise<MailtrapEmail> {
+  signal?.throwIfAborted();
+
   const emailData: MutableMailtrapEmail = {
     from: formatAddress(message.sender),
     to: message.recipients.map(formatAddress),
@@ -133,9 +138,13 @@ export async function convertMessage(
 
   if (message.attachments.length > 0) {
     emailData.attachments = await Promise.all(
-      message.attachments.map(convertAttachment),
+      message.attachments.map((attachment) =>
+        convertAttachment(attachment, signal)
+      ),
     );
   }
+
+  signal?.throwIfAborted();
 
   return emailData;
 }
@@ -179,8 +188,14 @@ function formatAddress(address: Address): MailtrapAddress {
 
 async function convertAttachment(
   attachment: Attachment,
+  signal?: AbortSignal,
 ): Promise<MailtrapAttachment> {
-  const contentBytes = await attachment.content;
+  signal?.throwIfAborted();
+  const contentBytes = await waitForAttachmentContent(
+    attachment.content,
+    signal,
+  );
+  signal?.throwIfAborted();
   const converted: {
     content: string;
     filename: string;
@@ -204,6 +219,44 @@ async function convertAttachment(
   }
 
   return converted;
+}
+
+function waitForAttachmentContent(
+  content: Uint8Array | Promise<Uint8Array>,
+  signal?: AbortSignal,
+): Promise<Uint8Array> {
+  if (content instanceof Uint8Array) {
+    return signal?.aborted
+      ? Promise.reject(abortReason(signal))
+      : Promise.resolve(content);
+  }
+  if (signal == null) return content;
+  if (signal.aborted) return Promise.reject(abortReason(signal));
+
+  return new Promise((resolve, reject) => {
+    const onAbort = () => {
+      signal.removeEventListener("abort", onAbort);
+      reject(abortReason(signal));
+    };
+
+    signal.addEventListener("abort", onAbort, { once: true });
+
+    content.then(
+      (value) => {
+        signal.removeEventListener("abort", onAbort);
+        resolve(value);
+      },
+      (error: unknown) => {
+        signal.removeEventListener("abort", onAbort);
+        reject(error);
+      },
+    );
+  });
+}
+
+function abortReason(signal: AbortSignal): unknown {
+  return signal.reason ??
+    new DOMException("The operation was aborted.", "AbortError");
 }
 
 interface Base64Options {
