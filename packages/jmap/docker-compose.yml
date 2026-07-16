@@ -1,6 +1,7 @@
 services:
   stalwart:
-    image: stalwartlabs/stalwart:latest
+    # Stalwart 0.16 removed the REST management API used by setup-stalwart.sh.
+    image: docker.io/stalwartlabs/stalwart:v0.15.5
     container_name: upyo-stalwart
     ports:
       - "8080:8080"   # HTTP/JMAP port
