@@ -462,12 +462,19 @@ describe("MailtrapTransport - Batch Send", () => {
     try {
       // deno-lint-ignore require-await
       globalThis.fetch = async (_input, init) => {
-        const body = JSON.parse(String(init?.body));
-        requestSizes.push(body.requests.length);
+        const body: unknown = JSON.parse(String(init?.body));
+        assert.ok(
+          typeof body === "object" &&
+            body !== null &&
+            "requests" in body &&
+            Array.isArray(body.requests),
+        );
+        const requests = body.requests;
+        requestSizes.push(requests.length);
         return new Response(
           JSON.stringify({
             success: true,
-            responses: body.requests.map((_: unknown, index: number) => ({
+            responses: requests.map((_: unknown, index: number) => ({
               success: true,
               message_ids: [`id-${requestSizes.length}-${index}`],
             })),
