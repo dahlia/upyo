@@ -33,6 +33,10 @@ jobs:
       MAILGUN_TO: ${{ secrets.MAILGUN_TO }}
       MAILGUN_DOMAIN: ${{ secrets.MAILGUN_DOMAIN }}
       MAILGUN_REGION: ${{ secrets.MAILGUN_REGION }}
+      PLUNK_API_KEY: ${{ secrets.PLUNK_API_KEY }}
+      PLUNK_BASE_URL: ${{ secrets.PLUNK_BASE_URL }}
+      PLUNK_FROM: ${{ secrets.PLUNK_FROM }}
+      PLUNK_TO: ${{ secrets.PLUNK_TO }}
       RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
       RESEND_TO: ${{ secrets.RESEND_TO }}
       RESEND_VERIFIED_DOMAIN: ${{ secrets.RESEND_VERIFIED_DOMAIN }}
@@ -85,6 +89,10 @@ jobs:
       MAILGUN_TO: ${{ secrets.MAILGUN_TO }}
       MAILGUN_DOMAIN: ${{ secrets.MAILGUN_DOMAIN }}
       MAILGUN_REGION: ${{ secrets.MAILGUN_REGION }}
+      PLUNK_API_KEY: ${{ secrets.PLUNK_API_KEY }}
+      PLUNK_BASE_URL: ${{ secrets.PLUNK_BASE_URL }}
+      PLUNK_FROM: ${{ secrets.PLUNK_FROM }}
+      PLUNK_TO: ${{ secrets.PLUNK_TO }}
       RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
       RESEND_TO: ${{ secrets.RESEND_TO }}
       RESEND_VERIFIED_DOMAIN: ${{ secrets.RESEND_VERIFIED_DOMAIN }}
@@ -142,6 +150,10 @@ jobs:
       MAILGUN_TO: ${{ secrets.MAILGUN_TO }}
       MAILGUN_DOMAIN: ${{ secrets.MAILGUN_DOMAIN }}
       MAILGUN_REGION: ${{ secrets.MAILGUN_REGION }}
+      PLUNK_API_KEY: ${{ secrets.PLUNK_API_KEY }}
+      PLUNK_BASE_URL: ${{ secrets.PLUNK_BASE_URL }}
+      PLUNK_FROM: ${{ secrets.PLUNK_FROM }}
+      PLUNK_TO: ${{ secrets.PLUNK_TO }}
       RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
       RESEND_TO: ${{ secrets.RESEND_TO }}
       RESEND_VERIFIED_DOMAIN: ${{ secrets.RESEND_VERIFIED_DOMAIN }}
