@@ -165,13 +165,13 @@ export function createMailtrapConfig(
     timeout: config.timeout ?? 30000,
     retries: config.retries ?? 3,
     validateSsl: config.validateSsl ?? true,
-    headers: config.headers ?? {},
+    headers: config.headers == null ? {} : { ...config.headers },
   };
 }
 
 function isValidInboxId(inboxId: string | number | undefined): boolean {
   if (inboxId === undefined || inboxId === null) return false;
-  if (typeof inboxId === "number") return true;
+  if (typeof inboxId === "number") return Number.isFinite(inboxId);
   return inboxId.trim().length > 0;
 }
 

@@ -54,6 +54,18 @@ describe("createMailtrapConfig", () => {
     assert.deepEqual(resolved.headers, { "X-Custom": "value" });
   });
 
+  it("copies custom headers", () => {
+    const headers = { "X-Custom": "value" };
+    const resolved = createMailtrapConfig({
+      apiToken: "test-token",
+      headers,
+    });
+
+    headers["X-Custom"] = "changed";
+
+    assert.deepEqual(resolved.headers, { "X-Custom": "value" });
+  });
+
   it("preserves zero timeout and retry values", () => {
     const resolved = createMailtrapConfig({
       apiToken: "test-token",
@@ -88,5 +100,23 @@ describe("createMailtrapConfig", () => {
         message: "`inboxId` is required when Mailtrap sandbox mode is enabled.",
       },
     );
+  });
+
+  it("rejects non-finite numeric inbox IDs", () => {
+    for (const inboxId of [Number.NaN, Number.POSITIVE_INFINITY]) {
+      assert.throws(
+        () =>
+          createMailtrapConfig({
+            apiToken: "test-token",
+            sandbox: true,
+            inboxId,
+          }),
+        {
+          name: "RangeError",
+          message:
+            "`inboxId` is required when Mailtrap sandbox mode is enabled.",
+        },
+      );
+    }
   });
 });
