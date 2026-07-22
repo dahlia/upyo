@@ -162,24 +162,51 @@ attachment count, and priority.  Completion events additionally include
 duration and receipt or error details.
 
 
-Recording complete messages
----------------------------
+Recording message content
+-------------------------
 
-Messages are excluded from structured log properties by default.  Set
-`recordMessage: true` to add the complete `Message` object to every lifecycle
-event:
+Messages are excluded from logs by default.  The `recordMessage` option has
+two modes:
+
+`"properties"`
+:   Adds the complete `Message` object to the structured properties of every
+    lifecycle event.  The log message itself remains on one line.
+
+`"inline"`
+:   Adds the same `message` property and renders the subject and body beneath
+    the lifecycle message.  This format is convenient when reading local
+    development logs.
+
+Use `"properties"` when a sink will process the message as structured data:
 
 ~~~~ typescript twoslash
 import { LogTapeTransport } from "@upyo/logtape";
 
 const transport = new LogTapeTransport({
-  recordMessage: true,
+  recordMessage: "properties",
 });
 ~~~~
 
+Use `"inline"` to include the subject and body in the rendered log output:
+
+~~~~ typescript twoslash
+import { LogTapeTransport } from "@upyo/logtape";
+
+const transport = new LogTapeTransport({
+  recordMessage: "inline",
+});
+~~~~
+
+Inline mode uses plain text whenever the `text` property is defined, even when
+it is an empty string.  If no plain-text body is defined, it uses the HTML
+body.  The subject and body remain LogTape placeholders instead of being
+combined into a string before logging, so sinks retain control over value
+rendering and redaction.  Lifecycle errors without an associated message stay
+on one line.
+
 > [!CAUTION]
-> Complete messages can contain personal addresses, subjects, email bodies,
-> custom headers, and large attachment data.  Enable this option only for
-> sinks with suitable access controls and [redaction].
+> Both modes expose complete messages.  These can contain personal addresses,
+> subjects, email bodies, custom headers, and large attachment data.  Enable
+> either mode only for sinks with suitable access controls and [redaction].
 
 [redaction]: https://logtape.org/manual/redaction

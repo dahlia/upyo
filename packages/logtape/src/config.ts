@@ -54,15 +54,19 @@ export interface LogTapeTransportOptions<
   readonly category?: string | readonly string[];
 
   /**
-   * Whether to include the complete email message in structured log
-   * properties.
+   * How to include the complete email message in logs.
+   *
+   * `"properties"` adds the message to structured log properties while
+   * keeping the lifecycle message on one line.  `"inline"` also renders the
+   * subject and body beneath the lifecycle message.  Plain text is preferred
+   * when it is defined; otherwise, the HTML body is rendered.
    *
    * Messages may contain sensitive or large values, including email bodies,
    * headers, and attachment data.
    *
-   * @default false
+   * @default undefined
    */
-  readonly recordMessage?: boolean;
+  readonly recordMessage?: "properties" | "inline";
 
   /**
    * Levels used for delivery lifecycle events.
@@ -85,8 +89,8 @@ export interface ResolvedLogTapeTransportOptions<
   /** Resolved LogTape category. */
   readonly category: readonly string[];
 
-  /** Whether complete messages are included in structured logs. */
-  readonly recordMessage: boolean;
+  /** Resolved complete-message recording mode, or `false` when disabled. */
+  readonly recordMessage: "properties" | "inline" | false;
 
   /** Resolved delivery lifecycle log levels. */
   readonly levels: Required<LogTapeTransportLevels>;

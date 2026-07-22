@@ -38,6 +38,14 @@ const createProviderSpecificTransportWithoutWrapper = () => {
 };
 void createProviderSpecificTransportWithoutWrapper;
 
+const createTransportWithBooleanRecordMessage = () => {
+  return new LogTapeTransport({
+    // @ts-expect-error Boolean recordMessage values are not supported.
+    recordMessage: true,
+  });
+};
+void createTransportWithBooleanRecordMessage;
+
 describe("LogTapeTransport", { concurrency: 1 }, () => {
   it("logs standalone sends and returns a synthetic receipt", async () => {
     await withRecorder(async (recorder) => {
@@ -52,6 +60,7 @@ describe("LogTapeTransport", { concurrency: 1 }, () => {
       assert.equal(receipt.attempts, 1);
       assert.ok(receipt.timestamp != null);
       assert.equal(transport.id, "logtape");
+      assert.equal(transport.config.recordMessage, false);
       assert.equal(recorder.records.length, 2);
       recorder.assertLogged({
         category: ["upyo"],
@@ -90,7 +99,7 @@ describe("LogTapeTransport", { concurrency: 1 }, () => {
     await withRecorder(async (recorder) => {
       const transport = new LogTapeTransport({
         category: ["application", "mail"],
-        recordMessage: true,
+        recordMessage: "properties",
         levels: {
           sending: "trace",
           sent: "warning",
@@ -103,12 +112,99 @@ describe("LogTapeTransport", { concurrency: 1 }, () => {
       recorder.assertLogged({
         category: ["application", "mail"],
         level: "trace",
+        message: "Sending email.",
         properties: { event: "email.sending", message },
       });
       recorder.assertLogged({
         category: ["application", "mail"],
         level: "warning",
+        message: "Email sent.",
         properties: { event: "email.sent", message },
+      });
+    });
+  });
+
+  it("renders message subjects and text content inline", async () => {
+    await withRecorder(async (recorder) => {
+      const transport = new LogTapeTransport({ recordMessage: "inline" });
+
+      await transport.send(message);
+
+      recorder.assertLogged({
+        message:
+          /^Sending email\.\n\nSubject: ["']Test message["']\n\n["']Hello from Upyo\.["']$/,
+        rawMessage:
+          "Sending email.\n\nSubject: {message.subject}\n\n{message.content.text}",
+        properties: { event: "email.sending", message },
+      });
+      recorder.assertLogged({
+        message:
+          /^Email sent\.\n\nSubject: ["']Test message["']\n\n["']Hello from Upyo\.["']$/,
+        rawMessage:
+          "Email sent.\n\nSubject: {message.subject}\n\n{message.content.text}",
+        properties: { event: "email.sent", message },
+      });
+    });
+  });
+
+  it("renders failed receipts inline", async () => {
+    await withRecorder(async (recorder) => {
+      const base = new RecordingTransport();
+      base.nextReceipt = createFailedReceipt("Provider rejected the message.", {
+        provider: "base",
+        category: "rejected",
+        code: "base.rejected",
+        retryable: false,
+      });
+      const transport = new LogTapeTransport({
+        transport: base,
+        recordMessage: "inline",
+      });
+
+      await transport.send(message);
+
+      recorder.assertLogged({
+        message:
+          /^Failed to send email\.\n\nSubject: ["']Test message["']\n\n["']Hello from Upyo\.["']$/,
+        rawMessage:
+          "Failed to send email.\n\nSubject: {message.subject}\n\n{message.content.text}",
+        properties: { event: "email.failed", message },
+      });
+    });
+  });
+
+  it("uses HTML inline only when plain text is undefined", async () => {
+    await withRecorder(async (recorder) => {
+      const transport = new LogTapeTransport({ recordMessage: "inline" });
+      const htmlMessage = createMessage({
+        from: "sender@example.com",
+        to: "recipient@example.net",
+        subject: "HTML message",
+        content: { html: "<p>Hello from HTML.</p>", text: undefined },
+      });
+      const alternativeMessage = createMessage({
+        from: "sender@example.com",
+        to: "recipient@example.net",
+        subject: "Alternative message",
+        content: { html: "<p>HTML alternative.</p>", text: "" },
+      });
+
+      await transport.send(htmlMessage);
+      await transport.send(alternativeMessage);
+
+      recorder.assertLogged({
+        message:
+          /^Email sent\.\n\nSubject: ["']HTML message["']\n\n["']<p>Hello from HTML\.<\/p>["']$/,
+        rawMessage:
+          "Email sent.\n\nSubject: {message.subject}\n\n{message.content.html}",
+        properties: { event: "email.sent", message: htmlMessage },
+      });
+      recorder.assertLogged({
+        message:
+          /^Email sent\.\n\nSubject: ["']Alternative message["']\n\n["']{2}$/,
+        rawMessage:
+          "Email sent.\n\nSubject: {message.subject}\n\n{message.content.text}",
+        properties: { event: "email.sent", message: alternativeMessage },
       });
     });
   });
@@ -210,7 +306,10 @@ describe("LogTapeTransport", { concurrency: 1 }, () => {
   it("delegates sendMany while logging each message and receipt", async () => {
     await withRecorder(async (recorder) => {
       const base = new RecordingTransport();
-      const transport = new LogTapeTransport({ transport: base });
+      const transport = new LogTapeTransport({
+        transport: base,
+        recordMessage: "inline",
+      });
       const secondMessage = createMessage({
         from: "sender@example.com",
         to: "third@example.net",
@@ -247,6 +346,30 @@ describe("LogTapeTransport", { concurrency: 1 }, () => {
           (record) => record.properties.operation === "sendMany",
         ),
       );
+      assert.deepEqual(
+        recorder.records.map((record) => record.properties.message),
+        [message, message, secondMessage, secondMessage],
+      );
+      recorder.assertLogged({
+        message:
+          /^Sending email\.\n\nSubject: ["']Test message["']\n\n["']Hello from Upyo\.["']$/,
+        properties: { event: "email.sending", message },
+      });
+      recorder.assertLogged({
+        message:
+          /^Email sent\.\n\nSubject: ["']Test message["']\n\n["']Hello from Upyo\.["']$/,
+        properties: { event: "email.sent", message },
+      });
+      recorder.assertLogged({
+        message:
+          /^Sending email\.\n\nSubject: ["']Second message["']\n\n["']Another message\.["']$/,
+        properties: { event: "email.sending", message: secondMessage },
+      });
+      recorder.assertLogged({
+        message:
+          /^Email sent\.\n\nSubject: ["']Second message["']\n\n["']Another message\.["']$/,
+        properties: { event: "email.sent", message: secondMessage },
+      });
     });
   });
 
@@ -345,7 +468,7 @@ describe("LogTapeTransport", { concurrency: 1 }, () => {
       const base = new ConsumingThenThrowingTransport(error);
       const transport = new LogTapeTransport({
         transport: base,
-        recordMessage: true,
+        recordMessage: "inline",
       });
 
       let thrown: unknown;
@@ -379,6 +502,53 @@ describe("LogTapeTransport", { concurrency: 1 }, () => {
       assert.ok(
         failures.every((record) => record.properties.error === error),
       );
+      recorder.assertLogged({
+        message:
+          /^Failed to send email: TypeError: Batch transport failed\.[\s\S]*\n\nSubject: ["']Test message["']\n\n["']Hello from Upyo\.["']$/,
+        rawMessage:
+          "Failed to send email: {error}\n\nSubject: {message.subject}\n\n{message.content.text}",
+        properties: { event: "email.failed", message },
+      });
+      recorder.assertLogged({
+        message:
+          /^Failed to send email: TypeError: Batch transport failed\.[\s\S]*\n\nSubject: ["']Second message["']\n\n["']Another message\.["']$/,
+        rawMessage:
+          "Failed to send email: {error}\n\nSubject: {message.subject}\n\n{message.content.text}",
+        properties: { event: "email.failed", message: secondMessage },
+      });
+    });
+  });
+
+  it("keeps batch errors without a message on one line", async () => {
+    await withRecorder(async (recorder) => {
+      const error = new TypeError("Batch transport failed before consuming.");
+      const base = new RecordingTransport();
+      const transport = new LogTapeTransport({
+        transport: base,
+        recordMessage: "inline",
+      });
+      const messages: AsyncIterable<Message> = {
+        [Symbol.asyncIterator]() {
+          return {
+            next: () => Promise.reject(error),
+          };
+        },
+      };
+
+      await assert.rejects(async () => {
+        for await (const _receipt of transport.sendMany(messages)) {
+          // The wrapped transport throws before yielding a receipt.
+        }
+      }, error);
+
+      recorder.assertLogged({
+        message:
+          /^Failed to send email: TypeError: Batch transport failed before consuming\./,
+        rawMessage: "Failed to send email: {error}",
+        properties: (properties) =>
+          properties.event === "email.failed" &&
+          !("message" in properties),
+      });
     });
   });
 

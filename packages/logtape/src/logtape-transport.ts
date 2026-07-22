@@ -206,12 +206,19 @@ export class LogTapeTransport<TProviderId extends string = "logtape">
   }
 
   private logSending(message: Message, operation: SendOperation): void {
-    this.log(this.config.levels.sending, "Sending email.", {
-      ...this.getMessageProperties(message),
-      event: "email.sending",
-      operation,
-      transportId: this.id,
-    });
+    this.log(
+      this.config.levels.sending,
+      this.getMessageTemplate(
+        "Sending email.",
+        message,
+      ),
+      {
+        ...this.getMessageProperties(message),
+        event: "email.sending",
+        operation,
+        transportId: this.id,
+      },
+    );
   }
 
   private logReceipt(
@@ -227,32 +234,46 @@ export class LogTapeTransport<TProviderId extends string = "logtape">
       : this.getMessageProperties(pendingMessage.message);
 
     if (receipt.successful) {
-      this.log(this.config.levels.sent, "Email sent.", {
-        ...messageProperties,
-        event: "email.sent",
-        operation,
-        transportId: this.id,
-        durationMilliseconds,
-        messageId: receipt.messageId,
-        provider: receipt.provider ?? this.id,
-        receipt,
-      });
+      this.log(
+        this.config.levels.sent,
+        this.getMessageTemplate(
+          "Email sent.",
+          pendingMessage?.message,
+        ),
+        {
+          ...messageProperties,
+          event: "email.sent",
+          operation,
+          transportId: this.id,
+          durationMilliseconds,
+          messageId: receipt.messageId,
+          provider: receipt.provider ?? this.id,
+          receipt,
+        },
+      );
       return;
     }
 
-    this.log(this.config.levels.failed, "Failed to send email.", {
-      ...messageProperties,
-      event: "email.failed",
-      operation,
-      transportId: this.id,
-      durationMilliseconds,
-      errorMessages: receipt.errorMessages,
-      errors: receipt.errors,
-      retryable: receipt.retryable,
-      provider: receipt.provider ?? this.id,
-      attempts: receipt.attempts,
-      receipt,
-    });
+    this.log(
+      this.config.levels.failed,
+      this.getMessageTemplate(
+        "Failed to send email.",
+        pendingMessage?.message,
+      ),
+      {
+        ...messageProperties,
+        event: "email.failed",
+        operation,
+        transportId: this.id,
+        durationMilliseconds,
+        errorMessages: receipt.errorMessages,
+        errors: receipt.errors,
+        retryable: receipt.retryable,
+        provider: receipt.provider ?? this.id,
+        attempts: receipt.attempts,
+        receipt,
+      },
+    );
   }
 
   private logThrownError(
@@ -264,7 +285,7 @@ export class LogTapeTransport<TProviderId extends string = "logtape">
   ): void {
     this.log(
       this.config.levels.failed,
-      "Failed to send email: {error}",
+      this.getMessageTemplate("Failed to send email: {error}", message),
       {
         ...(message == null ? {} : this.getMessageProperties(message)),
         ...extraProperties,
@@ -318,8 +339,23 @@ export class LogTapeTransport<TProviderId extends string = "logtape">
       bccRecipientCount: message.bccRecipients.length,
       attachmentCount: message.attachments.length,
       priority: message.priority,
-      ...(this.config.recordMessage ? { message } : {}),
+      ...(this.config.recordMessage === false ? {} : { message }),
     };
+  }
+
+  private getMessageTemplate(
+    lifecycleMessage: string,
+    message: Message | undefined,
+  ): string {
+    if (this.config.recordMessage !== "inline" || message == null) {
+      return lifecycleMessage;
+    }
+
+    const contentPlaceholder = "text" in message.content &&
+        message.content.text !== undefined
+      ? "{message.content.text}"
+      : "{message.content.html}";
+    return `${lifecycleMessage}\n\nSubject: {message.subject}\n\n${contentPlaceholder}`;
   }
 
   private log(

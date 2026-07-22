@@ -14,8 +14,10 @@ To be released.
         events with configurable categories and levels.
      -  Supports log-only development use and decorating another transport
         without changing its receipts or errors.
-     -  Supports optional full-message logging, streaming `sendMany()`,
-        `AbortSignal` cancellation, and wrapped transport disposal.
+     -  Supports optional full-message recording as structured properties or
+        as development-friendly logs with inline subjects and bodies.
+     -  Supports streaming `sendMany()`, `AbortSignal` cancellation, and
+        wrapped transport disposal.
 
 [#33]: https://github.com/dahlia/upyo/pull/33
 
