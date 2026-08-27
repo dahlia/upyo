@@ -84,6 +84,74 @@ describe("SMTP Connection Integration Tests", () => {
       }
     });
 
+    for (const responseCode of [500, 502]) {
+      test(`should fall back to HELO after EHLO ${responseCode}`, async () => {
+        const { server, connection } = await setupTest();
+        try {
+          server.setResponse("EHLO", {
+            code: responseCode,
+            message: "Command not recognized",
+          });
+          await connection.connect();
+          await connection.greeting();
+          await connection.ehlo();
+
+          assert.deepStrictEqual(connection.capabilities, []);
+          assert.deepStrictEqual(server.getReceivedCommands().slice(0, 2), [
+            "EHLO test.local",
+            "HELO test.local",
+          ]);
+        } finally {
+          await teardownTest(server, connection);
+        }
+      });
+    }
+
+    test("should fail when the HELO fallback is rejected", async () => {
+      const { server, connection } = await setupTest();
+      try {
+        server.setResponse("EHLO", {
+          code: 500,
+          message: "Command not recognized",
+        });
+        server.setResponse("HELO", {
+          code: 550,
+          message: "Greeting rejected",
+        });
+        await connection.connect();
+        await connection.greeting();
+
+        await assert.rejects(() => connection.ehlo(), /HELO failed/);
+        assert.deepStrictEqual(server.getReceivedCommands().slice(0, 2), [
+          "EHLO test.local",
+          "HELO test.local",
+        ]);
+      } finally {
+        await teardownTest(server, connection);
+      }
+    });
+
+    test("should not fall back to HELO after a transient EHLO failure", async () => {
+      const { server, connection } = await setupTest();
+      try {
+        server.setResponse("EHLO", {
+          code: 421,
+          message: "Service not available",
+        });
+        await connection.connect();
+        await connection.greeting();
+
+        await assert.rejects(() => connection.ehlo(), /EHLO failed/);
+        assert.ok(
+          !server.getReceivedCommands().some((command) =>
+            command.startsWith("HELO ")
+          ),
+        );
+      } finally {
+        await teardownTest(server, connection);
+      }
+    });
+
     test("should gracefully quit connection", async () => {
       const { server, connection } = await setupTest();
       try {

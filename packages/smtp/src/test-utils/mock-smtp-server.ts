@@ -8,6 +8,7 @@ export class MockSmtpServer extends EventEmitter {
   private responses: Map<string, SmtpResponse> = new Map();
   private responseQueues: Map<string, SmtpResponse[]> = new Map();
   private receivedMessages: MockSmtpMessage[] = [];
+  private receivedCommands: string[] = [];
   private timeouts: Set<number | NodeJS.Timeout> = new Set();
   private lastAuthCommand: string | null = null;
 
@@ -25,6 +26,10 @@ export class MockSmtpServer extends EventEmitter {
       message: "Mock SMTP Server ready",
     });
     this.responses.set("EHLO", {
+      code: 250,
+      message: "Hello, pleased to meet you",
+    });
+    this.responses.set("HELO", {
       code: 250,
       message: "Hello, pleased to meet you",
     });
@@ -143,19 +148,33 @@ export class MockSmtpServer extends EventEmitter {
           if (!line.trim()) continue;
 
           const command = line.split(" ")[0].toUpperCase();
+          this.receivedCommands.push(line);
 
           switch (command) {
-            case "EHLO":
-            // deno-lint-ignore no-case-declarations
-            case "HELO":
+            case "EHLO": {
               const ehloResponse = this.responses.get("EHLO")!;
-              socket.write(`${ehloResponse.code}-${ehloResponse.message}\r\n`);
-              socket.write("250-AUTH PLAIN LOGIN XOAUTH2 OAUTHBEARER\r\n");
-              // Note: STARTTLS removed from default capabilities
-              // Mock server doesn't actually perform TLS upgrade
-              // Tests can manually send STARTTLS command if needed
-              socket.write("250 HELP\r\n");
+              if (ehloResponse.code === 250) {
+                socket.write(
+                  `${ehloResponse.code}-${ehloResponse.message}\r\n`,
+                );
+                socket.write("250-AUTH PLAIN LOGIN XOAUTH2 OAUTHBEARER\r\n");
+                // Note: STARTTLS removed from default capabilities
+                // Mock server doesn't actually perform TLS upgrade
+                // Tests can manually send STARTTLS command if needed
+                socket.write("250 HELP\r\n");
+              } else {
+                socket.write(
+                  `${ehloResponse.code} ${ehloResponse.message}\r\n`,
+                );
+              }
               break;
+            }
+
+            case "HELO": {
+              const heloResponse = this.responses.get("HELO")!;
+              socket.write(`${heloResponse.code} ${heloResponse.message}\r\n`);
+              break;
+            }
 
             case "AUTH": {
               this.lastAuthCommand = line;
@@ -323,12 +342,18 @@ export class MockSmtpServer extends EventEmitter {
     return [...this.receivedMessages];
   }
 
+  /** Returns all SMTP command lines received by the server. */
+  getReceivedCommands(): readonly string[] {
+    return [...this.receivedCommands];
+  }
+
   getLastAuthCommand(): string | null {
     return this.lastAuthCommand;
   }
 
   clearReceivedMessages(): void {
     this.receivedMessages = [];
+    this.receivedCommands = [];
   }
 
   getPort(): number {

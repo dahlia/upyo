@@ -337,6 +337,17 @@ export class SmtpConnection {
       `EHLO ${this.config.localName}`,
       signal,
     );
+    if (response.code === 500 || response.code === 502) {
+      const heloResponse = await this.sendCommand(
+        `HELO ${this.config.localName}`,
+        signal,
+      );
+      if (heloResponse.code !== 250) {
+        throw new Error(`HELO failed: ${heloResponse.message}`);
+      }
+      this.capabilities = [];
+      return;
+    }
     if (response.code !== 250) {
       throw new Error(`EHLO failed: ${response.message}`);
     }

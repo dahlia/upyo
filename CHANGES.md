@@ -25,10 +25,14 @@ To be released.
     header token that cannot be folded produces a failed receipt instead of an
     invalid message.  [[#40]]
 
+ -  Retried the SMTP greeting with `HELO` when a legacy server rejects `EHLO`
+    as an unrecognized or unimplemented command.  [[#41]]
+
 [#37]: https://github.com/dahlia/upyo/issues/37
 [#38]: https://github.com/dahlia/upyo/issues/38
 [#39]: https://github.com/dahlia/upyo/issues/39
 [#40]: https://github.com/dahlia/upyo/issues/40
+[#41]: https://github.com/dahlia/upyo/issues/41
 
 
 Version 0.5.2
