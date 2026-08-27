@@ -4,6 +4,8 @@ on: [push, pull_request]
 jobs:
   test-node:
     runs-on: ubuntu-latest
+    concurrency:
+      group: email-provider-e2e
     env:
       MAILPIT_SMTP_HOST: localhost
       MAILPIT_SMTP_PORT: 1025
@@ -51,7 +53,11 @@ jobs:
     - run: mise run test:node
 
   test-deno:
+    needs: test-node
+    if: ${{ !cancelled() }}
     runs-on: ubuntu-latest
+    concurrency:
+      group: email-provider-e2e
     env:
       MAILPIT_SMTP_HOST: localhost
       MAILPIT_SMTP_PORT: 1025
@@ -108,7 +114,11 @@ jobs:
         files: coverage/lcov.info
 
   test-bun:
+    needs: test-deno
+    if: ${{ !cancelled() }}
     runs-on: ubuntu-latest
+    concurrency:
+      group: email-provider-e2e
     env:
       MAILPIT_SMTP_HOST: localhost
       MAILPIT_SMTP_PORT: 1025
