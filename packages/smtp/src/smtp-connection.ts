@@ -331,8 +331,8 @@ export class SmtpConnection {
 
       const onClose = () => {
         cleanup();
-        const responseIndex = responses.findIndex((response) =>
-          response.code >= 400
+        const responseIndex = responses.findIndex((response, index) =>
+          response.code === 421 || (index === 0 && response.code >= 400)
         );
         if (responseIndex >= 0) {
           reject(
@@ -343,7 +343,19 @@ export class SmtpConnection {
           );
           return;
         }
-        reject(new Error("Connection closed before all command responses."));
+        const completedFailures = responses.flatMap((response, index) =>
+          response.code >= 400
+            ? [`${commands[index]}: ${response.code} ${response.message}`]
+            : []
+        );
+        const failureDetails = completedFailures.length > 0
+          ? ` Completed failures: ${completedFailures.join("; ")}.`
+          : "";
+        reject(
+          new Error(
+            `Connection closed before all command responses.${failureDetails}`,
+          ),
+        );
       };
 
       const onAbort = () => {

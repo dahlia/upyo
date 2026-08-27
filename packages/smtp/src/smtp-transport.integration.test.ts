@@ -218,6 +218,43 @@ describe("SmtpTransport Integration Tests", () => {
     }
   });
 
+  test("should retry interrupted recipient pipelines", async () => {
+    const { server, transport } = await setupTest();
+    try {
+      server.setCapabilities(["PIPELINING"]);
+      server.setResponses("RCPT", [
+        { code: 250, message: "OK" },
+        {
+          code: 550,
+          message: "No such user here",
+          closeConnection: true,
+        },
+        { code: 250, message: "OK" },
+      ]);
+
+      const receipt = await transport.send(createTestMessage({
+        recipients: [
+          { address: "accepted@example.com" },
+          { address: "rejected@example.com" },
+          { address: "unanswered@example.com" },
+        ],
+      }));
+
+      assert.ok(!receipt.successful);
+      if (!receipt.successful) {
+        assert.equal(receipt.retryable, true);
+        assert.equal(receipt.errors?.[0]?.category, "network");
+        assert.equal(receipt.errors?.[0]?.code, "network");
+        assert.match(receipt.errorMessages[0], /550 No such user here/);
+      }
+      assert.ok(
+        !server.getReceivedCommands().some((command) => command === "DATA"),
+      );
+    } finally {
+      await teardownTest(server, transport);
+    }
+  });
+
   test("should preserve retryability when every recipient is rejected", async () => {
     const { server, transport } = await setupTest();
     try {
