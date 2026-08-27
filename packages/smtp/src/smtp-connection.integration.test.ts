@@ -1,7 +1,9 @@
 import assert from "node:assert/strict";
+import { Socket } from "node:net";
 import { describe, test } from "node:test";
 import { SmtpConnection } from "./smtp-connection.ts";
 import type { SmtpConfig } from "./config.ts";
+import { SmtpAuthError } from "./oauth2.ts";
 import { MockSmtpServer } from "./test-utils/mock-smtp-server.ts";
 
 describe("SMTP Connection Integration Tests", () => {
@@ -100,6 +102,38 @@ describe("SMTP Connection Integration Tests", () => {
   });
 
   describe("Authentication", () => {
+    function setupSimulatedAuthentication(
+      host: string,
+      remoteAddress?: string,
+    ): { connection: SmtpConnection; socket: Socket } {
+      const connection = new SmtpConnection({
+        host,
+        port: 25,
+        secure: false,
+        auth: {
+          user: "testuser",
+          pass: "testpass",
+          method: "plain",
+        },
+      });
+      const socket = new Socket();
+      if (remoteAddress != null) {
+        Object.defineProperty(socket, "remoteAddress", {
+          configurable: true,
+          value: remoteAddress,
+        });
+      }
+      connection.socket = socket;
+      connection.capabilities = ["AUTH PLAIN LOGIN"];
+      connection.sendCommand = () =>
+        Promise.resolve({
+          code: 235,
+          message: "Authentication successful",
+          raw: "235 Authentication successful",
+        });
+      return { connection, socket };
+    }
+
     test("should skip authentication when no credentials provided", async () => {
       const { server, connection } = await setupTest();
       try {
@@ -174,6 +208,104 @@ describe("SMTP Connection Integration Tests", () => {
         }
       } finally {
         await teardownTest(server, connection);
+      }
+    });
+
+    for (const method of ["plain", "login"] as const) {
+      test(`should refuse ${method.toUpperCase()} over a cleartext non-loopback connection`, async () => {
+        const connection = new SmtpConnection({
+          host: "smtp.example.com",
+          port: 25,
+          secure: false,
+          socketTimeout: 10,
+          auth: {
+            user: "testuser",
+            pass: "testpass",
+            method,
+          },
+        });
+        // Simulate a post-EHLO plaintext connection without dialing out.  The
+        // TLS guard must reject before either credential-bearing AUTH exchange
+        // can use the socket.
+        const socket = new Socket();
+        connection.socket = socket;
+        connection.capabilities = ["AUTH PLAIN LOGIN"];
+        try {
+          await assert.rejects(
+            connection.authenticate(),
+            (error: unknown) =>
+              error instanceof SmtpAuthError && /TLS/.test(error.message),
+          );
+          assert.ok(!connection.authenticated);
+        } finally {
+          socket.destroy();
+        }
+      });
+    }
+
+    for (
+      const host of [
+        "LOCALHOST",
+        "localhost.",
+        "smtp.localhost",
+        "127.0.0.2",
+        "0::1",
+        "0:0:0:0:0:0::1",
+        "0:0:0:0:0:0:0:1",
+        "[::1]",
+        "[::0001]",
+      ]
+    ) {
+      test(`should recognize configured loopback host ${host}`, async () => {
+        const { connection, socket } = setupSimulatedAuthentication(host);
+        try {
+          await connection.authenticate();
+          assert.ok(connection.authenticated);
+        } finally {
+          socket.destroy();
+        }
+      });
+    }
+
+    for (
+      const remoteAddress of [
+        "127.0.0.2",
+        "::1",
+        "0:0::1",
+        "0:0:0:0:0:0:0:1",
+        "::ffff:127.0.0.2",
+        "::ffff:7f00:2",
+        "0:0::ffff:127.0.0.2",
+      ]
+    ) {
+      test(`should recognize connected loopback address ${remoteAddress}`, async () => {
+        const { connection, socket } = setupSimulatedAuthentication(
+          "smtp.example.com",
+          remoteAddress,
+        );
+        try {
+          await connection.authenticate();
+          assert.ok(connection.authenticated);
+        } finally {
+          socket.destroy();
+        }
+      });
+    }
+
+    test("should prefer the connected address over the configured host", async () => {
+      const { connection, socket } = setupSimulatedAuthentication(
+        "localhost",
+        "192.0.2.1",
+      );
+      try {
+        await assert.rejects(
+          connection.authenticate(),
+          (error: unknown) =>
+            error instanceof SmtpAuthError && /TLS/.test(error.message),
+        );
+        assert.ok(!connection.authenticated);
+      } finally {
+        socket.destroy();
       }
     });
 

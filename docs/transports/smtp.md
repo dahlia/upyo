@@ -216,6 +216,12 @@ rather than using your regular account password.  The transport automatically
 detects server capabilities and chooses the appropriate authentication method
 if you don't specify one.
 
+> [!IMPORTANT]
+> SMTP authentication requires a secure connection (`secure: true`, or a
+> successful STARTTLS upgrade on port 587).  To protect passwords and access
+> tokens, authentication over a cleartext connection to a non-loopback host is
+> refused.  Loopback hosts remain available for local development.
+
 ### OAuth 2.0 authentication
 
 Many providers—including Gmail and Outlook—now require OAuth 2.0 instead of
@@ -239,11 +245,6 @@ const transport = new SmtpTransport({
 
 When `method` is omitted, the transport selects a mechanism advertised by the
 server, preferring *XOAUTH2*.  Set `method: "oauthbearer"` to force OAUTHBEARER.
-
-> [!IMPORTANT]
-> OAuth 2.0 requires a secure connection (`secure: true`, or STARTTLS on port
-> 587), since the access token is transmitted to the server.  Authenticating
-> over a cleartext connection to a non-loopback host is refused.
 
 #### Refreshing tokens automatically
 
@@ -361,8 +362,9 @@ capabilities after the connection is upgraded.
 
 > [!TIP]
 > Use `secure: false` with port 587 for STARTTLS, or `secure: true` with
-> port 465 for direct TLS connections.  The transport will handle the
-> encryption appropriately in both cases.
+> port 465 for direct TLS connections.  If a non-loopback server does not
+> advertise STARTTLS, the transport refuses to authenticate rather than expose
+> credentials over the cleartext connection.
 
 [RFC 3207]: https://datatracker.ietf.org/doc/html/rfc3207
 

@@ -33,17 +33,134 @@ const CRLF_LENGTH = 2;
 const QUIT_TIMEOUT_MS = 5000;
 
 /**
- * Whether a host refers to the local loopback interface, for which cleartext
- * OAuth 2.0 authentication is permitted (e.g. local testing and development).
+ * Parse an IPv4 address into its four octets.
  *
- * @param host The host to check.
- * @returns `true` if the host is a loopback address.
+ * @param address The IPv4 address to parse.
+ * @returns The parsed octets, or `null` if the address is invalid.
+ */
+function parseIpv4Address(address: string): readonly number[] | null {
+  const octets = address.split(".");
+  if (
+    octets.length !== 4 ||
+    !octets.every((octet) =>
+      /^(?:0|[1-9]\d{0,2})$/.test(octet) && Number(octet) <= 255
+    )
+  ) {
+    return null;
+  }
+
+  return octets.map(Number);
+}
+
+/**
+ * Parse an IPv6 address into its eight 16-bit groups.
+ *
+ * @param address The IPv6 address to parse.
+ * @returns The parsed groups, or `null` if the address is invalid.
+ */
+function parseIpv6Address(address: string): readonly number[] | null {
+  const compressionParts = address.split("::");
+  if (compressionParts.length > 2) return null;
+
+  function parseGroups(part: string): readonly number[] | null {
+    if (part === "") return [];
+
+    const tokens = part.split(":");
+    const groups: number[] = [];
+    for (const [index, token] of tokens.entries()) {
+      if (token.includes(".")) {
+        if (index !== tokens.length - 1) return null;
+        const octets = parseIpv4Address(token);
+        if (octets == null) return null;
+        groups.push(
+          octets[0] << 8 | octets[1],
+          octets[2] << 8 | octets[3],
+        );
+      } else if (/^[0-9a-f]{1,4}$/.test(token)) {
+        groups.push(Number.parseInt(token, 16));
+      } else {
+        return null;
+      }
+    }
+    return groups;
+  }
+
+  const left = parseGroups(compressionParts[0]);
+  const right = parseGroups(compressionParts[1] ?? "");
+  if (left == null || right == null) return null;
+
+  if (compressionParts.length === 1) {
+    return left.length === 8 ? left : null;
+  }
+
+  const omittedGroups = 8 - left.length - right.length;
+  if (omittedGroups < 1) return null;
+  return [
+    ...left,
+    ...Array.from({ length: omittedGroups }, () => 0),
+    ...right,
+  ];
+}
+
+/**
+ * Whether an IP address refers to the local loopback interface.
+ *
+ * @param address The IPv4 or IPv6 address to check.
+ * @returns `true` if the address is a loopback address.
+ */
+function isLoopbackAddress(address: string): boolean {
+  let normalized = address.toLowerCase();
+  if (normalized.startsWith("[") && normalized.endsWith("]")) {
+    normalized = normalized.slice(1, -1);
+  }
+  const zoneIndex = normalized.indexOf("%");
+  if (zoneIndex >= 0) normalized = normalized.slice(0, zoneIndex);
+
+  const ipv4Octets = parseIpv4Address(normalized);
+  if (ipv4Octets != null) return ipv4Octets[0] === 127;
+
+  const ipv6Groups = parseIpv6Address(normalized);
+  if (ipv6Groups == null) return false;
+  return (
+    ipv6Groups.slice(0, 7).every((group) => group === 0) &&
+    ipv6Groups[7] === 1
+  ) || (
+    ipv6Groups.slice(0, 5).every((group) => group === 0) &&
+    ipv6Groups[5] === 0xffff &&
+    ipv6Groups[6] >> 8 === 127
+  );
+}
+
+/**
+ * Whether a configured host name or address represents a loopback endpoint.
+ *
+ * This is a fallback for sockets that do not expose their connected peer
+ * address.  A connected peer address takes precedence so a misleading host
+ * name cannot bypass the TLS requirement.
+ *
+ * @param host The configured SMTP host.
+ * @returns `true` if the host represents a loopback endpoint.
  */
 function isLoopbackHost(host: string): boolean {
-  return host === "localhost" ||
-    host === "127.0.0.1" ||
-    host === "::1" ||
-    host === "[::1]";
+  const normalized = host.toLowerCase().replace(/\.$/, "");
+  return normalized === "localhost" ||
+    normalized.endsWith(".localhost") ||
+    isLoopbackAddress(normalized);
+}
+
+/**
+ * Whether the SMTP connection is local enough to permit cleartext
+ * authentication during development.
+ *
+ * @param socket The connected SMTP socket, if available.
+ * @param host The configured SMTP host.
+ * @returns `true` if the connected peer or fallback host is loopback.
+ */
+function isLoopbackConnection(socket: Socket | null, host: string): boolean {
+  const remoteAddress = socket?.remoteAddress;
+  return remoteAddress == null
+    ? isLoopbackHost(host)
+    : isLoopbackAddress(remoteAddress);
 }
 
 export class SmtpConnection {
@@ -304,20 +421,19 @@ export class SmtpConnection {
       throw new SmtpAuthError("Server does not support authentication.");
     }
 
-    if ("accessToken" in auth || "refreshToken" in auth) {
-      // OAuth 2.0 access tokens are bearer credentials, so refuse to send them
-      // over a cleartext connection.  Loopback hosts are excepted for local
-      // testing and development.
-      if (
-        !(this.socket instanceof TLSSocket) &&
-        !isLoopbackHost(this.config.host)
-      ) {
-        throw new SmtpAuthError(
-          "OAuth 2.0 authentication requires a TLS-secured connection to " +
-            "protect the access token; use `secure: true` or STARTTLS.",
-        );
-      }
+    // Refuse to send credentials over a cleartext connection.  Loopback hosts
+    // are excepted for local testing and development.
+    if (
+      !(this.socket instanceof TLSSocket) &&
+      !isLoopbackConnection(this.socket, this.config.host)
+    ) {
+      throw new SmtpAuthError(
+        "SMTP authentication requires a TLS-secured connection to protect " +
+          "credentials; use `secure: true` or STARTTLS.",
+      );
+    }
 
+    if ("accessToken" in auth || "refreshToken" in auth) {
       const mechanism = auth.method ?? selectOAuth2Mechanism(this.capabilities);
       switch (mechanism) {
         case "xoauth2":
