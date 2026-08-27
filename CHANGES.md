@@ -67,6 +67,40 @@ To be released.
     call `closeAllConnections()` to release pooled connections when finished.
 
 
+Version 0.5.3
+-------------
+
+Released on August 27, 2026.
+
+### @upyo/smtp
+
+ -  Accepted `251` responses to `RCPT TO`, allowing delivery to continue when
+    an SMTP server accepts responsibility for forwarding a recipient.  [[#37]]
+
+ -  Continued SMTP delivery when at least one envelope recipient is accepted.
+    Successful `SmtpReceipt` values now list rejected recipients with their
+    reply codes, response text, and retryability so callers can detect partial
+    delivery and retry only temporarily rejected recipients.  [[#38]]
+
+ -  Kept multibyte UTF-8 characters within a single RFC 2047 encoded word when
+    splitting long non-ASCII header values.  [[#39]]
+
+ -  Folded long address, subject, custom, and attachment header fields to keep
+    their physical lines within the RFC 5322 hard limit of 998 characters.
+    Long attachment filenames now use RFC 2231 continuations, while a custom
+    header token that cannot be folded produces a failed receipt instead of an
+    invalid message.  [[#40]]
+
+ -  Retried the SMTP greeting with `HELO` when a legacy server rejects `EHLO`
+    as an unrecognized or unimplemented command.  [[#41]]
+
+[#37]: https://github.com/dahlia/upyo/issues/37
+[#38]: https://github.com/dahlia/upyo/issues/38
+[#39]: https://github.com/dahlia/upyo/issues/39
+[#40]: https://github.com/dahlia/upyo/issues/40
+[#41]: https://github.com/dahlia/upyo/issues/41
+
+
 Version 0.5.2
 -------------
 

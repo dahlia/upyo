@@ -1,5 +1,5 @@
 import type { Message, Receipt } from "@upyo/core";
-import { type SmtpConfig, SmtpTransport } from "@upyo/smtp";
+import { type SmtpConfig, type SmtpReceipt, SmtpTransport } from "@upyo/smtp";
 import assert from "node:assert/strict";
 import { describe, test } from "node:test";
 import { MockSmtpServer } from "./test-utils/mock-smtp-server.ts";
@@ -153,6 +153,97 @@ describe("SmtpTransport Integration Tests", () => {
     }
   });
 
+  test("should report rejected recipients after partial delivery", async () => {
+    const { server, transport } = await setupTest();
+    try {
+      server.setResponses("RCPT", [
+        { code: 250, message: "OK" },
+        { code: 550, message: "No such user here" },
+      ]);
+
+      const receipt = await transport.send(createTestMessage({
+        recipients: [
+          { address: "accepted@example.com" },
+          { address: "rejected@example.com" },
+        ],
+      }));
+
+      assert.ok(receipt.successful, JSON.stringify(receipt));
+      if (receipt.successful) {
+        assert.deepStrictEqual(receipt.rejectedRecipients, [
+          {
+            recipient: "rejected@example.com",
+            code: 550,
+            response: "No such user here",
+            retryable: false,
+          },
+        ]);
+      }
+      assert.deepStrictEqual(server.getReceivedMessages()[0]?.to, [
+        "accepted@example.com",
+      ]);
+    } finally {
+      await teardownTest(server, transport);
+    }
+  });
+
+  test("should mark transient partial rejections as retryable", async () => {
+    const { server, transport } = await setupTest();
+    try {
+      server.setResponses("RCPT", [
+        { code: 250, message: "OK" },
+        { code: 451, message: "Try again later" },
+      ]);
+
+      const receipt = await transport.send(createTestMessage({
+        recipients: [
+          { address: "accepted@example.com" },
+          { address: "deferred@example.com" },
+        ],
+      }));
+
+      assert.ok(receipt.successful, JSON.stringify(receipt));
+      if (receipt.successful) {
+        assert.deepStrictEqual(receipt.rejectedRecipients, [
+          {
+            recipient: "deferred@example.com",
+            code: 451,
+            response: "Try again later",
+            retryable: true,
+          },
+        ]);
+      }
+    } finally {
+      await teardownTest(server, transport);
+    }
+  });
+
+  test("should preserve retryability when every recipient is rejected", async () => {
+    const { server, transport } = await setupTest();
+    try {
+      server.setResponses("RCPT", [
+        { code: 550, message: "No such user here" },
+        { code: 451, message: "Try again later" },
+      ]);
+
+      const receipt = await transport.send(createTestMessage({
+        recipients: [
+          { address: "invalid@example.com" },
+          { address: "deferred@example.com" },
+        ],
+      }));
+
+      assert.ok(!receipt.successful);
+      if (!receipt.successful) {
+        assert.strictEqual(receipt.retryable, true);
+        assert.ok(receipt.errorMessages[0].includes("550 No such user here"));
+        assert.ok(receipt.errorMessages[0].includes("451 Try again later"));
+      }
+    } finally {
+      await teardownTest(server, transport);
+    }
+  });
+
   test("should send email with HTML content", async () => {
     const { server, transport } = await setupTest();
     try {
@@ -259,6 +350,46 @@ describe("SmtpTransport Integration Tests", () => {
 
       const receivedMessages = server.getReceivedMessages();
       assert.strictEqual(receivedMessages.length, 2);
+    } finally {
+      await teardownTest(server, transport);
+    }
+  });
+
+  test("should continue sendMany after partial delivery", async () => {
+    const { server, transport } = await setupTest();
+    try {
+      server.setResponses("RCPT", [
+        { code: 250, message: "OK" },
+        { code: 550, message: "No such user here" },
+      ]);
+
+      const messages = [
+        createTestMessage({
+          recipients: [
+            { address: "accepted@example.com" },
+            { address: "rejected@example.com" },
+          ],
+        }),
+        createTestMessage({
+          recipients: [{ address: "next@example.com" }],
+        }),
+      ];
+      const receipts: SmtpReceipt[] = [];
+
+      for await (const receipt of transport.sendMany(messages)) {
+        receipts.push(receipt);
+      }
+
+      assert.strictEqual(receipts.length, 2);
+      assert.ok(receipts[0].successful);
+      if (receipts[0].successful) {
+        assert.strictEqual(receipts[0].rejectedRecipients.length, 1);
+      }
+      assert.ok(receipts[1].successful);
+      assert.deepStrictEqual(
+        server.getReceivedMessages().map((message) => message.to),
+        [["accepted@example.com"], ["next@example.com"]],
+      );
     } finally {
       await teardownTest(server, transport);
     }

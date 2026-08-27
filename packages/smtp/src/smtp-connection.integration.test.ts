@@ -84,6 +84,74 @@ describe("SMTP Connection Integration Tests", () => {
       }
     });
 
+    for (const responseCode of [500, 502]) {
+      test(`should fall back to HELO after EHLO ${responseCode}`, async () => {
+        const { server, connection } = await setupTest();
+        try {
+          server.setResponse("EHLO", {
+            code: responseCode,
+            message: "Command not recognized",
+          });
+          await connection.connect();
+          await connection.greeting();
+          await connection.ehlo();
+
+          assert.deepStrictEqual(connection.capabilities, []);
+          assert.deepStrictEqual(server.getReceivedCommands().slice(0, 2), [
+            "EHLO test.local",
+            "HELO test.local",
+          ]);
+        } finally {
+          await teardownTest(server, connection);
+        }
+      });
+    }
+
+    test("should fail when the HELO fallback is rejected", async () => {
+      const { server, connection } = await setupTest();
+      try {
+        server.setResponse("EHLO", {
+          code: 500,
+          message: "Command not recognized",
+        });
+        server.setResponse("HELO", {
+          code: 550,
+          message: "Greeting rejected",
+        });
+        await connection.connect();
+        await connection.greeting();
+
+        await assert.rejects(() => connection.ehlo(), /HELO failed/);
+        assert.deepStrictEqual(server.getReceivedCommands().slice(0, 2), [
+          "EHLO test.local",
+          "HELO test.local",
+        ]);
+      } finally {
+        await teardownTest(server, connection);
+      }
+    });
+
+    test("should not fall back to HELO after a transient EHLO failure", async () => {
+      const { server, connection } = await setupTest();
+      try {
+        server.setResponse("EHLO", {
+          code: 421,
+          message: "Service not available",
+        });
+        await connection.connect();
+        await connection.greeting();
+
+        await assert.rejects(() => connection.ehlo(), /EHLO failed/);
+        assert.ok(
+          !server.getReceivedCommands().some((command) =>
+            command.startsWith("HELO ")
+          ),
+        );
+      } finally {
+        await teardownTest(server, connection);
+      }
+    });
+
     test("should gracefully quit connection", async () => {
       const { server, connection } = await setupTest();
       try {
@@ -430,9 +498,9 @@ describe("SMTP Connection Integration Tests", () => {
             "From: sender@example.com\r\nTo: recipient@example.com\r\nSubject: Test\r\n\r\nHello World!",
         };
 
-        const messageId = await connection.sendMessage(testMessage);
+        const result = await connection.sendMessage(testMessage);
 
-        assert.ok(messageId.length > 0);
+        assert.ok(result.messageId.length > 0);
 
         // Verify message content was received
         const receivedMessages = server.getReceivedMessages();
@@ -442,6 +510,36 @@ describe("SMTP Connection Integration Tests", () => {
           "recipient@example.com",
         ]);
         assert.ok(receivedMessages[0].data.includes("Hello World!"));
+      } finally {
+        await teardownTest(server, connection);
+      }
+    });
+
+    test("should accept a recipient that will be forwarded", async () => {
+      const { server, connection } = await setupTest();
+      try {
+        server.setResponse("RCPT", {
+          code: 251,
+          message: "User not local; will forward",
+        });
+
+        await connection.connect();
+        await connection.greeting();
+        await connection.ehlo();
+
+        const testMessage = {
+          envelope: {
+            from: "sender@example.com",
+            to: ["forwarded@example.com"],
+          },
+          raw:
+            "From: sender@example.com\r\nTo: forwarded@example.com\r\nSubject: Forwarded\r\n\r\nTest message",
+        };
+
+        const result = await connection.sendMessage(testMessage);
+
+        assert.ok(result.messageId.length > 0);
+        assert.strictEqual(server.getReceivedMessages().length, 1);
       } finally {
         await teardownTest(server, connection);
       }
@@ -467,8 +565,8 @@ describe("SMTP Connection Integration Tests", () => {
             "From: sender@example.com\r\nTo: recipient1@example.com\r\nSubject: Multi-recipient\r\n\r\nMultiple recipients test",
         };
 
-        const messageId = await connection.sendMessage(testMessage);
-        assert.ok(messageId.length > 0);
+        const result = await connection.sendMessage(testMessage);
+        assert.ok(result.messageId.length > 0);
 
         const receivedMessages = server.getReceivedMessages();
         assert.strictEqual(receivedMessages.length, 1);
@@ -588,8 +686,11 @@ describe("SMTP Connection Integration Tests", () => {
             "From: sender@example.com\r\nTo: recipient@example.com\r\nSubject: Test\r\n\r\nTest message",
         };
 
-        const messageId = await connection.sendMessage(testMessage);
-        assert.strictEqual(messageId, "abc123def456@mail.example.com");
+        const result = await connection.sendMessage(testMessage);
+        assert.strictEqual(
+          result.messageId,
+          "abc123def456@mail.example.com",
+        );
       } finally {
         await teardownTest(server, connection);
       }
@@ -615,10 +716,10 @@ describe("SMTP Connection Integration Tests", () => {
           raw: "Simple message",
         };
 
-        const messageId = await connection.sendMessage(testMessage);
+        const result = await connection.sendMessage(testMessage);
 
-        assert.ok(messageId.startsWith("smtp-"));
-        assert.ok(messageId.length > 10);
+        assert.ok(result.messageId.startsWith("smtp-"));
+        assert.ok(result.messageId.length > 10);
       } finally {
         await teardownTest(server, connection);
       }

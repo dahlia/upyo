@@ -12,6 +12,15 @@ export interface SmtpEnvelope {
   readonly to: string[];
 }
 
+/**
+ * Converts a message to its SMTP envelope and wire representation.
+ *
+ * @param message The message to convert.
+ * @param dkimConfig Optional DKIM signing configuration.
+ * @returns The converted SMTP message.
+ * @throws {RangeError} If a header contains a token that cannot be folded
+ * within the RFC 5322 hard line-length limit.
+ */
 export async function convertMessage(
   message: Message,
   dkimConfig?: DkimConfig,
@@ -55,20 +64,30 @@ async function buildRawMessage(message: Message): Promise<string> {
   const isMultipart = hasAttachments || (hasHtml && hasText);
 
   // Standard headers
-  lines.push(`From: ${encodeAddress(message.sender)}`);
-  lines.push(`To: ${message.recipients.map(encodeAddress).join(", ")}`);
+  lines.push(foldHeader("From", encodeAddress(message.sender)));
+  lines.push(
+    foldHeader("To", message.recipients.map(encodeAddress).join(", ")),
+  );
 
   if (message.ccRecipients.length > 0) {
-    lines.push(`Cc: ${message.ccRecipients.map(encodeAddress).join(", ")}`);
+    lines.push(
+      foldHeader(
+        "Cc",
+        message.ccRecipients.map(encodeAddress).join(", "),
+      ),
+    );
   }
 
   if (message.replyRecipients.length > 0) {
     lines.push(
-      `Reply-To: ${message.replyRecipients.map(encodeAddress).join(", ")}`,
+      foldHeader(
+        "Reply-To",
+        message.replyRecipients.map(encodeAddress).join(", "),
+      ),
     );
   }
 
-  lines.push(`Subject: ${encodeHeaderValue(message.subject)}`);
+  lines.push(foldHeader("Subject", encodeHeaderValue(message.subject, true)));
   lines.push(`Date: ${new Date().toUTCString()}`);
   lines.push(`Message-ID: <${generateMessageId()}>`);
 
@@ -83,7 +102,7 @@ async function buildRawMessage(message: Message): Promise<string> {
 
   // Custom headers
   for (const [key, value] of message.headers) {
-    lines.push(`${key}: ${encodeHeaderValue(value)}`);
+    lines.push(foldHeader(key, encodeHeaderValue(value)));
   }
 
   // MIME headers
@@ -139,18 +158,31 @@ async function buildRawMessage(message: Message): Promise<string> {
       lines.push("");
       lines.push(`--${boundary}`);
       lines.push(
-        `Content-Type: ${attachment.contentType}; name="${attachment.filename}"`,
+        foldHeader(
+          "Content-Type",
+          `${attachment.contentType}; ${
+            encodeMimeParameter("name", attachment.filename)
+          }`,
+        ),
       );
       lines.push("Content-Transfer-Encoding: base64");
 
       if (attachment.inline) {
         lines.push(
-          `Content-Disposition: inline; filename="${attachment.filename}"`,
+          foldHeader(
+            "Content-Disposition",
+            `inline; ${encodeMimeParameter("filename", attachment.filename)}`,
+          ),
         );
         lines.push(`Content-ID: <${attachment.contentId}>`);
       } else {
         lines.push(
-          `Content-Disposition: attachment; filename="${attachment.filename}"`,
+          foldHeader(
+            "Content-Disposition",
+            `attachment; ${
+              encodeMimeParameter("filename", attachment.filename)
+            }`,
+          ),
         );
       }
 
@@ -195,50 +227,147 @@ function encodeAddress(address: Address): string {
   }
 
   // Encode only the display name part, leave email address as-is
-  const encodedDisplayName = encodeHeaderValue(address.name);
+  const encodedDisplayName = encodeHeaderValue(address.name, true);
   return `${encodedDisplayName} <${address.address}>`;
 }
 
-function encodeHeaderValue(value: string): string {
+function encodeHeaderValue(
+  value: string,
+  encodeLongAsciiWords = false,
+): string {
   // RFC 2047 encoding for non-ASCII characters in headers
-  if (!/^[\x20-\x7E]*$/.test(value)) {
-    // Convert to UTF-8 bytes then to base64
-    const utf8Bytes = new TextEncoder().encode(value);
-    const base64 = Buffer.from(utf8Bytes).toString("base64");
-
-    // Handle long headers by splitting into multiple encoded words
-    const maxEncodedLength = 75; // RFC 2047 recommends max 75 chars per encoded word
-    const encodedWord = `=?UTF-8?B?${base64}?=`;
+  const hasLongWord = value.split(/\s+/).some((word) => word.length > 60);
+  if (
+    !/^[\x20-\x7E]*$/.test(value) ||
+    (encodeLongAsciiWords && hasLongWord)
+  ) {
+    const encodeWord = (text: string): string => {
+      const utf8Bytes = new TextEncoder().encode(text);
+      const base64 = Buffer.from(utf8Bytes).toString("base64");
+      return `=?UTF-8?B?${base64}?=`;
+    };
+    const maxEncodedLength = 75;
+    const encodedWord = encodeWord(value);
 
     if (encodedWord.length <= maxEncodedLength) {
       return encodedWord;
     }
 
-    // Split into multiple encoded words if too long
-    const words = [];
-    let currentBase64 = "";
+    const words: string[] = [];
+    let currentText = "";
 
-    for (let i = 0; i < base64.length; i += 4) {
-      const chunk = base64.slice(i, i + 4);
-      const testWord = `=?UTF-8?B?${currentBase64}${chunk}?=`;
-
-      if (testWord.length <= maxEncodedLength) {
-        currentBase64 += chunk;
+    for (const character of value) {
+      const candidate = currentText + character;
+      if (encodeWord(candidate).length <= maxEncodedLength) {
+        currentText = candidate;
       } else {
-        if (currentBase64) {
-          words.push(`=?UTF-8?B?${currentBase64}?=`);
+        if (currentText.length > 0) {
+          words.push(encodeWord(currentText));
         }
-        currentBase64 = chunk;
+        currentText = character;
       }
     }
 
-    if (currentBase64) {
-      words.push(`=?UTF-8?B?${currentBase64}?=`);
+    if (currentText.length > 0) {
+      words.push(encodeWord(currentText));
     }
 
     return words.join(" ");
   }
   return value;
+}
+
+function encodeMimeParameter(name: string, value: string): string {
+  const escapedValue = value.replace(/[\\"]/g, "\\$&");
+  const quotedParameter = `${name}="${escapedValue}"`;
+  if (/^[\x20-\x7E]*$/.test(value) && quotedParameter.length <= 60) {
+    return quotedParameter;
+  }
+
+  const encodedBytes = Array.from(
+    new TextEncoder().encode(value),
+    (byte) => {
+      const character = String.fromCharCode(byte);
+      return /^[A-Za-z0-9!#$&+.^_`|~-]$/.test(character)
+        ? character
+        : `%${byte.toString(16).toUpperCase().padStart(2, "0")}`;
+    },
+  );
+  const segments: string[] = [];
+  let segment = "";
+
+  for (const encodedByte of encodedBytes) {
+    if (segment.length + encodedByte.length > 45) {
+      segments.push(segment);
+      segment = "";
+    }
+    segment += encodedByte;
+  }
+  if (segment.length > 0 || segments.length === 0) segments.push(segment);
+
+  return segments.map((part, index) =>
+    `${name}*${index}*=${index === 0 ? "UTF-8''" : ""}${part}`
+  ).join("; ");
+}
+
+function foldHeader(name: string, value: string): string {
+  const recommendedLineLength = 78;
+  const lines: string[] = [];
+  let prefix = `${name}: `;
+  let remaining = value;
+
+  while (prefix.length + remaining.length > recommendedLineLength) {
+    const availableLength = recommendedLineLength - prefix.length;
+    let breakIndex = -1;
+
+    for (
+      let index = Math.min(availableLength, remaining.length - 1);
+      index >= 0;
+      index--
+    ) {
+      if (remaining[index] === " " || remaining[index] === "\t") {
+        breakIndex = index;
+        break;
+      }
+    }
+
+    if (breakIndex < 0) {
+      for (
+        let index = Math.max(availableLength + 1, 0);
+        index < remaining.length;
+        index++
+      ) {
+        if (remaining[index] === " " || remaining[index] === "\t") {
+          breakIndex = index;
+          break;
+        }
+      }
+    }
+
+    if (breakIndex < 0) break;
+
+    let whitespaceEnd = breakIndex + 1;
+    while (
+      whitespaceEnd < remaining.length &&
+      (remaining[whitespaceEnd] === " " || remaining[whitespaceEnd] === "\t")
+    ) {
+      whitespaceEnd++;
+    }
+
+    if (whitespaceEnd === remaining.length) break;
+
+    lines.push(prefix + remaining.slice(0, breakIndex));
+    prefix = remaining.slice(breakIndex, whitespaceEnd);
+    remaining = remaining.slice(whitespaceEnd);
+  }
+
+  lines.push(prefix + remaining);
+  if (lines.some((line) => line.length > 998)) {
+    throw new RangeError(
+      `Header field ${name} contains a token too long to fold.`,
+    );
+  }
+  return lines.join("\r\n");
 }
 
 function encodeQuotedPrintable(text: string): string {
