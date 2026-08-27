@@ -19,5 +19,6 @@ catalog:
 
 engineStrict: true
 
+verifyDepsBeforeRun: false
 
 shellEmulator: true
