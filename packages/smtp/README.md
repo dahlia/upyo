@@ -115,6 +115,12 @@ Configuration options
 | `poolSize`          | `number`         | `5`           | Maximum pool connections         |
 | `dkim`              | `DkimConfig`     |               | DKIM signing configuration       |
 
+For non-loopback hosts, SMTP authentication requires either an implicit TLS
+connection (`secure: true`) or a successful STARTTLS upgrade (`secure: false`).
+If the server does not advertise STARTTLS, delivery returns a failed receipt
+without transmitting passwords or OAuth 2.0 access tokens.  Cleartext
+authentication to loopback hosts remains available for local development.
+
 ### `SmtpAuth`
 
 `SmtpAuth` is a discriminated union of three strategies.

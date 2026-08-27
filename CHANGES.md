@@ -55,6 +55,23 @@ To be released.
 [#32]: https://github.com/dahlia/upyo/pull/32
 
 
+Version 0.5.2
+-------------
+
+Released on August 27, 2026.
+
+### @upyo/smtp
+
+ -  Prevented SMTP authentication from sending passwords or OAuth 2.0 access
+    tokens over cleartext connections to non-loopback hosts.  Configurations
+    using `secure: false` now require a successful STARTTLS upgrade before
+    authenticating; otherwise delivery returns a failed `Receipt` without
+    transmitting credentials.  Cleartext authentication to loopback hosts
+    remains available for local development.  [[#36]]
+
+[#36]: https://github.com/dahlia/upyo/issues/36
+
+
 Version 0.5.1
 -------------
 
