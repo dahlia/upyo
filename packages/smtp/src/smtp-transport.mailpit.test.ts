@@ -1,4 +1,4 @@
-import { SmtpTransport } from "@upyo/smtp";
+import { type SmtpConfig, SmtpTransport } from "@upyo/smtp";
 import assert from "node:assert/strict";
 import { describe, test } from "node:test";
 import { MailpitClient } from "./test-utils/mailpit-client.ts";
@@ -19,9 +19,12 @@ describe(
   () => {
     if (!isMailpitTestingEnabled()) return;
 
-    async function setupTest() {
+    async function setupTest(overrides: Partial<SmtpConfig> = {}) {
       const config = getTestConfig();
-      const transport = new SmtpTransport(config.smtp);
+      const transport = new SmtpTransport({
+        ...config.smtp,
+        ...overrides,
+      });
       const mailpitClient = new MailpitClient(config.mailpit!);
 
       // Clear any existing messages
@@ -263,11 +266,13 @@ describe(
       }
     });
 
-    test("should automatically use STARTTLS when available", async () => {
-      const { transport, mailpitClient, config } = await setupTest();
+    test("should send email with required STARTTLS", async () => {
+      const { transport, mailpitClient, config } = await setupTest({
+        requireTls: true,
+      });
       try {
-        // Mailpit supports STARTTLS on port 1025 by default
-        // The transport should automatically detect and use it
+        // The test Mailpit instance is configured with a self-signed
+        // certificate and advertises STARTTLS.
         const message = createTestMessage({
           subject: "Test Email Mailpit - STARTTLS",
           content: {
@@ -278,7 +283,10 @@ describe(
 
         const receipt = await transport.send(message);
 
-        assert.strictEqual(receipt.successful, true);
+        assert.ok(
+          receipt.successful,
+          receipt.successful ? undefined : receipt.errorMessages.join(" "),
+        );
         if (receipt.successful) {
           assert.ok(receipt.messageId.length > 0);
         }

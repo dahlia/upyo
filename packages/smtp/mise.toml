@@ -9,7 +9,13 @@ outputs = ["dist/**/*"]
 
 [tasks."mailpit:start"]
 description = "Start Mailpit"
-run = "docker run -d --name upyo-mailpit -p 1025:1025 -p 8025:8025 axllent/mailpit:latest"
+run = '''
+docker run -d --name upyo-mailpit -p 1025:1025 -p 8025:8025 \
+  -v "$PWD/test-certs:/certs:ro,Z" \
+  -e MP_SMTP_TLS_CERT=/certs/server-cert.pem \
+  -e MP_SMTP_TLS_KEY=/certs/server-key.pem \
+  axllent/mailpit:latest
+'''
 
 [tasks."mailpit:stop"]
 description = "Stop Mailpit"
@@ -22,7 +28,13 @@ run = "docker logs upyo-mailpit"
 [tasks."dev:mailpit"]
 description = "Run Mailpit in the foreground"
 interactive = true
-run = "docker run --rm -p 1025:1025 -p 8025:8025 axllent/mailpit:latest"
+run = '''
+docker run --rm -p 1025:1025 -p 8025:8025 \
+  -v "$PWD/test-certs:/certs:ro,Z" \
+  -e MP_SMTP_TLS_CERT=/certs/server-cert.pem \
+  -e MP_SMTP_TLS_KEY=/certs/server-key.pem \
+  axllent/mailpit:latest
+'''
 
 [tasks."test:deno"]
 description = "Run @upyo/smtp tests with Deno"

@@ -10,12 +10,15 @@ services:
     environment:
     - MP_SMTP_AUTH_ACCEPT_ANY=1
     - MP_SMTP_AUTH_ALLOW_INSECURE=1
+    - MP_SMTP_TLS_CERT=/certs/server-cert.pem
+    - MP_SMTP_TLS_KEY=/certs/server-key.pem
     volumes:
     - mailpit-data:/data
+    - ./test-certs:/certs:ro,Z
     restart: unless-stopped
     healthcheck:
       test:
-      - CMD,
+      - CMD
       - wget
       - --quiet
       - --tries=1

@@ -1,11 +1,11 @@
 import type { Message, Receipt } from "@upyo/core";
-import { SmtpTransport } from "@upyo/smtp";
+import { type SmtpConfig, SmtpTransport } from "@upyo/smtp";
 import assert from "node:assert/strict";
 import { describe, test } from "node:test";
 import { MockSmtpServer } from "./test-utils/mock-smtp-server.ts";
 
 describe("SmtpTransport Integration Tests", () => {
-  async function setupTest() {
+  async function setupTest(overrides: Partial<SmtpConfig> = {}) {
     const server = new MockSmtpServer();
     const serverPort = await server.start();
 
@@ -16,6 +16,7 @@ describe("SmtpTransport Integration Tests", () => {
       connectionTimeout: 5000,
       socketTimeout: 5000,
       pool: false, // Disable pooling for predictable test behavior
+      ...overrides,
     });
 
     return { server, transport };
@@ -99,6 +100,54 @@ describe("SmtpTransport Integration Tests", () => {
       assert.strictEqual(receivedMessages.length, 1);
       assert.strictEqual(receivedMessages[0].from, "john@example.com");
       assert.deepStrictEqual(receivedMessages[0].to, ["jane@example.com"]);
+    } finally {
+      await teardownTest(server, transport);
+    }
+  });
+
+  test("should pool connections by default", async () => {
+    const { server, transport } = await setupTest({ pool: undefined });
+    try {
+      const firstReceipt = await transport.send(createTestMessage());
+      const secondReceipt = await transport.send(createTestMessage());
+
+      assert.ok(firstReceipt.successful);
+      assert.ok(secondReceipt.successful);
+      assert.equal(server.getConnectionCount(), 1);
+      assert.equal(server.getReceivedMessages().length, 2);
+    } finally {
+      await teardownTest(server, transport);
+    }
+  });
+
+  test("should require STARTTLS even when it is not advertised", async () => {
+    const { server, transport } = await setupTest({ requireTls: true });
+    server.setResponse("STARTTLS", {
+      code: 454,
+      message: "TLS not available",
+    });
+    try {
+      const receipt = await transport.send(createTestMessage());
+
+      assert.ok(!receipt.successful);
+      assert.match(receipt.errorMessages.join(" "), /STARTTLS failed/);
+      assert.equal(server.getReceivedMessages().length, 0);
+    } finally {
+      await teardownTest(server, transport);
+    }
+  });
+
+  test("should keep STARTTLS opportunistic when it is not required", async () => {
+    const { server, transport } = await setupTest({ requireTls: false });
+    server.setResponse("STARTTLS", {
+      code: 454,
+      message: "TLS not available",
+    });
+    try {
+      const receipt = await transport.send(createTestMessage());
+
+      assert.ok(receipt.successful);
+      assert.equal(server.getReceivedMessages().length, 1);
     } finally {
       await teardownTest(server, transport);
     }

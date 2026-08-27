@@ -60,6 +60,7 @@ const transport = new SmtpTransport({
   host: "smtp.example.com",
   port: 587,
   secure: false,
+  requireTls: true,
   auth: {
     user: "username",
     pass: "password",
@@ -106,6 +107,7 @@ Configuration options
 | `host`              | `string`         |               | SMTP server hostname             |
 | `port`              | `number`         | `587`         | SMTP server port                 |
 | `secure`            | `boolean`        | `true`        | Use TLS/SSL connection           |
+| `requireTls`        | `boolean`        | `false`       | Require a STARTTLS upgrade       |
 | `auth`              | `SmtpAuth`       |               | Authentication configuration     |
 | `tls`               | `SmtpTlsOptions` |               | TLS configuration                |
 | `connectionTimeout` | `number`         | `60000`       | Connection timeout (ms)          |
@@ -115,10 +117,10 @@ Configuration options
 | `poolSize`          | `number`         | `5`           | Maximum pool connections         |
 | `dkim`              | `DkimConfig`     |               | DKIM signing configuration       |
 
-For non-loopback hosts, SMTP authentication requires either an implicit TLS
-connection (`secure: true`) or a successful STARTTLS upgrade (`secure: false`).
-If the server does not advertise STARTTLS, delivery returns a failed receipt
-without transmitting passwords or OAuth 2.0 access tokens.  Cleartext
+Set `requireTls: true` with `secure: false` to issue `STARTTLS` even when the
+server does not advertise it and fail delivery unless the upgrade succeeds.
+Regardless of this option, SMTP authentication to non-loopback hosts requires
+either an implicit TLS connection or a successful STARTTLS upgrade.  Cleartext
 authentication to loopback hosts remains available for local development.
 
 ### `SmtpAuth`

@@ -155,6 +155,7 @@ const transport = new SmtpTransport({
   host: "mail.example.com",
   port: 587,
   secure: false,
+  requireTls: true,
   auth: {
     user: "user@example.com",
     pass: "secure-password",
@@ -169,11 +170,12 @@ const transport = new SmtpTransport({
 ~~~~
 
 The `~SmtpConfig.host` and `~SmtpConfig.port` specify your SMTP server details,
-while `~SmtpConfig.secure` determines whether to use TLS encryption.
-Connection and socket timeouts prevent hanging connections,
-and the `~SmtpConfig.localName` identifies your server during
-the SMTP handshake.  Connection pooling improves performance by reusing
-connections across multiple messages.
+while `~SmtpConfig.secure` determines whether to use implicit TLS and
+`~SmtpConfig.requireTls` makes a STARTTLS upgrade mandatory for plaintext
+connections.  Connection and socket timeouts prevent hanging connections, and
+the `~SmtpConfig.localName` identifies your server during the SMTP handshake.
+Connection pooling improves performance by reusing connections across multiple
+messages.
 
 
 Authentication methods
@@ -337,7 +339,9 @@ and acceptable TLS versions based on your security requirements.
 The SMTP transport automatically supports STARTTLS, which allows upgrading
 a plain connection to an encrypted TLS connection.  When `secure` is set to
 `false` and the server advertises STARTTLS capability, the transport will
-automatically upgrade the connection before authentication:
+automatically upgrade the connection before authentication.  Set `requireTls`
+to `true` when the connection must be encrypted even if the server does not
+advertise STARTTLS:
 
 ~~~~ typescript twoslash
 import { SmtpTransport } from "@upyo/smtp";
@@ -347,6 +351,7 @@ const transport = new SmtpTransport({
   host: "smtp.example.com",
   port: 587,  // Standard submission port with STARTTLS
   secure: false,  // Start with plain connection
+  requireTls: true,  // Fail unless the STARTTLS upgrade succeeds
   auth: {
     user: "user@example.com",
     pass: "password",
@@ -356,15 +361,18 @@ const transport = new SmtpTransport({
 
 This configuration is commonly used with port 587 (mail submission port)
 and is required by many modern email providers including Protonmail, Office 365,
-and others that enforce encryption via STARTTLS.  The transport follows
-[RFC 3207] for STARTTLS negotiation and automatically re-negotiates
-capabilities after the connection is upgraded.
+and others that enforce encryption via STARTTLS.  When `requireTls` is `true`,
+the transport issues `STARTTLS` even if the server does not advertise the
+capability and fails delivery if the upgrade is rejected or cannot be
+completed.  This also protects message content on connections that do not use
+SMTP authentication.  The transport follows [RFC 3207] for STARTTLS negotiation
+and automatically re-negotiates capabilities after the connection is upgraded.
 
 > [!TIP]
-> Use `secure: false` with port 587 for STARTTLS, or `secure: true` with
-> port 465 for direct TLS connections.  If a non-loopback server does not
-> advertise STARTTLS, the transport refuses to authenticate rather than expose
-> credentials over the cleartext connection.
+> Use `secure: false` with `requireTls: true` on port 587 for mandatory
+> STARTTLS, or `secure: true` on port 465 for direct TLS connections.  Even when
+> `requireTls` is `false`, the transport refuses to authenticate to a
+> non-loopback server over cleartext.
 
 [RFC 3207]: https://datatracker.ietf.org/doc/html/rfc3207
 

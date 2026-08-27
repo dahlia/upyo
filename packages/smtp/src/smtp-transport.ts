@@ -351,15 +351,15 @@ export class SmtpTransport implements Transport<"smtp">, AsyncDisposable {
 
     signal?.throwIfAborted();
 
-    // Perform STARTTLS if needed
-    // STARTTLS should be used when:
-    // 1. Connection is not already secure (secure = false)
-    // 2. Server advertises STARTTLS capability
+    // Perform STARTTLS for plaintext connections when either the server
+    // advertises it or the caller requires it.  A required upgrade is attempted
+    // even without the capability so STARTTLS stripping fails closed.
     if (
-      !this.config.secure &&
-      connection.capabilities.some((cap) =>
-        cap.toUpperCase().startsWith("STARTTLS")
-      )
+      connection.config.secure === false &&
+      (connection.config.requireTls === true ||
+        connection.capabilities.some((cap) =>
+          cap.toUpperCase().startsWith("STARTTLS")
+        ))
     ) {
       await connection.starttls(signal);
 
@@ -377,7 +377,7 @@ export class SmtpTransport implements Transport<"smtp">, AsyncDisposable {
   }
 
   private async returnConnection(connection: SmtpConnection): Promise<void> {
-    if (!this.config.pool) {
+    if (!connection.config.pool) {
       await connection.quit();
       return;
     }

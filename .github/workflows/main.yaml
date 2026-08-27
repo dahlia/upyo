@@ -4,21 +4,6 @@ on: [push, pull_request]
 jobs:
   test-node:
     runs-on: ubuntu-latest
-    services:
-      mailpit:
-        image: axllent/mailpit:latest
-        ports:
-        - 1025:1025  # SMTP port
-        - 8025:8025  # Web interface port
-        env:
-          MP_SMTP_AUTH_ACCEPT_ANY: "1"
-          MP_SMTP_AUTH_ALLOW_INSECURE: "1"
-        options: >-
-          --health-cmd="wget --quiet --tries=1 --spider http://localhost:8025/api/v1/info"
-          --health-interval=30s
-          --health-timeout=10s
-          --health-retries=3
-          --health-start-period=40s
     env:
       MAILPIT_SMTP_HOST: localhost
       MAILPIT_SMTP_PORT: 1025
@@ -57,6 +42,8 @@ jobs:
         experimental: true
         cache: true
         cache_key_prefix: mise-v4
+    - name: Start Mailpit
+      run: docker compose -f packages/smtp/docker-compose.yml up -d --wait
     - name: Start Stalwart
       run: docker compose -f packages/jmap/docker-compose.yml up -d
     - name: Setup Stalwart test accounts
@@ -65,21 +52,6 @@ jobs:
 
   test-deno:
     runs-on: ubuntu-latest
-    services:
-      mailpit:
-        image: axllent/mailpit:latest
-        ports:
-        - 1025:1025  # SMTP port
-        - 8025:8025  # Web interface port
-        env:
-          MP_SMTP_AUTH_ACCEPT_ANY: "1"
-          MP_SMTP_AUTH_ALLOW_INSECURE: "1"
-        options: >-
-          --health-cmd="wget --quiet --tries=1 --spider http://localhost:8025/api/v1/info"
-          --health-interval=30s
-          --health-timeout=10s
-          --health-retries=3
-          --health-start-period=40s
     env:
       MAILPIT_SMTP_HOST: localhost
       MAILPIT_SMTP_PORT: 1025
@@ -118,6 +90,8 @@ jobs:
         experimental: true
         cache: true
         cache_key_prefix: mise-v4
+    - name: Start Mailpit
+      run: docker compose -f packages/smtp/docker-compose.yml up -d --wait
     - name: Start Stalwart
       run: docker compose -f packages/jmap/docker-compose.yml up -d
     - name: Setup Stalwart test accounts
@@ -135,21 +109,6 @@ jobs:
 
   test-bun:
     runs-on: ubuntu-latest
-    services:
-      mailpit:
-        image: axllent/mailpit:latest
-        ports:
-        - 1025:1025  # SMTP port
-        - 8025:8025  # Web interface port
-        env:
-          MP_SMTP_AUTH_ACCEPT_ANY: "1"
-          MP_SMTP_AUTH_ALLOW_INSECURE: "1"
-        options: >-
-          --health-cmd="wget --quiet --tries=1 --spider http://localhost:8025/api/v1/info"
-          --health-interval=30s
-          --health-timeout=10s
-          --health-retries=3
-          --health-start-period=40s
     env:
       MAILPIT_SMTP_HOST: localhost
       MAILPIT_SMTP_PORT: 1025
@@ -188,6 +147,8 @@ jobs:
         experimental: true
         cache: true
         cache_key_prefix: mise-v4
+    - name: Start Mailpit
+      run: docker compose -f packages/smtp/docker-compose.yml up -d --wait
     - name: Start Stalwart
       run: docker compose -f packages/jmap/docker-compose.yml up -d
     - name: Setup Stalwart test accounts

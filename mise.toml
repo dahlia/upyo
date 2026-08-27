@@ -8,7 +8,7 @@ experimental = true
 
 [tools]
 bun = "1.4.0"
-deno = "2.3"
+deno = "2.9.5"
 node = "24"
 pnpm = "latest"
 "github:rhysd/actionlint" = "1.7.12"

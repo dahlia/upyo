@@ -41,6 +41,16 @@ export interface SmtpConfig {
   readonly secure?: boolean;
 
   /**
+   * Whether to require a successful STARTTLS upgrade for connections that do
+   * not use implicit TLS.  When enabled, the client issues `STARTTLS` even if
+   * the server does not advertise the capability and fails the connection if
+   * the upgrade does not succeed.
+   * @default false
+   * @since 0.6.0
+   */
+  readonly requireTls?: boolean;
+
+  /**
    * Authentication configuration for the SMTP server.
    */
   readonly auth?: SmtpAuth;
@@ -369,6 +379,7 @@ export function createSmtpConfig(config: SmtpConfig): ResolvedSmtpConfig {
     host: config.host,
     port: config.port ?? 587,
     secure: config.secure ?? true,
+    requireTls: config.requireTls ?? false,
     auth: config.auth,
     tls: config.tls,
     connectionTimeout: config.connectionTimeout ?? 60000,

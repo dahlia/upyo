@@ -5,6 +5,7 @@ export class MockSmtpServer extends EventEmitter {
   private server: Server;
   private port: number;
   private connections: Set<Socket> = new Set();
+  private connectionCount = 0;
   private responses: Map<string, SmtpResponse> = new Map();
   private receivedMessages: MockSmtpMessage[] = [];
   private timeouts: Set<number | NodeJS.Timeout> = new Set();
@@ -52,6 +53,7 @@ export class MockSmtpServer extends EventEmitter {
   private setupServerHandlers(): void {
     this.server.on("connection", (socket: Socket) => {
       this.connections.add(socket);
+      this.connectionCount++;
 
       socket.on("close", () => {
         this.connections.delete(socket);
@@ -325,6 +327,10 @@ export class MockSmtpServer extends EventEmitter {
 
   getPort(): number {
     return this.port;
+  }
+
+  getConnectionCount(): number {
+    return this.connectionCount;
   }
 }
 

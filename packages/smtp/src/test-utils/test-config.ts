@@ -30,6 +30,7 @@ export function getTestConfig(): TestEnvironmentConfig {
       host: process.env.MAILPIT_SMTP_HOST ?? "localhost",
       port: parseInt(process.env.MAILPIT_SMTP_PORT ?? "1025", 10),
       secure: process.env.MAILPIT_SMTP_SECURE === "true",
+      tls: { rejectUnauthorized: false },
     },
     mailpit: {
       baseUrl: process.env.MAILPIT_API_URL ?? "http://localhost:8025",
