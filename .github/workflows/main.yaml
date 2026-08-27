@@ -1,11 +1,13 @@
 name: main
 on: [push, pull_request]
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   test-node:
     runs-on: ubuntu-latest
-    concurrency:
-      group: email-provider-e2e
     env:
       MAILPIT_SMTP_HOST: localhost
       MAILPIT_SMTP_PORT: 1025
@@ -15,24 +17,24 @@ jobs:
       STALWART_USERNAME: test@mail.example.com
       STALWART_PASSWORD: password123
       STALWART_BASE_URL: http://localhost:8080
-      MAILGUN_KEY: ${{ secrets.MAILGUN_KEY }}
+      MAILGUN_KEY: ${{ github.event_name == 'push' && secrets.MAILGUN_KEY || '' }}
       MAILGUN_FROM: ${{ secrets.MAILGUN_FROM }}
       MAILGUN_TO: ${{ secrets.MAILGUN_TO }}
       MAILGUN_DOMAIN: ${{ secrets.MAILGUN_DOMAIN }}
       MAILGUN_REGION: ${{ secrets.MAILGUN_REGION }}
-      RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+      RESEND_API_KEY: ${{ github.event_name == 'push' && secrets.RESEND_API_KEY || '' }}
       RESEND_TO: ${{ secrets.RESEND_TO }}
       RESEND_VERIFIED_DOMAIN: ${{ secrets.RESEND_VERIFIED_DOMAIN }}
-      SENDGRID_API_KEY: ${{ secrets.SENDGRID_API_KEY }}
+      SENDGRID_API_KEY: ${{ github.event_name == 'push' && secrets.SENDGRID_API_KEY || '' }}
       SENDGRID_FROM: ${{ secrets.SENDGRID_FROM }}
       SENDGRID_TO: ${{ secrets.SENDGRID_TO }}
-      LETTERMINT_API_TOKEN: ${{ secrets.LETTERMINT_API_TOKEN }}
+      LETTERMINT_API_TOKEN: ${{ github.event_name == 'push' && secrets.LETTERMINT_API_TOKEN || '' }}
       LETTERMINT_FROM: ${{ secrets.LETTERMINT_FROM }}
       LETTERMINT_TO: ${{ secrets.LETTERMINT_TO }}
-      MAILEROO_API_KEY: ${{ secrets.MAILEROO_API_KEY }}
+      MAILEROO_API_KEY: ${{ github.event_name == 'push' && secrets.MAILEROO_API_KEY || '' }}
       MAILEROO_FROM: ${{ secrets.MAILEROO_FROM }}
       MAILEROO_TO: ${{ secrets.MAILEROO_TO }}
-      MAILTRAP_API_TOKEN: ${{ secrets.MAILTRAP_API_TOKEN }}
+      MAILTRAP_API_TOKEN: ${{ github.event_name == 'push' && secrets.MAILTRAP_API_TOKEN || '' }}
       MAILTRAP_INBOX_ID: ${{ secrets.MAILTRAP_INBOX_ID }}
       MAILTRAP_SANDBOX: ${{ secrets.MAILTRAP_SANDBOX }}
       MAILTRAP_FROM: ${{ secrets.MAILTRAP_FROM }}
@@ -56,8 +58,6 @@ jobs:
     needs: test-node
     if: ${{ !cancelled() }}
     runs-on: ubuntu-latest
-    concurrency:
-      group: email-provider-e2e
     env:
       MAILPIT_SMTP_HOST: localhost
       MAILPIT_SMTP_PORT: 1025
@@ -67,24 +67,24 @@ jobs:
       STALWART_USERNAME: test@mail.example.com
       STALWART_PASSWORD: password123
       STALWART_BASE_URL: http://localhost:8080
-      MAILGUN_KEY: ${{ secrets.MAILGUN_KEY }}
+      MAILGUN_KEY: ${{ github.event_name == 'push' && secrets.MAILGUN_KEY || '' }}
       MAILGUN_FROM: ${{ secrets.MAILGUN_FROM }}
       MAILGUN_TO: ${{ secrets.MAILGUN_TO }}
       MAILGUN_DOMAIN: ${{ secrets.MAILGUN_DOMAIN }}
       MAILGUN_REGION: ${{ secrets.MAILGUN_REGION }}
-      RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+      RESEND_API_KEY: ${{ github.event_name == 'push' && secrets.RESEND_API_KEY || '' }}
       RESEND_TO: ${{ secrets.RESEND_TO }}
       RESEND_VERIFIED_DOMAIN: ${{ secrets.RESEND_VERIFIED_DOMAIN }}
-      SENDGRID_API_KEY: ${{ secrets.SENDGRID_API_KEY }}
+      SENDGRID_API_KEY: ${{ github.event_name == 'push' && secrets.SENDGRID_API_KEY || '' }}
       SENDGRID_FROM: ${{ secrets.SENDGRID_FROM }}
       SENDGRID_TO: ${{ secrets.SENDGRID_TO }}
-      LETTERMINT_API_TOKEN: ${{ secrets.LETTERMINT_API_TOKEN }}
+      LETTERMINT_API_TOKEN: ${{ github.event_name == 'push' && secrets.LETTERMINT_API_TOKEN || '' }}
       LETTERMINT_FROM: ${{ secrets.LETTERMINT_FROM }}
       LETTERMINT_TO: ${{ secrets.LETTERMINT_TO }}
-      MAILEROO_API_KEY: ${{ secrets.MAILEROO_API_KEY }}
+      MAILEROO_API_KEY: ${{ github.event_name == 'push' && secrets.MAILEROO_API_KEY || '' }}
       MAILEROO_FROM: ${{ secrets.MAILEROO_FROM }}
       MAILEROO_TO: ${{ secrets.MAILEROO_TO }}
-      MAILTRAP_API_TOKEN: ${{ secrets.MAILTRAP_API_TOKEN }}
+      MAILTRAP_API_TOKEN: ${{ github.event_name == 'push' && secrets.MAILTRAP_API_TOKEN || '' }}
       MAILTRAP_INBOX_ID: ${{ secrets.MAILTRAP_INBOX_ID }}
       MAILTRAP_SANDBOX: ${{ secrets.MAILTRAP_SANDBOX }}
       MAILTRAP_FROM: ${{ secrets.MAILTRAP_FROM }}
@@ -117,8 +117,6 @@ jobs:
     needs: test-deno
     if: ${{ !cancelled() }}
     runs-on: ubuntu-latest
-    concurrency:
-      group: email-provider-e2e
     env:
       MAILPIT_SMTP_HOST: localhost
       MAILPIT_SMTP_PORT: 1025
@@ -128,24 +126,24 @@ jobs:
       STALWART_USERNAME: test@mail.example.com
       STALWART_PASSWORD: password123
       STALWART_BASE_URL: http://localhost:8080
-      MAILGUN_KEY: ${{ secrets.MAILGUN_KEY }}
+      MAILGUN_KEY: ${{ github.event_name == 'push' && secrets.MAILGUN_KEY || '' }}
       MAILGUN_FROM: ${{ secrets.MAILGUN_FROM }}
       MAILGUN_TO: ${{ secrets.MAILGUN_TO }}
       MAILGUN_DOMAIN: ${{ secrets.MAILGUN_DOMAIN }}
       MAILGUN_REGION: ${{ secrets.MAILGUN_REGION }}
-      RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+      RESEND_API_KEY: ${{ github.event_name == 'push' && secrets.RESEND_API_KEY || '' }}
       RESEND_TO: ${{ secrets.RESEND_TO }}
       RESEND_VERIFIED_DOMAIN: ${{ secrets.RESEND_VERIFIED_DOMAIN }}
-      SENDGRID_API_KEY: ${{ secrets.SENDGRID_API_KEY }}
+      SENDGRID_API_KEY: ${{ github.event_name == 'push' && secrets.SENDGRID_API_KEY || '' }}
       SENDGRID_FROM: ${{ secrets.SENDGRID_FROM }}
       SENDGRID_TO: ${{ secrets.SENDGRID_TO }}
-      LETTERMINT_API_TOKEN: ${{ secrets.LETTERMINT_API_TOKEN }}
+      LETTERMINT_API_TOKEN: ${{ github.event_name == 'push' && secrets.LETTERMINT_API_TOKEN || '' }}
       LETTERMINT_FROM: ${{ secrets.LETTERMINT_FROM }}
       LETTERMINT_TO: ${{ secrets.LETTERMINT_TO }}
-      MAILEROO_API_KEY: ${{ secrets.MAILEROO_API_KEY }}
+      MAILEROO_API_KEY: ${{ github.event_name == 'push' && secrets.MAILEROO_API_KEY || '' }}
       MAILEROO_FROM: ${{ secrets.MAILEROO_FROM }}
       MAILEROO_TO: ${{ secrets.MAILEROO_TO }}
-      MAILTRAP_API_TOKEN: ${{ secrets.MAILTRAP_API_TOKEN }}
+      MAILTRAP_API_TOKEN: ${{ github.event_name == 'push' && secrets.MAILTRAP_API_TOKEN || '' }}
       MAILTRAP_INBOX_ID: ${{ secrets.MAILTRAP_INBOX_ID }}
       MAILTRAP_SANDBOX: ${{ secrets.MAILTRAP_SANDBOX }}
       MAILTRAP_FROM: ${{ secrets.MAILTRAP_FROM }}
