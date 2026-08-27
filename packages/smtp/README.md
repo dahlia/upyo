@@ -26,6 +26,7 @@ Features
  -  HTML and plain text email support
  -  File attachments (regular and inline)
  -  Multiple recipients (To, CC, BCC)
+ -  SMTP PIPELINING for faster multi-recipient delivery
  -  Custom headers
  -  Priority levels
  -  Comprehensive testing utilities

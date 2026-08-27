@@ -22,6 +22,18 @@ interface SmtpSendResult {
   readonly rejectedRecipients: readonly SmtpRejectedRecipient[];
 }
 
+class SmtpPipelineTerminatedError extends Error {
+  readonly responseIndex: number;
+  readonly response: SmtpResponse;
+
+  constructor(responseIndex: number, response: SmtpResponse) {
+    super("SMTP pipeline terminated by the server.");
+    this.name = "SmtpPipelineTerminatedError";
+    this.responseIndex = responseIndex;
+    this.response = response;
+  }
+}
+
 /**
  * The maximum length of an SMTP command line, including the terminating CRLF,
  * as specified by RFC 5321 §4.5.3.1.4.
@@ -232,6 +244,22 @@ export class SmtpConnection {
   }
 
   sendCommand(command: string, signal?: AbortSignal): Promise<SmtpResponse> {
+    return this.sendCommands([command], signal).then((responses) =>
+      responses[0]
+    );
+  }
+
+  /**
+   * Sends a group of commands in one write and reads one reply per command.
+   *
+   * SMTP multiline replies are kept together and complete replies are matched
+   * to commands by their position in the returned array, as required for
+   * command pipelining by RFC 2920.
+   */
+  private sendCommands(
+    commands: readonly string[],
+    signal?: AbortSignal,
+  ): Promise<readonly SmtpResponse[]> {
     if (!this.socket) {
       throw new Error("Not connected");
     }
@@ -240,9 +268,18 @@ export class SmtpConnection {
 
     return new Promise((resolve, reject) => {
       let buffer = "";
-      const timeout = setTimeout(() => {
-        reject(new Error("Command timeout"));
-      }, this.config.socketTimeout);
+      let responseLines: string[] = [];
+      const responses: SmtpResponse[] = [];
+      const startTimeout = () =>
+        setTimeout(() => {
+          cleanup();
+          reject(new Error("Command timeout"));
+        }, this.config.socketTimeout);
+      let timeout = startTimeout();
+      const resetTimeout = () => {
+        clearTimeout(timeout);
+        timeout = startTimeout();
+      };
 
       const onData = (data: Uint8Array) => {
         buffer += data.toString();
@@ -251,18 +288,35 @@ export class SmtpConnection {
         // Keep incomplete line in buffer
         const incompleteLine = lines.pop() || "";
 
-        // Check if we have a complete response
-        for (let i = 0; i < lines.length; i++) {
-          const line = lines[i];
+        for (const line of lines) {
+          responseLines.push(line);
           if (line.length >= 4 && line[3] === " ") {
-            // Found the final line of the response
             const code = parseInt(line.substring(0, 3), 10);
             const message = line.substring(4);
-            const fullResponse = lines.slice(0, i + 1).join("\r\n");
+            const response = {
+              code,
+              message,
+              raw: responseLines.join("\r\n"),
+            };
+            const responseIndex = responses.length;
+            responses.push(response);
+            responseLines = [];
 
-            cleanup();
-            resolve({ code, message, raw: fullResponse });
-            return;
+            if (responses.length === commands.length) {
+              cleanup();
+              resolve(responses);
+              return;
+            }
+
+            if (response.code === 421) {
+              cleanup();
+              reject(
+                new SmtpPipelineTerminatedError(responseIndex, response),
+              );
+              return;
+            }
+
+            resetTimeout();
           }
         }
 
@@ -275,15 +329,57 @@ export class SmtpConnection {
         reject(error);
       };
 
+      const onClose = () => {
+        cleanup();
+        const responseIndex = responses.findIndex((response, index) =>
+          response.code === 421 || (index === 0 && response.code >= 400)
+        );
+        if (responseIndex >= 0) {
+          reject(
+            new SmtpPipelineTerminatedError(
+              responseIndex,
+              responses[responseIndex],
+            ),
+          );
+          return;
+        }
+        const completedFailures = responses.flatMap((response, index) =>
+          response.code >= 400
+            ? [`${commands[index]}: ${response.code} ${response.message}`]
+            : []
+        );
+        const failureDetails = completedFailures.length > 0
+          ? ` Completed failures: ${completedFailures.join("; ")}.`
+          : "";
+        reject(
+          new Error(
+            `Connection closed before all command responses.${failureDetails}`,
+          ),
+        );
+      };
+
+      const onAbort = () => {
+        cleanup();
+        try {
+          signal?.throwIfAborted();
+        } catch (error) {
+          reject(error);
+        }
+      };
+
       const cleanup = () => {
         clearTimeout(timeout);
         this.socket?.off("data", onData);
         this.socket?.off("error", onError);
+        this.socket?.off("close", onClose);
+        signal?.removeEventListener("abort", onAbort);
       };
 
       this.socket!.on("data", onData);
       this.socket!.on("error", onError);
-      this.socket!.write(command + "\r\n");
+      this.socket!.on("close", onClose);
+      signal?.addEventListener("abort", onAbort, { once: true });
+      this.socket!.write(commands.map((command) => `${command}\r\n`).join(""));
     });
   }
 
@@ -356,6 +452,7 @@ export class SmtpConnection {
     this.capabilities = response.raw
       .split("\r\n")
       .filter((line) => line.startsWith("250-") || line.startsWith("250 "))
+      .slice(1)
       .map((line) => line.substring(4))
       .filter((line) => line.length > 0);
   }
@@ -639,11 +736,52 @@ export class SmtpConnection {
     message: SmtpMessage,
     signal?: AbortSignal,
   ): Promise<SmtpSendResult> {
-    // MAIL FROM
-    const mailResponse = await this.sendCommand(
-      `MAIL FROM:<${message.envelope.from}>`,
-      signal,
+    const mailCommand = `MAIL FROM:<${message.envelope.from}>`;
+    const recipientCommands = message.envelope.to.map((recipient) =>
+      `RCPT TO:<${recipient}>`
     );
+    const pipelining = this.capabilities.some((capability) =>
+      /^PIPELINING(?:\s|$)/i.test(capability)
+    );
+
+    let mailResponse: SmtpResponse;
+    let recipientResponses: readonly SmtpResponse[];
+    if (pipelining) {
+      try {
+        const envelopeResponses = await this.sendCommands(
+          [mailCommand, ...recipientCommands],
+          signal,
+        );
+        mailResponse = envelopeResponses[0];
+        recipientResponses = envelopeResponses.slice(1);
+      } catch (error) {
+        if (!(error instanceof SmtpPipelineTerminatedError)) {
+          throw error;
+        }
+
+        const { response, responseIndex } = error;
+        if (responseIndex === 0) {
+          throw new SmtpResponseError(
+            `MAIL FROM failed: ${response.message}`,
+            response.code,
+            "MAIL FROM",
+            response.message,
+          );
+        }
+
+        const recipient = message.envelope.to[responseIndex - 1];
+        throw new SmtpResponseError(
+          `RCPT TO failed for ${recipient}: ${response.message}`,
+          response.code,
+          "RCPT TO",
+          response.message,
+        );
+      }
+    } else {
+      mailResponse = await this.sendCommand(mailCommand, signal);
+      recipientResponses = [];
+    }
+
     if (mailResponse.code !== 250) {
       throw new SmtpResponseError(
         `MAIL FROM failed: ${mailResponse.message}`,
@@ -655,12 +793,11 @@ export class SmtpConnection {
 
     // RCPT TO
     const rejectedRecipients: SmtpRejectedRecipient[] = [];
-    for (const recipient of message.envelope.to) {
+    for (const [index, recipient] of message.envelope.to.entries()) {
       signal?.throwIfAborted();
-      const rcptResponse = await this.sendCommand(
-        `RCPT TO:<${recipient}>`,
-        signal,
-      );
+      const rcptResponse = pipelining
+        ? recipientResponses[index]
+        : await this.sendCommand(recipientCommands[index], signal);
       if (rcptResponse.code === 421) {
         throw new SmtpResponseError(
           `RCPT TO failed for ${recipient}: ${rcptResponse.message}`,

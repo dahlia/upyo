@@ -178,6 +178,26 @@ Connection pooling improves performance by reusing connections across multiple
 messages.
 
 
+Command pipelining
+------------------
+
+*This feature is introduced in Upyo 0.6.0.*
+
+When a server advertises the `PIPELINING` extension defined by [RFC 2920], Upyo
+sends `MAIL FROM` and all `RCPT TO` commands together instead of waiting for a
+reply after each command.  This cuts the number of network round trips for
+messages with multiple recipients.  Upyo then reads every reply in command
+order, including multiline replies, before continuing with `DATA`.
+
+Pipelining is negotiated automatically and does not require a configuration
+option.  Servers that do not advertise it keep the standard sequential command
+flow.  A rejected recipient is still reported through
+`~SmtpReceipt.rejectedRecipients` when at least one other recipient accepts the
+message.
+
+[RFC 2920]: https://www.rfc-editor.org/rfc/rfc2920
+
+
 Authentication methods
 ----------------------
 

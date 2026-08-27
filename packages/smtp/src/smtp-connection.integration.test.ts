@@ -1,15 +1,24 @@
 import assert from "node:assert/strict";
 import { Socket } from "node:net";
 import { describe, test } from "node:test";
-import { SmtpConnection } from "./smtp-connection.ts";
+import { SmtpConnection, SmtpResponseError } from "./smtp-connection.ts";
 import type { SmtpConfig } from "./config.ts";
 import { SmtpAuthError } from "./oauth2.ts";
 import { MockSmtpServer } from "./test-utils/mock-smtp-server.ts";
 
 describe("SMTP Connection Integration Tests", () => {
-  async function setupTest() {
+  async function setupTest(
+    configOverrides: Partial<SmtpConfig> = {},
+    signal?: AbortSignal,
+  ) {
+    signal?.throwIfAborted();
+
     const server = new MockSmtpServer();
     await server.start();
+    if (signal?.aborted) {
+      await server.stop();
+      signal.throwIfAborted();
+    }
 
     const config: SmtpConfig = {
       host: "localhost",
@@ -18,6 +27,7 @@ describe("SMTP Connection Integration Tests", () => {
       connectionTimeout: 5000,
       socketTimeout: 5000,
       localName: "test.local",
+      ...configOverrides,
     };
 
     const connection = new SmtpConnection(config);
@@ -37,6 +47,121 @@ describe("SMTP Connection Integration Tests", () => {
     // Give the event loop time to clean up resources
     await new Promise((resolve) => setTimeout(resolve, 1));
   }
+
+  function waitForCommandCount(
+    server: MockSmtpServer,
+    count: number,
+    signal?: AbortSignal,
+  ): Promise<void> {
+    if (server.getReceivedCommands().length >= count) return Promise.resolve();
+
+    return new Promise((resolve, reject) => {
+      signal?.throwIfAborted();
+      const timeout = setTimeout(() => {
+        cleanup();
+        reject(new Error(`Timed out waiting for ${count} SMTP commands.`));
+      }, 5000);
+      const onCommand = () => {
+        if (server.getReceivedCommands().length >= count) {
+          cleanup();
+          resolve();
+        }
+      };
+      const onAbort = () => {
+        cleanup();
+        try {
+          signal?.throwIfAborted();
+        } catch (error) {
+          reject(error);
+        }
+      };
+      const cleanup = () => {
+        clearTimeout(timeout);
+        server.off("command", onCommand);
+        signal?.removeEventListener("abort", onAbort);
+      };
+
+      server.on("command", onCommand);
+      signal?.addEventListener("abort", onAbort, { once: true });
+    });
+  }
+
+  describe("Test setup", () => {
+    test("should not start the server when already aborted", async () => {
+      const controller = new AbortController();
+      const reason = new Error("Test setup aborted.");
+      controller.abort(reason);
+
+      const originalStart = MockSmtpServer.prototype.start;
+      let startCalled = false;
+      MockSmtpServer.prototype.start = function (): Promise<number> {
+        startCalled = true;
+        return Promise.reject(new Error("Server should not start."));
+      };
+
+      try {
+        await assert.rejects(
+          () => setupTest({}, controller.signal),
+          (error) => error === reason,
+        );
+      } finally {
+        MockSmtpServer.prototype.start = originalStart;
+      }
+
+      assert.ok(!startCalled);
+    });
+
+    test("should stop the server when aborted during startup", async () => {
+      const controller = new AbortController();
+      const reason = new Error("Test setup aborted.");
+      const originalStart = MockSmtpServer.prototype.start;
+      const originalStop = MockSmtpServer.prototype.stop;
+      let startedServer: MockSmtpServer | undefined;
+      let stopCalls = 0;
+
+      MockSmtpServer.prototype.start = async function (): Promise<number> {
+        startedServer = this;
+        const port = await originalStart.call(this);
+        controller.abort(reason);
+        return port;
+      };
+      MockSmtpServer.prototype.stop = async function (): Promise<void> {
+        stopCalls++;
+        await originalStop.call(this);
+      };
+
+      try {
+        await assert.rejects(
+          () => setupTest({}, controller.signal),
+          (error) => error === reason,
+        );
+      } finally {
+        MockSmtpServer.prototype.start = originalStart;
+        MockSmtpServer.prototype.stop = originalStop;
+        if (startedServer != null && stopCalls === 0) {
+          await originalStop.call(startedServer);
+        }
+      }
+
+      assert.equal(stopCalls, 1);
+    });
+
+    test("should reject an already-aborted command wait", async () => {
+      const { server, connection } = await setupTest();
+      const controller = new AbortController();
+      const reason = new Error("Command wait aborted.");
+      controller.abort(reason);
+
+      try {
+        await assert.rejects(
+          () => waitForCommandCount(server, 1, controller.signal),
+          (error) => error === reason,
+        );
+      } finally {
+        await teardownTest(server, connection);
+      }
+    });
+  });
 
   describe("Connection Lifecycle", () => {
     test("should establish connection successfully", async () => {
@@ -482,6 +607,293 @@ describe("SMTP Connection Integration Tests", () => {
   });
 
   describe("Message Sending", () => {
+    test("should pipeline envelope commands when advertised", async () => {
+      const { server, connection } = await setupTest();
+      try {
+        server.setCapabilities(["AUTH PLAIN", "pIpElInInG", "HELP"]);
+        server.holdEnvelopeResponses();
+        await connection.connect();
+        await connection.greeting();
+        await connection.ehlo();
+
+        const sending = connection.sendMessage({
+          envelope: {
+            from: "sender@example.com",
+            to: ["first@example.com", "second@example.com"],
+          },
+          raw: "Pipelined message",
+        });
+        void sending.catch(() => undefined);
+
+        await waitForCommandCount(server, 4);
+        assert.deepStrictEqual(server.getReceivedCommands().slice(-3), [
+          "MAIL FROM:<sender@example.com>",
+          "RCPT TO:<first@example.com>",
+          "RCPT TO:<second@example.com>",
+        ]);
+
+        server.flushEnvelopeResponses();
+        const result = await sending;
+        assert.ok(result.messageId.length > 0);
+      } finally {
+        await teardownTest(server, connection);
+      }
+    });
+
+    test("should wait for each envelope reply without PIPELINING", async () => {
+      const { server, connection } = await setupTest();
+      try {
+        server.setResponse("EHLO", {
+          code: 250,
+          message: "PIPELINING unavailable",
+        });
+        server.holdEnvelopeResponses();
+        await connection.connect();
+        await connection.greeting();
+        await connection.ehlo();
+
+        const sending = connection.sendMessage({
+          envelope: {
+            from: "sender@example.com",
+            to: ["first@example.com", "second@example.com"],
+          },
+          raw: "Sequential message",
+        });
+        await waitForCommandCount(server, 2);
+        assert.deepStrictEqual(server.getReceivedCommands().slice(-1), [
+          "MAIL FROM:<sender@example.com>",
+        ]);
+
+        server.flushEnvelopeResponses();
+        const result = await sending;
+        assert.ok(result.messageId.length > 0);
+      } finally {
+        await teardownTest(server, connection);
+      }
+    });
+
+    test("should correlate multiline pipelined recipient replies", async () => {
+      const { server, connection } = await setupTest();
+      try {
+        server.setCapabilities(["PIPELINING"]);
+        server.setResponses("RCPT", [
+          {
+            code: 250,
+            continuationLines: ["2.1.5 Recipient accepted"],
+            message: "2.1.5 Will forward",
+          },
+          { code: 550, message: "5.1.1 No such user" },
+          { code: 251, message: "2.1.5 User not local; will forward" },
+        ]);
+        await connection.connect();
+        await connection.greeting();
+        await connection.ehlo();
+
+        const result = await connection.sendMessage({
+          envelope: {
+            from: "sender@example.com",
+            to: [
+              "first@example.com",
+              "rejected@example.com",
+              "forwarded@example.com",
+            ],
+          },
+          raw: "Mixed recipient message",
+        });
+
+        assert.deepStrictEqual(result.rejectedRecipients, [{
+          recipient: "rejected@example.com",
+          code: 550,
+          response: "5.1.1 No such user",
+          retryable: false,
+        }]);
+        assert.deepStrictEqual(server.getReceivedMessages()[0]?.to, [
+          "first@example.com",
+          "forwarded@example.com",
+        ]);
+      } finally {
+        await teardownTest(server, connection);
+      }
+    });
+
+    test("should treat a pipelined 421 reply as fatal", async () => {
+      const { server, connection } = await setupTest();
+      try {
+        server.setCapabilities(["PIPELINING"]);
+        server.setResponses("RCPT", [
+          { code: 250, message: "2.1.5 Recipient accepted" },
+          { code: 421, message: "4.3.2 Service shutting down" },
+        ]);
+        await connection.connect();
+        await connection.greeting();
+        await connection.ehlo();
+
+        await assert.rejects(
+          connection.sendMessage({
+            envelope: {
+              from: "sender@example.com",
+              to: ["first@example.com", "second@example.com"],
+            },
+            raw: "Connection failure message",
+          }),
+          (error) => {
+            assert.ok(error instanceof SmtpResponseError);
+            assert.strictEqual(error.code, 421);
+            assert.strictEqual(error.command, "RCPT TO");
+            return true;
+          },
+        );
+        assert.ok(
+          !server.getReceivedCommands().some((command) => command === "DATA"),
+        );
+      } finally {
+        await teardownTest(server, connection);
+      }
+    });
+
+    test("should preserve MAIL FROM 421 when the server closes", async () => {
+      const { server, connection } = await setupTest();
+      try {
+        server.setCapabilities(["PIPELINING"]);
+        server.setResponse("MAIL", {
+          code: 421,
+          message: "4.3.2 Service shutting down",
+          closeConnection: true,
+        });
+        await connection.connect();
+        await connection.greeting();
+        await connection.ehlo();
+
+        await assert.rejects(
+          connection.sendMessage({
+            envelope: {
+              from: "sender@example.com",
+              to: ["first@example.com", "second@example.com"],
+            },
+            raw: "Connection failure message",
+          }),
+          (error) => {
+            assert.ok(error instanceof SmtpResponseError);
+            assert.strictEqual(error.code, 421);
+            assert.strictEqual(error.command, "MAIL FROM");
+            assert.strictEqual(error.response, "4.3.2 Service shutting down");
+            return true;
+          },
+        );
+      } finally {
+        await teardownTest(server, connection);
+      }
+    });
+
+    test("should preserve MAIL FROM 550 when the server closes", async () => {
+      const { server, connection } = await setupTest();
+      try {
+        server.setCapabilities(["PIPELINING"]);
+        server.setResponse("MAIL", {
+          code: 550,
+          message: "5.7.1 Sender address blocked",
+          closeConnection: true,
+        });
+        await connection.connect();
+        await connection.greeting();
+        await connection.ehlo();
+
+        await assert.rejects(
+          connection.sendMessage({
+            envelope: {
+              from: "blocked@example.com",
+              to: ["first@example.com", "second@example.com"],
+            },
+            raw: "Blocked sender message",
+          }),
+          (error) => {
+            assert.ok(error instanceof SmtpResponseError);
+            assert.strictEqual(error.code, 550);
+            assert.strictEqual(error.command, "MAIL FROM");
+            assert.strictEqual(error.response, "5.7.1 Sender address blocked");
+            return true;
+          },
+        );
+      } finally {
+        await teardownTest(server, connection);
+      }
+    });
+
+    test("should preserve a non-final RCPT TO 421 on close", async () => {
+      const { server, connection } = await setupTest();
+      try {
+        server.setCapabilities(["PIPELINING"]);
+        server.setResponses("RCPT", [
+          { code: 250, message: "2.1.5 Recipient accepted" },
+          {
+            code: 421,
+            message: "4.3.2 Service shutting down",
+            closeConnection: true,
+          },
+          { code: 250, message: "2.1.5 Recipient accepted" },
+        ]);
+        await connection.connect();
+        await connection.greeting();
+        await connection.ehlo();
+
+        await assert.rejects(
+          connection.sendMessage({
+            envelope: {
+              from: "sender@example.com",
+              to: [
+                "first@example.com",
+                "second@example.com",
+                "third@example.com",
+              ],
+            },
+            raw: "Connection failure message",
+          }),
+          (error) => {
+            assert.ok(error instanceof SmtpResponseError);
+            assert.strictEqual(error.code, 421);
+            assert.strictEqual(error.command, "RCPT TO");
+            assert.strictEqual(error.response, "4.3.2 Service shutting down");
+            assert.match(error.message, /second@example\.com/);
+            return true;
+          },
+        );
+      } finally {
+        await teardownTest(server, connection);
+      }
+    });
+
+    test("should reset the pipeline timeout after each reply", async () => {
+      const { server, connection } = await setupTest({ socketTimeout: 1000 });
+      try {
+        server.setCapabilities(["PIPELINING"]);
+        server.holdEnvelopeResponses();
+        await connection.connect();
+        await connection.greeting();
+        await connection.ehlo();
+
+        const sending = connection.sendMessage({
+          envelope: {
+            from: "sender@example.com",
+            to: ["first@example.com", "second@example.com"],
+          },
+          raw: "Slow replies message",
+        });
+        void sending.catch(() => undefined);
+
+        await waitForCommandCount(server, 4);
+        assert.ok(server.flushNextEnvelopeResponse());
+        await new Promise((resolve) => setTimeout(resolve, 600));
+        assert.ok(server.flushNextEnvelopeResponse());
+        await new Promise((resolve) => setTimeout(resolve, 600));
+        assert.ok(server.flushNextEnvelopeResponse());
+
+        const result = await sending;
+        assert.ok(result.messageId.length > 0);
+      } finally {
+        await teardownTest(server, connection);
+      }
+    });
+
     test("should send message successfully", async () => {
       const { server, connection } = await setupTest();
       try {
