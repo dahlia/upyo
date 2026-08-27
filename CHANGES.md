@@ -11,7 +11,13 @@ To be released.
  -  Accepted `251` responses to `RCPT TO`, allowing delivery to continue when
     an SMTP server accepts responsibility for forwarding a recipient.  [[#37]]
 
+ -  Continued SMTP delivery when at least one envelope recipient is accepted.
+    Successful `SmtpReceipt` values now list rejected recipients with their
+    reply codes, response text, and retryability so callers can detect partial
+    delivery and retry only temporarily rejected recipients.  [[#38]]
+
 [#37]: https://github.com/dahlia/upyo/issues/37
+[#38]: https://github.com/dahlia/upyo/issues/38
 
 
 Version 0.5.2

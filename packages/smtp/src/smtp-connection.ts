@@ -15,6 +15,12 @@ import {
   SmtpAuthError,
 } from "./oauth2.ts";
 import type { SmtpMessage } from "./message-converter.ts";
+import type { SmtpRejectedRecipient } from "./smtp-receipt.ts";
+
+interface SmtpSendResult {
+  readonly messageId: string;
+  readonly rejectedRecipients: readonly SmtpRejectedRecipient[];
+}
 
 /**
  * The maximum length of an SMTP command line, including the terminating CRLF,
@@ -621,7 +627,7 @@ export class SmtpConnection {
   async sendMessage(
     message: SmtpMessage,
     signal?: AbortSignal,
-  ): Promise<string> {
+  ): Promise<SmtpSendResult> {
     // MAIL FROM
     const mailResponse = await this.sendCommand(
       `MAIL FROM:<${message.envelope.from}>`,
@@ -637,13 +643,14 @@ export class SmtpConnection {
     }
 
     // RCPT TO
+    const rejectedRecipients: SmtpRejectedRecipient[] = [];
     for (const recipient of message.envelope.to) {
       signal?.throwIfAborted();
       const rcptResponse = await this.sendCommand(
         `RCPT TO:<${recipient}>`,
         signal,
       );
-      if (rcptResponse.code !== 250 && rcptResponse.code !== 251) {
+      if (rcptResponse.code === 421) {
         throw new SmtpResponseError(
           `RCPT TO failed for ${recipient}: ${rcptResponse.message}`,
           rcptResponse.code,
@@ -651,6 +658,32 @@ export class SmtpConnection {
           rcptResponse.message,
         );
       }
+      if (rcptResponse.code !== 250 && rcptResponse.code !== 251) {
+        rejectedRecipients.push({
+          recipient,
+          code: rcptResponse.code,
+          response: rcptResponse.message,
+          retryable: rcptResponse.code >= 400 && rcptResponse.code < 500,
+        });
+      }
+    }
+
+    if (
+      rejectedRecipients.length > 0 &&
+      rejectedRecipients.length === message.envelope.to.length
+    ) {
+      const rejection = rejectedRecipients.find((item) => item.retryable) ??
+        rejectedRecipients[0];
+      const details = rejectedRecipients.map((item) =>
+        `${item.recipient}: ${item.code} ${item.response}`
+      ).join("; ");
+      throw new SmtpResponseError(
+        `RCPT TO failed for every recipient: ${details}`,
+        rejection.code,
+        "RCPT TO",
+        rejection.response,
+        rejectedRecipients,
+      );
     }
 
     // DATA
@@ -678,7 +711,7 @@ export class SmtpConnection {
 
     // Extract message ID from response
     const messageId = this.extractMessageId(finalResponse.message);
-    return messageId;
+    return { messageId, rejectedRecipients };
   }
 
   extractMessageId(response: string): string {
@@ -764,6 +797,9 @@ export class SmtpResponseError extends Error {
    */
   readonly response: string;
 
+  /** Recipient-level failures collected for an unsuccessful transaction. */
+  readonly rejectedRecipients?: readonly SmtpRejectedRecipient[];
+
   /**
    * Creates an SMTP response error.
    *
@@ -771,18 +807,22 @@ export class SmtpResponseError extends Error {
    * @param code The numeric SMTP reply code.
    * @param command The SMTP command that produced the reply.
    * @param response The textual SMTP reply returned by the server.
+   * @param rejectedRecipients Recipient-level failures collected for the
+   *                           transaction.
    */
   constructor(
     message: string,
     code: number,
     command: string,
     response: string,
+    rejectedRecipients?: readonly SmtpRejectedRecipient[],
   ) {
     super(message);
     this.name = "SmtpResponseError";
     this.code = code;
     this.command = command;
     this.response = response;
+    this.rejectedRecipients = rejectedRecipients;
   }
 }
 

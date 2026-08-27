@@ -10,6 +10,7 @@ export type {
   SmtpUserPassAuth,
 } from "./config.ts";
 export { SmtpAuthError } from "./oauth2.ts";
+export type { SmtpReceipt, SmtpRejectedRecipient } from "./smtp-receipt.ts";
 export type {
   DkimAlgorithm,
   DkimCanonicalization,

@@ -9,6 +9,7 @@ import type { SmtpConfig } from "./config.ts";
 import { SmtpConnection, SmtpResponseError } from "./smtp-connection.ts";
 import { OAuth2TokenManager } from "./oauth2.ts";
 import { convertMessage } from "./message-converter.ts";
+import type { SmtpReceipt } from "./smtp-receipt.ts";
 
 /**
  * SMTP transport implementation for sending emails via SMTP protocol.
@@ -113,7 +114,7 @@ export class SmtpTransport implements Transport<"smtp">, AsyncDisposable {
   async send(
     message: Message,
     options?: TransportOptions,
-  ): Promise<Receipt<"smtp">> {
+  ): Promise<SmtpReceipt> {
     options?.signal?.throwIfAborted();
 
     let connection: SmtpConnection | undefined;
@@ -132,7 +133,7 @@ export class SmtpTransport implements Transport<"smtp">, AsyncDisposable {
 
       options?.signal?.throwIfAborted();
 
-      const messageId = await connection.sendMessage(
+      const result = await connection.sendMessage(
         smtpMessage,
         options?.signal,
       );
@@ -141,8 +142,9 @@ export class SmtpTransport implements Transport<"smtp">, AsyncDisposable {
 
       return {
         successful: true,
-        messageId,
+        messageId: result.messageId,
         provider: "smtp",
+        rejectedRecipients: result.rejectedRecipients,
       };
     } catch (error) {
       if (connection != null) {
@@ -192,7 +194,7 @@ export class SmtpTransport implements Transport<"smtp">, AsyncDisposable {
   async *sendMany(
     messages: Iterable<Message> | AsyncIterable<Message>,
     options?: TransportOptions,
-  ): AsyncIterable<Receipt<"smtp">> {
+  ): AsyncIterable<SmtpReceipt> {
     options?.signal?.throwIfAborted();
 
     let connection: SmtpConnection;
@@ -233,15 +235,16 @@ export class SmtpTransport implements Transport<"smtp">, AsyncDisposable {
             const smtpMessage = await convertMessage(message, this.config.dkim);
             options?.signal?.throwIfAborted();
 
-            const messageId = await connection.sendMessage(
+            const result = await connection.sendMessage(
               smtpMessage,
               options?.signal,
             );
 
             yield {
               successful: true,
-              messageId,
+              messageId: result.messageId,
               provider: "smtp",
+              rejectedRecipients: result.rejectedRecipients,
             };
           } catch (error) {
             // Cancellation rejects rather than producing a receipt.
@@ -269,15 +272,16 @@ export class SmtpTransport implements Transport<"smtp">, AsyncDisposable {
             const smtpMessage = await convertMessage(message, this.config.dkim);
             options?.signal?.throwIfAborted();
 
-            const messageId = await connection.sendMessage(
+            const result = await connection.sendMessage(
               smtpMessage,
               options?.signal,
             );
 
             yield {
               successful: true,
-              messageId,
+              messageId: result.messageId,
               provider: "smtp",
+              rejectedRecipients: result.rejectedRecipients,
             };
           } catch (error) {
             // Cancellation rejects rather than producing a receipt.
@@ -459,6 +463,7 @@ function createSmtpFailure(
       providerDetails: {
         command: error.command,
         response: error.response,
+        rejectedRecipients: error.rejectedRecipients,
       },
     });
   }

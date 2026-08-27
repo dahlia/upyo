@@ -430,9 +430,9 @@ describe("SMTP Connection Integration Tests", () => {
             "From: sender@example.com\r\nTo: recipient@example.com\r\nSubject: Test\r\n\r\nHello World!",
         };
 
-        const messageId = await connection.sendMessage(testMessage);
+        const result = await connection.sendMessage(testMessage);
 
-        assert.ok(messageId.length > 0);
+        assert.ok(result.messageId.length > 0);
 
         // Verify message content was received
         const receivedMessages = server.getReceivedMessages();
@@ -468,9 +468,9 @@ describe("SMTP Connection Integration Tests", () => {
             "From: sender@example.com\r\nTo: forwarded@example.com\r\nSubject: Forwarded\r\n\r\nTest message",
         };
 
-        const messageId = await connection.sendMessage(testMessage);
+        const result = await connection.sendMessage(testMessage);
 
-        assert.ok(messageId.length > 0);
+        assert.ok(result.messageId.length > 0);
         assert.strictEqual(server.getReceivedMessages().length, 1);
       } finally {
         await teardownTest(server, connection);
@@ -497,8 +497,8 @@ describe("SMTP Connection Integration Tests", () => {
             "From: sender@example.com\r\nTo: recipient1@example.com\r\nSubject: Multi-recipient\r\n\r\nMultiple recipients test",
         };
 
-        const messageId = await connection.sendMessage(testMessage);
-        assert.ok(messageId.length > 0);
+        const result = await connection.sendMessage(testMessage);
+        assert.ok(result.messageId.length > 0);
 
         const receivedMessages = server.getReceivedMessages();
         assert.strictEqual(receivedMessages.length, 1);
@@ -618,8 +618,11 @@ describe("SMTP Connection Integration Tests", () => {
             "From: sender@example.com\r\nTo: recipient@example.com\r\nSubject: Test\r\n\r\nTest message",
         };
 
-        const messageId = await connection.sendMessage(testMessage);
-        assert.strictEqual(messageId, "abc123def456@mail.example.com");
+        const result = await connection.sendMessage(testMessage);
+        assert.strictEqual(
+          result.messageId,
+          "abc123def456@mail.example.com",
+        );
       } finally {
         await teardownTest(server, connection);
       }
@@ -645,10 +648,10 @@ describe("SMTP Connection Integration Tests", () => {
           raw: "Simple message",
         };
 
-        const messageId = await connection.sendMessage(testMessage);
+        const result = await connection.sendMessage(testMessage);
 
-        assert.ok(messageId.startsWith("smtp-"));
-        assert.ok(messageId.length > 10);
+        assert.ok(result.messageId.startsWith("smtp-"));
+        assert.ok(result.messageId.length > 10);
       } finally {
         await teardownTest(server, connection);
       }

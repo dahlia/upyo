@@ -6,6 +6,7 @@ export class MockSmtpServer extends EventEmitter {
   private port: number;
   private connections: Set<Socket> = new Set();
   private responses: Map<string, SmtpResponse> = new Map();
+  private responseQueues: Map<string, SmtpResponse[]> = new Map();
   private receivedMessages: MockSmtpMessage[] = [];
   private timeouts: Set<number | NodeJS.Timeout> = new Set();
   private lastAuthCommand: string | null = null;
@@ -193,11 +194,14 @@ export class MockSmtpServer extends EventEmitter {
               socket.write(`${mailResponse.code} ${mailResponse.message}\r\n`);
               break;
 
-              // deno-lint-ignore no-case-declarations
+            // deno-lint-ignore no-case-declarations
             case "RCPT":
-              if (!currentMessage.to) currentMessage.to = [];
-              currentMessage.to.push(this.extractEmail(line));
-              const rcptResponse = this.responses.get("RCPT")!;
+              const rcptResponse = this.responseQueues.get("RCPT")?.shift() ??
+                this.responses.get("RCPT")!;
+              if (rcptResponse.code >= 200 && rcptResponse.code < 300) {
+                if (!currentMessage.to) currentMessage.to = [];
+                currentMessage.to.push(this.extractEmail(line));
+              }
               socket.write(`${rcptResponse.code} ${rcptResponse.message}\r\n`);
               break;
 
@@ -309,6 +313,10 @@ export class MockSmtpServer extends EventEmitter {
 
   setResponse(command: string, response: SmtpResponse): void {
     this.responses.set(command, response);
+  }
+
+  setResponses(command: string, responses: readonly SmtpResponse[]): void {
+    this.responseQueues.set(command, [...responses]);
   }
 
   getReceivedMessages(): MockSmtpMessage[] {
