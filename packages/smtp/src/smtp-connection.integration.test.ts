@@ -56,6 +56,7 @@ describe("SMTP Connection Integration Tests", () => {
     if (server.getReceivedCommands().length >= count) return Promise.resolve();
 
     return new Promise((resolve, reject) => {
+      signal?.throwIfAborted();
       const timeout = setTimeout(() => {
         cleanup();
         reject(new Error(`Timed out waiting for ${count} SMTP commands.`));
@@ -143,6 +144,22 @@ describe("SMTP Connection Integration Tests", () => {
       }
 
       assert.equal(stopCalls, 1);
+    });
+
+    test("should reject an already-aborted command wait", async () => {
+      const { server, connection } = await setupTest();
+      const controller = new AbortController();
+      const reason = new Error("Command wait aborted.");
+      controller.abort(reason);
+
+      try {
+        await assert.rejects(
+          () => waitForCommandCount(server, 1, controller.signal),
+          (error) => error === reason,
+        );
+      } finally {
+        await teardownTest(server, connection);
+      }
     });
   });
 
