@@ -1,6 +1,6 @@
 {
   "name": "@upyo/pool",
-  "version": "0.5.2",
+  "version": "0.5.3",
   "description": "Pool transport for Upyo email library—provides load balancing and failover for multiple email providers",
   "keywords": [
     "email",
