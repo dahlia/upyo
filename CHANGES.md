@@ -19,9 +19,16 @@ To be released.
  -  Kept multibyte UTF-8 characters within a single RFC 2047 encoded word when
     splitting long non-ASCII header values.  [[#39]]
 
+ -  Folded long address, subject, custom, and attachment header fields to keep
+    their physical lines within the RFC 5322 hard limit of 998 characters.
+    Long attachment filenames now use RFC 2231 continuations, while a custom
+    header token that cannot be folded produces a failed receipt instead of an
+    invalid message.  [[#40]]
+
 [#37]: https://github.com/dahlia/upyo/issues/37
 [#38]: https://github.com/dahlia/upyo/issues/38
 [#39]: https://github.com/dahlia/upyo/issues/39
+[#40]: https://github.com/dahlia/upyo/issues/40
 
 
 Version 0.5.2

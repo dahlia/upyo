@@ -1,4 +1,4 @@
-import type { Message } from "@upyo/core";
+import type { Address, Message } from "@upyo/core";
 import assert from "node:assert/strict";
 import { Buffer } from "node:buffer";
 import { describe, test } from "node:test";
@@ -72,6 +72,51 @@ describe("Message Converter Integration Tests", () => {
       assert.ok(result.raw.includes("To: jane@example.com, bob@example.com"));
       assert.ok(result.raw.includes("Cc: cc@example.com"));
       assert.ok(!result.raw.includes("Bcc:")); // BCC should not appear in headers
+    });
+
+    test("should fold long recipient headers", async () => {
+      const recipients: readonly Address[] = Array.from(
+        { length: 60 },
+        (_, index) => ({
+          address: `recipient-${index.toString().padStart(3, "0")}@example.com`,
+        }),
+      );
+      const result = await convertMessage(createTestMessage({ recipients }));
+      const headerSection = result.raw.split("\r\n\r\n", 1)[0];
+
+      for (const line of headerSection.split("\r\n")) {
+        assert.ok(
+          line.length <= 998,
+          `Header line is ${line.length} characters long.`,
+        );
+      }
+
+      const unfoldedHeaders = headerSection.replace(/\r\n[ \t]+/g, " ");
+      assert.ok(
+        unfoldedHeaders.includes(
+          `To: ${recipients.map((recipient) => recipient.address).join(", ")}`,
+        ),
+      );
+    });
+
+    test("should preserve whitespace when folding headers", async () => {
+      const subject = `${"word  ".repeat(20)}word`;
+      const result = await convertMessage(createTestMessage({ subject }));
+      const subjectHeader = result.raw.split("\r\n\r\n", 1)[0].split("\r\n")
+        .filter((line) => line.startsWith("Subject: ") || /^[ \t]/.test(line))
+        .join("\r\n");
+
+      assert.equal(subjectHeader.replace(/\r\n/g, ""), `Subject: ${subject}`);
+    });
+
+    test("should not create whitespace-only continuation lines", async () => {
+      const subject = `${"word ".repeat(20)}${" ".repeat(21)}`;
+      const result = await convertMessage(createTestMessage({ subject }));
+      const headerSection = result.raw.split("\r\n\r\n", 1)[0];
+
+      assert.ok(
+        !headerSection.split("\r\n").some((line) => /^\s+$/.test(line)),
+      );
     });
   });
 
@@ -219,6 +264,28 @@ describe("Message Converter Integration Tests", () => {
         ),
       );
     });
+
+    test("should fold MIME parameters for long filenames", async () => {
+      const filename = `${"long-file-name-".repeat(90)}.txt`;
+      const result = await convertMessage(createTestMessage({
+        attachments: [{
+          filename,
+          content: new Uint8Array([1, 2, 3]),
+          contentType: "application/octet-stream",
+          contentId: "long-filename",
+          inline: false,
+        }],
+      }));
+
+      for (const line of result.raw.split("\r\n")) {
+        assert.ok(
+          line.length <= 998,
+          `Message line is ${line.length} characters long.`,
+        );
+      }
+      assert.ok(result.raw.includes("name*0*=UTF-8''"));
+      assert.ok(result.raw.includes("filename*0*=UTF-8''"));
+    });
   });
 
   describe("Header Encoding", () => {
@@ -270,7 +337,11 @@ describe("Message Converter Integration Tests", () => {
     test("should keep UTF-8 characters within one encoded word", async () => {
       const subject = "😀".repeat(40);
       const result = await convertMessage(createTestMessage({ subject }));
-      const subjectLine = result.raw.split("\r\n").find((line) =>
+      const unfoldedHeaders = result.raw.split("\r\n\r\n", 1)[0].replace(
+        /\r\n[ \t]+/g,
+        " ",
+      );
+      const subjectLine = unfoldedHeaders.split("\r\n").find((line) =>
         line.startsWith("Subject: ")
       );
 
@@ -356,6 +427,24 @@ describe("Message Converter Integration Tests", () => {
       assert.ok(result.raw.includes("x-custom-header: Custom Value"));
       assert.ok(result.raw.includes("x-mailer: Test Mailer"));
       assert.ok(result.raw.includes("x-custom-info: ASCII Info"));
+    });
+
+    test("should preserve long structured ASCII header values", async () => {
+      const messageId = `<${"a".repeat(100)}@example.com>`;
+      const headers = new Headers({ "In-Reply-To": messageId });
+      const result = await convertMessage(createTestMessage({ headers }));
+
+      assert.ok(result.raw.includes(`in-reply-to: ${messageId}`));
+      assert.ok(!result.raw.includes("in-reply-to: =?UTF-8?B?"));
+    });
+
+    test("should reject custom header tokens beyond the hard limit", async () => {
+      const headers = new Headers({ "X-Token": "a".repeat(1_000) });
+
+      await assert.rejects(
+        () => convertMessage(createTestMessage({ headers })),
+        RangeError,
+      );
     });
 
     test("should encode only display name in German umlaut addresses", async () => {
