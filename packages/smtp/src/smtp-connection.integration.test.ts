@@ -447,6 +447,36 @@ describe("SMTP Connection Integration Tests", () => {
       }
     });
 
+    test("should accept a recipient that will be forwarded", async () => {
+      const { server, connection } = await setupTest();
+      try {
+        server.setResponse("RCPT", {
+          code: 251,
+          message: "User not local; will forward",
+        });
+
+        await connection.connect();
+        await connection.greeting();
+        await connection.ehlo();
+
+        const testMessage = {
+          envelope: {
+            from: "sender@example.com",
+            to: ["forwarded@example.com"],
+          },
+          raw:
+            "From: sender@example.com\r\nTo: forwarded@example.com\r\nSubject: Forwarded\r\n\r\nTest message",
+        };
+
+        const messageId = await connection.sendMessage(testMessage);
+
+        assert.ok(messageId.length > 0);
+        assert.strictEqual(server.getReceivedMessages().length, 1);
+      } finally {
+        await teardownTest(server, connection);
+      }
+    });
+
     test("should send message to multiple recipients", async () => {
       const { server, connection } = await setupTest();
       try {

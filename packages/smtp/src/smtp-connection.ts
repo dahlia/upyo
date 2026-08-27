@@ -643,7 +643,7 @@ export class SmtpConnection {
         `RCPT TO:<${recipient}>`,
         signal,
       );
-      if (rcptResponse.code !== 250) {
+      if (rcptResponse.code !== 250 && rcptResponse.code !== 251) {
         throw new SmtpResponseError(
           `RCPT TO failed for ${recipient}: ${rcptResponse.message}`,
           rcptResponse.code,

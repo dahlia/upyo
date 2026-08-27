@@ -6,6 +6,13 @@ Version 0.5.3
 
 To be released.
 
+### @upyo/smtp
+
+ -  Accepted `251` responses to `RCPT TO`, allowing delivery to continue when
+    an SMTP server accepts responsibility for forwarding a recipient.  [[#37]]
+
+[#37]: https://github.com/dahlia/upyo/issues/37
+
 
 Version 0.5.2
 -------------
