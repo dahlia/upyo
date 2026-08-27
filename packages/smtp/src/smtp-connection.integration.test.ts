@@ -1,7 +1,11 @@
 import assert from "node:assert/strict";
 import { Socket } from "node:net";
 import { describe, test } from "node:test";
-import { SmtpConnection, SmtpResponseError } from "./smtp-connection.ts";
+import {
+  SmtpConnection,
+  SmtpMessageSizeError,
+  SmtpResponseError,
+} from "./smtp-connection.ts";
 import type { SmtpConfig } from "./config.ts";
 import { SmtpAuthError } from "./oauth2.ts";
 import { MockSmtpServer } from "./test-utils/mock-smtp-server.ts";
@@ -607,6 +611,146 @@ describe("SMTP Connection Integration Tests", () => {
   });
 
   describe("Message Sending", () => {
+    test("should declare the RFC 1870 message size", async () => {
+      const { server, connection } = await setupTest();
+      const raw = "Subject: SIZE test\r\n\r\n.안녕하세요";
+      const messageSize = new TextEncoder().encode(`${raw}\r\n`).byteLength;
+      try {
+        server.setCapabilities([`sIzE ${messageSize}`]);
+        await connection.connect();
+        await connection.greeting();
+        await connection.ehlo();
+
+        await connection.sendMessage({
+          envelope: {
+            from: "sender@example.com",
+            to: ["recipient@example.com"],
+          },
+          raw,
+        });
+
+        assert.ok(
+          server.getReceivedCommands().includes(
+            `MAIL FROM:<sender@example.com> SIZE=${messageSize}`,
+          ),
+        );
+      } finally {
+        await teardownTest(server, connection);
+      }
+    });
+
+    test("should reject a message above the advertised SIZE limit", async () => {
+      const { server, connection } = await setupTest();
+      const raw = "Oversized message";
+      const messageSize = new TextEncoder().encode(`${raw}\r\n`).byteLength;
+      try {
+        server.setCapabilities([`SIZE ${messageSize - 1}`]);
+        await connection.connect();
+        await connection.greeting();
+        await connection.ehlo();
+
+        await assert.rejects(
+          connection.sendMessage({
+            envelope: {
+              from: "sender@example.com",
+              to: ["recipient@example.com"],
+            },
+            raw,
+          }),
+          new SmtpMessageSizeError(messageSize, BigInt(messageSize - 1)),
+        );
+        assert.ok(
+          !server.getReceivedCommands().some((command) =>
+            command.startsWith("MAIL FROM:")
+          ),
+        );
+      } finally {
+        await teardownTest(server, connection);
+      }
+    });
+
+    test("should declare size when SIZE has no maximum", async () => {
+      const { server, connection } = await setupTest();
+      const raw = "Message without a fixed maximum";
+      const messageSize = new TextEncoder().encode(`${raw}\r\n`).byteLength;
+      try {
+        server.setCapabilities(["SIZE"]);
+        await connection.connect();
+        await connection.greeting();
+        await connection.ehlo();
+
+        await connection.sendMessage({
+          envelope: {
+            from: "sender@example.com",
+            to: ["recipient@example.com"],
+          },
+          raw,
+        });
+
+        assert.ok(
+          server.getReceivedCommands().includes(
+            `MAIL FROM:<sender@example.com> SIZE=${messageSize}`,
+          ),
+        );
+      } finally {
+        await teardownTest(server, connection);
+      }
+    });
+
+    test("should treat a SIZE limit of zero as unlimited", async () => {
+      const { server, connection } = await setupTest();
+      const raw = "Message with no fixed maximum";
+      const messageSize = new TextEncoder().encode(`${raw}\r\n`).byteLength;
+      try {
+        server.setCapabilities(["SIZE 0"]);
+        await connection.connect();
+        await connection.greeting();
+        await connection.ehlo();
+
+        await connection.sendMessage({
+          envelope: {
+            from: "sender@example.com",
+            to: ["recipient@example.com"],
+          },
+          raw,
+        });
+
+        assert.ok(
+          server.getReceivedCommands().includes(
+            `MAIL FROM:<sender@example.com> SIZE=${messageSize}`,
+          ),
+        );
+      } finally {
+        await teardownTest(server, connection);
+      }
+    });
+
+    test("should omit size when SIZE is not advertised", async () => {
+      const { server, connection } = await setupTest();
+      try {
+        server.setCapabilities(["HELP"]);
+        await connection.connect();
+        await connection.greeting();
+        await connection.ehlo();
+
+        await connection.sendMessage({
+          envelope: {
+            from: "sender@example.com",
+            to: ["recipient@example.com"],
+          },
+          raw: "Message for a server without SIZE",
+        });
+
+        assert.ok(
+          server.getReceivedCommands().includes(
+            "MAIL FROM:<sender@example.com>",
+          ),
+        );
+      } finally {
+        await teardownTest(server, connection);
+      }
+    });
+
     test("should pipeline envelope commands when advertised", async () => {
       const { server, connection } = await setupTest();
       try {

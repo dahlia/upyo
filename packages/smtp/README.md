@@ -27,6 +27,7 @@ Features
  -  File attachments (regular and inline)
  -  Multiple recipients (To, CC, BCC)
  -  SMTP PIPELINING for faster multi-recipient delivery
+ -  SMTP SIZE declaration and advertised-limit checks
  -  Custom headers
  -  Priority levels
  -  Comprehensive testing utilities
@@ -165,6 +166,20 @@ token across pooled connections.  See the
 [OAuth 2.0 authentication guide][oauth-guide] for details.
 
 [oauth-guide]: https://upyo.org/transports/smtp#oauth-2-0-authentication
+
+
+Message size limits
+-------------------
+
+When the server advertises the `SIZE` extension, the transport declares the
+encoded message size on `MAIL FROM`.  If the server also advertises a fixed
+maximum, an oversized message produces a failed receipt before Upyo sends the
+envelope or uploads the message.  Bare `SIZE` and `SIZE 0` advertisements do not
+set a fixed maximum.  This behavior is automatic and needs no configuration.
+
+See [RFC 1870] for the SMTP Message Size Declaration extension.
+
+[RFC 1870]: https://www.rfc-editor.org/rfc/rfc1870
 
 
 DKIM signing

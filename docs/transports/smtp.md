@@ -198,6 +198,29 @@ message.
 [RFC 2920]: https://www.rfc-editor.org/rfc/rfc2920
 
 
+Message size declaration
+------------------------
+
+*This feature is introduced in Upyo 0.6.0.*
+
+Upyo automatically uses the `SIZE` extension defined by [RFC 1870] when the
+server advertises it.  The transport adds the encoded message size in octets to
+`MAIL FROM`, allowing the server to reject the message before its content is
+uploaded.
+
+If the server advertises a fixed maximum, Upyo returns a failed receipt without
+sending `MAIL FROM` when the message exceeds that limit.  A bare `SIZE`
+capability, or `SIZE 0`, means that no fixed maximum was advertised, so Upyo
+still declares the message size without rejecting it locally.  Servers that do
+not advertise `SIZE` retain the existing SMTP flow.
+
+The declared size covers the headers, encoded body, and line endings sent after
+the server accepts `DATA`.  It does not include the DATA terminator or dots
+added for SMTP transparency.
+
+[RFC 1870]: https://www.rfc-editor.org/rfc/rfc1870
+
+
 Authentication methods
 ----------------------
 

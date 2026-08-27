@@ -6,7 +6,11 @@ import {
   type TransportOptions,
 } from "@upyo/core";
 import type { SmtpConfig } from "./config.ts";
-import { SmtpConnection, SmtpResponseError } from "./smtp-connection.ts";
+import {
+  SmtpConnection,
+  SmtpMessageSizeError,
+  SmtpResponseError,
+} from "./smtp-connection.ts";
 import { OAuth2TokenManager } from "./oauth2.ts";
 import { convertMessage } from "./message-converter.ts";
 import type { SmtpReceipt } from "./smtp-receipt.ts";
@@ -148,7 +152,11 @@ export class SmtpTransport implements Transport<"smtp">, AsyncDisposable {
       };
     } catch (error) {
       if (connection != null) {
-        await this.discardConnection(connection);
+        if (error instanceof SmtpMessageSizeError) {
+          await this.returnConnection(connection);
+        } else {
+          await this.discardConnection(connection);
+        }
       }
 
       // Cancellation rejects rather than producing a receipt.
@@ -250,8 +258,9 @@ export class SmtpTransport implements Transport<"smtp">, AsyncDisposable {
             // Cancellation rejects rather than producing a receipt.
             options?.signal?.throwIfAborted();
 
-            // Mark connection as invalid on any error
-            connectionValid = false;
+            if (!(error instanceof SmtpMessageSizeError)) {
+              connectionValid = false;
+            }
 
             yield createSmtpFailure(
               error instanceof Error ? error.message : String(error),
@@ -287,8 +296,9 @@ export class SmtpTransport implements Transport<"smtp">, AsyncDisposable {
             // Cancellation rejects rather than producing a receipt.
             options?.signal?.throwIfAborted();
 
-            // Mark connection as invalid on any error
-            connectionValid = false;
+            if (!(error instanceof SmtpMessageSizeError)) {
+              connectionValid = false;
+            }
 
             yield createSmtpFailure(
               error instanceof Error ? error.message : String(error),
@@ -452,6 +462,20 @@ function createSmtpFailure(
   message: string,
   error?: unknown,
 ): Receipt<"smtp"> & { readonly successful: false } {
+  if (error instanceof SmtpMessageSizeError) {
+    return createFailedReceipt(message, {
+      provider: "smtp",
+      code: "smtp.message-size-exceeded",
+      category: "rejected",
+      retryable: false,
+      attempts: 1,
+      providerDetails: {
+        actualSize: error.actualSize,
+        maximumSize: error.maximumSize.toString(),
+      },
+    });
+  }
+
   if (error instanceof SmtpResponseError) {
     const classification = classifySmtpReply(error.code);
     return createFailedReceipt(message, {
