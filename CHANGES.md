@@ -16,8 +16,12 @@ To be released.
     reply codes, response text, and retryability so callers can detect partial
     delivery and retry only temporarily rejected recipients.  [[#38]]
 
+ -  Kept multibyte UTF-8 characters within a single RFC 2047 encoded word when
+    splitting long non-ASCII header values.  [[#39]]
+
 [#37]: https://github.com/dahlia/upyo/issues/37
 [#38]: https://github.com/dahlia/upyo/issues/38
+[#39]: https://github.com/dahlia/upyo/issues/39
 
 
 Version 0.5.2

@@ -267,6 +267,27 @@ describe("Message Converter Integration Tests", () => {
       assert.ok(subjectLines.length >= 1);
     });
 
+    test("should keep UTF-8 characters within one encoded word", async () => {
+      const subject = "😀".repeat(40);
+      const result = await convertMessage(createTestMessage({ subject }));
+      const subjectLine = result.raw.split("\r\n").find((line) =>
+        line.startsWith("Subject: ")
+      );
+
+      assert.ok(subjectLine);
+      const encodedWords = [...subjectLine.matchAll(
+        /=\?UTF-8\?B\?([^?]+)\?=/g,
+      )];
+      assert.ok(encodedWords.length > 1);
+
+      const decoder = new TextDecoder("utf-8", { fatal: true });
+      const decodedWords = encodedWords.map((match) =>
+        decoder.decode(Buffer.from(match[1], "base64"))
+      );
+
+      assert.strictEqual(decodedWords.join(""), subject);
+    });
+
     test("should handle mixed CJK characters in sender names", async () => {
       const message = createTestMessage({
         sender: {

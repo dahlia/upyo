@@ -202,38 +202,35 @@ function encodeAddress(address: Address): string {
 function encodeHeaderValue(value: string): string {
   // RFC 2047 encoding for non-ASCII characters in headers
   if (!/^[\x20-\x7E]*$/.test(value)) {
-    // Convert to UTF-8 bytes then to base64
-    const utf8Bytes = new TextEncoder().encode(value);
-    const base64 = Buffer.from(utf8Bytes).toString("base64");
-
-    // Handle long headers by splitting into multiple encoded words
-    const maxEncodedLength = 75; // RFC 2047 recommends max 75 chars per encoded word
-    const encodedWord = `=?UTF-8?B?${base64}?=`;
+    const encodeWord = (text: string): string => {
+      const utf8Bytes = new TextEncoder().encode(text);
+      const base64 = Buffer.from(utf8Bytes).toString("base64");
+      return `=?UTF-8?B?${base64}?=`;
+    };
+    const maxEncodedLength = 75;
+    const encodedWord = encodeWord(value);
 
     if (encodedWord.length <= maxEncodedLength) {
       return encodedWord;
     }
 
-    // Split into multiple encoded words if too long
-    const words = [];
-    let currentBase64 = "";
+    const words: string[] = [];
+    let currentText = "";
 
-    for (let i = 0; i < base64.length; i += 4) {
-      const chunk = base64.slice(i, i + 4);
-      const testWord = `=?UTF-8?B?${currentBase64}${chunk}?=`;
-
-      if (testWord.length <= maxEncodedLength) {
-        currentBase64 += chunk;
+    for (const character of value) {
+      const candidate = currentText + character;
+      if (encodeWord(candidate).length <= maxEncodedLength) {
+        currentText = candidate;
       } else {
-        if (currentBase64) {
-          words.push(`=?UTF-8?B?${currentBase64}?=`);
+        if (currentText.length > 0) {
+          words.push(encodeWord(currentText));
         }
-        currentBase64 = chunk;
+        currentText = character;
       }
     }
 
-    if (currentBase64) {
-      words.push(`=?UTF-8?B?${currentBase64}?=`);
+    if (currentText.length > 0) {
+      words.push(encodeWord(currentText));
     }
 
     return words.join(" ");
