@@ -1,4 +1,4 @@
-import type { Message, Receipt } from "@upyo/core";
+import { createFailedReceipt, type Message, type Receipt } from "@upyo/core";
 import { type EmailAddress, isEmailAddress } from "@upyo/core/address";
 import { ResendTransport } from "./resend-transport.ts";
 import { createTestConfig, type TestConfig } from "./test-utils/test-config.ts";
@@ -108,6 +108,8 @@ describe("ResendTransport E2E Test 1", {
 
     const receipt = await transport.send(message);
 
+    if (acceptDailyQuotaLimit(receipt, "Simple email")) return;
+
     if (!receipt.successful) {
       console.log("❌ First test failed with errors:", receipt.errorMessages);
     }
@@ -163,6 +165,8 @@ describe("ResendTransport E2E Test 2", {
 
     const receipt = await transport.send(message);
 
+    if (acceptDailyQuotaLimit(receipt, "HTML email")) return;
+
     assert.equal(receipt.successful, true);
     if (receipt.successful) {
       console.log(`✅ HTML email sent with ID: ${receipt.messageId}`);
@@ -194,6 +198,8 @@ describe("ResendTransport E2E Test 3", {
     };
 
     const receipt = await transport.send(message);
+
+    if (acceptDailyQuotaLimit(receipt, "High priority email")) return;
 
     assert.equal(receipt.successful, true);
     if (receipt.successful) {
@@ -236,6 +242,8 @@ describe("ResendTransport E2E Test 4", {
     };
 
     const receipt = await transport.send(message);
+
+    if (acceptDailyQuotaLimit(receipt, "Attachment email")) return;
 
     assert.equal(receipt.successful, true);
     if (receipt.successful) {
@@ -301,6 +309,10 @@ describe("ResendTransport E2E Test 5", {
     }
 
     assert.equal(receipts.length, 3);
+    if (isDailyQuotaLimitedBatch(receipts)) {
+      console.log("Batch email test skipped due to Resend daily quota.");
+      return;
+    }
 
     for (let i = 0; i < receipts.length; i++) {
       const receipt: Receipt = receipts[i];
@@ -373,3 +385,51 @@ describe("ResendTransport E2E Test 7", {
     }
   });
 });
+
+describe("ResendTransport E2E quota helpers", () => {
+  it("only accepts daily sending quota failures", () => {
+    const dailyQuota = createFailedReceipt(
+      "You have reached your daily email sending quota.",
+      { provider: "resend", statusCode: 429 },
+    );
+    const rateLimit = createFailedReceipt("Too many requests.", {
+      provider: "resend",
+      statusCode: 429,
+    });
+    const authFailure = createFailedReceipt("Invalid API key.", {
+      provider: "resend",
+      statusCode: 401,
+    });
+
+    assert.ok(isDailyQuotaLimitReceipt(dailyQuota));
+    assert.ok(!isDailyQuotaLimitReceipt(rateLimit));
+    assert.ok(!isDailyQuotaLimitReceipt(authFailure));
+    assert.ok(isDailyQuotaLimitedBatch([dailyQuota, dailyQuota]));
+    assert.ok(!isDailyQuotaLimitedBatch([dailyQuota, rateLimit]));
+    assert.ok(
+      !isDailyQuotaLimitedBatch([{
+        successful: true,
+        messageId: "sent",
+      }]),
+    );
+  });
+});
+
+function acceptDailyQuotaLimit(receipt: Receipt, label: string): boolean {
+  if (!isDailyQuotaLimitReceipt(receipt)) return false;
+  console.log(`${label} test skipped due to Resend daily quota.`);
+  return true;
+}
+
+function isDailyQuotaLimitedBatch(receipts: readonly Receipt[]): boolean {
+  const failures = receipts.filter((receipt) => !receipt.successful);
+  return failures.length > 0 && failures.every(isDailyQuotaLimitReceipt);
+}
+
+function isDailyQuotaLimitReceipt(receipt: Receipt): boolean {
+  return !receipt.successful &&
+    receipt.errors?.some((error) => error.statusCode === 429) === true &&
+    receipt.errorMessages.some((message) =>
+      message.toLowerCase().includes("daily email sending quota")
+    );
+}
