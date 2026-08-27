@@ -55,8 +55,6 @@ jobs:
     - run: mise run test:node
 
   test-deno:
-    needs: test-node
-    if: ${{ !cancelled() }}
     runs-on: ubuntu-latest
     env:
       MAILPIT_SMTP_HOST: localhost
@@ -114,8 +112,6 @@ jobs:
         files: coverage/lcov.info
 
   test-bun:
-    needs: test-deno
-    if: ${{ !cancelled() }}
     runs-on: ubuntu-latest
     env:
       MAILPIT_SMTP_HOST: localhost
