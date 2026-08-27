@@ -65,6 +65,13 @@ To be released.
  -  Fixed connection pooling when `pool` is omitted so that the documented
     default of `true` takes effect.  Dispose the transport with `await using` or
     call `closeAllConnections()` to release pooled connections when finished.
+ -  Reduced SMTP round trips by sending `MAIL FROM` and all `RCPT TO` commands
+    together when the server advertises the `PIPELINING` extension.  Replies,
+    including multiline replies, remain associated with their commands and
+    rejected recipients in server response order.  [[#42], [#47]]
+
+[#42]: https://github.com/dahlia/upyo/issues/42
+[#47]: https://github.com/dahlia/upyo/pull/47
 
 
 Version 0.5.3

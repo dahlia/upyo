@@ -8,6 +8,15 @@ export class MockSmtpServer extends EventEmitter {
   private connectionCount = 0;
   private responses: Map<string, SmtpResponse> = new Map();
   private responseQueues: Map<string, SmtpResponse[]> = new Map();
+  private capabilities: string[] = [
+    "AUTH PLAIN LOGIN XOAUTH2 OAUTHBEARER",
+    "HELP",
+  ];
+  private deferEnvelopeResponses = false;
+  private deferredEnvelopeResponses: Array<{
+    readonly socket: Socket;
+    readonly response: SmtpResponse;
+  }> = [];
   private receivedMessages: MockSmtpMessage[] = [];
   private receivedCommands: string[] = [];
   private timeouts: Set<number | NodeJS.Timeout> = new Set();
@@ -151,19 +160,19 @@ export class MockSmtpServer extends EventEmitter {
 
           const command = line.split(" ")[0].toUpperCase();
           this.receivedCommands.push(line);
+          this.emit("command", line);
 
           switch (command) {
             case "EHLO": {
               const ehloResponse = this.responses.get("EHLO")!;
               if (ehloResponse.code === 250) {
+                const lines = [ehloResponse.message, ...this.capabilities];
                 socket.write(
-                  `${ehloResponse.code}-${ehloResponse.message}\r\n`,
+                  lines.map((capability, index) => {
+                    const separator = index === lines.length - 1 ? " " : "-";
+                    return `${ehloResponse.code}${separator}${capability}\r\n`;
+                  }).join(""),
                 );
-                socket.write("250-AUTH PLAIN LOGIN XOAUTH2 OAUTHBEARER\r\n");
-                // Note: STARTTLS removed from default capabilities
-                // Mock server doesn't actually perform TLS upgrade
-                // Tests can manually send STARTTLS command if needed
-                socket.write("250 HELP\r\n");
               } else {
                 socket.write(
                   `${ehloResponse.code} ${ehloResponse.message}\r\n`,
@@ -212,7 +221,7 @@ export class MockSmtpServer extends EventEmitter {
             case "MAIL":
               currentMessage.from = this.extractEmail(line);
               const mailResponse = this.responses.get("MAIL")!;
-              socket.write(`${mailResponse.code} ${mailResponse.message}\r\n`);
+              if (this.writeEnvelopeResponse(socket, mailResponse)) return;
               break;
 
             // deno-lint-ignore no-case-declarations
@@ -223,7 +232,7 @@ export class MockSmtpServer extends EventEmitter {
                 if (!currentMessage.to) currentMessage.to = [];
                 currentMessage.to.push(this.extractEmail(line));
               }
-              socket.write(`${rcptResponse.code} ${rcptResponse.message}\r\n`);
+              if (this.writeEnvelopeResponse(socket, rcptResponse)) return;
               break;
 
               // deno-lint-ignore no-case-declarations
@@ -284,6 +293,30 @@ export class MockSmtpServer extends EventEmitter {
     return match ? match[1] : "";
   }
 
+  private formatResponse(response: SmtpResponse): string {
+    const continuationLines =
+      response.continuationLines?.map((line) => `${response.code}-${line}\r\n`)
+        .join("") ?? "";
+    return `${continuationLines}${response.code} ${response.message}\r\n`;
+  }
+
+  private writeEnvelopeResponse(
+    socket: Socket,
+    response: SmtpResponse,
+  ): boolean {
+    if (this.deferEnvelopeResponses) {
+      this.deferredEnvelopeResponses.push({ socket, response });
+      return false;
+    }
+    const formatted = this.formatResponse(response);
+    if (response.closeConnection === true) {
+      socket.end(formatted);
+      return true;
+    }
+    socket.write(formatted);
+    return false;
+  }
+
   start(): Promise<number> {
     return new Promise((resolve, reject) => {
       this.server.listen(this.port, () => {
@@ -340,6 +373,49 @@ export class MockSmtpServer extends EventEmitter {
     this.responseQueues.set(command, [...responses]);
   }
 
+  /** Replaces the SMTP extensions advertised in successful EHLO responses. */
+  setCapabilities(capabilities: readonly string[]): void {
+    this.capabilities = [...capabilities];
+  }
+
+  /** Holds MAIL and RCPT replies until {@link flushEnvelopeResponses} runs. */
+  holdEnvelopeResponses(): void {
+    this.deferEnvelopeResponses = true;
+  }
+
+  /** Sends the next held MAIL or RCPT reply, if one is available. */
+  flushNextEnvelopeResponse(): boolean {
+    while (this.deferredEnvelopeResponses.length > 0) {
+      const pending = this.deferredEnvelopeResponses.shift();
+      if (pending == null || pending.socket.destroyed) continue;
+      const formatted = this.formatResponse(pending.response);
+      if (pending.response.closeConnection === true) {
+        pending.socket.end(formatted);
+      } else {
+        pending.socket.write(formatted);
+      }
+      return true;
+    }
+    return false;
+  }
+
+  /** Sends all held MAIL and RCPT replies in command order. */
+  flushEnvelopeResponses(): void {
+    this.deferEnvelopeResponses = false;
+    const pending = this.deferredEnvelopeResponses.splice(0);
+    const closedSockets = new Set<Socket>();
+    for (const { socket, response } of pending) {
+      if (socket.destroyed || closedSockets.has(socket)) continue;
+      const formatted = this.formatResponse(response);
+      if (response.closeConnection === true) {
+        socket.end(formatted);
+        closedSockets.add(socket);
+      } else {
+        socket.write(formatted);
+      }
+    }
+  }
+
   getReceivedMessages(): MockSmtpMessage[] {
     return [...this.receivedMessages];
   }
@@ -368,8 +444,14 @@ export class MockSmtpServer extends EventEmitter {
 }
 
 export interface SmtpResponse {
+  /** The three-digit SMTP reply code. */
   code: number;
+  /** The text on the final reply line. */
   message: string;
+  /** Text for any lines preceding the final line of a multiline reply. */
+  continuationLines?: readonly string[];
+  /** Whether the server should close the connection after this reply. */
+  closeConnection?: boolean;
 }
 
 export interface MockSmtpMessage {
