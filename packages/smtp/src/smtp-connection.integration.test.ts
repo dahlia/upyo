@@ -7,9 +7,18 @@ import { SmtpAuthError } from "./oauth2.ts";
 import { MockSmtpServer } from "./test-utils/mock-smtp-server.ts";
 
 describe("SMTP Connection Integration Tests", () => {
-  async function setupTest(configOverrides: Partial<SmtpConfig> = {}) {
+  async function setupTest(
+    configOverrides: Partial<SmtpConfig> = {},
+    signal?: AbortSignal,
+  ) {
+    signal?.throwIfAborted();
+
     const server = new MockSmtpServer();
     await server.start();
+    if (signal?.aborted) {
+      await server.stop();
+      signal.throwIfAborted();
+    }
 
     const config: SmtpConfig = {
       host: "localhost",
@@ -75,6 +84,67 @@ describe("SMTP Connection Integration Tests", () => {
       signal?.addEventListener("abort", onAbort, { once: true });
     });
   }
+
+  describe("Test setup", () => {
+    test("should not start the server when already aborted", async () => {
+      const controller = new AbortController();
+      const reason = new Error("Test setup aborted.");
+      controller.abort(reason);
+
+      const originalStart = MockSmtpServer.prototype.start;
+      let startCalled = false;
+      MockSmtpServer.prototype.start = function (): Promise<number> {
+        startCalled = true;
+        return Promise.reject(new Error("Server should not start."));
+      };
+
+      try {
+        await assert.rejects(
+          () => setupTest({}, controller.signal),
+          (error) => error === reason,
+        );
+      } finally {
+        MockSmtpServer.prototype.start = originalStart;
+      }
+
+      assert.ok(!startCalled);
+    });
+
+    test("should stop the server when aborted during startup", async () => {
+      const controller = new AbortController();
+      const reason = new Error("Test setup aborted.");
+      const originalStart = MockSmtpServer.prototype.start;
+      const originalStop = MockSmtpServer.prototype.stop;
+      let startedServer: MockSmtpServer | undefined;
+      let stopCalls = 0;
+
+      MockSmtpServer.prototype.start = async function (): Promise<number> {
+        startedServer = this;
+        const port = await originalStart.call(this);
+        controller.abort(reason);
+        return port;
+      };
+      MockSmtpServer.prototype.stop = async function (): Promise<void> {
+        stopCalls++;
+        await originalStop.call(this);
+      };
+
+      try {
+        await assert.rejects(
+          () => setupTest({}, controller.signal),
+          (error) => error === reason,
+        );
+      } finally {
+        MockSmtpServer.prototype.start = originalStart;
+        MockSmtpServer.prototype.stop = originalStop;
+        if (startedServer != null && stopCalls === 0) {
+          await originalStop.call(startedServer);
+        }
+      }
+
+      assert.equal(stopCalls, 1);
+    });
+  });
 
   describe("Connection Lifecycle", () => {
     test("should establish connection successfully", async () => {
