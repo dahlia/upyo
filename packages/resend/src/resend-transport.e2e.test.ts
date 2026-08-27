@@ -309,19 +309,19 @@ describe("ResendTransport E2E Test 5", {
     }
 
     assert.equal(receipts.length, 3);
-    if (isDailyQuotaLimitedBatch(receipts)) {
-      console.log("Batch email test skipped due to Resend daily quota.");
-      return;
-    }
+    const dailyQuotaFailures = assertBatchReceipts(receipts);
 
     for (let i = 0; i < receipts.length; i++) {
       const receipt: Receipt = receipts[i];
-      assert.equal(receipt.successful, true);
       if (receipt.successful) {
         console.log(
           `✅ Batch email ${i + 1} sent with ID: ${receipt.messageId}`,
         );
       }
+    }
+
+    if (dailyQuotaFailures > 0) {
+      console.log("Batch email test limited by Resend daily quota.");
     }
   });
 });
@@ -400,17 +400,20 @@ describe("ResendTransport E2E quota helpers", () => {
       provider: "resend",
       statusCode: 401,
     });
+    const successfulReceipt: Receipt = {
+      successful: true,
+      messageId: "sent",
+    };
 
     assert.ok(isDailyQuotaLimitReceipt(dailyQuota));
     assert.ok(!isDailyQuotaLimitReceipt(rateLimit));
     assert.ok(!isDailyQuotaLimitReceipt(authFailure));
-    assert.ok(isDailyQuotaLimitedBatch([dailyQuota, dailyQuota]));
-    assert.ok(!isDailyQuotaLimitedBatch([dailyQuota, rateLimit]));
-    assert.ok(
-      !isDailyQuotaLimitedBatch([{
-        successful: true,
-        messageId: "sent",
-      }]),
+    assert.equal(assertBatchReceipts([dailyQuota, dailyQuota]), 2);
+    assert.throws(() => assertBatchReceipts([dailyQuota, rateLimit]));
+    assert.equal(assertBatchReceipts([successfulReceipt]), 0);
+    assert.equal(
+      assertBatchReceipts([successfulReceipt, dailyQuota]),
+      1,
     );
   });
 });
@@ -421,9 +424,16 @@ function acceptDailyQuotaLimit(receipt: Receipt, label: string): boolean {
   return true;
 }
 
-function isDailyQuotaLimitedBatch(receipts: readonly Receipt[]): boolean {
-  const failures = receipts.filter((receipt) => !receipt.successful);
-  return failures.length > 0 && failures.every(isDailyQuotaLimitReceipt);
+function assertBatchReceipts(receipts: readonly Receipt[]): number {
+  let dailyQuotaFailures = 0;
+  for (const receipt of receipts) {
+    if (isDailyQuotaLimitReceipt(receipt)) {
+      dailyQuotaFailures++;
+      continue;
+    }
+    assert.ok(receipt.successful);
+  }
+  return dailyQuotaFailures;
 }
 
 function isDailyQuotaLimitReceipt(receipt: Receipt): boolean {
