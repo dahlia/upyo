@@ -61,6 +61,36 @@ export class SmtpMessageSizeError extends RangeError {
   }
 }
 
+/**
+ * Error thrown when an internationalized message requires an SMTP extension
+ * that the server did not advertise.
+ *
+ * The check happens before `MAIL FROM`, so the SMTP connection remains usable
+ * for another message.
+ *
+ * @since 0.6.0
+ */
+export class SmtpUtf8UnsupportedError extends Error {
+  /** The required SMTP extension that the server did not advertise. */
+  readonly missingCapability: "SMTPUTF8" | "8BITMIME";
+
+  /**
+   * Creates an SMTPUTF8 support error.
+   *
+   * @param missingCapability The required extension that was not advertised.
+   */
+  constructor(missingCapability: "SMTPUTF8" | "8BITMIME") {
+    super(
+      missingCapability === "SMTPUTF8"
+        ? "The SMTP server does not advertise SMTPUTF8."
+        : "The SMTP server advertises SMTPUTF8 without the required " +
+          "8BITMIME capability.",
+    );
+    this.name = "SmtpUtf8UnsupportedError";
+    this.missingCapability = missingCapability;
+  }
+}
+
 class SmtpPipelineTerminatedError extends Error {
   readonly responseIndex: number;
   readonly response: SmtpResponse;
@@ -802,6 +832,25 @@ export class SmtpConnection {
   ): Promise<SmtpSendResult> {
     signal?.throwIfAborted();
 
+    let smtpUtf8Parameters = "";
+    if (message.requiresSmtpUtf8 === true) {
+      if (
+        !this.capabilities.some((capability) =>
+          /^SMTPUTF8(?:[ \t]|$)/i.test(capability)
+        )
+      ) {
+        throw new SmtpUtf8UnsupportedError("SMTPUTF8");
+      }
+      if (
+        !this.capabilities.some((capability) =>
+          /^8BITMIME(?:[ \t]|$)/i.test(capability)
+        )
+      ) {
+        throw new SmtpUtf8UnsupportedError("8BITMIME");
+      }
+      smtpUtf8Parameters = " BODY=8BITMIME SMTPUTF8";
+    }
+
     const sizeCapability = parseSizeCapability(this.capabilities);
     let sizeParameter = "";
     if (sizeCapability != null) {
@@ -831,8 +880,8 @@ export class SmtpConnection {
       ? ""
       : ` ${dsn.mailParameters.join(" ")}`;
 
-    const mailCommand =
-      `MAIL FROM:<${message.envelope.from}>${sizeParameter}${mailDsnParameters}`;
+    const mailCommand = `MAIL FROM:<${message.envelope.from}>` +
+      `${sizeParameter}${smtpUtf8Parameters}${mailDsnParameters}`;
     const recipientCommands = message.envelope.to.map((recipient, index) => {
       const parameters = dsn?.recipientParameters[index] ?? [];
       const suffix = parameters.length === 0 ? "" : ` ${parameters.join(" ")}`;

@@ -6,6 +6,8 @@ import { type DkimConfig, signMessage } from "./dkim/index.ts";
 export interface SmtpMessage {
   readonly envelope: SmtpEnvelope;
   readonly raw: string;
+  /** Whether the envelope or message headers require RFC 6531 SMTPUTF8. */
+  readonly requiresSmtpUtf8?: boolean;
 }
 
 export interface SmtpEnvelope {
@@ -38,6 +40,17 @@ export async function convertMessage(
     ],
     dsn,
   };
+  const requiresSmtpUtf8 = [
+    message.sender,
+    ...message.recipients,
+    ...message.ccRecipients,
+    ...message.bccRecipients,
+    ...message.replyRecipients,
+  ].some((address) =>
+    Array.from(address.address).some((character) =>
+      (character.codePointAt(0) ?? 0) > 0x7f
+    )
+  );
 
   let raw = await buildRawMessage(message);
 
@@ -57,7 +70,7 @@ export async function convertMessage(
     }
   }
 
-  return { envelope, raw };
+  return { envelope, raw, requiresSmtpUtf8 };
 }
 
 async function buildRawMessage(message: Message): Promise<string> {
@@ -367,7 +380,7 @@ function foldHeader(name: string, value: string): string {
   }
 
   lines.push(prefix + remaining);
-  if (lines.some((line) => line.length > 998)) {
+  if (lines.some((line) => Buffer.byteLength(line, "utf8") > 998)) {
     throw new RangeError(
       `Header field ${name} contains a token too long to fold.`,
     );

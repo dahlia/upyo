@@ -71,6 +71,21 @@ const message = createMessage({
 });
 ~~~~
 
+Internationalized mailbox addresses are accepted, including UTF-8 local parts
+and Unicode domains:
+
+~~~~ typescript
+const message = createMessage({
+  from: "josé@example.com",
+  to: "用户@例子.广告",
+  subject: "Hello",
+  content: { text: "Welcome!" },
+});
+~~~~
+
+Support for delivering these addresses depends on the selected transport.  The
+*@upyo/smtp* transport negotiates RFC 6531 SMTPUTF8 automatically.
+
 ### Adding attachments
 
 Attachments can be added using the standard [`File`] API:

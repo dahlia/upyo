@@ -50,6 +50,23 @@ describe("createMessage", () => {
     }]);
   });
 
+  it("should parse internationalized email addresses", () => {
+    const message = createMessage({
+      from: "José <josé@example.com>",
+      to: "用户@例子.广告",
+      subject: "Test",
+      content: { text: "Test" },
+    });
+
+    assert.deepEqual(message.sender, {
+      name: "José",
+      address: "josé@example.com",
+    });
+    assert.deepEqual(message.recipients, [{
+      address: "用户@例子.广告",
+    }]);
+  });
+
   it("should handle multiple recipients as array", () => {
     const constructor: MessageConstructor = {
       from: "sender@example.com",

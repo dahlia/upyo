@@ -352,6 +352,38 @@ describe("SmtpTransport Integration Tests", () => {
     }
   });
 
+  test("should return a non-retryable failure when SMTPUTF8 is unavailable", async () => {
+    const { server, transport } = await setupTest({ pool: true });
+    try {
+      server.setCapabilities(["8BITMIME"]);
+
+      const unsupported = await transport.send(createTestMessage({
+        sender: { address: "josé@example.com" },
+      }));
+      const accepted = await transport.send(createTestMessage());
+
+      assert.ok(!unsupported.successful);
+      if (!unsupported.successful) {
+        assert.equal(unsupported.retryable, false);
+        assert.equal(
+          unsupported.errors?.[0]?.code,
+          "smtp.smtputf8-unsupported",
+        );
+        assert.equal(unsupported.errors?.[0]?.category, "configuration");
+      }
+      assert.ok(accepted.successful);
+      assert.equal(server.getConnectionCount(), 1);
+      assert.deepEqual(
+        server.getReceivedCommands().filter((command) =>
+          command.startsWith("MAIL FROM:")
+        ),
+        ["MAIL FROM:<john@example.com>"],
+      );
+    } finally {
+      await teardownTest(server, transport);
+    }
+  });
+
   test("should continue sendMany after a local SIZE rejection", async () => {
     const { server, transport } = await setupTest();
     try {

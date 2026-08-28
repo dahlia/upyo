@@ -5,6 +5,7 @@ import {
   SmtpConnection,
   SmtpMessageSizeError,
   SmtpResponseError,
+  SmtpUtf8UnsupportedError,
 } from "./smtp-connection.ts";
 import type { SmtpConfig } from "./config.ts";
 import { SmtpAuthError } from "./oauth2.ts";
@@ -611,6 +612,91 @@ describe("SMTP Connection Integration Tests", () => {
   });
 
   describe("Message Sending", () => {
+    test("should negotiate SMTPUTF8 for an internationalized envelope", async () => {
+      const { server, connection } = await setupTest();
+      try {
+        server.setCapabilities(["sMtPuTf8 ignored-parameter", "8bItMiMe"]);
+        await connection.connect();
+        await connection.greeting();
+        await connection.ehlo();
+
+        await connection.sendMessage({
+          envelope: {
+            from: "josé@example.com",
+            to: ["用户@example.com"],
+          },
+          raw: "From: josé@example.com\r\n\r\nMessage",
+          requiresSmtpUtf8: true,
+        });
+
+        assert.ok(
+          server.getReceivedCommands().includes(
+            "MAIL FROM:<josé@example.com> BODY=8BITMIME SMTPUTF8",
+          ),
+        );
+      } finally {
+        await teardownTest(server, connection);
+      }
+    });
+
+    test("should reject SMTPUTF8 before MAIL FROM when unsupported", async () => {
+      const { server, connection } = await setupTest();
+      try {
+        server.setCapabilities(["8BITMIME"]);
+        await connection.connect();
+        await connection.greeting();
+        await connection.ehlo();
+
+        await assert.rejects(
+          connection.sendMessage({
+            envelope: {
+              from: "josé@example.com",
+              to: ["recipient@example.com"],
+            },
+            raw: "Internationalized message",
+            requiresSmtpUtf8: true,
+          }),
+          SmtpUtf8UnsupportedError,
+        );
+        assert.ok(
+          !server.getReceivedCommands().some((command) =>
+            command.startsWith("MAIL FROM:")
+          ),
+        );
+      } finally {
+        await teardownTest(server, connection);
+      }
+    });
+
+    test("should require 8BITMIME with SMTPUTF8", async () => {
+      const { server, connection } = await setupTest();
+      try {
+        server.setCapabilities(["SMTPUTF8"]);
+        await connection.connect();
+        await connection.greeting();
+        await connection.ehlo();
+
+        await assert.rejects(
+          connection.sendMessage({
+            envelope: {
+              from: "sender@example.com",
+              to: ["用户@example.com"],
+            },
+            raw: "Internationalized message",
+            requiresSmtpUtf8: true,
+          }),
+          /8BITMIME/,
+        );
+        assert.ok(
+          !server.getReceivedCommands().some((command) =>
+            command.startsWith("MAIL FROM:")
+          ),
+        );
+      } finally {
+        await teardownTest(server, connection);
+      }
+    });
+
     test("should declare the RFC 1870 message size", async () => {
       const { server, connection } = await setupTest();
       const raw = "Subject: SIZE test\r\n\r\n.안녕하세요";
