@@ -559,6 +559,15 @@ When creating or editing Markdown documentation files in this project,
 follow these style conventions to maintain consistency with existing
 documentation:
 
+### Formatting
+
+Format Markdown documents with Hongdown.  After editing a Markdown file, run:
+
+~~~~ bash
+hongdown --write path/to/file.md
+hongdown --check path/to/file.md
+~~~~
+
 ### Headings
 
  -  *Setext-style headings*: Use underline-style for the document title

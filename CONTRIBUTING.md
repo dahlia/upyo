@@ -12,6 +12,14 @@ If you have any questions, please feel free to open an issue or join our
 community discussions.
 
 
+Reporting security issues
+-------------------------
+
+Please do not report security vulnerabilities through public issues.  See
+[*SECURITY.md*](./SECURITY.md) for supported versions and private reporting
+instructions.
+
+
 Getting started
 ---------------
 
