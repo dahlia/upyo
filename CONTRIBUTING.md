@@ -33,7 +33,8 @@ to have [mise] installed on your system.
     ~~~~
 
     This installs the configured Deno, Node.js, Bun, and pnpm versions, installs
-    project dependencies, and sets up the Git pre-commit hook.
+    project dependencies, and sets up the Git hooks used by the project and
+    Sacho.
 
 [mise]: https://mise.jdx.dev/
 
@@ -98,9 +99,36 @@ Pull requests
 
 If you use AI tools (such as GitHub Copilot, Claude, Cursor, etc.) while
 contributing, you must disclose this in your pull request description and/or
-commit messages.  See *[AI_POLICY.md]* for the complete policy.
+commit messages.  See *[AI\_POLICY.md][AI_POLICY.md]* for the complete policy.
 
 [AI_POLICY.md]: AI_POLICY.md
+
+### Changelog entries
+
+If your change affects users of a package, add a changelog fragment with Sacho.
+Choose a short, topic-based name and the affected package section:
+
+~~~~ bash
+sacho add --section @upyo/smtp smtp-size-limit
+~~~~
+
+Edit the file printed by the command.  It must contain one top-level unordered
+list describing the user-visible result, not the implementation or commit
+history.  Start each entry with a past-tense verb such as “Added” or “Fixed,”
+and use `[[#123]]` to reference an issue or pull request.  Keep updating the
+same fragment as the change evolves.
+
+Do not edit the unreleased part of *CHANGES.md* directly.  Sacho assembles it
+from the fragments under *changes.d/*.  Before committing, run:
+
+~~~~ bash
+sacho fmt
+sacho preview
+sacho check
+~~~~
+
+Changes with no user-visible effect, such as internal refactors or test-only
+changes, do not need a fragment.
 
 ### Verification
 
@@ -110,8 +138,7 @@ Before submitting a pull request, please make sure you have done the following:
  -  Run `mise run test` to ensure all tests pass across supported runtimes.
  -  Add tests for any new features or bug fixes.
  -  Update the documentation if necessary.
- -  Add a changeset to *CHANGES.md* if your changes affect any of
-    the public-facing packages.
+ -  Add or update a Sacho fragment if your changes affect users of a package.
 
 We appreciate your contributions and will review your pull request as soon as
 possible. Thank you for helping us make Upyo better!

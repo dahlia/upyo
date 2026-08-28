@@ -78,6 +78,9 @@ runs development tasks.
     workspace
  -  `mise run fmt` — Format TypeScript and Markdown files
  -  `mise run check:workflow` — Lint GitHub Actions workflows
+ -  `sacho fmt` — Format changelog fragments
+ -  `sacho preview` — Preview the unreleased changelog assembled from fragments
+ -  `sacho check` — Validate changelog fragments and the materialized changelog
 
 ### Package level commands
 
@@ -369,7 +372,7 @@ This project follows test-driven development (TDD) practices:
 
  -  When AI tools assist with a commit, add an `Assisted-by` trailer to the
     commit message.  Do *not* use `Co-authored-by` for AI assistants.
-    See *[AI_POLICY.md]* for the required format.
+    See *[AI\_POLICY.md][AI_POLICY.md]* for the required format.
 
 [AI_POLICY.md]: AI_POLICY.md
 
@@ -377,78 +380,56 @@ This project follows test-driven development (TDD) practices:
 
  -  *Run all checks*: Before committing any changes, run `mise run check` to
     ensure all checks pass (type check, lint, format, dry-run publish).
+ -  *Check changelog fragments*: Run `sacho check` to ensure the fragments and
+    the materialized changelog agree.
  -  *Test across runtimes*: For significant changes, run tests across Deno,
     Node.js, and Bun runtimes using `mise run test`.
 
-### Changelog (*CHANGES.md*)
+### Changelog fragments
 
-This repository uses *CHANGES.md* as a human-readable changelog.  Follow
-these conventions:
+Sacho builds the unreleased part of *CHANGES.md* from Markdown fragments under
+*changes.d/*.  The fragments are the source of truth.  Do not edit the
+unreleased part of *CHANGES.md* directly.
 
- -  *Structure*: Keep entries in reverse chronological order (newest version at
-    the top).
+For a user-visible package change, create a topic-based fragment in the
+package's section:
 
- -  *Version sections*: Each release is a top-level section:
+~~~~ bash
+sacho add --section @upyo/smtp smtp-size-limit
+~~~~
 
-    ~~~~ markdown
-    Version 0.1.0
-    -------------
-    ~~~~
+Replace `@upyo/smtp` with the affected package.  Name the fragment after the
+change, not an issue or pull request number.  If the change evolves before it
+is released, update the same fragment instead of adding entries for intermediate
+states that users never saw.  Changes with no user-visible effect, such as
+internal refactors and test-only changes, do not need a fragment.
 
- -  *Unreleased version*: The next version should start with:
+Each fragment must contain exactly one top-level unordered list.  One list item
+is usual, but closely related user-visible changes may use several items.  Write
+for someone upgrading the package:
 
-    ~~~~ markdown
-    To be released.
-    ~~~~
+ -  Start each entry with a past-tense verb such as “Added,” “Changed,”
+    “Deprecated,” “Fixed,” “Removed,” or “Security.”
 
- -  *Released versions*: Use a release-date line right after the version header:
+ -  Describe the public behavior and what users should do differently.  Avoid
+    commit history, private identifiers, and implementation details.
 
-    ~~~~ markdown
-    Released on December 30, 2025.
-    ~~~~
+ -  Use `[[#123]]` for an issue or pull request.  For multiple references, use
+    `[[#123], [#124]]`.  Credit an external contributor with
+    `[[#123] by Hong Minhee]`.
 
-    If you need to add brief context (e.g., initial release), keep it on the
-    same sentence:
+ -  Use ` -  ` list items, wrap at about 80 columns, and indent continuation
+    lines by four spaces.  Nested lists and additional paragraphs must remain
+    inside the top-level list item.
 
-    ~~~~ markdown
-    Released on August 21, 2025.  Initial release.
-    ~~~~
+Before committing, format and inspect the assembled changelog, then validate
+it:
 
- -  *Package grouping*: Within a version, group entries by package (or major
-    subsystem) using `###` headings (e.g., `### @upyo/core`).
-
- -  *Bullets and wrapping*: Use ` -  ` list items, wrap around ~80 columns, and
-    indent continuation lines by 4 spaces so they align with the bullet text.
-
- -  *Write useful change notes*: Prefer concrete, user-facing descriptions.
-    Include what changed, why it changed, and what users should do differently
-    (especially for breaking changes, deprecations, and security fixes).
-
- -  *Multi-paragraph items*: For longer explanations, keep paragraphs inside the
-    same bullet item by indenting them by 4 spaces and separating paragraphs
-    with a blank line (also indented).
-
- -  *Code blocks in bullets*: If a bullet includes code, indent the entire code
-    fence by 4 spaces so it remains part of that list item.  Use `~~~~` fences
-    and specify a language (e.g., `~~~~ typescript`).
-
- -  *Nested lists*: If you need sub-items (e.g., a list of added exports), use a
-    nested list inside the parent bullet, indented by 4 spaces.
-
- -  *Issue and PR references*: Use `[[#123]]` markers in the text and add
-    reference links at the end of the relevant package subsection (before the
-    next `###` heading or the next version).
-
-    When listing multiple issues/PRs, list them like `[[#123], [#124]]`.
-
-    When the reference is for a PR authored by an external contributor, append
-    `by <NAME>` after the last reference marker (e.g., `[[#123] by Hong Minhee]`
-    or `[[#123], [#124] by Hong Minhee]`).
-
-    ~~~~
-    [#123]: https://github.com/dahlia/upyo/issues/123
-    [#124]: https://github.com/dahlia/upyo/pull/124
-    ~~~~
+~~~~ bash
+sacho fmt
+sacho preview
+sacho check
+~~~~
 
 
 Code style

@@ -1,0 +1,30 @@
+[changelog]
+path = "CHANGES.md"
+title = "Upyo changelog"
+unreleased-heading = "To be released."
+materialize = true
+region-detection = "heading"
+
+[fragments]
+directory = "changes.d"
+next-file = "next.txt"
+
+[links]
+"#" = "https://github.com/dahlia/upyo/issues/{n}"
+
+[vcs]
+preset = "git"
+
+[check]
+paths = []
+
+[[sections]]
+id = "@upyo/core"
+directory = "core"
+paths = ["packages/core/**"]
+
+[[section-patterns]]
+source = "packages/{name}"
+id = "@upyo/{name}"
+directory = "{name}"
+paths = ["packages/{name}/**"]
