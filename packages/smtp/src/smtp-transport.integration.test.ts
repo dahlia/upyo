@@ -1,5 +1,10 @@
 import type { Message, Receipt } from "@upyo/core";
-import { type SmtpConfig, type SmtpReceipt, SmtpTransport } from "@upyo/smtp";
+import {
+  isSmtpResponseProviderDetails,
+  type SmtpConfig,
+  type SmtpReceipt,
+  SmtpTransport,
+} from "@upyo/smtp";
 import assert from "node:assert/strict";
 import { describe, test } from "node:test";
 import { MockSmtpServer } from "./test-utils/mock-smtp-server.ts";
@@ -104,6 +109,122 @@ describe("SmtpTransport Integration Tests", () => {
       await teardownTest(server, transport);
     }
   });
+
+  test("should expose enhanced greeting failures", async () => {
+    const { server, transport } = await setupTest();
+    server.setResponse("GREETING", {
+      code: 421,
+      message: "4.3.2 Service not available",
+    });
+    try {
+      const receipt = await transport.send(createTestMessage());
+
+      assert.ok(!receipt.successful);
+      if (!receipt.successful) {
+        const error = receipt.errors?.[0];
+        assert.equal(error?.code, "smtp.421");
+        assert.equal(error?.category, "service-unavailable");
+        assert.equal(error?.retryable, true);
+        assert.ok(isSmtpResponseProviderDetails(error?.providerDetails));
+        if (isSmtpResponseProviderDetails(error?.providerDetails)) {
+          assert.equal(error.providerDetails.command, "GREETING");
+          assert.equal(
+            error.providerDetails.response,
+            "4.3.2 Service not available",
+          );
+          assert.deepEqual(error.providerDetails.enhancedStatusCode, {
+            code: "4.3.2",
+            class: 4,
+            subject: 3,
+            detail: 2,
+          });
+        }
+      }
+    } finally {
+      await teardownTest(server, transport);
+    }
+  });
+
+  test("should expose enhanced EHLO failures", async () => {
+    const { server, transport } = await setupTest();
+    server.setResponse("EHLO", {
+      code: 451,
+      message: "4.4.0 Temporary DNS failure",
+    });
+    try {
+      const receipt = await transport.send(createTestMessage());
+
+      assert.ok(!receipt.successful);
+      if (!receipt.successful) {
+        const error = receipt.errors?.[0];
+        assert.equal(error?.code, "smtp.451");
+        assert.equal(error?.category, "network");
+        assert.equal(error?.retryable, true);
+        assert.ok(isSmtpResponseProviderDetails(error?.providerDetails));
+        if (isSmtpResponseProviderDetails(error?.providerDetails)) {
+          assert.equal(error.providerDetails.command, "EHLO");
+          assert.equal(
+            error.providerDetails.response,
+            "4.4.0 Temporary DNS failure",
+          );
+          assert.deepEqual(error.providerDetails.enhancedStatusCode, {
+            code: "4.4.0",
+            class: 4,
+            subject: 4,
+            detail: 0,
+          });
+        }
+      }
+    } finally {
+      await teardownTest(server, transport);
+    }
+  });
+
+  for (const method of ["plain", "login"] as const) {
+    test(`should expose enhanced ${method} authentication failures`, async () => {
+      const { server, transport } = await setupTest({
+        auth: {
+          user: "testuser",
+          pass: "testpass",
+          method,
+        },
+      });
+      server.setResponse("AUTH", {
+        code: 535,
+        message: "5.7.8 Bad credentials",
+      });
+      try {
+        const receipt = await transport.send(createTestMessage());
+
+        assert.ok(!receipt.successful);
+        if (!receipt.successful) {
+          const error = receipt.errors?.[0];
+          assert.equal(error?.code, "smtp.535");
+          assert.equal(error?.category, "rejected");
+          assert.equal(error?.retryable, false);
+          assert.ok(isSmtpResponseProviderDetails(error?.providerDetails));
+          if (isSmtpResponseProviderDetails(error?.providerDetails)) {
+            assert.equal(
+              error.providerDetails.command,
+              `AUTH ${method.toUpperCase()}`,
+            );
+            assert.equal(
+              error.providerDetails.response,
+              "5.7.8 Bad credentials",
+            );
+            assert.deepEqual(error.providerDetails.enhancedStatusCode, {
+              code: "5.7.8",
+              class: 5,
+              subject: 7,
+              detail: 8,
+            });
+          }
+        }
+      } finally {
+        await teardownTest(server, transport);
+      }
+    });
+  }
 
   test("should serialize RFC 3461 DSN parameters per recipient", async () => {
     const { server, transport } = await setupTest();
@@ -453,13 +574,33 @@ describe("SmtpTransport Integration Tests", () => {
     const { server, transport } = await setupTest({ requireTls: true });
     server.setResponse("STARTTLS", {
       code: 454,
-      message: "TLS not available",
+      message: "4.7.0 TLS temporarily unavailable",
     });
     try {
       const receipt = await transport.send(createTestMessage());
 
       assert.ok(!receipt.successful);
       assert.match(receipt.errorMessages.join(" "), /STARTTLS failed/);
+      if (!receipt.successful) {
+        const error = receipt.errors?.[0];
+        assert.equal(error?.code, "smtp.454");
+        assert.equal(error?.category, "service-unavailable");
+        assert.equal(error?.retryable, true);
+        assert.ok(isSmtpResponseProviderDetails(error?.providerDetails));
+        if (isSmtpResponseProviderDetails(error?.providerDetails)) {
+          assert.equal(error.providerDetails.command, "STARTTLS");
+          assert.equal(
+            error.providerDetails.response,
+            "4.7.0 TLS temporarily unavailable",
+          );
+          assert.deepEqual(error.providerDetails.enhancedStatusCode, {
+            code: "4.7.0",
+            class: 4,
+            subject: 7,
+            detail: 0,
+          });
+        }
+      }
       assert.equal(server.getReceivedMessages().length, 0);
     } finally {
       await teardownTest(server, transport);
@@ -824,6 +965,162 @@ describe("SmtpTransport Integration Tests", () => {
       await teardownTest(server, transport);
     }
   });
+
+  test("should expose enhanced address status codes", async () => {
+    const { server, transport } = await setupTest();
+    try {
+      server.setResponse("RCPT", {
+        code: 550,
+        message: "5.1.1 User unknown",
+      });
+
+      const receipt = await transport.send(createTestMessage());
+
+      assert.ok(!receipt.successful);
+      if (!receipt.successful) {
+        assert.equal(receipt.errors?.[0]?.category, "validation");
+        assert.equal(receipt.errors?.[0]?.retryable, false);
+        assert.deepStrictEqual(receipt.errors?.[0]?.providerDetails, {
+          command: "RCPT TO",
+          response: "5.1.1 User unknown",
+          rejectedRecipients: [
+            {
+              recipient: "jane@example.com",
+              code: 550,
+              response: "5.1.1 User unknown",
+              retryable: false,
+              enhancedStatusCode: {
+                code: "5.1.1",
+                class: 5,
+                subject: 1,
+                detail: 1,
+              },
+            },
+          ],
+          enhancedStatusCode: {
+            code: "5.1.1",
+            class: 5,
+            subject: 1,
+            detail: 1,
+          },
+        });
+      }
+    } finally {
+      await teardownTest(server, transport);
+    }
+  });
+
+  test("should expose enhanced transient policy status codes", async () => {
+    const { server, transport } = await setupTest();
+    try {
+      server.setResponse("RCPT", {
+        code: 451,
+        message: "4.7.1 Try again later",
+      });
+
+      const receipt = await transport.send(createTestMessage());
+
+      assert.ok(!receipt.successful);
+      if (!receipt.successful) {
+        assert.equal(receipt.errors?.[0]?.category, "service-unavailable");
+        assert.equal(receipt.errors?.[0]?.retryable, true);
+        const details = receipt.errors?.[0]?.providerDetails;
+        assert.ok(isSmtpResponseProviderDetails(details));
+        assert.deepStrictEqual(details.enhancedStatusCode, {
+          code: "4.7.1",
+          class: 4,
+          subject: 7,
+          detail: 1,
+        });
+      }
+    } finally {
+      await teardownTest(server, transport);
+    }
+  });
+
+  test("should expose enhanced permanent policy status codes", async () => {
+    const { server, transport } = await setupTest();
+    try {
+      server.setResponse("RCPT", {
+        code: 550,
+        message: "5.7.1 Message rejected",
+      });
+
+      const receipt = await transport.send(createTestMessage());
+
+      assert.ok(!receipt.successful);
+      if (!receipt.successful) {
+        assert.equal(receipt.errors?.[0]?.category, "rejected");
+        assert.equal(receipt.errors?.[0]?.retryable, false);
+        const details = receipt.errors?.[0]?.providerDetails;
+        assert.ok(details != null && typeof details === "object");
+        assert.ok("enhancedStatusCode" in details);
+        assert.deepStrictEqual(details.enhancedStatusCode, {
+          code: "5.7.1",
+          class: 5,
+          subject: 7,
+          detail: 1,
+        });
+      }
+    } finally {
+      await teardownTest(server, transport);
+    }
+  });
+
+  for (
+    const [code, message, category, retryable] of [
+      [451, "4.4.1 No answer from host", "network", true],
+      [550, "5.6.1 Media not supported", "validation", false],
+    ] as const
+  ) {
+    test(`should classify ${message} failures`, async () => {
+      const { server, transport } = await setupTest();
+      try {
+        server.setResponse("RCPT", { code, message });
+
+        const receipt = await transport.send(createTestMessage());
+
+        assert.ok(!receipt.successful);
+        if (!receipt.successful) {
+          assert.equal(receipt.errors?.[0]?.category, category);
+          assert.equal(receipt.errors?.[0]?.retryable, retryable);
+        }
+      } finally {
+        await teardownTest(server, transport);
+      }
+    });
+  }
+
+  for (
+    const [name, message] of [
+      ["traditional reply", "User unknown"],
+      ["leading zero", "5.01.1 User unknown"],
+      ["missing separator", "5.1.1User unknown"],
+      ["tab separator", "5.1.1\tUser unknown"],
+      ["incomplete code", "5.1 User unknown"],
+      ["overlong detail", "5.1.1000 User unknown"],
+      ["inconsistent class", "4.1.1 User unknown"],
+    ] as const
+  ) {
+    test(`should ignore enhanced status in ${name}`, async () => {
+      const { server, transport } = await setupTest();
+      try {
+        server.setResponse("RCPT", { code: 550, message });
+
+        const receipt = await transport.send(createTestMessage());
+
+        assert.ok(!receipt.successful);
+        if (!receipt.successful) {
+          assert.equal(receipt.errors?.[0]?.category, "rejected");
+          const details = receipt.errors?.[0]?.providerDetails;
+          assert.ok(details != null && typeof details === "object");
+          assert.ok(!("enhancedStatusCode" in details));
+        }
+      } finally {
+        await teardownTest(server, transport);
+      }
+    });
+  }
 
   test("should handle non-ASCII characters in headers and content", async () => {
     const { server, transport } = await setupTest();

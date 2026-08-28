@@ -251,7 +251,13 @@ describe("SMTP Connection Integration Tests", () => {
         await connection.connect();
         await connection.greeting();
 
-        await assert.rejects(() => connection.ehlo(), /HELO failed/);
+        await assert.rejects(() => connection.ehlo(), (error) => {
+          assert.ok(error instanceof SmtpResponseError);
+          assert.equal(error.code, 550);
+          assert.equal(error.command, "HELO");
+          assert.equal(error.response, "Greeting rejected");
+          return true;
+        });
         assert.deepStrictEqual(server.getReceivedCommands().slice(0, 2), [
           "EHLO test.local",
           "HELO test.local",
@@ -271,7 +277,13 @@ describe("SMTP Connection Integration Tests", () => {
         await connection.connect();
         await connection.greeting();
 
-        await assert.rejects(() => connection.ehlo(), /EHLO failed/);
+        await assert.rejects(() => connection.ehlo(), (error) => {
+          assert.ok(error instanceof SmtpResponseError);
+          assert.equal(error.code, 421);
+          assert.equal(error.command, "EHLO");
+          assert.equal(error.response, "Service not available");
+          return true;
+        });
         assert.ok(
           !server.getReceivedCommands().some((command) =>
             command.startsWith("HELO ")
@@ -601,10 +613,13 @@ describe("SMTP Connection Integration Tests", () => {
         await connection.greeting();
         await connection.ehlo();
 
-        await assert.rejects(
-          connection.starttls(),
-          /STARTTLS failed.*TLS not available/,
-        );
+        await assert.rejects(connection.starttls(), (error) => {
+          assert.ok(error instanceof SmtpResponseError);
+          assert.equal(error.code, 454);
+          assert.equal(error.command, "STARTTLS");
+          assert.equal(error.response, "TLS not available");
+          return true;
+        });
       } finally {
         await teardownTest(server, connection);
       }
@@ -936,6 +951,12 @@ describe("SMTP Connection Integration Tests", () => {
           code: 550,
           response: "5.1.1 No such user",
           retryable: false,
+          enhancedStatusCode: {
+            code: "5.1.1",
+            class: 5,
+            subject: 1,
+            detail: 1,
+          },
         }]);
         assert.deepStrictEqual(server.getReceivedMessages()[0]?.to, [
           "first@example.com",

@@ -18,6 +18,7 @@ import {
 } from "./oauth2.ts";
 import type { SmtpMessage } from "./message-converter.ts";
 import type { SmtpRejectedRecipient } from "./smtp-receipt.ts";
+import { parseEnhancedSmtpStatusCode } from "./smtp-status-code.ts";
 
 interface SmtpSendResult {
   readonly messageId: string;
@@ -99,6 +100,46 @@ class SmtpPipelineTerminatedError extends Error {
     super("SMTP pipeline terminated by the server.");
     this.name = "SmtpPipelineTerminatedError";
     this.responseIndex = responseIndex;
+    this.response = response;
+  }
+}
+
+/**
+ * An authentication failure backed by an SMTP server reply.
+ *
+ * This keeps {@link SmtpAuthError} as the public authentication error while
+ * retaining the reply fields needed to build structured transport receipts.
+ *
+ * @since 0.6.0
+ */
+export class SmtpAuthResponseError extends SmtpAuthError {
+  /** The numeric SMTP reply code returned by the server. */
+  readonly code: number;
+
+  /** The authentication command that produced the reply. */
+  readonly command: string;
+
+  /** The textual SMTP reply returned by the server. */
+  readonly response: string;
+
+  /**
+   * Creates an authentication response error.
+   *
+   * @param message A human-readable description of the authentication failure.
+   * @param code The numeric SMTP reply code.
+   * @param command The authentication command that produced the reply.
+   * @param response The textual SMTP reply returned by the server.
+   */
+  constructor(
+    message: string,
+    code: number,
+    command: string,
+    response: string,
+  ) {
+    super(message);
+    this.name = "SmtpAuthResponseError";
+    this.code = code;
+    this.command = command;
     this.response = response;
   }
 }
@@ -533,13 +574,23 @@ export class SmtpConnection {
         signal,
       );
       if (heloResponse.code !== 250) {
-        throw new Error(`HELO failed: ${heloResponse.message}`);
+        throw new SmtpResponseError(
+          `HELO failed: ${heloResponse.message}`,
+          heloResponse.code,
+          "HELO",
+          heloResponse.message,
+        );
       }
       this.capabilities = [];
       return;
     }
     if (response.code !== 250) {
-      throw new Error(`EHLO failed: ${response.message}`);
+      throw new SmtpResponseError(
+        `EHLO failed: ${response.message}`,
+        response.code,
+        "EHLO",
+        response.message,
+      );
     }
 
     // Parse capabilities
@@ -565,7 +616,12 @@ export class SmtpConnection {
     // Send STARTTLS command
     const response = await this.sendCommand("STARTTLS", signal);
     if (response.code !== 220) {
-      throw new Error(`STARTTLS failed: ${response.message}`);
+      throw new SmtpResponseError(
+        `STARTTLS failed: ${response.message}`,
+        response.code,
+        "STARTTLS",
+        response.message,
+      );
     }
 
     signal?.throwIfAborted();
@@ -684,7 +740,12 @@ export class SmtpConnection {
     );
 
     if (response.code !== 235) {
-      throw new Error(`Authentication failed: ${response.message}`);
+      throw new SmtpAuthResponseError(
+        `Authentication failed: ${response.message}`,
+        response.code,
+        "AUTH PLAIN",
+        response.message,
+      );
     }
   }
 
@@ -696,17 +757,32 @@ export class SmtpConnection {
 
     let response = await this.sendCommand("AUTH LOGIN", signal);
     if (response.code !== 334) {
-      throw new Error(`AUTH LOGIN failed: ${response.message}`);
+      throw new SmtpAuthResponseError(
+        `AUTH LOGIN failed: ${response.message}`,
+        response.code,
+        "AUTH LOGIN",
+        response.message,
+      );
     }
 
     response = await this.sendCommand(btoa(user), signal);
     if (response.code !== 334) {
-      throw new Error(`Username authentication failed: ${response.message}`);
+      throw new SmtpAuthResponseError(
+        `Username authentication failed: ${response.message}`,
+        response.code,
+        "AUTH LOGIN",
+        response.message,
+      );
     }
 
     response = await this.sendCommand(btoa(pass), signal);
     if (response.code !== 235) {
-      throw new Error(`Password authentication failed: ${response.message}`);
+      throw new SmtpAuthResponseError(
+        `Password authentication failed: ${response.message}`,
+        response.code,
+        "AUTH LOGIN",
+        response.message,
+      );
     }
   }
 
@@ -806,23 +882,34 @@ export class SmtpConnection {
       return;
     }
     if (response.code === 334) {
+      let finalResponse: SmtpResponse | undefined;
       let finalMessage = "";
       try {
-        const final = await this.sendCommand(continuation, signal);
-        finalMessage = ` (${final.message})`;
+        finalResponse = await this.sendCommand(continuation, signal);
+        finalMessage = ` (${finalResponse.message})`;
       } catch {
         // Some servers close the connection after rejecting authentication, so
         // sending the continuation fails; keep the decoded challenge as the
         // error detail rather than masking it with a socket error.
         signal?.throwIfAborted();
       }
-      throw new SmtpAuthError(
-        `${mechanism} authentication failed: ` +
-          `${decodeOAuth2Challenge(response.message)}${finalMessage}`,
-      );
+      const message = `${mechanism} authentication failed: ` +
+        `${decodeOAuth2Challenge(response.message)}${finalMessage}`;
+      if (finalResponse != null) {
+        throw new SmtpAuthResponseError(
+          message,
+          finalResponse.code,
+          `AUTH ${mechanism}`,
+          finalResponse.message,
+        );
+      }
+      throw new SmtpAuthError(message);
     }
-    throw new SmtpAuthError(
+    throw new SmtpAuthResponseError(
       `${mechanism} authentication failed: ${response.message}`,
+      response.code,
+      `AUTH ${mechanism}`,
+      response.message,
     );
   }
 
@@ -954,11 +1041,16 @@ export class SmtpConnection {
         );
       }
       if (rcptResponse.code !== 250 && rcptResponse.code !== 251) {
+        const enhancedStatusCode = parseEnhancedSmtpStatusCode(
+          rcptResponse.code,
+          rcptResponse.message,
+        );
         rejectedRecipients.push({
           recipient,
           code: rcptResponse.code,
           response: rcptResponse.message,
           retryable: rcptResponse.code >= 400 && rcptResponse.code < 500,
+          ...(enhancedStatusCode == null ? {} : { enhancedStatusCode }),
         });
       }
     }

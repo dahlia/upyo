@@ -71,6 +71,10 @@ To be released.
  -  Added automatic SMTPUTF8 delivery for internationalized sender, recipient,
     and reply-to addresses.  Servers must advertise `SMTPUTF8` and `8BITMIME`;
     unsupported sends fail without starting a mail transaction.  [[#45], [#50]]
+ -  Added structured enhanced status codes to SMTP delivery failures.  Valid
+    RFC 2034 reply prefixes expose their class, subject, and detail while
+    preserving the server's original text; address, content, and network
+    statuses also receive more specific error categories.  [[#46], [#51]]
  -  Added the `requireTls` configuration option.  When enabled for a plaintext
     connection, the transport issues `STARTTLS` even if the server does not
     advertise it and fails delivery unless the TLS upgrade succeeds.  The
@@ -100,9 +104,11 @@ To be released.
 [#42]: https://github.com/dahlia/upyo/issues/42
 [#43]: https://github.com/dahlia/upyo/issues/43
 [#44]: https://github.com/dahlia/upyo/issues/44
+[#46]: https://github.com/dahlia/upyo/issues/46
 [#47]: https://github.com/dahlia/upyo/pull/47
 [#48]: https://github.com/dahlia/upyo/pull/48
 [#49]: https://github.com/dahlia/upyo/pull/49
+[#51]: https://github.com/dahlia/upyo/pull/51
 
 
 Version 0.5.3

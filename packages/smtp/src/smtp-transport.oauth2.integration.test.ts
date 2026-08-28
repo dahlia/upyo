@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, test } from "node:test";
 import type { SmtpConfig } from "./config.ts";
+import { isSmtpResponseProviderDetails } from "./smtp-receipt.ts";
 import { SmtpTransport } from "./smtp-transport.ts";
 import { MockSmtpServer } from "./test-utils/mock-smtp-server.ts";
 import { createTestMessage } from "./test-utils/test-config.ts";
@@ -113,6 +114,24 @@ describe("SmtpTransport OAuth 2.0 integration", () => {
       assert.ok(!receipt.successful);
       if (!receipt.successful) {
         assert.ok(receipt.errorMessages.some((m) => /XOAUTH2/.test(m)));
+        const error = receipt.errors?.[0];
+        assert.equal(error?.code, "smtp.535");
+        assert.equal(error?.category, "rejected");
+        assert.equal(error?.retryable, false);
+        assert.ok(isSmtpResponseProviderDetails(error?.providerDetails));
+        if (isSmtpResponseProviderDetails(error?.providerDetails)) {
+          assert.equal(error.providerDetails.command, "AUTH XOAUTH2");
+          assert.equal(
+            error.providerDetails.response,
+            "5.7.8 Bad credentials",
+          );
+          assert.deepEqual(error.providerDetails.enhancedStatusCode, {
+            code: "5.7.8",
+            class: 5,
+            subject: 7,
+            detail: 8,
+          });
+        }
       }
     } finally {
       await transport.closeAllConnections();

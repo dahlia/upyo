@@ -12,6 +12,7 @@ import {
   type SmtpTransportOptions,
 } from "./delivery-status.ts";
 import {
+  SmtpAuthResponseError,
   SmtpConnection,
   SmtpMessageSizeError,
   SmtpResponseError,
@@ -19,7 +20,8 @@ import {
 } from "./smtp-connection.ts";
 import { OAuth2TokenManager } from "./oauth2.ts";
 import { convertMessage } from "./message-converter.ts";
-import type { SmtpReceipt } from "./smtp-receipt.ts";
+import type { SmtpEnhancedStatusCode, SmtpReceipt } from "./smtp-receipt.ts";
+import { parseEnhancedSmtpStatusCode } from "./smtp-status-code.ts";
 
 /**
  * SMTP transport implementation for sending emails via SMTP protocol.
@@ -373,7 +375,12 @@ export class SmtpTransport implements Transport<"smtp">, AsyncDisposable {
     // Wait for server greeting
     const greeting = await connection.greeting(signal);
     if (greeting.code !== 220) {
-      throw new Error(`Server greeting failed: ${greeting.message}`);
+      throw new SmtpResponseError(
+        `Server greeting failed: ${greeting.message}`,
+        greeting.code,
+        "GREETING",
+        greeting.message,
+      );
     }
 
     signal?.throwIfAborted();
@@ -527,8 +534,15 @@ function createSmtpFailure(
     });
   }
 
-  if (error instanceof SmtpResponseError) {
-    const classification = classifySmtpReply(error.code);
+  if (
+    error instanceof SmtpResponseError ||
+    error instanceof SmtpAuthResponseError
+  ) {
+    const enhancedStatusCode = parseEnhancedSmtpStatusCode(
+      error.code,
+      error.response,
+    );
+    const classification = classifySmtpReply(error.code, enhancedStatusCode);
     return createFailedReceipt(message, {
       provider: "smtp",
       code: `smtp.${error.code}`,
@@ -538,7 +552,10 @@ function createSmtpFailure(
       providerDetails: {
         command: error.command,
         response: error.response,
-        rejectedRecipients: error.rejectedRecipients,
+        rejectedRecipients: error instanceof SmtpResponseError
+          ? error.rejectedRecipients
+          : undefined,
+        ...(enhancedStatusCode == null ? {} : { enhancedStatusCode }),
       },
     });
   }
@@ -556,15 +573,36 @@ function isReusableLocalFailure(error: unknown): boolean {
     error instanceof SmtpDsnUnsupportedError;
 }
 
-function classifySmtpReply(code: number): {
-  readonly category: "rejected" | "service-unavailable" | "unknown";
+function classifySmtpReply(
+  code: number,
+  enhancedStatusCode?: SmtpEnhancedStatusCode,
+): {
+  readonly category:
+    | "network"
+    | "validation"
+    | "rejected"
+    | "service-unavailable"
+    | "unknown";
   readonly retryable: boolean;
 } {
+  const retryable = enhancedStatusCode == null
+    ? code >= 400 && code < 500
+    : enhancedStatusCode.class === 4;
+
+  if (
+    enhancedStatusCode?.subject === 1 ||
+    enhancedStatusCode?.subject === 6
+  ) {
+    return { category: "validation", retryable };
+  }
+  if (enhancedStatusCode?.subject === 4) {
+    return { category: "network", retryable };
+  }
   if (code >= 400 && code < 500) {
-    return { category: "service-unavailable", retryable: true };
+    return { category: "service-unavailable", retryable };
   }
   if (code >= 500 && code < 600) {
-    return { category: "rejected", retryable: false };
+    return { category: "rejected", retryable };
   }
   return { category: "unknown", retryable: false };
 }

@@ -268,19 +268,20 @@ export class MockSmtpServer extends EventEmitter {
 
             default:
               // Handle base64 encoded username/password for AUTH LOGIN
-              if (this.responses.get("AUTH")?.code === 235) {
-                if (line.includes("dGVzdHVzZXI=")) { // "testuser" in base64
-                  socket.write("334 UGFzc3dvcmQ6\r\n"); // "Password:" in base64
-                } else if (line.includes("dGVzdHBhc3M=")) { // "testpass" in base64
-                  const authResponse = this.responses.get("AUTH")!;
-                  socket.write(
-                    `${authResponse.code} ${authResponse.message}\r\n`,
-                  );
-                } else {
-                  socket.write("334 Continue\r\n");
-                }
+              if (line.includes("dGVzdHVzZXI=")) { // "testuser" in base64
+                socket.write("334 UGFzc3dvcmQ6\r\n"); // "Password:" in base64
+              } else if (line.includes("dGVzdHBhc3M=")) { // "testpass" in base64
+                const authResponse = this.responses.get("AUTH")!;
+                socket.write(
+                  `${authResponse.code} ${authResponse.message}\r\n`,
+                );
+              } else if (this.responses.get("AUTH")?.code === 235) {
+                socket.write("334 Continue\r\n");
               } else {
-                socket.write("500 Command not recognized\r\n");
+                const authResponse = this.responses.get("AUTH")!;
+                socket.write(
+                  `${authResponse.code} ${authResponse.message}\r\n`,
+                );
               }
           }
         }

@@ -28,6 +28,7 @@ Features
  -  Multiple recipients (To, CC, BCC)
  -  SMTP PIPELINING for faster multi-recipient delivery
  -  SMTP SIZE declaration and advertised-limit checks
+ -  Structured SMTP enhanced status codes
  -  SMTPUTF8 internationalized address delivery
  -  SMTP delivery status notification requests
  -  Custom headers
@@ -182,6 +183,40 @@ set a fixed maximum.  This behavior is automatic and needs no configuration.
 See [RFC 1870] for the SMTP Message Size Declaration extension.
 
 [RFC 1870]: https://www.rfc-editor.org/rfc/rfc1870
+
+
+Enhanced status codes
+---------------------
+
+SMTP failures include a parsed enhanced status code when the server prefixes
+its reply text with a valid RFC 2034 code such as `5.1.1`.  The final reply
+line's text remains in `providerDetails.response`, while
+`providerDetails.enhancedStatusCode` provides the complete code and its numeric
+`class`, `subject`, and `detail` fields.  Address and message-content statuses
+are categorized as validation failures, and network/routing statuses as network
+failures.
+
+Use `isSmtpResponseProviderDetails()` to narrow the provider-specific details:
+
+~~~~ typescript
+import { isSmtpResponseProviderDetails } from "@upyo/smtp";
+
+const error = receipt.successful ? undefined : receipt.errors?.[0];
+if (isSmtpResponseProviderDetails(error?.providerDetails)) {
+  console.log(error.providerDetails.enhancedStatusCode?.subject);
+}
+~~~~
+
+Partially rejected recipients expose the same structure through
+`receipt.rejectedRecipients[].enhancedStatusCode`.  Replies without an enhanced
+code, with malformed fields, or with a class that conflicts with the
+three-digit SMTP reply continue to use the traditional reply classification.
+
+See [RFC 2034] for the SMTP extension and [RFC 3463] for the status-code
+structure.
+
+[RFC 2034]: https://www.rfc-editor.org/rfc/rfc2034
+[RFC 3463]: https://www.rfc-editor.org/rfc/rfc3463
 
 
 Internationalized addresses
