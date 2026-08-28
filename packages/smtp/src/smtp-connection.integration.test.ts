@@ -936,6 +936,12 @@ describe("SMTP Connection Integration Tests", () => {
           code: 550,
           response: "5.1.1 No such user",
           retryable: false,
+          enhancedStatusCode: {
+            code: "5.1.1",
+            class: 5,
+            subject: 1,
+            detail: 1,
+          },
         }]);
         assert.deepStrictEqual(server.getReceivedMessages()[0]?.to, [
           "first@example.com",

@@ -221,6 +221,59 @@ added for SMTP transparency.
 [RFC 1870]: https://www.rfc-editor.org/rfc/rfc1870
 
 
+Enhanced status codes
+---------------------
+
+*This feature is introduced in Upyo 0.6.0.*
+
+SMTP servers can prefix reply text with an enhanced status code such as
+`5.1.1`, as defined by [RFC 2034] and [RFC 3463].  When a failure contains a
+valid code, Upyo preserves the final reply line's text in
+`providerDetails.response` and exposes the parsed value through
+`providerDetails.enhancedStatusCode`.  The parsed
+`~SmtpEnhancedStatusCode` contains the complete `code` and numeric `class`,
+`subject`, and `detail` fields.
+
+Use `~isSmtpResponseProviderDetails()` to narrow the provider-specific details:
+
+~~~~ typescript twoslash
+import type { SmtpReceipt } from "@upyo/smtp";
+declare const receipt: SmtpReceipt;
+// ---cut-before---
+import { isSmtpResponseProviderDetails } from "@upyo/smtp";
+
+const error = receipt.successful ? undefined : receipt.errors?.[0];
+if (isSmtpResponseProviderDetails(error?.providerDetails)) {
+  const status = error.providerDetails.enhancedStatusCode;
+  if (status != null) {
+    console.log(status.code, status.class, status.subject, status.detail);
+  }
+}
+~~~~
+
+If delivery succeeds for at least one recipient, each rejected entry in
+`~SmtpReceipt.rejectedRecipients` exposes its enhanced code through
+`~SmtpRejectedRecipient.enhancedStatusCode`.
+
+Upyo uses the enhanced subject to refine categories where its meaning is
+unambiguous.  Address and message-content statuses use `validation`, while
+network/routing statuses use `network`.  Other subjects retain the category
+derived from the traditional reply class.  A `4.x.x` code remains retryable and
+a `5.x.x` code remains non-retryable.
+
+The enhanced code must appear at the start of the reply text, use fields of one
+to three digits without leading zeroes, and have the same class as the
+three-digit SMTP reply.  If any condition is not met, Upyo preserves the reply
+line's text but ignores the enhanced code.  Servers that return only
+traditional replies continue to work unchanged.  Because the code space is
+extensible through the [IANA registry], Upyo does not reject an otherwise valid
+code merely because its subject or detail is unknown.
+
+[RFC 2034]: https://www.rfc-editor.org/rfc/rfc2034
+[RFC 3463]: https://www.rfc-editor.org/rfc/rfc3463
+[IANA registry]: https://www.iana.org/assignments/smtp-enhanced-status-codes/
+
+
 Internationalized addresses
 ---------------------------
 

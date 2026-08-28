@@ -18,6 +18,7 @@ import {
 } from "./oauth2.ts";
 import type { SmtpMessage } from "./message-converter.ts";
 import type { SmtpRejectedRecipient } from "./smtp-receipt.ts";
+import { parseEnhancedSmtpStatusCode } from "./smtp-status-code.ts";
 
 interface SmtpSendResult {
   readonly messageId: string;
@@ -954,11 +955,16 @@ export class SmtpConnection {
         );
       }
       if (rcptResponse.code !== 250 && rcptResponse.code !== 251) {
+        const enhancedStatusCode = parseEnhancedSmtpStatusCode(
+          rcptResponse.code,
+          rcptResponse.message,
+        );
         rejectedRecipients.push({
           recipient,
           code: rcptResponse.code,
           response: rcptResponse.message,
           retryable: rcptResponse.code >= 400 && rcptResponse.code < 500,
+          ...(enhancedStatusCode == null ? {} : { enhancedStatusCode }),
         });
       }
     }

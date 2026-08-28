@@ -14,13 +14,22 @@ export {
   SmtpDsnUnsupportedError,
   SmtpDsnValidationError,
 } from "./delivery-status.ts";
+export { isSmtpResponseProviderDetails } from "./smtp-receipt.ts";
 export type {
   SmtpDsnNotification,
   SmtpDsnOptions,
   SmtpDsnRecipientOptions,
   SmtpTransportOptions,
 } from "./delivery-status.ts";
-export type { SmtpReceipt, SmtpRejectedRecipient } from "./smtp-receipt.ts";
+export type {
+  SmtpEnhancedStatusCode,
+  SmtpMessageSizeProviderDetails,
+  SmtpProviderDetails,
+  SmtpReceipt,
+  SmtpRejectedRecipient,
+  SmtpResponseProviderDetails,
+  SmtpUtf8ProviderDetails,
+} from "./smtp-receipt.ts";
 export type {
   DkimAlgorithm,
   DkimCanonicalization,
