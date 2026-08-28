@@ -8,6 +8,7 @@ import {
   type SmtpOAuth2Auth,
   type SmtpUserPassAuth,
 } from "./config.ts";
+import { SmtpDsnUnsupportedError } from "./delivery-status.ts";
 import {
   formatOauthbearer,
   formatXoauth2,
@@ -819,10 +820,24 @@ export class SmtpConnection {
       sizeParameter = ` SIZE=${messageSize}`;
     }
 
-    const mailCommand = `MAIL FROM:<${message.envelope.from}>${sizeParameter}`;
-    const recipientCommands = message.envelope.to.map((recipient) =>
-      `RCPT TO:<${recipient}>`
-    );
+    const dsn = message.envelope.dsn;
+    if (
+      dsn != null &&
+      !this.capabilities.some((capability) => /^DSN[ \t]*$/i.test(capability))
+    ) {
+      throw new SmtpDsnUnsupportedError();
+    }
+    const mailDsnParameters = dsn == null || dsn.mailParameters.length === 0
+      ? ""
+      : ` ${dsn.mailParameters.join(" ")}`;
+
+    const mailCommand =
+      `MAIL FROM:<${message.envelope.from}>${sizeParameter}${mailDsnParameters}`;
+    const recipientCommands = message.envelope.to.map((recipient, index) => {
+      const parameters = dsn?.recipientParameters[index] ?? [];
+      const suffix = parameters.length === 0 ? "" : ` ${parameters.join(" ")}`;
+      return `RCPT TO:<${recipient}>${suffix}`;
+    });
     const pipelining = this.capabilities.some((capability) =>
       /^PIPELINING(?:\s|$)/i.test(capability)
     );

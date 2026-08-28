@@ -105,6 +105,216 @@ describe("SmtpTransport Integration Tests", () => {
     }
   });
 
+  test("should serialize RFC 3461 DSN parameters per recipient", async () => {
+    const { server, transport } = await setupTest();
+    try {
+      server.setCapabilities(["dSn", "PIPELINING"]);
+      const message = createTestMessage({
+        recipients: [{ address: "jane+archive=2026@example.com" }],
+        ccRecipients: [{ address: "johnny@example.com" }],
+        bccRecipients: [{ address: "hidden@example.com" }],
+      });
+
+      const receipt = await transport.send(message, {
+        dsn: {
+          envelopeId: "campaign+42=alpha beta",
+          return: "headers",
+          recipients: {
+            "jane+archive=2026@example.com": {
+              notify: ["success", "failure", "delay"],
+              originalRecipient: "jane+archive=2026@example.com",
+            },
+            "johnny@example.com": { notify: ["never"] },
+            "hidden@example.com": {
+              notify: ["failure"],
+              originalRecipient: "hidden@example.com",
+            },
+          },
+        },
+      });
+
+      assert.ok(receipt.successful);
+      assert.deepEqual(
+        server.getReceivedCommands().filter((command) =>
+          command.startsWith("MAIL FROM:") || command.startsWith("RCPT TO:")
+        ),
+        [
+          "MAIL FROM:<john@example.com> RET=HDRS " +
+          "ENVID=campaign+2B42+3Dalpha+20beta",
+          "RCPT TO:<jane+archive=2026@example.com> " +
+          "NOTIFY=SUCCESS,FAILURE,DELAY " +
+          "ORCPT=rfc822;jane+2Barchive+3D2026@example.com",
+          "RCPT TO:<johnny@example.com> NOTIFY=NEVER",
+          "RCPT TO:<hidden@example.com> NOTIFY=FAILURE " +
+          "ORCPT=rfc822;hidden@example.com",
+        ],
+      );
+      const delivered = server.getReceivedMessages()[0];
+      assert.ok(!delivered.data.includes("ENVID="));
+      assert.ok(!delivered.data.includes("NOTIFY="));
+      assert.ok(!delivered.data.includes("ORCPT="));
+    } finally {
+      await teardownTest(server, transport);
+    }
+  });
+
+  test("should fail before MAIL FROM when DSN is unavailable", async () => {
+    const { server, transport } = await setupTest({ pool: true });
+    try {
+      server.setCapabilities(["HELP"]);
+
+      const unsupported = await transport.send(createTestMessage(), {
+        dsn: {
+          recipients: {
+            "jane@example.com": { notify: ["failure"] },
+          },
+        },
+      });
+      const ordinary = await transport.send(createTestMessage());
+
+      assert.ok(!unsupported.successful);
+      if (!unsupported.successful) {
+        assert.equal(unsupported.retryable, false);
+        assert.equal(
+          unsupported.errors?.[0]?.code,
+          "smtp.dsn-unsupported",
+        );
+        assert.equal(
+          unsupported.errors?.[0]?.category,
+          "configuration",
+        );
+      }
+      assert.ok(ordinary.successful);
+      assert.equal(server.getConnectionCount(), 1);
+      assert.deepEqual(
+        server.getReceivedCommands().filter((command) =>
+          command.startsWith("MAIL FROM:")
+        ),
+        ["MAIL FROM:<john@example.com>"],
+      );
+    } finally {
+      await teardownTest(server, transport);
+    }
+  });
+
+  test("should reject incompatible DSN notification conditions", async () => {
+    const { server, transport } = await setupTest();
+    try {
+      const receipt = await transport.send(createTestMessage(), {
+        dsn: {
+          recipients: {
+            "jane@example.com": {
+              notify: ["never", "failure"],
+            },
+          },
+        },
+      });
+
+      assert.ok(!receipt.successful);
+      if (!receipt.successful) {
+        assert.match(receipt.errorMessages[0], /NEVER.*by itself/);
+        assert.equal(receipt.retryable, false);
+        assert.equal(receipt.errors?.[0]?.code, "smtp.dsn-invalid");
+        assert.equal(receipt.errors?.[0]?.category, "validation");
+      }
+      assert.ok(
+        !server.getReceivedCommands().some((command) =>
+          command.startsWith("MAIL FROM:")
+        ),
+      );
+    } finally {
+      await teardownTest(server, transport);
+    }
+  });
+
+  test("should reject invalid DSN xtext before connecting", async () => {
+    const { server, transport } = await setupTest();
+    try {
+      const receipt = await transport.send(createTestMessage(), {
+        dsn: { envelopeId: "unicode-안녕" },
+      });
+
+      assert.ok(!receipt.successful);
+      if (!receipt.successful) {
+        assert.match(receipt.errorMessages[0], /printable US-ASCII/);
+        assert.equal(receipt.errors?.[0]?.code, "smtp.dsn-invalid");
+      }
+      assert.equal(server.getConnectionCount(), 0);
+    } finally {
+      await teardownTest(server, transport);
+    }
+  });
+
+  test("should reject DSN options for a non-recipient address", async () => {
+    const { server, transport } = await setupTest();
+    try {
+      const receipt = await transport.send(createTestMessage(), {
+        dsn: {
+          recipients: {
+            "other@example.com": { notify: ["failure"] },
+          },
+        },
+      });
+
+      assert.ok(!receipt.successful);
+      if (!receipt.successful) {
+        assert.match(receipt.errorMessages[0], /not an envelope recipient/);
+        assert.equal(receipt.errors?.[0]?.code, "smtp.dsn-invalid");
+      }
+      assert.equal(server.getConnectionCount(), 0);
+    } finally {
+      await teardownTest(server, transport);
+    }
+  });
+
+  test("should continue sendMany after invalid per-message DSN options", async () => {
+    const { server, transport } = await setupTest();
+    try {
+      server.setCapabilities(["DSN"]);
+      const messages = [
+        createTestMessage(),
+        createTestMessage({
+          recipients: [{ address: "other@example.com" }],
+        }),
+        createTestMessage(),
+      ];
+      const receipts: SmtpReceipt[] = [];
+
+      for await (
+        const receipt of transport.sendMany(messages, {
+          dsn: {
+            recipients: {
+              "jane@example.com": { notify: ["failure"] },
+            },
+          },
+        })
+      ) {
+        receipts.push(receipt);
+      }
+
+      assert.equal(receipts.length, 3);
+      assert.ok(receipts[0].successful);
+      assert.ok(!receipts[1].successful);
+      if (!receipts[1].successful) {
+        assert.equal(receipts[1].errors?.[0]?.code, "smtp.dsn-invalid");
+        assert.equal(receipts[1].errors?.[0]?.category, "validation");
+      }
+      assert.ok(receipts[2].successful);
+      assert.equal(server.getConnectionCount(), 1);
+      assert.deepEqual(
+        server.getReceivedCommands().filter((command) =>
+          command.startsWith("RCPT TO:")
+        ),
+        [
+          "RCPT TO:<jane@example.com> NOTIFY=FAILURE",
+          "RCPT TO:<jane@example.com> NOTIFY=FAILURE",
+        ],
+      );
+    } finally {
+      await teardownTest(server, transport);
+    }
+  });
+
   test("should fail before MAIL FROM when the SIZE limit is exceeded", async () => {
     const { server, transport } = await setupTest();
     try {

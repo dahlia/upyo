@@ -221,6 +221,87 @@ added for SMTP transparency.
 [RFC 1870]: https://www.rfc-editor.org/rfc/rfc1870
 
 
+Delivery status notifications
+-----------------------------
+
+*This feature is introduced in Upyo 0.6.0.*
+
+Use the `dsn` send option to request delivery status notifications through the
+SMTP `DSN` extension defined by [RFC 3461].  These settings become parameters
+on `MAIL FROM` and `RCPT TO`; they are not message headers.
+
+~~~~ typescript twoslash
+import { createMessage } from "@upyo/core";
+import { SmtpTransport } from "@upyo/smtp";
+
+const transport = new SmtpTransport({
+  host: "smtp.example.com",
+  port: 465,
+  secure: true,
+});
+const message = createMessage({
+  from: "sender@example.com",
+  to: ["first@example.com", "second@example.com"],
+  subject: "Delivery report",
+  content: { text: "Track this delivery." },
+});
+
+const receipt = await transport.send(message, {
+  dsn: {
+    envelopeId: "campaign+42",
+    return: "headers",
+    recipients: {
+      "first@example.com": {
+        notify: ["success", "failure", "delay"],
+        originalRecipient: "first@example.com",
+      },
+      "second@example.com": {
+        notify: ["never"],
+      },
+    },
+  },
+});
+~~~~
+
+`~SmtpDsnOptions.envelopeId` sets `ENVID`, a non-empty identifier copied into a
+later notification.  `~SmtpDsnOptions.return` sets `RET=FULL` or `RET=HDRS`
+and controls how much of a failed message may be returned.  Each key in
+`~SmtpDsnOptions.recipients` must exactly match an address in the message's To,
+Cc, or Bcc envelope.
+
+The `~SmtpDsnRecipientOptions.notify` array accepts `"success"`, `"failure"`,
+and `"delay"`.  Use `["never"]` by itself to suppress notifications for one
+recipient.  If `notify` is omitted, the server keeps its default failure and
+optional delay behavior.  `~SmtpDsnRecipientOptions.originalRecipient` sets an
+`ORCPT` value with the `rfc822` address type.  On initial submission, RFC 3461
+requires this value to equal the corresponding envelope recipient.
+
+Upyo validates notification combinations, recipient keys, parameter lengths,
+and the printable US-ASCII range before sending the SMTP envelope.  It also
+applies RFC 3461 `xtext` escaping to spaces, plus signs, and equals signs in
+`ENVID` and `ORCPT`.  Upyo emits the RFC 3461 `rfc822` form and does not
+implement the UTF-8 address type or encodings defined by [RFC 6533].
+
+If any DSN parameter is requested but the server does not advertise `DSN`, the
+send returns a non-retryable failed receipt with the code
+`smtp.dsn-unsupported`; Upyo does not send `MAIL FROM`.  Invalid settings use
+the code `smtp.dsn-invalid`.  An empty `dsn` object has no effect, preserving
+the ordinary SMTP flow.
+
+The SMTP server sends a requested notification later as a separate message in
+the [RFC 3464] format.  A successful `~SmtpTransport.send()` receipt confirms
+only that the server accepted the original message; it is not the later DSN.
+
+When passed to `~SmtpTransport.sendMany()`, one `dsn` option applies to every
+message.  Every configured recipient key must therefore be present in each
+message's envelope.  Call `~SmtpTransport.send()` separately when messages
+need different DSN settings.
+
+[RFC 3461]: https://www.rfc-editor.org/rfc/rfc3461
+[RFC 6533]: https://www.rfc-editor.org/rfc/rfc6533
+[RFC 3464]: https://www.rfc-editor.org/rfc/rfc3464
+
+
 Authentication methods
 ----------------------
 
