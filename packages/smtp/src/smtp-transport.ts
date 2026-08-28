@@ -12,6 +12,7 @@ import {
   type SmtpTransportOptions,
 } from "./delivery-status.ts";
 import {
+  SmtpAuthResponseError,
   SmtpConnection,
   SmtpMessageSizeError,
   SmtpResponseError,
@@ -528,7 +529,10 @@ function createSmtpFailure(
     });
   }
 
-  if (error instanceof SmtpResponseError) {
+  if (
+    error instanceof SmtpResponseError ||
+    error instanceof SmtpAuthResponseError
+  ) {
     const enhancedStatusCode = parseEnhancedSmtpStatusCode(
       error.code,
       error.response,
@@ -543,7 +547,9 @@ function createSmtpFailure(
       providerDetails: {
         command: error.command,
         response: error.response,
-        rejectedRecipients: error.rejectedRecipients,
+        rejectedRecipients: error instanceof SmtpResponseError
+          ? error.rejectedRecipients
+          : undefined,
         ...(enhancedStatusCode == null ? {} : { enhancedStatusCode }),
       },
     });

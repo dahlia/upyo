@@ -110,6 +110,52 @@ describe("SmtpTransport Integration Tests", () => {
     }
   });
 
+  for (const method of ["plain", "login"] as const) {
+    test(`should expose enhanced ${method} authentication failures`, async () => {
+      const { server, transport } = await setupTest({
+        auth: {
+          user: "testuser",
+          pass: "testpass",
+          method,
+        },
+      });
+      server.setResponse("AUTH", {
+        code: 535,
+        message: "5.7.8 Bad credentials",
+      });
+      try {
+        const receipt = await transport.send(createTestMessage());
+
+        assert.ok(!receipt.successful);
+        if (!receipt.successful) {
+          const error = receipt.errors?.[0];
+          assert.equal(error?.code, "smtp.535");
+          assert.equal(error?.category, "rejected");
+          assert.equal(error?.retryable, false);
+          assert.ok(isSmtpResponseProviderDetails(error?.providerDetails));
+          if (isSmtpResponseProviderDetails(error?.providerDetails)) {
+            assert.equal(
+              error.providerDetails.command,
+              `AUTH ${method.toUpperCase()}`,
+            );
+            assert.equal(
+              error.providerDetails.response,
+              "5.7.8 Bad credentials",
+            );
+            assert.deepEqual(error.providerDetails.enhancedStatusCode, {
+              code: "5.7.8",
+              class: 5,
+              subject: 7,
+              detail: 8,
+            });
+          }
+        }
+      } finally {
+        await teardownTest(server, transport);
+      }
+    });
+  }
+
   test("should serialize RFC 3461 DSN parameters per recipient", async () => {
     const { server, transport } = await setupTest();
     try {
