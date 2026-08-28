@@ -28,6 +28,7 @@ describe("Message Converter Integration Tests", () => {
       // Test envelope
       assert.strictEqual(result.envelope.from, "john@example.com");
       assert.deepStrictEqual(result.envelope.to, ["jane@example.com"]);
+      assert.equal(result.requiresSmtpUtf8, false);
 
       // Test raw message structure
       const lines = result.raw.split("\r\n");
@@ -289,6 +290,34 @@ describe("Message Converter Integration Tests", () => {
   });
 
   describe("Header Encoding", () => {
+    test("should detect internationalized mailbox addresses", async () => {
+      const sender = await convertMessage(createTestMessage({
+        sender: { address: "josé@example.com" },
+      }));
+      const recipient = await convertMessage(createTestMessage({
+        bccRecipients: [{ address: "用户@example.com" }],
+      }));
+      const replyTo = await convertMessage(createTestMessage({
+        replyRecipients: [{ address: "support@例え.テスト" }],
+      }));
+
+      assert.equal(sender.requiresSmtpUtf8, true);
+      assert.equal(recipient.requiresSmtpUtf8, true);
+      assert.equal(replyTo.requiresSmtpUtf8, true);
+      assert.ok(sender.raw.includes("From: josé@example.com"));
+    });
+
+    test("should not require SMTPUTF8 for Unicode display names", async () => {
+      const result = await convertMessage(createTestMessage({
+        sender: { name: "José", address: "jose@example.com" },
+        recipients: [{ name: "用户", address: "user@example.com" }],
+      }));
+
+      assert.equal(result.requiresSmtpUtf8, false);
+      assert.ok(result.raw.includes("From: =?UTF-8?B?"));
+      assert.ok(result.raw.includes("To: =?UTF-8?B?"));
+    });
+
     test("should encode non-ASCII headers with RFC 2047", async () => {
       const message = createTestMessage({
         sender: { name: "김철수", address: "kim@example.com" },

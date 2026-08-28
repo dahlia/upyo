@@ -134,11 +134,12 @@ function isValidEmail(email: string): boolean {
   // If the local part is quoted, we need to find the @ after the closing quote
   let atIndex = -1;
   let inQuotes = false;
+  let escaped = false;
 
   for (let i = 0; i < email.length; i++) {
     const char = email[i];
 
-    if (char === '"' && (i === 0 || email[i - 1] !== "\\")) {
+    if (char === '"' && !escaped) {
       inQuotes = !inQuotes;
     } else if (char === "@" && !inQuotes) {
       if (atIndex === -1) {
@@ -148,6 +149,7 @@ function isValidEmail(email: string): boolean {
         return false;
       }
     }
+    escaped = char === "\\" && !escaped;
   }
 
   if (atIndex === -1) {
@@ -161,27 +163,44 @@ function isValidEmail(email: string): boolean {
 }
 
 function isValidLocalPart(localPart: string): boolean {
-  if (!localPart || localPart.length === 0 || localPart.length > 64) {
+  if (
+    !localPart ||
+    localPart.length === 0 ||
+    new TextEncoder().encode(localPart).byteLength > 64
+  ) {
     return false;
   }
 
   // Check for quoted string format
   if (localPart.startsWith('"') && localPart.endsWith('"')) {
     const quotedContent = localPart.slice(1, -1);
-    // Quoted strings can contain most characters, including @ symbol
-    // Simple validation: no unescaped quotes or newlines
-    let isValid = true;
-    for (let i = 0; i < quotedContent.length; i++) {
-      const char = quotedContent[i];
-      if (char === '"' || char === "\r" || char === "\n") {
-        // Check if it's escaped
-        if (i === 0 || quotedContent[i - 1] !== "\\") {
-          isValid = false;
-          break;
-        }
+    for (let i = 0; i < quotedContent.length;) {
+      const codePoint = quotedContent.codePointAt(i);
+      if (codePoint == null || (codePoint >= 0xd800 && codePoint <= 0xdfff)) {
+        return false;
       }
+      if (codePoint > 0x7f) {
+        i += codePoint > 0xffff ? 2 : 1;
+        continue;
+      }
+
+      if (codePoint === 0x5c) {
+        const escapedCodePoint = quotedContent.codePointAt(i + 1);
+        if (
+          escapedCodePoint == null || escapedCodePoint < 0x20 ||
+          escapedCodePoint > 0x7e
+        ) return false;
+        i += 2;
+        continue;
+      }
+
+      if (
+        codePoint < 0x20 || codePoint === 0x22 || codePoint === 0x5c ||
+        codePoint > 0x7e
+      ) return false;
+      i++;
     }
-    return isValid;
+    return true;
   }
 
   // Check for dot-atom format (RFC 5322)
@@ -193,10 +212,16 @@ function isValidLocalPart(localPart: string): boolean {
     return false;
   }
 
-  // Valid characters for dot-atom: alphanumeric, and some special chars
-  const validLocalPartRegex =
-    /^[a-zA-Z0-9!#$%&'*+/=?^_`{|}~-]+(\.[a-zA-Z0-9!#$%&'*+/=?^_`{|}~-]+)*$/;
-  return validLocalPartRegex.test(localPart);
+  // RFC 6531 extends atext with any well-formed non-ASCII UTF-8 character.
+  const asciiAtext = /^[a-zA-Z0-9!#$%&'*+/=?^_`{|}~-]$/;
+  return localPart.split(".").every((atom) =>
+    atom.length > 0 && Array.from(atom).every((character) => {
+      if (asciiAtext.test(character)) return true;
+      const codePoint = character.codePointAt(0);
+      return codePoint != null && codePoint > 0x7f &&
+        !(codePoint >= 0xd800 && codePoint <= 0xdfff);
+    })
+  );
 }
 
 function isValidDomainPart(domainPart: string): boolean {

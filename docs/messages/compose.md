@@ -77,6 +77,36 @@ const message = createMessage({
 ~~~~
 
 
+Internationalized addresses
+---------------------------
+
+Upyo accepts internationalized mailbox addresses with UTF-8 local parts and
+Unicode domains, as defined by the internationalized email framework in
+[RFC 6530]:
+
+~~~~ typescript twoslash
+import { createMessage } from "@upyo/core";
+
+const message = createMessage({
+  from: "josé@example.com",
+  to: "用户@例子.广告",
+  subject: "Hello",
+  content: { text: "Welcome!" },
+});
+~~~~
+
+The local part is limited to 64 UTF-8 octets.  Upyo preserves the spelling and
+Unicode normalization supplied by the caller because changing a local part can
+change the mailbox it identifies.
+
+Provider support still depends on the selected transport.  The
+[SMTP transport](../transports/smtp.md#internationalized-addresses) negotiates
+the `SMTPUTF8` extension automatically and reports a failed receipt when the
+server cannot accept an internationalized address.
+
+[RFC 6530]: https://www.rfc-editor.org/rfc/rfc6530
+
+
 Rich content
 ------------
 

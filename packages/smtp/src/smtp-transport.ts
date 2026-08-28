@@ -15,6 +15,7 @@ import {
   SmtpConnection,
   SmtpMessageSizeError,
   SmtpResponseError,
+  SmtpUtf8UnsupportedError,
 } from "./smtp-connection.ts";
 import { OAuth2TokenManager } from "./oauth2.ts";
 import { convertMessage } from "./message-converter.ts";
@@ -513,6 +514,19 @@ function createSmtpFailure(
     });
   }
 
+  if (error instanceof SmtpUtf8UnsupportedError) {
+    return createFailedReceipt(message, {
+      provider: "smtp",
+      code: "smtp.smtputf8-unsupported",
+      category: "configuration",
+      retryable: false,
+      attempts: 1,
+      providerDetails: {
+        missingCapability: error.missingCapability,
+      },
+    });
+  }
+
   if (error instanceof SmtpResponseError) {
     const classification = classifySmtpReply(error.code);
     return createFailedReceipt(message, {
@@ -537,6 +551,7 @@ function createSmtpFailure(
 
 function isReusableLocalFailure(error: unknown): boolean {
   return error instanceof SmtpMessageSizeError ||
+    error instanceof SmtpUtf8UnsupportedError ||
     error instanceof SmtpDsnValidationError ||
     error instanceof SmtpDsnUnsupportedError;
 }

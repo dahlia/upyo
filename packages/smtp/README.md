@@ -28,6 +28,7 @@ Features
  -  Multiple recipients (To, CC, BCC)
  -  SMTP PIPELINING for faster multi-recipient delivery
  -  SMTP SIZE declaration and advertised-limit checks
+ -  SMTPUTF8 internationalized address delivery
  -  SMTP delivery status notification requests
  -  Custom headers
  -  Priority levels
@@ -181,6 +182,22 @@ set a fixed maximum.  This behavior is automatic and needs no configuration.
 See [RFC 1870] for the SMTP Message Size Declaration extension.
 
 [RFC 1870]: https://www.rfc-editor.org/rfc/rfc1870
+
+
+Internationalized addresses
+---------------------------
+
+The transport automatically negotiates [RFC 6531] SMTPUTF8 when any sender,
+recipient, or reply-to mailbox contains a non-ASCII character.  A supporting
+server must advertise both `SMTPUTF8` and `8BITMIME`; Upyo then sends
+`BODY=8BITMIME SMTPUTF8` on `MAIL FROM`.
+
+If either capability is missing, delivery returns a non-retryable failed
+receipt with the code `smtp.smtputf8-unsupported` before the mail transaction
+starts.  Unicode display names and subjects continue to use RFC 2047 encoding
+and do not require SMTPUTF8 when the mailbox addresses remain ASCII-only.
+
+[RFC 6531]: https://www.rfc-editor.org/rfc/rfc6531
 
 
 Delivery status notifications

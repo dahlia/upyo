@@ -221,6 +221,30 @@ added for SMTP transparency.
 [RFC 1870]: https://www.rfc-editor.org/rfc/rfc1870
 
 
+Internationalized addresses
+---------------------------
+
+*This feature is introduced in Upyo 0.6.0.*
+
+Upyo automatically uses the `SMTPUTF8` extension defined by [RFC 6531] when a
+sender, To, Cc, Bcc, or Reply-To mailbox contains a non-ASCII character.  The
+transport requires the server to advertise both `SMTPUTF8` and `8BITMIME`, then
+adds `BODY=8BITMIME SMTPUTF8` to `MAIL FROM`.  This supports UTF-8 local parts
+and Unicode domain labels without a configuration option.
+
+If either required extension is missing, Upyo returns a non-retryable failed
+receipt with the code `smtp.smtputf8-unsupported` before sending `MAIL FROM`.
+The connection remains available for a later ASCII-only message.
+
+Unicode display names and subjects do not by themselves require SMTPUTF8.
+Upyo continues to encode those values as RFC 2047 encoded words, so an address
+such as `José <jose@example.com>` follows the ordinary ASCII SMTP flow.  An
+ASCII A-label domain such as `xn--r8jz45g.xn--zckzah` likewise does not require
+SMTPUTF8, while its Unicode U-label form does.
+
+[RFC 6531]: https://www.rfc-editor.org/rfc/rfc6531
+
+
 Delivery status notifications
 -----------------------------
 

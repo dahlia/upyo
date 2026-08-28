@@ -6,6 +6,15 @@ Version 0.6.0
 
 To be released.
 
+### @upyo/core
+
+ -  Added support for internationalized mailbox addresses, including UTF-8
+    local parts and Unicode domains, to `parseAddress()` and `createMessage()`.
+    [[#45], [#50]]
+
+[#45]: https://github.com/dahlia/upyo/issues/45
+[#50]: https://github.com/dahlia/upyo/pull/50
+
 ### @upyo/logtape
 
  -  Added LogTape observability transport.
@@ -59,6 +68,9 @@ To be released.
 
 ### @upyo/smtp
 
+ -  Added automatic SMTPUTF8 delivery for internationalized sender, recipient,
+    and reply-to addresses.  Servers must advertise `SMTPUTF8` and `8BITMIME`;
+    unsupported sends fail without starting a mail transaction.  [[#45], [#50]]
  -  Added the `requireTls` configuration option.  When enabled for a plaintext
     connection, the transport issues `STARTTLS` even if the server does not
     advertise it and fails delivery unless the TLS upgrade succeeds.  The

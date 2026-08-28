@@ -1,4 +1,8 @@
-import { formatAddress, parseAddress } from "@upyo/core/address";
+import {
+  formatAddress,
+  isEmailAddress,
+  parseAddress,
+} from "@upyo/core/address";
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
@@ -160,6 +164,38 @@ test("parseAddress() - international domain names", () => {
   assert.deepStrictEqual(addr4, { address: "user@例え.テスト" });
 });
 
+test("parseAddress() - internationalized local parts", () => {
+  assert.deepStrictEqual(parseAddress("josé@example.com"), {
+    address: "josé@example.com",
+  });
+  assert.deepStrictEqual(parseAddress("用户@例子.广告"), {
+    address: "用户@例子.广告",
+  });
+  assert.deepStrictEqual(parseAddress('"δοκιμή"@example.com'), {
+    address: '"δοκιμή"@example.com',
+  });
+  assert.deepStrictEqual(parseAddress("😀@example.com"), {
+    address: "😀@example.com",
+  });
+  assert.deepStrictEqual(parseAddress('"😀"@example.com'), {
+    address: '"😀"@example.com',
+  });
+
+  assert.strictEqual(parseAddress("josé name@example.com"), undefined);
+  assert.strictEqual(parseAddress("josé()@example.com"), undefined);
+  assert.strictEqual(parseAddress('"josé\t"@example.com'), undefined);
+  assert.strictEqual(parseAddress('"josé\\"@example.com'), undefined);
+  assert.ok(!isEmailAddress(`invalid\ud800@example.com`));
+});
+
+test("parseAddress() - internationalized local-part octet limit", () => {
+  const maximum = `${"é".repeat(32)}@example.com`;
+  const tooLong = `${"é".repeat(33)}@example.com`;
+
+  assert.deepStrictEqual(parseAddress(maximum), { address: maximum });
+  assert.strictEqual(parseAddress(tooLong), undefined);
+});
+
 test("parseAddress() - complex name parsing", () => {
   // Test names with various quote combinations
   const addr1 = parseAddress('John "Johnny" Doe <john@example.com>');
@@ -198,15 +234,13 @@ test("parseAddress() - complex name parsing", () => {
 });
 
 test("parseAddress() - edge cases with valid email patterns", () => {
-  // Test maximum length local part (64 characters)
-  const longLocal = "a".repeat(63) + "@example.com";
-  const addr1 = parseAddress(longLocal);
-  assert.deepStrictEqual(addr1, { address: longLocal });
-
-  // Test local part at maximum length (64 characters) - this should be invalid but current implementation may allow it
+  // The local-part limit is 64 octets.
   const maxLocal = "a".repeat(64) + "@example.com";
-  // Current implementation might not enforce exact 64 character limit so we just test it doesn't crash
-  parseAddress(maxLocal);
+  assert.deepStrictEqual(parseAddress(maxLocal), { address: maxLocal });
+  assert.strictEqual(
+    parseAddress("a".repeat(65) + "@example.com"),
+    undefined,
+  );
 
   // Test very long domain name (close to 253 char limit)
   const longDomain = "user@" + "a".repeat(60) + ".com";
