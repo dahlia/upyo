@@ -3,9 +3,14 @@ import {
   type Message,
   type Receipt,
   type Transport,
-  type TransportOptions,
 } from "@upyo/core";
 import type { SmtpConfig } from "./config.ts";
+import {
+  resolveSmtpDsn,
+  SmtpDsnUnsupportedError,
+  SmtpDsnValidationError,
+  type SmtpTransportOptions,
+} from "./delivery-status.ts";
 import {
   SmtpConnection,
   SmtpMessageSizeError,
@@ -117,13 +122,15 @@ export class SmtpTransport implements Transport<"smtp">, AsyncDisposable {
    */
   async send(
     message: Message,
-    options?: TransportOptions,
+    options?: SmtpTransportOptions,
   ): Promise<SmtpReceipt> {
     options?.signal?.throwIfAborted();
 
     let connection: SmtpConnection | undefined;
 
     try {
+      const dsn = resolveSmtpDsn(message, options?.dsn);
+
       // Establishing the connection—including authentication, e.g. acquiring an
       // OAuth 2.0 access token—is part of delivery, so setup failures are
       // reported as a failed receipt rather than thrown.  (Cancellation via the
@@ -133,7 +140,7 @@ export class SmtpTransport implements Transport<"smtp">, AsyncDisposable {
 
       options?.signal?.throwIfAborted();
 
-      const smtpMessage = await convertMessage(message, this.config.dkim);
+      const smtpMessage = await convertMessage(message, this.config.dkim, dsn);
 
       options?.signal?.throwIfAborted();
 
@@ -152,7 +159,7 @@ export class SmtpTransport implements Transport<"smtp">, AsyncDisposable {
       };
     } catch (error) {
       if (connection != null) {
-        if (error instanceof SmtpMessageSizeError) {
+        if (isReusableLocalFailure(error)) {
           await this.returnConnection(connection);
         } else {
           await this.discardConnection(connection);
@@ -201,7 +208,7 @@ export class SmtpTransport implements Transport<"smtp">, AsyncDisposable {
    */
   async *sendMany(
     messages: Iterable<Message> | AsyncIterable<Message>,
-    options?: TransportOptions,
+    options?: SmtpTransportOptions,
   ): AsyncIterable<SmtpReceipt> {
     options?.signal?.throwIfAborted();
 
@@ -240,7 +247,12 @@ export class SmtpTransport implements Transport<"smtp">, AsyncDisposable {
           }
 
           try {
-            const smtpMessage = await convertMessage(message, this.config.dkim);
+            const dsn = resolveSmtpDsn(message, options?.dsn);
+            const smtpMessage = await convertMessage(
+              message,
+              this.config.dkim,
+              dsn,
+            );
             options?.signal?.throwIfAborted();
 
             const result = await connection.sendMessage(
@@ -258,7 +270,7 @@ export class SmtpTransport implements Transport<"smtp">, AsyncDisposable {
             // Cancellation rejects rather than producing a receipt.
             options?.signal?.throwIfAborted();
 
-            if (!(error instanceof SmtpMessageSizeError)) {
+            if (!isReusableLocalFailure(error)) {
               connectionValid = false;
             }
 
@@ -278,7 +290,12 @@ export class SmtpTransport implements Transport<"smtp">, AsyncDisposable {
           }
 
           try {
-            const smtpMessage = await convertMessage(message, this.config.dkim);
+            const dsn = resolveSmtpDsn(message, options?.dsn);
+            const smtpMessage = await convertMessage(
+              message,
+              this.config.dkim,
+              dsn,
+            );
             options?.signal?.throwIfAborted();
 
             const result = await connection.sendMessage(
@@ -296,7 +313,7 @@ export class SmtpTransport implements Transport<"smtp">, AsyncDisposable {
             // Cancellation rejects rather than producing a receipt.
             options?.signal?.throwIfAborted();
 
-            if (!(error instanceof SmtpMessageSizeError)) {
+            if (!isReusableLocalFailure(error)) {
               connectionValid = false;
             }
 
@@ -462,6 +479,26 @@ function createSmtpFailure(
   message: string,
   error?: unknown,
 ): Receipt<"smtp"> & { readonly successful: false } {
+  if (error instanceof SmtpDsnValidationError) {
+    return createFailedReceipt(message, {
+      provider: "smtp",
+      code: "smtp.dsn-invalid",
+      category: "validation",
+      retryable: false,
+      attempts: 1,
+    });
+  }
+
+  if (error instanceof SmtpDsnUnsupportedError) {
+    return createFailedReceipt(message, {
+      provider: "smtp",
+      code: "smtp.dsn-unsupported",
+      category: "configuration",
+      retryable: false,
+      attempts: 1,
+    });
+  }
+
   if (error instanceof SmtpMessageSizeError) {
     return createFailedReceipt(message, {
       provider: "smtp",
@@ -496,6 +533,12 @@ function createSmtpFailure(
     provider: "smtp",
     attempts: 1,
   });
+}
+
+function isReusableLocalFailure(error: unknown): boolean {
+  return error instanceof SmtpMessageSizeError ||
+    error instanceof SmtpDsnValidationError ||
+    error instanceof SmtpDsnUnsupportedError;
 }
 
 function classifySmtpReply(code: number): {

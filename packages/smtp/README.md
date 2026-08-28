@@ -28,6 +28,7 @@ Features
  -  Multiple recipients (To, CC, BCC)
  -  SMTP PIPELINING for faster multi-recipient delivery
  -  SMTP SIZE declaration and advertised-limit checks
+ -  SMTP delivery status notification requests
  -  Custom headers
  -  Priority levels
  -  Comprehensive testing utilities
@@ -180,6 +181,40 @@ set a fixed maximum.  This behavior is automatic and needs no configuration.
 See [RFC 1870] for the SMTP Message Size Declaration extension.
 
 [RFC 1870]: https://www.rfc-editor.org/rfc/rfc1870
+
+
+Delivery status notifications
+-----------------------------
+
+Pass SMTP-specific DSN settings to `send()` to request delivery status
+notifications under [RFC 3461]:
+
+~~~~ typescript
+const receipt = await transport.send(message, {
+  dsn: {
+    envelopeId: "campaign+42",
+    return: "headers",
+    recipients: {
+      "recipient@example.net": {
+        notify: ["success", "failure", "delay"],
+        originalRecipient: "recipient@example.net",
+      },
+    },
+  },
+});
+~~~~
+
+`envelopeId` and `return` become `ENVID` and `RET` parameters on `MAIL FROM`.
+Each recipient's `notify` and `originalRecipient` values become `NOTIFY` and
+`ORCPT` parameters on its `RCPT TO` command.  Upyo validates and `xtext`-escapes
+the values without adding them to the message headers.  `envelopeId` must not
+be empty, and `originalRecipient` must exactly match its envelope recipient.
+
+If the server does not advertise `DSN`, the transport returns a non-retryable
+failed receipt with the code `smtp.dsn-unsupported` before sending `MAIL FROM`.
+Invalid settings use `smtp.dsn-invalid`.
+
+[RFC 3461]: https://www.rfc-editor.org/rfc/rfc3461
 
 
 DKIM signing

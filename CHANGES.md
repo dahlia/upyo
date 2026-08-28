@@ -77,10 +77,18 @@ To be released.
     uploading messages that exceed an advertised fixed maximum.  Bare `SIZE`
     and `SIZE 0` advertisements continue without a local limit.  [[#43], [#48]]
 
+ -  Added SMTP delivery status notification requests through the RFC 3461
+    `DSN` extension.  Per-message `RET` and `ENVID` options and per-recipient
+    `NOTIFY` and `ORCPT` options are validated and serialized on the SMTP
+    envelope.  Requests fail before `MAIL FROM` when the server does not
+    advertise `DSN`.  [[#44], [#49]]
+
 [#42]: https://github.com/dahlia/upyo/issues/42
 [#43]: https://github.com/dahlia/upyo/issues/43
+[#44]: https://github.com/dahlia/upyo/issues/44
 [#47]: https://github.com/dahlia/upyo/pull/47
 [#48]: https://github.com/dahlia/upyo/pull/48
+[#49]: https://github.com/dahlia/upyo/pull/49
 
 
 Version 0.5.3

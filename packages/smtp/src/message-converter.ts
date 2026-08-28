@@ -1,5 +1,6 @@
 import type { Address, Message } from "@upyo/core";
 import { Buffer } from "node:buffer";
+import type { ResolvedSmtpDsn } from "./delivery-status.ts";
 import { type DkimConfig, signMessage } from "./dkim/index.ts";
 
 export interface SmtpMessage {
@@ -10,6 +11,7 @@ export interface SmtpMessage {
 export interface SmtpEnvelope {
   readonly from: string;
   readonly to: string[];
+  readonly dsn?: ResolvedSmtpDsn;
 }
 
 /**
@@ -17,6 +19,7 @@ export interface SmtpEnvelope {
  *
  * @param message The message to convert.
  * @param dkimConfig Optional DKIM signing configuration.
+ * @param dsn Optional validated SMTP delivery status notification parameters.
  * @returns The converted SMTP message.
  * @throws {RangeError} If a header contains a token that cannot be folded
  * within the RFC 5322 hard line-length limit.
@@ -24,6 +27,7 @@ export interface SmtpEnvelope {
 export async function convertMessage(
   message: Message,
   dkimConfig?: DkimConfig,
+  dsn?: ResolvedSmtpDsn,
 ): Promise<SmtpMessage> {
   const envelope: SmtpEnvelope = {
     from: message.sender.address,
@@ -32,6 +36,7 @@ export async function convertMessage(
       ...message.ccRecipients.map((r) => r.address),
       ...message.bccRecipients.map((r) => r.address),
     ],
+    dsn,
   };
 
   let raw = await buildRawMessage(message);
