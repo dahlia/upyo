@@ -110,6 +110,76 @@ describe("SmtpTransport Integration Tests", () => {
     }
   });
 
+  test("should expose enhanced greeting failures", async () => {
+    const { server, transport } = await setupTest();
+    server.setResponse("GREETING", {
+      code: 421,
+      message: "4.3.2 Service not available",
+    });
+    try {
+      const receipt = await transport.send(createTestMessage());
+
+      assert.ok(!receipt.successful);
+      if (!receipt.successful) {
+        const error = receipt.errors?.[0];
+        assert.equal(error?.code, "smtp.421");
+        assert.equal(error?.category, "service-unavailable");
+        assert.equal(error?.retryable, true);
+        assert.ok(isSmtpResponseProviderDetails(error?.providerDetails));
+        if (isSmtpResponseProviderDetails(error?.providerDetails)) {
+          assert.equal(error.providerDetails.command, "GREETING");
+          assert.equal(
+            error.providerDetails.response,
+            "4.3.2 Service not available",
+          );
+          assert.deepEqual(error.providerDetails.enhancedStatusCode, {
+            code: "4.3.2",
+            class: 4,
+            subject: 3,
+            detail: 2,
+          });
+        }
+      }
+    } finally {
+      await teardownTest(server, transport);
+    }
+  });
+
+  test("should expose enhanced EHLO failures", async () => {
+    const { server, transport } = await setupTest();
+    server.setResponse("EHLO", {
+      code: 451,
+      message: "4.4.0 Temporary DNS failure",
+    });
+    try {
+      const receipt = await transport.send(createTestMessage());
+
+      assert.ok(!receipt.successful);
+      if (!receipt.successful) {
+        const error = receipt.errors?.[0];
+        assert.equal(error?.code, "smtp.451");
+        assert.equal(error?.category, "network");
+        assert.equal(error?.retryable, true);
+        assert.ok(isSmtpResponseProviderDetails(error?.providerDetails));
+        if (isSmtpResponseProviderDetails(error?.providerDetails)) {
+          assert.equal(error.providerDetails.command, "EHLO");
+          assert.equal(
+            error.providerDetails.response,
+            "4.4.0 Temporary DNS failure",
+          );
+          assert.deepEqual(error.providerDetails.enhancedStatusCode, {
+            code: "4.4.0",
+            class: 4,
+            subject: 4,
+            detail: 0,
+          });
+        }
+      }
+    } finally {
+      await teardownTest(server, transport);
+    }
+  });
+
   for (const method of ["plain", "login"] as const) {
     test(`should expose enhanced ${method} authentication failures`, async () => {
       const { server, transport } = await setupTest({
@@ -504,13 +574,33 @@ describe("SmtpTransport Integration Tests", () => {
     const { server, transport } = await setupTest({ requireTls: true });
     server.setResponse("STARTTLS", {
       code: 454,
-      message: "TLS not available",
+      message: "4.7.0 TLS temporarily unavailable",
     });
     try {
       const receipt = await transport.send(createTestMessage());
 
       assert.ok(!receipt.successful);
       assert.match(receipt.errorMessages.join(" "), /STARTTLS failed/);
+      if (!receipt.successful) {
+        const error = receipt.errors?.[0];
+        assert.equal(error?.code, "smtp.454");
+        assert.equal(error?.category, "service-unavailable");
+        assert.equal(error?.retryable, true);
+        assert.ok(isSmtpResponseProviderDetails(error?.providerDetails));
+        if (isSmtpResponseProviderDetails(error?.providerDetails)) {
+          assert.equal(error.providerDetails.command, "STARTTLS");
+          assert.equal(
+            error.providerDetails.response,
+            "4.7.0 TLS temporarily unavailable",
+          );
+          assert.deepEqual(error.providerDetails.enhancedStatusCode, {
+            code: "4.7.0",
+            class: 4,
+            subject: 7,
+            detail: 0,
+          });
+        }
+      }
       assert.equal(server.getReceivedMessages().length, 0);
     } finally {
       await teardownTest(server, transport);

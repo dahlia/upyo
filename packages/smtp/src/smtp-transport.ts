@@ -375,7 +375,12 @@ export class SmtpTransport implements Transport<"smtp">, AsyncDisposable {
     // Wait for server greeting
     const greeting = await connection.greeting(signal);
     if (greeting.code !== 220) {
-      throw new Error(`Server greeting failed: ${greeting.message}`);
+      throw new SmtpResponseError(
+        `Server greeting failed: ${greeting.message}`,
+        greeting.code,
+        "GREETING",
+        greeting.message,
+      );
     }
 
     signal?.throwIfAborted();

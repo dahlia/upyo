@@ -574,13 +574,23 @@ export class SmtpConnection {
         signal,
       );
       if (heloResponse.code !== 250) {
-        throw new Error(`HELO failed: ${heloResponse.message}`);
+        throw new SmtpResponseError(
+          `HELO failed: ${heloResponse.message}`,
+          heloResponse.code,
+          "HELO",
+          heloResponse.message,
+        );
       }
       this.capabilities = [];
       return;
     }
     if (response.code !== 250) {
-      throw new Error(`EHLO failed: ${response.message}`);
+      throw new SmtpResponseError(
+        `EHLO failed: ${response.message}`,
+        response.code,
+        "EHLO",
+        response.message,
+      );
     }
 
     // Parse capabilities
@@ -606,7 +616,12 @@ export class SmtpConnection {
     // Send STARTTLS command
     const response = await this.sendCommand("STARTTLS", signal);
     if (response.code !== 220) {
-      throw new Error(`STARTTLS failed: ${response.message}`);
+      throw new SmtpResponseError(
+        `STARTTLS failed: ${response.message}`,
+        response.code,
+        "STARTTLS",
+        response.message,
+      );
     }
 
     signal?.throwIfAborted();
