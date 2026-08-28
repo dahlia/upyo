@@ -105,6 +105,93 @@ describe("SmtpTransport Integration Tests", () => {
     }
   });
 
+  test("should fail before MAIL FROM when the SIZE limit is exceeded", async () => {
+    const { server, transport } = await setupTest();
+    try {
+      server.setCapabilities(["SIZE 500"]);
+
+      const receipt = await transport.send(createTestMessage({
+        content: { text: "x".repeat(1000) },
+      }));
+
+      assert.ok(!receipt.successful);
+      if (!receipt.successful) {
+        assert.match(receipt.errorMessages[0], /Message size \d+ octets/);
+        assert.equal(receipt.retryable, false);
+        assert.equal(
+          receipt.errors?.[0]?.code,
+          "smtp.message-size-exceeded",
+        );
+        assert.equal(receipt.errors?.[0]?.category, "rejected");
+        const providerDetails = receipt.errors?.[0]?.providerDetails;
+        if (providerDetails == null || typeof providerDetails !== "object") {
+          assert.fail("Expected provider details for the SIZE rejection.");
+        }
+        assert.ok("maximumSize" in providerDetails);
+        assert.equal(providerDetails.maximumSize, "500");
+        assert.ok("actualSize" in providerDetails);
+        assert.equal(typeof providerDetails.actualSize, "number");
+      }
+      assert.ok(
+        !server.getReceivedCommands().some((command) =>
+          command.startsWith("MAIL FROM:")
+        ),
+      );
+    } finally {
+      await teardownTest(server, transport);
+    }
+  });
+
+  test("should continue sendMany after a local SIZE rejection", async () => {
+    const { server, transport } = await setupTest();
+    try {
+      server.setCapabilities(["SIZE 1000"]);
+      const messages = [
+        createTestMessage({ content: { text: "x".repeat(2000) } }),
+        createTestMessage({ content: { text: "small message" } }),
+      ];
+
+      const receipts: SmtpReceipt[] = [];
+      for await (const receipt of transport.sendMany(messages)) {
+        receipts.push(receipt);
+      }
+
+      assert.equal(receipts.length, 2);
+      assert.ok(!receipts[0].successful);
+      assert.ok(receipts[1].successful);
+      assert.equal(server.getReceivedMessages().length, 1);
+      assert.equal(
+        server.getReceivedCommands().filter((command) =>
+          command.startsWith("MAIL FROM:")
+        ).length,
+        1,
+      );
+    } finally {
+      await teardownTest(server, transport);
+    }
+  });
+
+  test("should reuse a pooled connection after a local SIZE rejection", async () => {
+    const { server, transport } = await setupTest({ pool: true });
+    try {
+      server.setCapabilities(["SIZE 1000"]);
+
+      const oversized = await transport.send(createTestMessage({
+        content: { text: "x".repeat(2000) },
+      }));
+      const accepted = await transport.send(createTestMessage({
+        content: { text: "small message" },
+      }));
+
+      assert.ok(!oversized.successful);
+      assert.ok(accepted.successful);
+      assert.equal(server.getConnectionCount(), 1);
+      assert.equal(server.getReceivedMessages().length, 1);
+    } finally {
+      await teardownTest(server, transport);
+    }
+  });
+
   test("should pool connections by default", async () => {
     const { server, transport } = await setupTest({ pool: undefined });
     try {

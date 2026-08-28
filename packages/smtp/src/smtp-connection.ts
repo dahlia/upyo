@@ -1,3 +1,4 @@
+import { Buffer } from "node:buffer";
 import { Socket } from "node:net";
 import { connect as tlsConnect, TLSSocket } from "node:tls";
 import {
@@ -22,6 +23,43 @@ interface SmtpSendResult {
   readonly rejectedRecipients: readonly SmtpRejectedRecipient[];
 }
 
+interface SmtpSizeCapability {
+  readonly maximum: bigint | null;
+}
+
+/**
+ * Error thrown when a message exceeds the fixed limit advertised through the
+ * SMTP SIZE extension.
+ *
+ * The check happens before `MAIL FROM`, so the SMTP connection remains usable
+ * for another message.
+ *
+ * @since 0.6.0
+ */
+export class SmtpMessageSizeError extends RangeError {
+  /** The encoded message size in octets. */
+  readonly actualSize: number;
+
+  /** The fixed maximum advertised by the SMTP server. */
+  readonly maximumSize: bigint;
+
+  /**
+   * Creates an SMTP message-size error.
+   *
+   * @param actualSize The encoded message size in octets.
+   * @param maximumSize The fixed maximum advertised by the SMTP server.
+   */
+  constructor(actualSize: number, maximumSize: bigint) {
+    super(
+      `Message size ${actualSize} octets exceeds the server's maximum of ` +
+        `${maximumSize} octets.`,
+    );
+    this.name = "SmtpMessageSizeError";
+    this.actualSize = actualSize;
+    this.maximumSize = maximumSize;
+  }
+}
+
 class SmtpPipelineTerminatedError extends Error {
   readonly responseIndex: number;
   readonly response: SmtpResponse;
@@ -42,6 +80,31 @@ const MAX_COMMAND_LINE_LENGTH = 512;
 
 /** The length of the CRLF terminator appended to every command. */
 const CRLF_LENGTH = 2;
+
+/**
+ * Finds the RFC 1870 SIZE extension and its optional fixed maximum.
+ *
+ * A zero maximum and an omitted maximum both mean that no fixed limit is in
+ * force.  A malformed parameter does not prevent use of the extension, but it
+ * cannot be used as a local limit.
+ *
+ * @param capabilities The extension lines returned by EHLO.
+ * @returns The SIZE capability, or `null` when it was not advertised.
+ */
+function parseSizeCapability(
+  capabilities: readonly string[],
+): SmtpSizeCapability | null {
+  const capability = capabilities.find((value) =>
+    /^SIZE(?:[ \t]|$)/i.test(value)
+  );
+  if (capability == null) return null;
+
+  const match = /^SIZE(?:[ \t]+([0-9]+))?[ \t]*$/i.exec(capability);
+  if (match?.[1] == null) return { maximum: null };
+
+  const maximum = BigInt(match[1]);
+  return { maximum: maximum === 0n ? null : maximum };
+}
 
 /**
  * How long, in milliseconds, to wait for the graceful `QUIT` to flush during
@@ -736,7 +799,27 @@ export class SmtpConnection {
     message: SmtpMessage,
     signal?: AbortSignal,
   ): Promise<SmtpSendResult> {
-    const mailCommand = `MAIL FROM:<${message.envelope.from}>`;
+    signal?.throwIfAborted();
+
+    const sizeCapability = parseSizeCapability(this.capabilities);
+    let sizeParameter = "";
+    if (sizeCapability != null) {
+      // The final CRLF belongs to the message data.  RFC 1870 excludes both
+      // the DATA terminator and any extra dots inserted for transparency.
+      const messageSize = Buffer.byteLength(message.raw, "utf8") + CRLF_LENGTH;
+      if (
+        sizeCapability.maximum != null &&
+        BigInt(messageSize) > sizeCapability.maximum
+      ) {
+        throw new SmtpMessageSizeError(
+          messageSize,
+          sizeCapability.maximum,
+        );
+      }
+      sizeParameter = ` SIZE=${messageSize}`;
+    }
+
+    const mailCommand = `MAIL FROM:<${message.envelope.from}>${sizeParameter}`;
     const recipientCommands = message.envelope.to.map((recipient) =>
       `RCPT TO:<${recipient}>`
     );
