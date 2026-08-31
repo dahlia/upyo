@@ -35,8 +35,8 @@ export interface SmtpConfig {
   readonly port?: number;
 
   /**
-   * Whether to use secure connection (TLS/SSL).
-   * @default true
+   * Whether to use implicit TLS from the start of the connection.
+   * @default `true` on port 465; otherwise `false`
    */
   readonly secure?: boolean;
 
@@ -375,10 +375,12 @@ export type ResolvedSmtpConfig =
  * @internal
  */
 export function createSmtpConfig(config: SmtpConfig): ResolvedSmtpConfig {
+  const port = config.port ?? 587;
+
   return {
     host: config.host,
-    port: config.port ?? 587,
-    secure: config.secure ?? true,
+    port,
+    secure: config.secure ?? port === 465,
     requireTls: config.requireTls ?? false,
     auth: config.auth,
     tls: config.tls,
