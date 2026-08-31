@@ -1,4 +1,9 @@
-import type { Message, TransportOptions } from "@upyo/core";
+import type { TransportOptions } from "@upyo/core";
+import type {
+  ResolvedSmtpEnvelope,
+  SmtpEnvelopeOptions,
+  SmtpEnvelopeResolver,
+} from "./envelope.ts";
 
 /**
  * A condition under which an SMTP server should issue a delivery status
@@ -73,6 +78,14 @@ export interface SmtpDsnOptions {
  * @since 0.6.0
  */
 export interface SmtpTransportOptions extends TransportOptions {
+  /**
+   * SMTP envelope overrides for this send operation.
+   *
+   * A resolver can return a different envelope for each message passed to
+   * {@link SmtpTransport.sendMany}.
+   */
+  readonly envelope?: SmtpEnvelopeOptions | SmtpEnvelopeResolver;
+
   /** Delivery status notification settings for this SMTP transaction. */
   readonly dsn?: SmtpDsnOptions;
 }
@@ -127,7 +140,7 @@ const NOTIFICATION_CONDITIONS: ReadonlySet<string> = new Set([
 /**
  * Validates and serializes the RFC 3461 envelope parameters for a message.
  *
- * @param message The message whose SMTP envelope will carry the parameters.
+ * @param envelope The effective SMTP envelope that will carry the parameters.
  * @param dsn The caller-supplied delivery status notification settings.
  * @returns Serialized parameters, or `undefined` when none were requested.
  * @throws {SmtpDsnValidationError} If any setting violates RFC 3461 or does
@@ -135,7 +148,7 @@ const NOTIFICATION_CONDITIONS: ReadonlySet<string> = new Set([
  * @internal
  */
 export function resolveSmtpDsn(
-  message: Message,
+  envelope: ResolvedSmtpEnvelope,
   dsn: SmtpDsnOptions | undefined,
 ): ResolvedSmtpDsn | undefined {
   if (dsn == null) return undefined;
@@ -165,11 +178,7 @@ export function resolveSmtpDsn(
     mailParameters.push(parameter);
   }
 
-  const envelopeRecipients = [
-    ...message.recipients.map((recipient) => recipient.address),
-    ...message.ccRecipients.map((recipient) => recipient.address),
-    ...message.bccRecipients.map((recipient) => recipient.address),
-  ];
+  const envelopeRecipients = envelope.to;
   const envelopeRecipientSet: ReadonlySet<string> = new Set(
     envelopeRecipients,
   );

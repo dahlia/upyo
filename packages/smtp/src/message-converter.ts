@@ -2,6 +2,7 @@ import type { Address, Message } from "@upyo/core";
 import { Buffer } from "node:buffer";
 import type { ResolvedSmtpDsn } from "./delivery-status.ts";
 import { type DkimConfig, signMessage } from "./dkim/index.ts";
+import { type ResolvedSmtpEnvelope, resolveSmtpEnvelope } from "./envelope.ts";
 
 export interface SmtpMessage {
   readonly envelope: SmtpEnvelope;
@@ -11,8 +12,8 @@ export interface SmtpMessage {
 }
 
 export interface SmtpEnvelope {
-  readonly from: string;
-  readonly to: string[];
+  readonly from: string | null;
+  readonly to: readonly string[];
   readonly dsn?: ResolvedSmtpDsn;
 }
 
@@ -22,6 +23,7 @@ export interface SmtpEnvelope {
  * @param message The message to convert.
  * @param dkimConfig Optional DKIM signing configuration.
  * @param dsn Optional validated SMTP delivery status notification parameters.
+ * @param resolvedEnvelope The validated effective SMTP envelope.
  * @returns The converted SMTP message.
  * @throws {RangeError} If a header contains a token that cannot be folded
  * within the RFC 5322 hard line-length limit.
@@ -30,26 +32,27 @@ export async function convertMessage(
   message: Message,
   dkimConfig?: DkimConfig,
   dsn?: ResolvedSmtpDsn,
+  resolvedEnvelope: ResolvedSmtpEnvelope = resolveSmtpEnvelope(message),
 ): Promise<SmtpMessage> {
   const envelope: SmtpEnvelope = {
-    from: message.sender.address,
-    to: [
-      ...message.recipients.map((r) => r.address),
-      ...message.ccRecipients.map((r) => r.address),
-      ...message.bccRecipients.map((r) => r.address),
-    ],
+    ...resolvedEnvelope,
     dsn,
   };
-  const requiresSmtpUtf8 = [
-    message.sender,
-    ...message.recipients,
-    ...message.ccRecipients,
-    ...message.bccRecipients,
-    ...message.replyRecipients,
-  ].some((address) =>
-    Array.from(address.address).some((character) =>
-      (character.codePointAt(0) ?? 0) > 0x7f
-    )
+  const headerAddresses = [
+    message.sender.address,
+    ...message.recipients.map((address) => address.address),
+    ...message.ccRecipients.map((address) => address.address),
+    ...message.replyRecipients.map((address) => address.address),
+  ];
+  const envelopeAddresses = [
+    ...(envelope.from == null ? [] : [envelope.from]),
+    ...envelope.to,
+  ];
+  const requiresSmtpUtf8 = [...headerAddresses, ...envelopeAddresses].some(
+    (address) =>
+      Array.from(address).some((character) =>
+        (character.codePointAt(0) ?? 0) > 0x7f
+      ),
   );
 
   let raw = await buildRawMessage(message);
