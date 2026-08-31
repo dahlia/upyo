@@ -68,6 +68,10 @@ To be released.
 
 ### @upyo/smtp
 
+ -  Added SMTP envelope overrides for using different `MAIL FROM` and `RCPT TO`
+    addresses without changing the visible message headers.  Overrides support
+    null reverse-paths and per-message resolvers for bulk VERP delivery.
+    [[#52], [#54]]
  -  Added automatic SMTPUTF8 delivery for internationalized sender, recipient,
     and reply-to addresses.  Servers must advertise `SMTPUTF8` and `8BITMIME`;
     unsupported sends fail without starting a mail transaction.  [[#45], [#50]]
@@ -109,6 +113,8 @@ To be released.
 [#48]: https://github.com/dahlia/upyo/pull/48
 [#49]: https://github.com/dahlia/upyo/pull/49
 [#51]: https://github.com/dahlia/upyo/pull/51
+[#52]: https://github.com/dahlia/upyo/issues/52
+[#54]: https://github.com/dahlia/upyo/pull/54
 
 
 Version 0.5.3

@@ -967,7 +967,7 @@ export class SmtpConnection {
       ? ""
       : ` ${dsn.mailParameters.join(" ")}`;
 
-    const mailCommand = `MAIL FROM:<${message.envelope.from}>` +
+    const mailCommand = `MAIL FROM:<${message.envelope.from ?? ""}>` +
       `${sizeParameter}${smtpUtf8Parameters}${mailDsnParameters}`;
     const recipientCommands = message.envelope.to.map((recipient, index) => {
       const parameters = dsn?.recipientParameters[index] ?? [];

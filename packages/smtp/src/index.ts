@@ -10,6 +10,8 @@ export type {
   SmtpUserPassAuth,
 } from "./config.ts";
 export { SmtpAuthError } from "./oauth2.ts";
+export { SmtpEnvelopeValidationError } from "./envelope.ts";
+export type { SmtpEnvelopeOptions, SmtpEnvelopeResolver } from "./envelope.ts";
 export {
   SmtpDsnUnsupportedError,
   SmtpDsnValidationError,

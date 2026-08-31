@@ -110,6 +110,258 @@ describe("SmtpTransport Integration Tests", () => {
     }
   });
 
+  test("should override the SMTP envelope without changing headers", async () => {
+    const { server, transport } = await setupTest();
+    try {
+      const receipt = await transport.send(
+        createTestMessage({
+          ccRecipients: [{ address: "copy@example.com" }],
+          bccRecipients: [{ address: "blind@example.com" }],
+        }),
+        {
+          envelope: {
+            from: "bounce+customer-42@example.net",
+            to: ["forward@example.net"],
+          },
+        },
+      );
+
+      assert.ok(receipt.successful);
+      const delivered = server.getReceivedMessages()[0];
+      assert.equal(delivered.from, "bounce+customer-42@example.net");
+      assert.deepEqual(delivered.to, ["forward@example.net"]);
+      assert.ok(delivered.data.includes("From: John Doe <john@example.com>"));
+      assert.ok(delivered.data.includes("To: Jane Doe <jane@example.com>"));
+      assert.ok(delivered.data.includes("Cc: copy@example.com"));
+      assert.ok(!delivered.data.includes("blind@example.com"));
+    } finally {
+      await teardownTest(server, transport);
+    }
+  });
+
+  test("should serialize a null reverse-path", async () => {
+    const { server, transport } = await setupTest();
+    try {
+      const receipt = await transport.send(createTestMessage(), {
+        envelope: { from: null },
+      });
+
+      assert.ok(receipt.successful);
+      assert.ok(
+        server.getReceivedCommands().includes("MAIL FROM:<>"),
+      );
+    } finally {
+      await teardownTest(server, transport);
+    }
+  });
+
+  test("should reject an invalid envelope before connecting", async () => {
+    const { server, transport } = await setupTest();
+    try {
+      const receipt = await transport.send(createTestMessage(), {
+        envelope: { to: [] },
+      });
+
+      assert.ok(!receipt.successful);
+      if (!receipt.successful) {
+        assert.equal(receipt.retryable, false);
+        assert.equal(receipt.errors?.[0]?.code, "smtp.envelope-invalid");
+        assert.equal(receipt.errors?.[0]?.category, "validation");
+      }
+      assert.equal(server.getConnectionCount(), 0);
+    } finally {
+      await teardownTest(server, transport);
+    }
+  });
+
+  test("should resolve a different envelope for each sendMany message", async () => {
+    const { server, transport } = await setupTest();
+    try {
+      const messages = [
+        createTestMessage(),
+        createTestMessage(),
+        createTestMessage(),
+      ];
+      const receipts: SmtpReceipt[] = [];
+      for await (
+        const receipt of transport.sendMany(messages, {
+          envelope: (_message, index) =>
+            index === 1 ? { to: [] } : {
+              from: `bounce+${index}@example.net`,
+              to: [`recipient+${index}@example.net`],
+            },
+        })
+      ) {
+        receipts.push(receipt);
+      }
+
+      assert.equal(receipts.length, 3);
+      assert.ok(receipts[0].successful);
+      assert.ok(!receipts[1].successful);
+      if (!receipts[1].successful) {
+        assert.equal(receipts[1].errors?.[0]?.code, "smtp.envelope-invalid");
+      }
+      assert.ok(receipts[2].successful);
+      assert.equal(server.getConnectionCount(), 1);
+      assert.deepEqual(
+        server.getReceivedCommands().filter((command) =>
+          command.startsWith("MAIL FROM:") || command.startsWith("RCPT TO:")
+        ),
+        [
+          "MAIL FROM:<bounce+0@example.net>",
+          "RCPT TO:<recipient+0@example.net>",
+          "MAIL FROM:<bounce+2@example.net>",
+          "RCPT TO:<recipient+2@example.net>",
+        ],
+      );
+    } finally {
+      await teardownTest(server, transport);
+    }
+  });
+
+  test("should continue sendMany after an envelope resolver throws", async () => {
+    const { server, transport } = await setupTest();
+    try {
+      const messages = [
+        createTestMessage(),
+        createTestMessage(),
+        createTestMessage(),
+      ];
+      const receipts: SmtpReceipt[] = [];
+      for await (
+        const receipt of transport.sendMany(messages, {
+          envelope: (_message, index) => {
+            if (index === 1) {
+              throw new TypeError("Cannot derive the SMTP envelope.");
+            }
+            return { from: `bounce+${index}@example.net` };
+          },
+        })
+      ) {
+        receipts.push(receipt);
+      }
+
+      assert.equal(receipts.length, 3);
+      assert.ok(receipts[0].successful);
+      assert.ok(!receipts[1].successful);
+      if (!receipts[1].successful) {
+        assert.equal(receipts[1].errors?.[0]?.code, "smtp.envelope-invalid");
+      }
+      assert.ok(receipts[2].successful);
+      assert.equal(server.getConnectionCount(), 1);
+      assert.deepEqual(
+        server.getReceivedCommands().filter((command) =>
+          command.startsWith("MAIL FROM:")
+        ),
+        [
+          "MAIL FROM:<bounce+0@example.net>",
+          "MAIL FROM:<bounce+2@example.net>",
+        ],
+      );
+    } finally {
+      await teardownTest(server, transport);
+    }
+  });
+
+  test("should resolve envelopes for async sendMany messages", async () => {
+    const { server, transport } = await setupTest();
+    try {
+      const messages = async function* () {
+        yield createTestMessage();
+        yield createTestMessage();
+      };
+
+      const receipts: SmtpReceipt[] = [];
+      for await (
+        const receipt of transport.sendMany(messages(), {
+          envelope: (_message, index) =>
+            index === 0 ? { from: "async-bounce+0@example.net" } : undefined,
+        })
+      ) {
+        receipts.push(receipt);
+      }
+
+      assert.ok(receipts.every((receipt) => receipt.successful));
+      assert.deepEqual(
+        server.getReceivedCommands().filter((command) =>
+          command.startsWith("MAIL FROM:")
+        ),
+        [
+          "MAIL FROM:<async-bounce+0@example.net>",
+          "MAIL FROM:<john@example.com>",
+        ],
+      );
+    } finally {
+      await teardownTest(server, transport);
+    }
+  });
+
+  test("should negotiate SMTPUTF8 from the effective envelope", async () => {
+    const { server, transport } = await setupTest();
+    try {
+      server.setCapabilities(["8BITMIME", "SMTPUTF8"]);
+
+      const receipt = await transport.send(createTestMessage(), {
+        envelope: { from: "반송@example.com" },
+      });
+
+      assert.ok(receipt.successful);
+      assert.ok(
+        server.getReceivedCommands().includes(
+          "MAIL FROM:<반송@example.com> BODY=8BITMIME SMTPUTF8",
+        ),
+      );
+    } finally {
+      await teardownTest(server, transport);
+    }
+  });
+
+  test("should ignore an overridden non-header Bcc address for SMTPUTF8", async () => {
+    const { server, transport } = await setupTest();
+    try {
+      const receipt = await transport.send(
+        createTestMessage({
+          bccRecipients: [{ address: "숨김@example.com" }],
+        }),
+        {
+          envelope: { to: ["forward@example.net"] },
+        },
+      );
+
+      assert.ok(receipt.successful);
+      assert.ok(
+        server.getReceivedCommands().includes("MAIL FROM:<john@example.com>"),
+      );
+    } finally {
+      await teardownTest(server, transport);
+    }
+  });
+
+  test("should retain SMTPUTF8 required by visible headers", async () => {
+    const { server, transport } = await setupTest();
+    try {
+      server.setCapabilities(["8BITMIME", "SMTPUTF8"]);
+
+      const receipt = await transport.send(
+        createTestMessage({
+          sender: { address: "발신@example.com" },
+        }),
+        {
+          envelope: { from: "bounce@example.net" },
+        },
+      );
+
+      assert.ok(receipt.successful);
+      assert.ok(
+        server.getReceivedCommands().includes(
+          "MAIL FROM:<bounce@example.net> BODY=8BITMIME SMTPUTF8",
+        ),
+      );
+    } finally {
+      await teardownTest(server, transport);
+    }
+  });
+
   test("should expose enhanced greeting failures", async () => {
     const { server, transport } = await setupTest();
     server.setResponse("GREETING", {
@@ -274,6 +526,57 @@ describe("SmtpTransport Integration Tests", () => {
       assert.ok(!delivered.data.includes("ENVID="));
       assert.ok(!delivered.data.includes("NOTIFY="));
       assert.ok(!delivered.data.includes("ORCPT="));
+    } finally {
+      await teardownTest(server, transport);
+    }
+  });
+
+  test("should validate DSN against overridden envelope recipients", async () => {
+    const { server, transport } = await setupTest();
+    try {
+      server.setCapabilities(["DSN"]);
+
+      const receipt = await transport.send(createTestMessage(), {
+        envelope: { to: ["forward@example.net"] },
+        dsn: {
+          recipients: {
+            "forward@example.net": {
+              notify: ["failure"],
+              originalRecipient: "forward@example.net",
+            },
+          },
+        },
+      });
+
+      assert.ok(receipt.successful);
+      assert.ok(
+        server.getReceivedCommands().includes(
+          "RCPT TO:<forward@example.net> NOTIFY=FAILURE " +
+            "ORCPT=rfc822;forward@example.net",
+        ),
+      );
+    } finally {
+      await teardownTest(server, transport);
+    }
+  });
+
+  test("should reject DSN settings for replaced message recipients", async () => {
+    const { server, transport } = await setupTest();
+    try {
+      const receipt = await transport.send(createTestMessage(), {
+        envelope: { to: ["forward@example.net"] },
+        dsn: {
+          recipients: {
+            "jane@example.com": { notify: ["failure"] },
+          },
+        },
+      });
+
+      assert.ok(!receipt.successful);
+      if (!receipt.successful) {
+        assert.equal(receipt.errors?.[0]?.code, "smtp.dsn-invalid");
+      }
+      assert.equal(server.getConnectionCount(), 0);
     } finally {
       await teardownTest(server, transport);
     }

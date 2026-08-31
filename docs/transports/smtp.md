@@ -274,16 +274,126 @@ code merely because its subject or detail is unknown.
 [IANA registry]: https://www.iana.org/assignments/smtp-enhanced-status-codes/
 
 
+Envelope overrides
+------------------
+
+*This feature is introduced in Upyo 0.6.0.*
+
+Use the `envelope` send option when delivery errors or recipient routing need
+addresses that differ from the visible message headers.  The following message
+still displays `billing@example.com` as its From address and
+`customer@example.net` as its To address:
+
+~~~~ typescript twoslash
+import { createMessage } from "@upyo/core";
+import { SmtpTransport } from "@upyo/smtp";
+
+const transport = new SmtpTransport({
+  host: "smtp.example.com",
+  port: 465,
+  secure: true,
+});
+const message = createMessage({
+  from: "billing@example.com",
+  to: "customer@example.net",
+  subject: "Invoice",
+  content: { text: "Your invoice is attached." },
+});
+
+await transport.send(message, {
+  envelope: {
+    from: "bounces+customer-42@bounce.example.com",
+    to: ["delivery@example.net"],
+  },
+});
+~~~~
+
+`~SmtpEnvelopeOptions.from` controls `MAIL FROM`, while
+`~SmtpEnvelopeOptions.to` supplies the addresses for `RCPT TO`.  Omit either
+field to derive that side from the message as before.  Set `from` to `null` for
+the null reverse-path used by delivery notifications:
+
+~~~~ typescript twoslash
+import { createMessage } from "@upyo/core";
+import { SmtpTransport } from "@upyo/smtp";
+
+const transport = new SmtpTransport({
+  host: "smtp.example.com",
+  port: 465,
+  secure: true,
+});
+const notification = createMessage({
+  from: "postmaster@example.com",
+  to: "sender@example.net",
+  subject: "Delivery status notification",
+  content: { text: "The message could not be delivered." },
+});
+
+await transport.send(notification, {
+  envelope: { from: null },
+});
+~~~~
+
+The option also accepts a resolver for bulk VERP delivery.  The resolver
+receives each message and its zero-based position in the send operation:
+
+~~~~ typescript twoslash
+import { createMessage } from "@upyo/core";
+import { SmtpTransport } from "@upyo/smtp";
+
+const transport = new SmtpTransport({
+  host: "smtp.example.com",
+  port: 465,
+  secure: true,
+});
+const messages = [
+  createMessage({
+    from: "newsletter@example.com",
+    to: "first@example.net",
+    subject: "Newsletter",
+    content: { text: "Hello, first subscriber." },
+  }),
+  createMessage({
+    from: "newsletter@example.com",
+    to: "second@example.net",
+    subject: "Newsletter",
+    content: { text: "Hello, second subscriber." },
+  }),
+];
+
+for await (const receipt of transport.sendMany(messages, {
+  envelope: (_message, index) => ({
+    from: `bounces+${index}@bounce.example.com`,
+  }),
+})) {
+  console.log(receipt);
+}
+~~~~
+
+A plain override applies to every message passed to
+`~SmtpTransport.sendMany()`.  Invalid addresses and empty recipient lists
+produce a non-retryable failed receipt with the code `smtp.envelope-invalid`.
+Upyo rejects them before sending `MAIL FROM`, and a bad item in `sendMany()`
+does not prevent later messages from using the same connection.
+
+The effective envelope drives DSN recipient validation and SMTPUTF8
+negotiation.  Mailbox addresses written to visible From, To, Cc, and Reply-To
+headers can still require SMTPUTF8 even when the envelope overrides them.  The
+override does not alter message headers or DKIM signatures.
+
+
 Internationalized addresses
 ---------------------------
 
 *This feature is introduced in Upyo 0.6.0.*
 
-Upyo automatically uses the `SMTPUTF8` extension defined by [RFC 6531] when a
-sender, To, Cc, Bcc, or Reply-To mailbox contains a non-ASCII character.  The
-transport requires the server to advertise both `SMTPUTF8` and `8BITMIME`, then
-adds `BODY=8BITMIME SMTPUTF8` to `MAIL FROM`.  This supports UTF-8 local parts
-and Unicode domain labels without a configuration option.
+Upyo automatically uses the `SMTPUTF8` extension defined by [RFC 6531] when the
+effective SMTP envelope or a visible From, To, Cc, or Reply-To mailbox contains
+a non-ASCII character.  The default envelope includes the message's Bcc
+addresses.  The transport requires the server to advertise both `SMTPUTF8` and
+`8BITMIME`, then adds `BODY=8BITMIME SMTPUTF8` to `MAIL FROM`.  This supports
+UTF-8 local parts and Unicode domain labels without another configuration
+option.
 
 If either required extension is missing, Upyo returns a non-retryable failed
 receipt with the code `smtp.smtputf8-unsupported` before sending `MAIL FROM`.
@@ -343,8 +453,10 @@ const receipt = await transport.send(message, {
 `~SmtpDsnOptions.envelopeId` sets `ENVID`, a non-empty identifier copied into a
 later notification.  `~SmtpDsnOptions.return` sets `RET=FULL` or `RET=HDRS`
 and controls how much of a failed message may be returned.  Each key in
-`~SmtpDsnOptions.recipients` must exactly match an address in the message's To,
-Cc, or Bcc envelope.
+`~SmtpDsnOptions.recipients` must exactly match an address in the effective
+SMTP envelope.  When `~SmtpTransportOptions.envelope` replaces the recipients,
+the DSN keys must match the replacement addresses rather than the message's To,
+Cc, or Bcc fields.
 
 The `~SmtpDsnRecipientOptions.notify` array accepts `"success"`, `"failure"`,
 and `"delay"`.  Use `["never"]` by itself to suppress notifications for one
@@ -371,7 +483,7 @@ only that the server accepted the original message; it is not the later DSN.
 
 When passed to `~SmtpTransport.sendMany()`, one `dsn` option applies to every
 message.  Every configured recipient key must therefore be present in each
-message's envelope.  Call `~SmtpTransport.send()` separately when messages
+effective envelope.  Call `~SmtpTransport.send()` separately when messages
 need different DSN settings.
 
 [RFC 3461]: https://www.rfc-editor.org/rfc/rfc3461

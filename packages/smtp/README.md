@@ -219,13 +219,50 @@ structure.
 [RFC 3463]: https://www.rfc-editor.org/rfc/rfc3463
 
 
+Envelope overrides
+------------------
+
+Use the `envelope` send option when the SMTP reverse-path or recipients must
+differ from the visible message headers:
+
+~~~~ typescript
+const receipt = await transport.send(message, {
+  envelope: {
+    from: "bounces+customer-42@bounce.example.com",
+    to: ["delivery@example.net"],
+  },
+});
+~~~~
+
+Omitting `from` or `to` keeps the value derived from the message.  Set `from`
+to `null` to send `MAIL FROM:<>`.  The override changes only `MAIL FROM` and
+`RCPT TO`; the From, To, Cc, Bcc, and Reply-To message fields remain unchanged.
+
+For bulk VERP delivery, pass a resolver that returns an override for each
+message:
+
+~~~~ typescript
+for await (const receipt of transport.sendMany(messages, {
+  envelope: (_message, index) => ({
+    from: `bounces+${index}@bounce.example.com`,
+  }),
+})) {
+  console.log(receipt);
+}
+~~~~
+
+A plain override applies to every message passed to `sendMany()`.  Invalid
+addresses and empty recipient lists return a non-retryable failed receipt with
+the code `smtp.envelope-invalid` before `MAIL FROM` is sent.
+
+
 Internationalized addresses
 ---------------------------
 
-The transport automatically negotiates [RFC 6531] SMTPUTF8 when any sender,
-recipient, or reply-to mailbox contains a non-ASCII character.  A supporting
-server must advertise both `SMTPUTF8` and `8BITMIME`; Upyo then sends
-`BODY=8BITMIME SMTPUTF8` on `MAIL FROM`.
+The transport automatically negotiates [RFC 6531] SMTPUTF8 when the effective
+SMTP envelope or a visible message-header mailbox contains a non-ASCII
+character.  A supporting server must advertise both `SMTPUTF8` and `8BITMIME`;
+Upyo then sends `BODY=8BITMIME SMTPUTF8` on `MAIL FROM`.
 
 If either capability is missing, delivery returns a non-retryable failed
 receipt with the code `smtp.smtputf8-unsupported` before the mail transaction
@@ -258,9 +295,10 @@ const receipt = await transport.send(message, {
 
 `envelopeId` and `return` become `ENVID` and `RET` parameters on `MAIL FROM`.
 Each recipient's `notify` and `originalRecipient` values become `NOTIFY` and
-`ORCPT` parameters on its `RCPT TO` command.  Upyo validates and `xtext`-escapes
-the values without adding them to the message headers.  `envelopeId` must not
-be empty, and `originalRecipient` must exactly match its envelope recipient.
+`ORCPT` parameters on its `RCPT TO` command.  Upyo validates them against the
+effective envelope, including any override, and `xtext`-escapes the values
+without adding them to the message headers.  `envelopeId` must not be empty,
+and `originalRecipient` must exactly match its envelope recipient.
 
 If the server does not advertise `DSN`, the transport returns a non-retryable
 failed receipt with the code `smtp.dsn-unsupported` before sending `MAIL FROM`.

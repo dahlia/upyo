@@ -1,7 +1,8 @@
-import type { EmailAddress, Message } from "@upyo/core";
+import type { Message } from "@upyo/core";
 import assert from "node:assert/strict";
 import { describe, test } from "node:test";
 import { resolveSmtpDsn, SmtpDsnValidationError } from "./delivery-status.ts";
+import { resolveSmtpEnvelope } from "./envelope.ts";
 
 const message: Message = {
   sender: { address: "sender@example.com" },
@@ -17,19 +18,19 @@ const message: Message = {
   headers: new Headers(),
 };
 
-function createMessageForRecipient(address: EmailAddress): Message {
-  return {
-    ...message,
-    recipients: [{ address }],
-  };
+function resolveMessageDsn(
+  message: Message,
+  dsn: Parameters<typeof resolveSmtpDsn>[1],
+) {
+  return resolveSmtpDsn(resolveSmtpEnvelope(message), dsn);
 }
 
 describe("resolveSmtpDsn", () => {
   test("should omit DSN parameters when no setting is requested", () => {
-    assert.equal(resolveSmtpDsn(message, undefined), undefined);
-    assert.equal(resolveSmtpDsn(message, {}), undefined);
+    assert.equal(resolveMessageDsn(message, undefined), undefined);
+    assert.equal(resolveMessageDsn(message, {}), undefined);
     assert.equal(
-      resolveSmtpDsn(message, {
+      resolveMessageDsn(message, {
         recipients: { "recipient@example.com": {} },
       }),
       undefined,
@@ -37,20 +38,20 @@ describe("resolveSmtpDsn", () => {
   });
 
   test("should accept the RFC 3461 ENVID length limit", () => {
-    const dsn = resolveSmtpDsn(message, { envelopeId: "a".repeat(94) });
+    const dsn = resolveMessageDsn(message, { envelopeId: "a".repeat(94) });
     assert.equal(dsn?.mailParameters[0].length, 100);
   });
 
   test("should reject an empty ENVID", () => {
     assert.throws(
-      () => resolveSmtpDsn(message, { envelopeId: "" }),
+      () => resolveMessageDsn(message, { envelopeId: "" }),
       new SmtpDsnValidationError("DSN envelope ID must not be empty."),
     );
   });
 
   test("should reject ENVID above the RFC 3461 length limit", () => {
     assert.throws(
-      () => resolveSmtpDsn(message, { envelopeId: "a".repeat(95) }),
+      () => resolveMessageDsn(message, { envelopeId: "a".repeat(95) }),
       new SmtpDsnValidationError(
         "ENVID parameter exceeds the RFC 3461 limit of 100 characters.",
       ),
@@ -59,7 +60,10 @@ describe("resolveSmtpDsn", () => {
 
   test("should accept the RFC 3461 ORCPT length limit", () => {
     const address = `${"a".repeat(485)}@b` as const;
-    const dsn = resolveSmtpDsn(createMessageForRecipient(address), {
+    const dsn = resolveSmtpDsn({
+      from: "sender@example.com",
+      to: [address],
+    }, {
       recipients: {
         [address]: { originalRecipient: address },
       },
@@ -71,7 +75,10 @@ describe("resolveSmtpDsn", () => {
     const address = `${"a".repeat(486)}@b` as const;
     assert.throws(
       () =>
-        resolveSmtpDsn(createMessageForRecipient(address), {
+        resolveSmtpDsn({
+          from: "sender@example.com",
+          to: [address],
+        }, {
           recipients: {
             [address]: { originalRecipient: address },
           },
@@ -85,7 +92,7 @@ describe("resolveSmtpDsn", () => {
   test("should reject an ORCPT that differs from its envelope recipient", () => {
     assert.throws(
       () =>
-        resolveSmtpDsn(message, {
+        resolveMessageDsn(message, {
           recipients: {
             "recipient@example.com": {
               originalRecipient: "forwarded@example.com",
@@ -102,7 +109,7 @@ describe("resolveSmtpDsn", () => {
   test("should reject an empty notification condition list", () => {
     assert.throws(
       () =>
-        resolveSmtpDsn(message, {
+        resolveMessageDsn(message, {
           recipients: {
             "recipient@example.com": { notify: [] },
           },

@@ -18,6 +18,13 @@ import {
   SmtpResponseError,
   SmtpUtf8UnsupportedError,
 } from "./smtp-connection.ts";
+import {
+  type ResolvedSmtpEnvelope,
+  resolveSmtpEnvelope,
+  type SmtpEnvelopeOptions,
+  type SmtpEnvelopeResolver,
+  SmtpEnvelopeValidationError,
+} from "./envelope.ts";
 import { OAuth2TokenManager } from "./oauth2.ts";
 import { convertMessage } from "./message-converter.ts";
 import type { SmtpEnhancedStatusCode, SmtpReceipt } from "./smtp-receipt.ts";
@@ -116,8 +123,8 @@ export class SmtpTransport implements Transport<"smtp">, AsyncDisposable {
    * ```
    *
    * @param message The email message to send.
-   * @param options Optional transport options including `AbortSignal` for
-   *                cancellation.
+   * @param options Optional SMTP envelope, delivery status, and cancellation
+   *                settings.
    * @returns A promise that resolves to a receipt indicating success or
    *          failure.
    * @throws {DOMException} If the operation is aborted through
@@ -132,7 +139,8 @@ export class SmtpTransport implements Transport<"smtp">, AsyncDisposable {
     let connection: SmtpConnection | undefined;
 
     try {
-      const dsn = resolveSmtpDsn(message, options?.dsn);
+      const envelope = resolveEnvelopeOption(message, options?.envelope, 0);
+      const dsn = resolveSmtpDsn(envelope, options?.dsn);
 
       // Establishing the connection—including authentication, e.g. acquiring an
       // OAuth 2.0 access token—is part of delivery, so setup failures are
@@ -143,7 +151,12 @@ export class SmtpTransport implements Transport<"smtp">, AsyncDisposable {
 
       options?.signal?.throwIfAborted();
 
-      const smtpMessage = await convertMessage(message, this.config.dkim, dsn);
+      const smtpMessage = await convertMessage(
+        message,
+        this.config.dkim,
+        dsn,
+        envelope,
+      );
 
       options?.signal?.throwIfAborted();
 
@@ -203,8 +216,8 @@ export class SmtpTransport implements Transport<"smtp">, AsyncDisposable {
    * ```
    *
    * @param messages An iterable or async iterable of messages to send.
-   * @param options Optional transport options including `AbortSignal` for
-   *                cancellation.
+   * @param options Optional SMTP envelope, delivery status, and cancellation
+   *                settings.
    * @returns An async iterable of receipts, one for each message.
    * @throws {DOMException} If the operation is aborted through
    *                        `options.signal`.
@@ -241,6 +254,7 @@ export class SmtpTransport implements Transport<"smtp">, AsyncDisposable {
       const isAsyncIterable = Symbol.asyncIterator in messages;
 
       if (isAsyncIterable) {
+        let index = 0;
         for await (const message of messages as AsyncIterable<Message>) {
           options?.signal?.throwIfAborted();
 
@@ -250,11 +264,17 @@ export class SmtpTransport implements Transport<"smtp">, AsyncDisposable {
           }
 
           try {
-            const dsn = resolveSmtpDsn(message, options?.dsn);
+            const envelope = resolveEnvelopeOption(
+              message,
+              options?.envelope,
+              index++,
+            );
+            const dsn = resolveSmtpDsn(envelope, options?.dsn);
             const smtpMessage = await convertMessage(
               message,
               this.config.dkim,
               dsn,
+              envelope,
             );
             options?.signal?.throwIfAborted();
 
@@ -284,6 +304,7 @@ export class SmtpTransport implements Transport<"smtp">, AsyncDisposable {
           }
         }
       } else {
+        let index = 0;
         for (const message of messages as Iterable<Message>) {
           options?.signal?.throwIfAborted();
 
@@ -293,11 +314,17 @@ export class SmtpTransport implements Transport<"smtp">, AsyncDisposable {
           }
 
           try {
-            const dsn = resolveSmtpDsn(message, options?.dsn);
+            const envelope = resolveEnvelopeOption(
+              message,
+              options?.envelope,
+              index++,
+            );
+            const dsn = resolveSmtpDsn(envelope, options?.dsn);
             const smtpMessage = await convertMessage(
               message,
               this.config.dkim,
               dsn,
+              envelope,
             );
             options?.signal?.throwIfAborted();
 
@@ -487,6 +514,16 @@ function createSmtpFailure(
   message: string,
   error?: unknown,
 ): Receipt<"smtp"> & { readonly successful: false } {
+  if (error instanceof SmtpEnvelopeValidationError) {
+    return createFailedReceipt(message, {
+      provider: "smtp",
+      code: "smtp.envelope-invalid",
+      category: "validation",
+      retryable: false,
+      attempts: 1,
+    });
+  }
+
   if (error instanceof SmtpDsnValidationError) {
     return createFailedReceipt(message, {
       provider: "smtp",
@@ -569,8 +606,33 @@ function createSmtpFailure(
 function isReusableLocalFailure(error: unknown): boolean {
   return error instanceof SmtpMessageSizeError ||
     error instanceof SmtpUtf8UnsupportedError ||
+    error instanceof SmtpEnvelopeValidationError ||
     error instanceof SmtpDsnValidationError ||
     error instanceof SmtpDsnUnsupportedError;
+}
+
+function resolveEnvelopeOption(
+  message: Message,
+  option: SmtpEnvelopeOptions | SmtpEnvelopeResolver | undefined,
+  index: number,
+): ResolvedSmtpEnvelope {
+  let override: SmtpEnvelopeOptions | undefined;
+  if (typeof option === "function") {
+    try {
+      override = option(message, index);
+    } catch (error) {
+      const failure = new SmtpEnvelopeValidationError(
+        `SMTP envelope resolver failed: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      );
+      failure.cause = error;
+      throw failure;
+    }
+  } else {
+    override = option;
+  }
+  return resolveSmtpEnvelope(message, override);
 }
 
 function classifySmtpReply(
