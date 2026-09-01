@@ -104,6 +104,10 @@ To be released.
     envelope.  Requests fail before `MAIL FROM` when the server does not
     advertise `DSN`.
     [[#44], [#49]]
+ -  Fixed SMTP connections to infer the `secure` default from the port.  Port
+    465 uses implicit TLS; all other ports start with plaintext and upgrade with
+    STARTTLS when advertised.  Set `secure: true` explicitly to use implicit
+    TLS on a nonstandard port.  [[#53], [#55]]
 
 [#42]: https://github.com/dahlia/upyo/issues/42
 [#43]: https://github.com/dahlia/upyo/issues/43
@@ -114,7 +118,9 @@ To be released.
 [#49]: https://github.com/dahlia/upyo/pull/49
 [#51]: https://github.com/dahlia/upyo/pull/51
 [#52]: https://github.com/dahlia/upyo/issues/52
+[#53]: https://github.com/dahlia/upyo/issues/53
 [#54]: https://github.com/dahlia/upyo/pull/54
+[#55]: https://github.com/dahlia/upyo/pull/55
 
 
 Version 0.5.3

@@ -107,23 +107,25 @@ Configuration options
 
 ### `SmtpConfig`
 
-| Option              | Type             | Default       | Description                      |
-| ------------------- | ---------------- | ------------- | -------------------------------- |
-| `host`              | `string`         |               | SMTP server hostname             |
-| `port`              | `number`         | `587`         | SMTP server port                 |
-| `secure`            | `boolean`        | `true`        | Use TLS/SSL connection           |
-| `requireTls`        | `boolean`        | `false`       | Require a STARTTLS upgrade       |
-| `auth`              | `SmtpAuth`       |               | Authentication configuration     |
-| `tls`               | `SmtpTlsOptions` |               | TLS configuration                |
-| `connectionTimeout` | `number`         | `60000`       | Connection timeout (ms)          |
-| `socketTimeout`     | `number`         | `60000`       | Socket timeout (ms)              |
-| `localName`         | `string`         | `"localhost"` | Local hostname for `HELO`/`EHLO` |
-| `pool`              | `boolean`        | `true`        | Enable connection pooling        |
-| `poolSize`          | `number`         | `5`           | Maximum pool connections         |
-| `dkim`              | `DkimConfig`     |               | DKIM signing configuration       |
+| Option              | Type             | Default        | Description                      |
+| ------------------- | ---------------- | -------------- | -------------------------------- |
+| `host`              | `string`         |                | SMTP server hostname             |
+| `port`              | `number`         | `587`          | SMTP server port                 |
+| `secure`            | `boolean`        | Port-dependent | Use implicit TLS from the start  |
+| `requireTls`        | `boolean`        | `false`        | Require a STARTTLS upgrade       |
+| `auth`              | `SmtpAuth`       |                | Authentication configuration     |
+| `tls`               | `SmtpTlsOptions` |                | TLS configuration                |
+| `connectionTimeout` | `number`         | `60000`        | Connection timeout (ms)          |
+| `socketTimeout`     | `number`         | `60000`        | Socket timeout (ms)              |
+| `localName`         | `string`         | `"localhost"`  | Local hostname for `HELO`/`EHLO` |
+| `pool`              | `boolean`        | `true`         | Enable connection pooling        |
+| `poolSize`          | `number`         | `5`            | Maximum pool connections         |
+| `dkim`              | `DkimConfig`     |                | DKIM signing configuration       |
 
 Set `requireTls: true` with `secure: false` to issue `STARTTLS` even when the
 server does not advertise it and fail delivery unless the upgrade succeeds.
+When `secure` is omitted, it defaults to `true` on port 465 and `false` on all
+other ports.
 Regardless of this option, SMTP authentication to non-loopback hosts requires
 either an implicit TLS connection or a successful STARTTLS upgrade.  Cleartext
 authentication to loopback hosts remains available for local development.
