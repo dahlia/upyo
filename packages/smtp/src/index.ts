@@ -34,8 +34,10 @@ export type {
 } from "./smtp-receipt.ts";
 export type {
   DkimAlgorithm,
+  DkimBodyMode,
   DkimCanonicalization,
   DkimConfig,
   DkimSignature,
   DkimSigningFailureAction,
 } from "./dkim/index.ts";
+export { SmtpAttachmentReplayError } from "./message-stream.ts";

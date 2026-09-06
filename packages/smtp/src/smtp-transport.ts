@@ -26,7 +26,9 @@ import {
   SmtpEnvelopeValidationError,
 } from "./envelope.ts";
 import { OAuth2TokenManager } from "./oauth2.ts";
-import { convertMessage } from "./message-converter.ts";
+import { prepareMessage } from "./message-converter.ts";
+import { SmtpAttachmentReplayError } from "./message-stream.ts";
+import { validateDkimBodyMode } from "./dkim/types.ts";
 import type { SmtpEnhancedStatusCode, SmtpReceipt } from "./smtp-receipt.ts";
 import { parseEnhancedSmtpStatusCode } from "./smtp-status-code.ts";
 
@@ -93,6 +95,7 @@ export class SmtpTransport implements Transport<"smtp">, AsyncDisposable {
    *               and options.
    */
   constructor(config: SmtpConfig) {
+    validateDkimBodyMode(config.dkim);
     this.config = config;
     this.poolSize = config.poolSize ?? 5;
     const auth = config.auth;
@@ -151,7 +154,7 @@ export class SmtpTransport implements Transport<"smtp">, AsyncDisposable {
 
       options?.signal?.throwIfAborted();
 
-      const smtpMessage = await convertMessage(
+      const smtpMessage = prepareMessage(
         message,
         this.config.dkim,
         dsn,
@@ -175,7 +178,7 @@ export class SmtpTransport implements Transport<"smtp">, AsyncDisposable {
       };
     } catch (error) {
       if (connection != null) {
-        if (isReusableLocalFailure(error)) {
+        if (connection.usable && isReusableLocalFailure(error)) {
           await this.returnConnection(connection);
         } else {
           await this.discardConnection(connection);
@@ -270,7 +273,7 @@ export class SmtpTransport implements Transport<"smtp">, AsyncDisposable {
               index++,
             );
             const dsn = resolveSmtpDsn(envelope, options?.dsn);
-            const smtpMessage = await convertMessage(
+            const smtpMessage = prepareMessage(
               message,
               this.config.dkim,
               dsn,
@@ -293,7 +296,7 @@ export class SmtpTransport implements Transport<"smtp">, AsyncDisposable {
             // Cancellation rejects rather than producing a receipt.
             options?.signal?.throwIfAborted();
 
-            if (!isReusableLocalFailure(error)) {
+            if (!connection.usable || !isReusableLocalFailure(error)) {
               connectionValid = false;
             }
 
@@ -320,7 +323,7 @@ export class SmtpTransport implements Transport<"smtp">, AsyncDisposable {
               index++,
             );
             const dsn = resolveSmtpDsn(envelope, options?.dsn);
-            const smtpMessage = await convertMessage(
+            const smtpMessage = prepareMessage(
               message,
               this.config.dkim,
               dsn,
@@ -343,7 +346,7 @@ export class SmtpTransport implements Transport<"smtp">, AsyncDisposable {
             // Cancellation rejects rather than producing a receipt.
             options?.signal?.throwIfAborted();
 
-            if (!isReusableLocalFailure(error)) {
+            if (!connection.usable || !isReusableLocalFailure(error)) {
               connectionValid = false;
             }
 
@@ -372,8 +375,10 @@ export class SmtpTransport implements Transport<"smtp">, AsyncDisposable {
     signal?.throwIfAborted();
 
     // Try to get a connection from the pool
-    if (this.connectionPool.length > 0) {
-      return this.connectionPool.pop()!;
+    while (this.connectionPool.length > 0) {
+      const connection = this.connectionPool.pop()!;
+      if (connection.usable) return connection;
+      await this.discardConnection(connection);
     }
 
     // Create a new connection
@@ -443,7 +448,7 @@ export class SmtpTransport implements Transport<"smtp">, AsyncDisposable {
   }
 
   private async returnConnection(connection: SmtpConnection): Promise<void> {
-    if (!connection.config.pool) {
+    if (!connection.usable || !connection.config.pool) {
       await connection.quit();
       return;
     }
@@ -544,6 +549,16 @@ function createSmtpFailure(
     });
   }
 
+  if (error instanceof SmtpAttachmentReplayError) {
+    return createFailedReceipt(message, {
+      provider: "smtp",
+      code: "smtp.attachment-replay-mismatch",
+      category: "validation",
+      retryable: false,
+      attempts: 1,
+    });
+  }
+
   if (error instanceof SmtpMessageSizeError) {
     return createFailedReceipt(message, {
       provider: "smtp",
@@ -604,7 +619,8 @@ function createSmtpFailure(
 }
 
 function isReusableLocalFailure(error: unknown): boolean {
-  return error instanceof SmtpMessageSizeError ||
+  return (error instanceof SmtpMessageSizeError &&
+    error.phase === "preflight") ||
     error instanceof SmtpUtf8UnsupportedError ||
     error instanceof SmtpEnvelopeValidationError ||
     error instanceof SmtpDsnValidationError ||

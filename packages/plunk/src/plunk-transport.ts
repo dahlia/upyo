@@ -96,7 +96,11 @@ export class PlunkTransport implements Transport<"plunk"> {
     try {
       options?.signal?.throwIfAborted();
 
-      const emailData = await convertMessage(message, this.config);
+      const emailData = await convertMessage(
+        message,
+        this.config,
+        options?.signal,
+      );
 
       options?.signal?.throwIfAborted();
 

@@ -1,4 +1,5 @@
 import type { Address, Attachment, Message } from "@upyo/core";
+import { combineSignals, readAttachmentContent } from "@upyo/core";
 import type { ResolvedLettermintConfig } from "./config.ts";
 
 const STANDARD_HEADERS = new Set([
@@ -78,6 +79,7 @@ export interface LettermintEmail {
 export async function convertMessage(
   message: Message,
   config: ResolvedLettermintConfig,
+  signal?: AbortSignal,
 ): Promise<LettermintEmail> {
   if (message.tags.length > 1) {
     throw new RangeError(
@@ -152,9 +154,18 @@ export async function convertMessage(
   }
 
   if (message.attachments.length > 0) {
-    emailData.attachments = await Promise.all(
-      message.attachments.map(convertAttachment),
-    );
+    const cancellation = new AbortController();
+    const combined = combineSignals(cancellation.signal, signal);
+    try {
+      emailData.attachments = await Promise.all(
+        message.attachments.map((attachment) =>
+          convertAttachment(attachment, combined.signal)
+        ),
+      );
+    } finally {
+      cancellation.abort();
+      combined.cleanup();
+    }
   }
 
   return emailData;
@@ -207,8 +218,9 @@ function formatAddress(address: Address): string {
 
 async function convertAttachment(
   attachment: Attachment,
+  signal?: AbortSignal,
 ): Promise<LettermintAttachment> {
-  const content = await attachment.content;
+  const content = await readAttachmentContent(attachment.content, signal);
   const converted: {
     filename: string;
     content: string;

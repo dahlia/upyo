@@ -16,7 +16,9 @@ import {
   selectOAuth2Mechanism,
   SmtpAuthError,
 } from "./oauth2.ts";
-import type { SmtpMessage } from "./message-converter.ts";
+import type { PreparedSmtpMessage, SmtpMessage } from "./message-converter.ts";
+import { type MessageStream, prepareMessageStream } from "./message-stream.ts";
+import { prepareOnSocket, writeMessageData } from "./data-stream.ts";
 import type { SmtpRejectedRecipient } from "./smtp-receipt.ts";
 import { parseEnhancedSmtpStatusCode } from "./smtp-status-code.ts";
 
@@ -33,13 +35,13 @@ interface SmtpSizeCapability {
  * Error thrown when a message exceeds the fixed limit advertised through the
  * SMTP SIZE extension.
  *
- * The check happens before `MAIL FROM`, so the SMTP connection remains usable
- * for another message.
+ * Known sizes are checked before `MAIL FROM`. Unknown source sizes are also
+ * checked while writing DATA; those failures make the connection unusable.
  *
  * @since 0.6.0
  */
 export class SmtpMessageSizeError extends RangeError {
-  /** The encoded message size in octets. */
+  /** Exact known size, or the octets counted when an unknown source is stopped. */
   readonly actualSize: number;
 
   /** The fixed maximum advertised by the SMTP server. */
@@ -50,8 +52,13 @@ export class SmtpMessageSizeError extends RangeError {
    *
    * @param actualSize The encoded message size in octets.
    * @param maximumSize The fixed maximum advertised by the SMTP server.
+   * @param phase Whether the failure occurred before or during DATA.
    */
-  constructor(actualSize: number, maximumSize: bigint) {
+  constructor(
+    actualSize: number,
+    maximumSize: bigint,
+    readonly phase: "preflight" | "data" = "preflight",
+  ) {
     super(
       `Message size ${actualSize} octets exceeds the server's maximum of ` +
         `${maximumSize} octets.`,
@@ -322,6 +329,19 @@ export class SmtpConnection {
   authenticated = false;
   capabilities: string[] = [];
   tokenManager: OAuth2TokenManager | null;
+  private active = false;
+
+  get usable(): boolean {
+    return this.socket != null && !this.socket.destroyed &&
+      this.socket.writable;
+  }
+
+  private observeSocket(socket: Socket): void {
+    socket.on("error", () => socket.destroy());
+    socket.on("timeout", () => {
+      if (!this.active) socket.destroy();
+    });
+  }
 
   constructor(config: SmtpConfig, tokenManager?: OAuth2TokenManager) {
     this.config = createSmtpConfig(config);
@@ -337,18 +357,33 @@ export class SmtpConnection {
 
     return new Promise((resolve, reject) => {
       const timeout = setTimeout(() => {
+        onError(new TypeError("Connection timeout."));
         this.socket?.destroy();
-        reject(new Error("Connection timeout"));
       }, this.config.connectionTimeout);
 
-      const onConnect = () => {
+      const cleanup = () => {
         clearTimeout(timeout);
+        this.socket?.off("connect", onConnect);
+        this.socket?.off("error", onError);
+        this.socket?.off("close", onClose);
+        this.socket?.off("timeout", onTimeout);
+      };
+
+      const onConnect = () => {
+        cleanup();
         resolve();
       };
 
       const onError = (error: Error) => {
-        clearTimeout(timeout);
+        cleanup();
         reject(error);
+      };
+      const onClose = () => {
+        onError(new TypeError("SMTP connection closed before establishment."));
+      };
+      const onTimeout = () => {
+        onError(new TypeError("Socket timeout."));
+        this.socket?.destroy();
       };
 
       if (this.config.secure) {
@@ -368,13 +403,11 @@ export class SmtpConnection {
       }
 
       this.socket.setTimeout(this.config.socketTimeout);
+      this.observeSocket(this.socket);
       this.socket.once("connect", onConnect);
       this.socket.once("error", onError);
-      this.socket.once("timeout", () => {
-        clearTimeout(timeout);
-        this.socket?.destroy();
-        reject(new Error("Socket timeout"));
-      });
+      this.socket.once("close", onClose);
+      this.socket.once("timeout", onTimeout);
     });
   }
 
@@ -423,7 +456,7 @@ export class SmtpConnection {
         // Keep incomplete line in buffer
         const incompleteLine = lines.pop() || "";
 
-        for (const line of lines) {
+        for (const [lineIndex, line] of lines.entries()) {
           responseLines.push(line);
           if (line.length >= 4 && line[3] === " ") {
             const code = parseInt(line.substring(0, 3), 10);
@@ -439,6 +472,16 @@ export class SmtpConnection {
 
             if (responses.length === commands.length) {
               cleanup();
+              if (
+                commands[0] === "DATA" &&
+                (lineIndex + 1 < lines.length || incompleteLine.length > 0)
+              ) {
+                this.socket?.destroy();
+                reject(
+                  new TypeError("Premature SMTP reply after DATA readiness."),
+                );
+                return;
+              }
               resolve(responses);
               return;
             }
@@ -634,6 +677,7 @@ export class SmtpConnection {
       }, this.config.connectionTimeout);
 
       const plainSocket = this.socket as Socket;
+      plainSocket.setTimeout(0);
 
       const tlsSocket = tlsConnect({
         socket: plainSocket,
@@ -648,7 +692,9 @@ export class SmtpConnection {
 
       const onSecureConnect = () => {
         clearTimeout(timeout);
+        tlsSocket.off("error", onError);
         this.socket = tlsSocket;
+        this.observeSocket(tlsSocket);
         this.socket.setTimeout(this.config.socketTimeout);
         resolve();
       };
@@ -661,11 +707,6 @@ export class SmtpConnection {
 
       tlsSocket.once("secureConnect", onSecureConnect);
       tlsSocket.once("error", onError);
-      tlsSocket.once("timeout", () => {
-        clearTimeout(timeout);
-        tlsSocket.destroy();
-        reject(new Error("TLS upgrade timeout"));
-      });
     });
   }
 
@@ -914,7 +955,21 @@ export class SmtpConnection {
   }
 
   async sendMessage(
-    message: SmtpMessage,
+    message: SmtpMessage | PreparedSmtpMessage,
+    signal?: AbortSignal,
+  ): Promise<SmtpSendResult> {
+    this.active = true;
+    this.socket?.setTimeout(0);
+    try {
+      return await this.sendPreparedMessage(message, signal);
+    } finally {
+      this.active = false;
+      if (this.usable) this.socket?.setTimeout(this.config.socketTimeout);
+    }
+  }
+
+  private async sendPreparedMessage(
+    message: SmtpMessage | PreparedSmtpMessage,
     signal?: AbortSignal,
   ): Promise<SmtpSendResult> {
     signal?.throwIfAborted();
@@ -940,21 +995,6 @@ export class SmtpConnection {
 
     const sizeCapability = parseSizeCapability(this.capabilities);
     let sizeParameter = "";
-    if (sizeCapability != null) {
-      // The final CRLF belongs to the message data.  RFC 1870 excludes both
-      // the DATA terminator and any extra dots inserted for transparency.
-      const messageSize = Buffer.byteLength(message.raw, "utf8") + CRLF_LENGTH;
-      if (
-        sizeCapability.maximum != null &&
-        BigInt(messageSize) > sizeCapability.maximum
-      ) {
-        throw new SmtpMessageSizeError(
-          messageSize,
-          sizeCapability.maximum,
-        );
-      }
-      sizeParameter = ` SIZE=${messageSize}`;
-    }
 
     const dsn = message.envelope.dsn;
     if (
@@ -966,6 +1006,42 @@ export class SmtpConnection {
     const mailDsnParameters = dsn == null || dsn.mailParameters.length === 0
       ? ""
       : ` ${dsn.mailParameters.join(" ")}`;
+
+    const checkSize = (
+      size: number,
+      phase: "preflight" | "data" = "preflight",
+    ) => {
+      if (!Number.isSafeInteger(size)) {
+        throw new RangeError("Message size exceeds the safe integer range.");
+      }
+      if (
+        sizeCapability?.maximum != null && BigInt(size) > sizeCapability.maximum
+      ) {
+        throw new SmtpMessageSizeError(size, sizeCapability.maximum, phase);
+      }
+    };
+    if (!this.socket || !this.usable) {
+      throw new TypeError("SMTP connection is closed.");
+    }
+    const stream: MessageStream = "raw" in message
+      ? {
+        size: Buffer.byteLength(message.raw) + 2,
+        async *read(signal) {
+          signal?.throwIfAborted();
+          yield Buffer.from(message.raw + "\r\n");
+        },
+      }
+      : await prepareOnSocket(
+        this.socket,
+        this.config.socketTimeout,
+        (signal, progress) =>
+          prepareMessageStream(message, checkSize, progress, signal),
+        signal,
+      );
+    if (stream.size != null) {
+      checkSize(stream.size);
+      if (sizeCapability != null) sizeParameter = ` SIZE=${stream.size}`;
+    }
 
     const mailCommand = `MAIL FROM:<${message.envelope.from ?? ""}>` +
       `${sizeParameter}${smtpUtf8Parameters}${mailDsnParameters}`;
@@ -1085,8 +1161,13 @@ export class SmtpConnection {
     }
 
     // Message content
-    const content = message.raw.replace(/\n\./g, "\n..");
-    const finalResponse = await this.sendCommand(`${content}\r\n.`, signal);
+    const finalResponse = await writeMessageData(
+      this.socket,
+      (signal, progress) => stream.read(signal, progress),
+      this.config.socketTimeout,
+      (size) => checkSize(size, "data"),
+      signal,
+    );
     if (finalResponse.code !== 250) {
       throw new SmtpResponseError(
         `Message send failed: ${finalResponse.message}`,

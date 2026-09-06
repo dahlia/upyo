@@ -89,11 +89,24 @@ export interface DkimSignature {
 export type DkimSigningFailureAction = "throw" | "send-unsigned";
 
 /**
+ * Whether signing buffers the MIME body once or reads replayable sources twice.
+ * @since 0.6.0
+ */
+export type DkimBodyMode = "buffered" | "streaming";
+
+/**
  * Configuration for DKIM signing in SMTP transport.
  *
  * @since 0.4.0
  */
 export interface DkimConfig {
+  /**
+   * Body processing strategy. Streaming uses bounded attachment memory but
+   * requires a second source read; buffered reads once and retains all MIME.
+   * @default "buffered"
+   * @since 0.6.0
+   */
+  readonly bodyMode?: DkimBodyMode;
   /**
    * Array of DKIM signature configurations.
    * Each configuration will result in one DKIM-Signature header.
@@ -105,6 +118,20 @@ export interface DkimConfig {
    * @default "throw"
    */
   readonly onSigningFailure?: DkimSigningFailureAction;
+}
+
+/**
+ * Validates the runtime body-mode option without changing config identity.
+ * @param config Optional signing configuration.
+ * @throws {TypeError} If the body mode is unsupported.
+ */
+export function validateDkimBodyMode(config?: DkimConfig): void {
+  if (
+    config?.bodyMode !== undefined && config.bodyMode !== "buffered" &&
+    config.bodyMode !== "streaming"
+  ) {
+    throw new TypeError("Expected DKIM bodyMode to be buffered or streaming.");
+  }
 }
 
 /**

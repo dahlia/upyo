@@ -1,4 +1,5 @@
 import type { Address, Attachment, Message } from "@upyo/core";
+import { combineSignals, readAttachmentContent } from "@upyo/core";
 import type { ResolvedSendGridConfig } from "./config.ts";
 
 /**
@@ -122,6 +123,7 @@ interface SendGridMail {
 export async function convertMessage(
   message: Message,
   config: ResolvedSendGridConfig,
+  signal?: AbortSignal,
 ): Promise<SendGridMail> {
   const sendGridMail: SendGridMail = {
     personalizations: [],
@@ -218,9 +220,18 @@ export async function convertMessage(
 
   // Attachments
   if (message.attachments.length > 0) {
-    sendGridMail.attachments = await Promise.all(
-      message.attachments.map(convertAttachment),
-    );
+    const cancellation = new AbortController();
+    const combined = combineSignals(cancellation.signal, signal);
+    try {
+      sendGridMail.attachments = await Promise.all(
+        message.attachments.map((attachment) =>
+          convertAttachment(attachment, combined.signal)
+        ),
+      );
+    } finally {
+      cancellation.abort();
+      combined.cleanup();
+    }
   }
 
   // Tracking settings
@@ -284,14 +295,19 @@ function formatAddress(address: Address): { email: string; name?: string } {
  */
 async function convertAttachment(
   attachment: Attachment,
+  signal?: AbortSignal,
 ): Promise<SendGridAttachment> {
   // Get the content as Uint8Array then convert to base64
-  const contentBytes = await attachment.content;
+  const contentBytes = await readAttachmentContent(attachment.content, signal);
 
   // Convert to base64
-  const base64Content = btoa(
-    String.fromCharCode(...contentBytes),
-  );
+  const parts: string[] = [];
+  for (let offset = 0; offset < contentBytes.length; offset += 8192) {
+    parts.push(
+      String.fromCharCode(...contentBytes.subarray(offset, offset + 8192)),
+    );
+  }
+  const base64Content = btoa(parts.join(""));
 
   const sendGridAttachment: SendGridAttachment = {
     content: base64Content,

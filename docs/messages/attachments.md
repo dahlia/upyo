@@ -39,9 +39,11 @@ const message = createMessage({
 });
 ~~~~
 
-When you provide a [`File`] object, Upyo automatically extracts the filename,
-content type, and file data.  The attachment will be included as a regular
-(non-inline) attachment that recipients can download.
+When you provide a [`File`] object, Upyo extracts its filename and content type
+and retains the file without reading it.  The attachment will be included as a
+regular (non-inline) attachment.  The `readFile()` call in this example
+allocates the complete file before constructing the message; use a content
+factory below when the file should be read incrementally.
 
 
 Multiple attachments
@@ -125,24 +127,22 @@ Working with binary content
 ---------------------------
 
 When working with binary file content, you can provide the attachment data as
-a [`Uint8Array`] for immediate use, or as a `Promise<Uint8Array>` for lazy
-loading.  The promise approach is particularly useful when dealing with large
-files or when the content needs to be fetched from an external source:
+a [`Uint8Array`], a `Promise<Uint8Array>`, a `Blob`, or a replayable content
+factory.  A promise represents a read that has already started; it does not
+defer that read until sending and still allocates the whole attachment.
+
+A factory opens a fresh reader when the transport needs the bytes:
 
 ~~~~ typescript twoslash
 import { createMessage, type Attachment } from "@upyo/core";
-import { readFile } from "node:fs/promises";
-
-// Function to load large files lazily
-async function loadLargeDataset(filepath: string): Promise<Uint8Array> {
-  console.log(`Loading large file: ${filepath}`);
-  const buffer = await readFile(filepath);
-  return new Uint8Array(buffer);
-}
+import { createReadStream } from "node:fs";
 
 const attachment: Attachment = {
   filename: "customer-data-2024.csv",
-  content: loadLargeDataset("./data/exports/customer-data-2024.csv"),
+  content: (signal) => createReadStream(
+    "./data/exports/customer-data-2024.csv",
+    { signal },
+  ),
   contentType: "text/csv",
   contentId: "customer-dataset",
   inline: false,
@@ -157,7 +157,50 @@ const message = createMessage({
 });
 ~~~~
 
+The factory receives an optional `AbortSignal` and returns an
+`AsyncIterable<Uint8Array>` or a promise for one.  Every invocation must return
+an independent reader producing identical bytes.  Retries, concurrent sends,
+and streaming DKIM may open the same attachment more than once.  Do not return
+an already-open stream from a factory, or change the underlying file while a
+send is pending.  A rejected byte-array promise cannot restart its read.
+
+Factories should honor cancellation during acquisition and reading, and release
+resources in `finally` when implemented as async generators.  Upyo requests
+iterator cleanup on early exit but does not wait indefinitely for a producer
+that ignores cancellation.  Yield bounded chunks that remain valid until the
+next read; Upyo copies them when collecting a complete attachment.
+
+Unsigned SMTP streams attachments through MIME encoding to the socket.  Its
+additional attachment memory is bounded by fixed processing buffers and the
+largest source chunk, excluding caller-owned data, text/HTML, headers, and
+runtime/socket buffers.  HTTP transports accept the same inputs but collect the
+bytes for their provider payloads.  Plunk retains its existing behavior of
+omitting attachments whose reads fail, except that caller cancellation aborts
+the send.  See [SMTP DKIM body modes](../transports/smtp.md#body-processing) for
+the signing tradeoffs.
+
 [`Uint8Array`]: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Uint8Array
+
+### Reading attachment content in custom transports
+
+Since Upyo 0.6.0, `Attachment.content` is an `AttachmentContent` union, and
+`createMessage()` retains `File` objects instead of converting them to
+byte-array promises.  Code that previously used `await attachment.content`
+should use `readAttachmentContent()` when it needs a complete byte array:
+
+~~~~ typescript twoslash
+import { type Attachment, readAttachmentContent } from "@upyo/core";
+
+async function readFileAttachment(
+  attachment: Attachment,
+  signal?: AbortSignal,
+): Promise<Uint8Array> {
+  return await readAttachmentContent(attachment.content, signal);
+}
+~~~~
+
+Use `iterateAttachmentContent(content, signal)` instead when a custom transport
+can consume chunks incrementally.  Neither helper caches factory results.
 
 
 Content type considerations

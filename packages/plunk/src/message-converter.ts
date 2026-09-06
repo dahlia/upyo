@@ -1,4 +1,5 @@
 import type { Attachment, Message } from "@upyo/core";
+import { readAttachmentContent } from "@upyo/core";
 import type { ResolvedPlunkConfig } from "./config.ts";
 
 /**
@@ -38,6 +39,7 @@ interface PlunkEmail {
 export async function convertMessage(
   message: Message,
   _config: ResolvedPlunkConfig,
+  signal?: AbortSignal,
 ): Promise<PlunkEmail> {
   // Convert recipients - Plunk accepts either string or array
   const recipients = message.recipients.map((addr) => addr.address);
@@ -84,7 +86,7 @@ export async function convertMessage(
 
   for (let i = 0; i < maxAttachments; i++) {
     const attachment = message.attachments[i];
-    const convertedAttachment = await convertAttachment(attachment);
+    const convertedAttachment = await convertAttachment(attachment, signal);
     if (convertedAttachment) {
       attachments.push(convertedAttachment);
     }
@@ -129,10 +131,11 @@ export async function convertMessage(
  */
 async function convertAttachment(
   attachment: Attachment,
+  signal?: AbortSignal,
 ): Promise<PlunkAttachment | null> {
   try {
     // Get content as Uint8Array
-    const content = await attachment.content;
+    const content = await readAttachmentContent(attachment.content, signal);
 
     // Convert to base64
     const base64Content = arrayBufferToBase64(content);
@@ -143,6 +146,7 @@ async function convertAttachment(
       contentType: attachment.contentType,
     };
   } catch (error) {
+    signal?.throwIfAborted();
     // Log error but don't fail the entire send operation
     console.warn(
       `Failed to convert attachment ${attachment.filename}:`,

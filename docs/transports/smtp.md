@@ -819,6 +819,66 @@ const transport = new SmtpTransport({
 
 [`CryptoKey`]: https://developer.mozilla.org/en-US/docs/Web/API/CryptoKey
 
+### Body processing
+
+*Since Upyo 0.6.0.*
+
+`dkim.bodyMode` selects how attachment bytes are read for signing:
+
+| Mode                   | Source reads per send | Additional attachment memory                |
+| ---------------------- | --------------------- | ------------------------------------------- |
+| No DKIM signatures     | One                   | Fixed buffers plus the largest source chunk |
+| `"buffered"` (default) | One                   | Complete MIME body                          |
+| `"streaming"`          | Two                   | Fixed buffers plus the largest source chunk |
+
+~~~~ typescript twoslash
+import { SmtpTransport } from "@upyo/smtp";
+import { readFileSync } from "node:fs";
+
+const transport = new SmtpTransport({
+  host: "smtp.example.com",
+  port: 465,
+  secure: true,
+  dkim: {
+    bodyMode: "streaming",
+    signatures: [{
+      signingDomain: "example.com",
+      selector: "mail",
+      privateKey: readFileSync("./dkim-private.pem", "utf8"),
+    }],
+  },
+});
+~~~~
+
+Streaming hashes the body before `MAIL FROM`, then reopens the attachment
+sources for DATA.  All signatures share these two reads.  The extra I/O and
+hashing delay delivery and hold an authenticated connection during the first
+pass; the receiving server's idle limit still applies.  The memory bound
+excludes caller-owned data, text/HTML, headers, and runtime/socket buffers.  An
+empty `signatures` array behaves like unsigned sending.
+
+Attachment factories must reopen identical bytes on every invocation.  A changed
+second pass fails before the DATA terminator with the non-retryable
+`smtp.attachment-replay-mismatch` receipt code.  Source errors, cancellation,
+size-limit failures, and replay mismatches never trigger `send-unsigned`
+fallback. If a later signature fails cryptographically, earlier successful
+signatures remain on the message.
+
+Unsigned factory sources have no known size, so SMTP omits the optional
+`MAIL FROM SIZE` parameter and enforces the server's advertised limit while
+writing DATA.  Known byte-array and `Blob` sizes are checked before `MAIL FROM`.
+DKIM's first pass establishes the final size before submission.  A failure
+during DATA closes the connection without accepting a truncated message.
+
+`socketTimeout` measures inactivity while reading or writing attachments, not
+total transfer duration.  Nonempty source progress and completed writes reset
+the timer; an endless stream of empty chunks does not.  Cancellation is passed
+to the source, and failed DATA connections are not returned to the pool.
+
+See
+[attachment factories](../messages/attachments.md#working-with-binary-content)
+for file-backed sources and the custom-transport migration guide.
+
 ### Multiple DKIM signatures
 
 You can add multiple DKIM signatures to a single email, which is useful when

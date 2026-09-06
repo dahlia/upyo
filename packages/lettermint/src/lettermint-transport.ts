@@ -78,7 +78,11 @@ export class LettermintTransport implements Transport<"lettermint"> {
     try {
       options?.signal?.throwIfAborted();
 
-      const emailData = await convertMessage(message, this.config);
+      const emailData = await convertMessage(
+        message,
+        this.config,
+        options?.signal,
+      );
       const idempotencyKey = normalizeIdempotencyKey(message.idempotencyKey);
 
       options?.signal?.throwIfAborted();
@@ -147,9 +151,12 @@ export class LettermintTransport implements Transport<"lettermint"> {
 
     for (const message of messages) {
       try {
-        batchData.push(await convertMessage(message, this.config));
+        batchData.push(
+          await convertMessage(message, this.config, options?.signal),
+        );
         receipts.push(undefined);
       } catch (error) {
+        if (isCallerAbort(error, options?.signal)) throw error;
         receipts.push(createLettermintFailure(
           error instanceof Error ? error.message : String(error),
           error,

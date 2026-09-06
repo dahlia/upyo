@@ -308,7 +308,7 @@ export function createMessage(constructor: MessageConstructor): Message {
         return {
           inline: false,
           filename: attachment.name,
-          content: attachment.arrayBuffer().then((b) => new Uint8Array(b)),
+          content: attachment,
           contentType: attachment.type == null || attachment.type === ""
             ? "application/octet-stream"
             : attachment.type as `${string}/${string}`,

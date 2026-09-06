@@ -8,12 +8,30 @@ To be released.
 
 ### @upyo/core
 
+ -  Added `Blob` and replayable async content factories for attachments, with
+    `readAttachmentContent()` and `iterateAttachmentContent()` helpers.
+    `createMessage()` now retains `File` content without reading it; use the
+    helpers instead of awaiting `attachment.content` directly.  [[#56], [#59]]
  -  Added support for internationalized mailbox addresses, including UTF-8
     local parts and Unicode domains, to `parseAddress()` and `createMessage()`.
     [[#45], [#50]]
 
 [#45]: https://github.com/dahlia/upyo/issues/45
 [#50]: https://github.com/dahlia/upyo/pull/50
+[#56]: https://github.com/dahlia/upyo/issues/56
+[#59]: https://github.com/dahlia/upyo/pull/59
+
+### @upyo/jmap
+
+ -  Added support for `Blob` and replayable async attachment factories,
+    including cancellation while reading their content.  Provider payloads
+    remain buffered in memory.  [[#56], [#59]]
+
+### @upyo/lettermint
+
+ -  Added support for `Blob` and replayable async attachment factories,
+    including cancellation while reading their content.  Provider payloads
+    remain buffered in memory.  [[#56], [#59]]
 
 ### @upyo/logtape
 
@@ -45,9 +63,19 @@ To be released.
         images, custom headers, tags, tracking settings, retries, structured
         failure receipts, and `AbortSignal` cancellation.
 
+ -  Added support for `Blob` and replayable async attachment factories,
+    including cancellation while reading their content.  Provider payloads
+    remain buffered in memory.  [[#56], [#59]]
+
 [Maileroo]: https://maileroo.com/
 [#30]: https://github.com/dahlia/upyo/issues/30
 [#31]: https://github.com/dahlia/upyo/pull/31
+
+### @upyo/mailgun
+
+ -  Added support for `Blob` and replayable async attachment factories,
+    including cancellation while reading their content.  Provider payloads
+    remain buffered in memory.  [[#56], [#59]]
 
 ### @upyo/mailtrap
 
@@ -63,8 +91,36 @@ To be released.
         attachments, categories, custom variables, config-level metadata,
         structured failure receipts, and `AbortSignal` cancellation.
 
+ -  Added support for `Blob` and replayable async attachment factories,
+    including cancellation while reading their content.  Provider payloads
+    remain buffered in memory.  [[#56], [#59]]
+
 [Mailtrap]: https://mailtrap.io/
 [#32]: https://github.com/dahlia/upyo/pull/32
+
+### @upyo/plunk
+
+ -  Added support for `Blob` and replayable async attachment factories.
+    Attachment reads remain buffered, and failed reads still omit the
+    attachment; caller cancellation now aborts the send instead.  [[#56], [#59]]
+
+### @upyo/resend
+
+ -  Added support for `Blob` and replayable async attachment factories,
+    including cancellation while reading their content.  Provider payloads
+    remain buffered in memory.  [[#56], [#59]]
+
+### @upyo/sendgrid
+
+ -  Added support for `Blob` and replayable async attachment factories,
+    including cancellation while reading their content.  Provider payloads
+    remain buffered in memory.  [[#56], [#59]]
+
+### @upyo/ses
+
+ -  Added support for `Blob` and replayable async attachment factories,
+    including cancellation while reading their content.  Provider payloads
+    remain buffered in memory.  [[#56], [#59]]
 
 ### @upyo/smtp
 
@@ -75,6 +131,12 @@ To be released.
  -  Added automatic SMTPUTF8 delivery for internationalized sender, recipient,
     and reply-to addresses.  Servers must advertise `SMTPUTF8` and `8BITMIME`;
     unsupported sends fail without starting a mail transaction.  [[#45], [#50]]
+ -  Added incremental SMTP attachment encoding and backpressured DATA writes.
+    Set `dkim.bodyMode` to `"streaming"` for bounded attachment memory with two
+    source reads, or keep the default `"buffered"` mode for one read.  Changed
+    replay content fails with `smtp.attachment-replay-mismatch` before
+    acceptance. Source inactivity and size-limit failures close unfinished DATA
+    connections. [[#56], [#59]]
  -  Added structured enhanced status codes to SMTP delivery failures.  Valid
     RFC 2034 reply prefixes expose their class, subject, and detail while
     preserving the server's original text; address, content, and network
