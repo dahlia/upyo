@@ -109,6 +109,7 @@ To be released.
  -  Added support for `Blob` and replayable async attachment factories,
     including cancellation while reading their content.  Provider payloads
     remain buffered in memory.  [[#56], [#59]]
+ -  Fixed incorrect Base64 padding that corrupted attachment contents.  [[#59]]
 
 ### @upyo/sendgrid
 

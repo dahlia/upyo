@@ -251,8 +251,9 @@ function uint8ArrayToBase64(bytes: Uint8Array): string {
   }
 
   // Add padding
-  const padding = 3 - ((bytes.length - 1) % 3);
-  if (padding < 3) {
+  const remainder = bytes.length % 3;
+  if (remainder !== 0) {
+    const padding = 3 - remainder;
     result = result.slice(0, -padding) + "=".repeat(padding);
   }
 
