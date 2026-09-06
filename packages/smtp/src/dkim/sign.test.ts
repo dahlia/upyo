@@ -1,10 +1,13 @@
 import assert from "node:assert/strict";
+import { createHash, verify } from "node:crypto";
 import { describe, it } from "node:test";
 import {
   TEST_DKIM_DOMAIN,
   TEST_DKIM_ED25519_PRIVATE_KEY,
+  TEST_DKIM_ED25519_PUBLIC_KEY,
   TEST_DKIM_ED25519_SELECTOR,
   TEST_DKIM_PRIVATE_KEY,
+  TEST_DKIM_PUBLIC_KEY,
   TEST_DKIM_SELECTOR,
 } from "../test-utils/dkim-test-keys.ts";
 import { signMessage } from "./sign.ts";
@@ -20,6 +23,56 @@ describe("DKIM Signing", () => {
     "Hello, World!\r\n";
 
   describe("signMessage", () => {
+    for (const algorithm of ["rsa-sha256", "ed25519-sha256"] as const) {
+      for (const headerMode of ["simple", "relaxed"] as const) {
+        it(`verifies ${algorithm} with ${headerMode} wire headers`, async () => {
+          const from = "FrOm: sender@example.com";
+          const subject = "SuBjEcT: A folded\r\n\tsubject";
+          const body = "Hello\r\n";
+          const result = await signMessage(
+            `${from}\r\n${subject}\r\n\r\n${body}`,
+            {
+              signingDomain: TEST_DKIM_DOMAIN,
+              selector: TEST_DKIM_SELECTOR,
+              privateKey: algorithm === "rsa-sha256"
+                ? TEST_DKIM_PRIVATE_KEY
+                : TEST_DKIM_ED25519_PRIVATE_KEY,
+              algorithm,
+              canonicalization: `${headerMode}/simple`,
+              headerFields: ["from", "SUBJECT"],
+            },
+          );
+          const signature = /(?:^|;\s*)b=([^;]+)$/.exec(result.signature);
+          assert.ok(signature);
+          assert.ok(result.signature.includes(
+            `bh=${createHash("sha256").update(body).digest("base64")};`,
+          ));
+          const unsignedHeader = "DKIM-Signature: " +
+            result.signature.slice(0, -signature[1].length);
+          // Construct verification input from the actual wire headers,
+          // independently of the signer's parser and canonicalizers.
+          const headers = headerMode === "simple"
+            ? [from, subject, unsignedHeader]
+            : [
+              "from:sender@example.com",
+              "subject:A folded subject",
+              "dkim-signature:" + unsignedHeader.slice(16).trim(),
+            ];
+          const input = new TextEncoder().encode(headers.join("\r\n"));
+          assert.ok(verify(
+            algorithm === "rsa-sha256" ? "RSA-SHA256" : null,
+            algorithm === "rsa-sha256"
+              ? input
+              : createHash("sha256").update(input).digest(),
+            algorithm === "rsa-sha256"
+              ? TEST_DKIM_PUBLIC_KEY
+              : TEST_DKIM_ED25519_PUBLIC_KEY,
+            Uint8Array.from(atob(signature[1]), (c) => c.charCodeAt(0)),
+          ));
+        });
+      }
+    }
+
     it("should generate a valid DKIM-Signature header", async () => {
       const result = await signMessage(simpleMessage, {
         signingDomain: TEST_DKIM_DOMAIN,

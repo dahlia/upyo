@@ -80,11 +80,16 @@ export async function signMessage(
   };
 }
 
+interface ParsedHeader {
+  readonly name: string;
+  readonly value: string;
+}
+
 /**
  * Parses a raw email message into headers and body.
  */
 function parseMessage(rawMessage: string): {
-  headers: Map<string, string>;
+  headers: Map<string, ParsedHeader>;
   body: string;
 } {
   // Find the separator between headers and body (empty line)
@@ -110,8 +115,8 @@ function parseMessage(rawMessage: string): {
  * Parses header section into a map of header name to value.
  * Handles folded headers (continuation lines).
  */
-function parseHeaders(headerSection: string): Map<string, string> {
-  const headers = new Map<string, string>();
+function parseHeaders(headerSection: string): Map<string, ParsedHeader> {
+  const headers = new Map<string, ParsedHeader>();
   const lines = headerSection.split("\r\n");
 
   let currentName = "";
@@ -124,7 +129,10 @@ function parseHeaders(headerSection: string): Map<string, string> {
     } else {
       // New header - save previous if exists
       if (currentName) {
-        headers.set(currentName.toLowerCase(), currentValue);
+        headers.set(currentName.toLowerCase(), {
+          name: currentName,
+          value: currentValue,
+        });
       }
 
       const colonIndex = line.indexOf(":");
@@ -137,7 +145,10 @@ function parseHeaders(headerSection: string): Map<string, string> {
 
   // Save the last header
   if (currentName) {
-    headers.set(currentName.toLowerCase(), currentValue);
+    headers.set(currentName.toLowerCase(), {
+      name: currentName,
+      value: currentValue,
+    });
   }
 
   return headers;
@@ -248,7 +259,7 @@ function buildDkimHeaderValue(params: {
  * Builds the data to be signed (canonicalized headers + DKIM-Signature header).
  */
 function buildSignatureData(
-  headers: Map<string, string>,
+  headers: Map<string, ParsedHeader>,
   headerFields: readonly string[],
   canonMethod: "relaxed" | "simple",
   dkimHeaderValue: string,
@@ -257,11 +268,11 @@ function buildSignatureData(
 
   // Canonicalize each header specified in h= tag
   for (const field of headerFields) {
-    const value = headers.get(field.toLowerCase());
-    if (value !== undefined) {
+    const header = headers.get(field.toLowerCase());
+    if (header !== undefined) {
       const canonicalized = canonMethod === "relaxed"
-        ? canonicalizeHeaderRelaxed(field, value)
-        : canonicalizeHeaderSimple(field, value);
+        ? canonicalizeHeaderRelaxed(header.name, header.value)
+        : canonicalizeHeaderSimple(header.name, header.value);
       lines.push(canonicalized);
     }
   }
@@ -294,10 +305,16 @@ async function signData(
     ? "Ed25519"
     : "RSASSA-PKCS1-v1_5";
 
+  // RFC 8463 uses PureEd25519 over the SHA-256 header hash. RSA hashes
+  // internally through its imported key algorithm.
+  const signingInput = algorithm === "ed25519-sha256"
+    ? await crypto.subtle.digest("SHA-256", dataBuffer)
+    : dataBuffer;
+
   const signature = await crypto.subtle.sign(
     signAlgorithm,
     privateKey,
-    dataBuffer,
+    signingInput,
   );
 
   return arrayBufferToBase64(signature);

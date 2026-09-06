@@ -104,6 +104,8 @@ To be released.
     envelope.  Requests fail before `MAIL FROM` when the server does not
     advertise `DSN`.
     [[#44], [#49]]
+ -  Fixed DKIM signatures using `ed25519-sha256` or `simple` header
+    canonicalization failing verification by receiving mail servers.
  -  Fixed SMTP connections to infer the `secure` default from the port.  Port
     465 uses implicit TLS; all other ports start with plaintext and upgrade with
     STARTTLS when advertised.  Set `secure: true` explicitly to use implicit
