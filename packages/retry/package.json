@@ -1,6 +1,6 @@
 {
   "name": "@upyo/retry",
-  "version": "0.5.4",
+  "version": "0.5.5",
   "description": "Retry and backoff decorator transport for Upyo email library",
   "keywords": [
     "email",
