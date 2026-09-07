@@ -213,6 +213,14 @@ types include `"application/pdf"` for PDF files, `"image/png"` for PNG images,
 The content type helps email clients determine how to display or handle
 the attachment appropriately.
 
+If the content type comes from outside your application, pass it to
+`createMessage()` rather than to a `Message` object you build yourself.
+The SMTP transport writes the content type and the content ID into the MIME
+part headers as given, so a value carrying a carriage return or line feed would
+end that header field and turn the rest into further header fields.
+`createMessage()` rejects both characters with a `TypeError`.  A browser's
+declared upload type is a common source of such a value.
+
 Whether you're working with simple file uploads or complex inline attachments
 for rich HTML emails, Upyo's attachment system provides the flexibility you need
 while handling the underlying complexity of email attachment encoding and

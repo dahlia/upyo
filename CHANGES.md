@@ -188,6 +188,64 @@ To be released.
 [#55]: https://github.com/dahlia/upyo/pull/55
 
 
+Version 0.5.4
+-------------
+
+Released on September 7, 2026.
+
+### @upyo/core
+
+ -  `createMessage()` now rejects a carriage return or line feed in an address,
+    an attachment's content type, or an attachment's content ID with a
+    `TypeError`.  A transport that composes the message itself writes these
+    values into header fields as given, so either character ended the field and
+    let the rest of the value appear as further header fields.  [[#60]]
+
+    Address strings were already rejected by `parseAddress()`, but the object
+    form passed through unchecked, so
+    `createMessage({ to: { address: "victim@example.net\r\nBcc: …" } })`
+    forged a `Bcc` field.  Attachments were unchecked in either form, and an
+    uploaded file's declared content type is routinely chosen by whoever
+    uploaded it.
+
+    Values that arrive through a `Message` object built by hand rather than
+    through `createMessage()` are still passed on as given.
+
+[#60]: https://github.com/dahlia/upyo/issues/60
+
+### @upyo/smtp
+
+ -  Stopped emitting duplicate header fields when a custom header collides with
+    one the transport composes itself.  RFC 5322 §3.6 permits at most one
+    `Date`, `From`, `Message-ID`, `Subject`, and similar field per message, but
+    every custom header used to be appended after the composed ones.  A
+    duplicate `Content-Type` was the worst case: it preceded the real one, so
+    receivers that take the first occurrence misread the body and ignored the
+    MIME boundaries.  [[#57]]
+
+     -  `Date` and `Message-ID` have no counterpart on `Message`, so a custom
+        header now replaces the generated default instead of adding a second
+        field.  Applications can finally choose an outgoing message identifier
+        for reply correlation.  Header names are matched case-insensitively,
+        and the values are written verbatim rather than RFC 2047 encoded.
+        A value containing a carriage return or line feed is rejected with a
+        `TypeError`, so it cannot inject additional header fields.  Messages
+        that supply neither header keep the previous generated values.
+
+     -  Custom `From`, `To`, `Cc`, `Bcc`, `Reply-To`, `Subject`,
+        `MIME-Version`, `Content-Type`, and `Content-Transfer-Encoding` headers
+        are now ignored, because the corresponding `Message` fields and the
+        MIME structure are authoritative.  Set the structured fields instead.
+        A custom `Bcc` header used to disclose blind recipients to everyone who
+        received the message.
+
+     -  Custom `X-Priority` and `X-MSMail-Priority` headers are still sent for
+        messages of normal priority, but no longer duplicate the headers
+        derived from a `high` or `low` `priority`.
+
+[#57]: https://github.com/dahlia/upyo/issues/57
+
+
 Version 0.5.3
 -------------
 

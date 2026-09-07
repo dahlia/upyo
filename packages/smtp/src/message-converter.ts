@@ -34,6 +34,8 @@ export interface SmtpEnvelope {
  * @returns The converted SMTP message.
  * @throws {RangeError} If a header contains a token that cannot be folded
  * within the RFC 5322 hard line-length limit.
+ * @throws {TypeError} If a `Date` or `Message-ID` header supplied by the
+ * message contains a carriage return or line feed.
  */
 export async function convertMessage(
   message: Message,
@@ -91,6 +93,8 @@ export interface PreparedSmtpMessage {
  * @param resolvedEnvelope Validated effective SMTP envelope.
  * @returns A deterministic MIME plan for one send attempt.
  * @throws {RangeError} If a header cannot fit the RFC 5322 line limit.
+ * @throws {TypeError} If a `Date` or `Message-ID` header supplied by the
+ * message contains a carriage return or line feed.
  */
 export function prepareMessage(
   message: Message,
@@ -205,8 +209,32 @@ function buildMimeParts(message: Message): MimePart[] {
   }
 
   lines.push(foldHeader("Subject", encodeHeaderValue(message.subject, true)));
-  lines.push(`Date: ${new Date().toUTCString()}`);
-  lines.push(`Message-ID: <${generateMessageId()}>`);
+
+  // Date and Message-ID have no structured counterpart on Message, so a custom
+  // header replaces the generated default instead of adding a second field.
+  // Both carry structured values, so they are never RFC 2047 encoded.
+  lines.push(
+    foldHeader("Date", overridden(message, "Date") ?? new Date().toUTCString()),
+  );
+  lines.push(
+    foldHeader(
+      "Message-ID",
+      overridden(message, "Message-ID") ?? `<${generateMessageId()}>`,
+    ),
+  );
+
+  // Names already written above, plus Cc and Reply-To even when the message
+  // carries no such recipients: a custom header there would list addresses the
+  // envelope never receives.
+  const composed = new Set([
+    "from",
+    "to",
+    "cc",
+    "reply-to",
+    "subject",
+    "date",
+    "message-id",
+  ]);
 
   // Priority header
   if (message.priority !== "normal") {
@@ -215,10 +243,14 @@ function buildMimeParts(message: Message): MimePart[] {
     lines.push(
       `X-MSMail-Priority: ${message.priority === "high" ? "High" : "Low"}`,
     );
+    composed.add("x-priority");
+    composed.add("x-msmail-priority");
   }
 
   // Custom headers
   for (const [key, value] of message.headers) {
+    const name = key.toLowerCase();
+    if (composed.has(name) || reservedHeaders.has(name)) continue;
     lines.push(foldHeader(key, encodeHeaderValue(value)));
   }
 
@@ -337,6 +369,49 @@ function buildMimeParts(message: Message): MimePart[] {
   parts.push(text);
   return parts;
 }
+
+/**
+ * Reads a header field that overrides a generated default.
+ *
+ * Unlike custom headers, the value is written verbatim rather than RFC 2047
+ * encoded, so it cannot rely on `encodeHeaderValue()` to neutralize control
+ * characters.  `ImmutableHeaders` is a structural type, so a `Message` may
+ * carry an adapter that never rejected CR or LF the way a platform `Headers`
+ * does.
+ *
+ * @param message The message whose headers are read.
+ * @param name The header field name.
+ * @returns The supplied value, or `undefined` when the message has none.
+ * @throws {TypeError} If the value contains a carriage return or line feed,
+ * which would inject additional header fields into the message.
+ */
+function overridden(message: Message, name: string): string | undefined {
+  const value = message.headers.get(name);
+  if (value == null) return undefined;
+  if (/[\r\n]/.test(value)) {
+    throw new TypeError(
+      `Header field ${name} must not contain a carriage return or line feed.`,
+    );
+  }
+  return value;
+}
+
+/**
+ * Header fields the composer owns but writes after the custom headers, or
+ * deliberately omits.  A custom header with one of these names is dropped
+ * rather than appended: the structured `Message` fields are authoritative,
+ * RFC 5322 §3.6 allows at most one of each, and a duplicate placed before the
+ * composer's own field makes parsers that take the first occurrence read the
+ * wrong value.
+ */
+const reservedHeaders: ReadonlySet<string> = new Set([
+  // Bcc recipients travel in the SMTP envelope only, so a Bcc header would
+  // disclose them to every recipient.
+  "bcc",
+  "content-transfer-encoding",
+  "content-type",
+  "mime-version",
+]);
 
 function generateBoundary(): string {
   return `boundary-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
