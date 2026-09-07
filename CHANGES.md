@@ -18,8 +18,9 @@ To be released.
     matching `In-Reply-To`.  The identifiers are held without their enclosing
     angle brackets, which `createMessage()` strips when they are supplied, and
     an invalid one is rejected with a `TypeError`.  For `inReplyTo` and
-    `references`, leaving the field unset defers to a header of the same name
-    supplied through `headers`, while an empty array suppresses it.
+    `references`, leaving the field unset defers to an `In-Reply-To` or
+    `References` header supplied through `headers`, while an empty array
+    suppresses it.
     [[#58], [#61]]
  -  Added the `@upyo/core/message-id` module, with `generateMessageId()`,
     `parseMessageId()`, `formatMessageId()`, and `resolveThreadingHeaders()`.
@@ -62,8 +63,9 @@ To be released.
     including cancellation while reading their content.  Provider payloads
     remain buffered in memory.  [[#56], [#59]]
  -  Added support for the `inReplyTo` and `references` fields of `Message`,
-    which are sent as custom headers.  A field left unset defers to a header of
-    the same name supplied through `headers`, and an empty array suppresses it.
+    which are sent as custom headers.  A field left unset defers to an
+    `In-Reply-To` or `References` header supplied through `headers`, and an
+    empty array suppresses it.
     `messageId` and `date` are not sent, because the provider does not document
     whether a supplied value survives.  [[#58], [#61]]
 
@@ -102,8 +104,9 @@ To be released.
     remain buffered in memory.  [[#56], [#59]]
 
  -  Added support for the `inReplyTo` and `references` fields of `Message`,
-    which are sent as custom headers.  A field left unset defers to a header of
-    the same name supplied through `headers`, and an empty array suppresses it.
+    which are sent as custom headers.  A field left unset defers to an
+    `In-Reply-To` or `References` header supplied through `headers`, and an
+    empty array suppresses it.
     `messageId` and `date` are not sent, because the provider does not document
     whether a supplied value survives.  [[#58], [#61]]
 
@@ -117,8 +120,9 @@ To be released.
     including cancellation while reading their content.  Provider payloads
     remain buffered in memory.  [[#56], [#59]]
  -  Added support for the `inReplyTo` and `references` fields of `Message`,
-    which are sent as custom headers.  A field left unset defers to a header of
-    the same name supplied through `headers`, and an empty array suppresses it.
+    which are sent as custom headers.  A field left unset defers to an
+    `In-Reply-To` or `References` header supplied through `headers`, and an
+    empty array suppresses it.
     `messageId` and `date` are not sent, because the provider does not document
     whether a supplied value survives.  [[#58], [#61]]
 
@@ -141,8 +145,9 @@ To be released.
     remain buffered in memory.  [[#56], [#59]]
 
  -  Added support for the `inReplyTo` and `references` fields of `Message`,
-    which are sent as custom headers.  A field left unset defers to a header of
-    the same name supplied through `headers`, and an empty array suppresses it.
+    which are sent as custom headers.  A field left unset defers to an
+    `In-Reply-To` or `References` header supplied through `headers`, and an
+    empty array suppresses it.
     `messageId` and `date` are not sent, because the provider does not document
     whether a supplied value survives.  [[#58], [#61]]
 
@@ -155,8 +160,9 @@ To be released.
     Attachment reads remain buffered, and failed reads still omit the
     attachment; caller cancellation now aborts the send instead.  [[#56], [#59]]
  -  Added support for the `inReplyTo` and `references` fields of `Message`,
-    which are sent as custom headers.  A field left unset defers to a header of
-    the same name supplied through `headers`, and an empty array suppresses it.
+    which are sent as custom headers.  A field left unset defers to an
+    `In-Reply-To` or `References` header supplied through `headers`, and an
+    empty array suppresses it.
     `messageId` and `date` are not sent, because the provider does not document
     whether a supplied value survives.  [[#58], [#61]]
 
@@ -166,8 +172,9 @@ To be released.
     including cancellation while reading their content.  Provider payloads
     remain buffered in memory.  [[#56], [#59]]
  -  Added support for the `inReplyTo` and `references` fields of `Message`,
-    which are sent as custom headers.  A field left unset defers to a header of
-    the same name supplied through `headers`, and an empty array suppresses it.
+    which are sent as custom headers.  A field left unset defers to an
+    `In-Reply-To` or `References` header supplied through `headers`, and an
+    empty array suppresses it.
     `messageId` and `date` are not sent, because the provider does not document
     whether a supplied value survives.  [[#58], [#61]]
  -  Fixed incorrect Base64 padding that corrupted attachment contents.  [[#59]]
@@ -178,8 +185,9 @@ To be released.
     including cancellation while reading their content.  Provider payloads
     remain buffered in memory.  [[#56], [#59]]
  -  Added support for the `inReplyTo` and `references` fields of `Message`,
-    which are sent as custom headers.  A field left unset defers to a header of
-    the same name supplied through `headers`, and an empty array suppresses it.
+    which are sent as custom headers.  A field left unset defers to an
+    `In-Reply-To` or `References` header supplied through `headers`, and an
+    empty array suppresses it.
     `messageId` and `date` are not sent, because the provider does not document
     whether a supplied value survives.  [[#58], [#61]]
 
@@ -209,8 +217,9 @@ To be released.
     preserving the server's original text; address, content, and network
     statuses also receive more specific error categories.  [[#46], [#51]]
  -  Added support for the `messageId`, `date`, `inReplyTo`, and `references`
-    fields of `Message`.  Each takes precedence over a custom header of the same
-    name, which still applies when the field is left unset.  [[#58], [#61]]
+    fields of `Message`.  Each takes precedence over the matching `Message-ID`,
+    `Date`, `In-Reply-To`, or `References` header, which still applies when the
+    field is left unset.  [[#58], [#61]]
  -  Changed the generated `Message-ID` to use the sender's domain instead of the
     fixed `upyo.local`, which RFC 6762 reserves for multicast DNS.
     [[#58], [#61]]

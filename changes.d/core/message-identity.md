@@ -9,8 +9,9 @@ links:
     matching `In-Reply-To`.  The identifiers are held without their enclosing
     angle brackets, which `createMessage()` strips when they are supplied, and
     an invalid one is rejected with a `TypeError`.  For `inReplyTo` and
-    `references`, leaving the field unset defers to a header of the same name
-    supplied through `headers`, while an empty array suppresses it.
+    `references`, leaving the field unset defers to an `In-Reply-To` or
+    `References` header supplied through `headers`, while an empty array
+    suppresses it.
     [[#58], [#61]]
 
  -  Added the `@upyo/core/message-id` module, with `generateMessageId()`,

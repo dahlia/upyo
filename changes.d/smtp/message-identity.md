@@ -4,8 +4,9 @@ links:
   '#61': https://github.com/dahlia/upyo/pull/61
 ---
  -  Added support for the `messageId`, `date`, `inReplyTo`, and `references`
-    fields of `Message`.  Each takes precedence over a custom header of the same
-    name, which still applies when the field is left unset.  [[#58], [#61]]
+    fields of `Message`.  Each takes precedence over the matching `Message-ID`,
+    `Date`, `In-Reply-To`, or `References` header, which still applies when the
+    field is left unset.  [[#58], [#61]]
 
  -  Changed the generated `Message-ID` to use the sender's domain instead of the
     fixed `upyo.local`, which RFC 6762 reserves for multicast DNS.

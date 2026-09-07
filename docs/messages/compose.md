@@ -256,8 +256,9 @@ than discover it afterwards.  `createMessage()` takes four fields for that:
     the same thing.
 
 `date`
-:   The origination date.  Left unset, a transport that composes the message
-    uses the time of conversion, so a retry carries a later date.
+:   The origination date.  With neither this nor a custom `Date` header set, a
+    transport that composes the message uses the time of conversion, so a retry
+    carries a later date.
 
 `inReplyTo`
 :   The identifier, or identifiers, of the messages this one replies to.
@@ -341,7 +342,8 @@ split first.
 `inReplyTo` and `references` distinguish three states, which matters when a
 message is assembled from a template that already carries these headers:
 
- -  Leaving the field unset defers to a custom header of the same name.
+ -  Leaving the field unset defers to a custom `In-Reply-To` or `References`
+    header.
  -  Setting it to a non-empty array replaces that header.
  -  Setting it to an empty array suppresses the header, so the message
     deliberately starts a new thread.
