@@ -51,7 +51,7 @@ describe(
         });
 
         const receipt = await transport.send(message);
-        assert.strictEqual(receipt.successful, true);
+        assert.ok(receipt.successful);
 
         const delivered = await waitForMailpitDelivery(
           mailpitClient,

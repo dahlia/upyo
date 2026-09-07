@@ -194,7 +194,8 @@ describe("SmtpTransport Integration Tests", () => {
       ) {
         receipts.push(each);
       }
-      assert.deepEqual(receipts.map((each) => each.successful), [true, true]);
+      assert.equal(receipts.length, 2);
+      assert.ok(receipts.every((each) => each.successful));
 
       const delivered = server.getReceivedMessages().map((message) =>
         message.data

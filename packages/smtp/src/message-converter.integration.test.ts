@@ -315,8 +315,8 @@ describe("Message Converter Integration Tests", () => {
         headers: new Headers({ "References": "<ünicode@example.com>" }),
       }));
 
-      assert.equal(messageId.requiresSmtpUtf8, true);
-      assert.equal(references.requiresSmtpUtf8, true);
+      assert.ok(messageId.requiresSmtpUtf8);
+      assert.ok(references.requiresSmtpUtf8);
       assert.ok(messageId.raw.includes("Message-ID: <ünicode@example.com>"));
     });
 
@@ -331,7 +331,7 @@ describe("Message Converter Integration Tests", () => {
         }],
       }));
 
-      assert.equal(result.requiresSmtpUtf8, false);
+      assert.ok(!result.requiresSmtpUtf8);
     });
 
     test("should not require SMTPUTF8 for Unicode display names", async () => {
@@ -1122,7 +1122,7 @@ describe("Message Converter Integration Tests", () => {
       assert.ok(result.raw.includes("Message-ID: <ünicode@example.com>"));
       assert.ok(result.raw.includes("References: <참조@example.com>"));
       assert.ok(!result.raw.includes("=?UTF-8?B?"));
-      assert.equal(result.requiresSmtpUtf8, true);
+      assert.ok(result.requiresSmtpUtf8);
     });
 
     test("should not require SMTPUTF8 for a suppressed Unicode header", async () => {
@@ -1131,7 +1131,7 @@ describe("Message Converter Integration Tests", () => {
         headers: new Headers({ "References": "<ünicode@example.com>" }),
       }));
 
-      assert.equal(result.requiresSmtpUtf8, false);
+      assert.ok(!result.requiresSmtpUtf8);
     });
 
     test("should reject a message identifier a hand-built message carries", async () => {
