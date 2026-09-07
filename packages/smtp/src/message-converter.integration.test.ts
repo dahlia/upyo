@@ -1,4 +1,4 @@
-import type { Address, Message } from "@upyo/core";
+import type { Address, ImmutableHeaders, Message } from "@upyo/core";
 import assert from "node:assert/strict";
 import { Buffer } from "node:buffer";
 import { describe, test } from "node:test";
@@ -687,6 +687,233 @@ describe("Message Converter Integration Tests", () => {
           "Reply-To: Support <support@example.com>, noreply@example.com",
         ),
       );
+    });
+  });
+
+  describe("Header Deduplication", () => {
+    const headerLines = (raw: string): string[] =>
+      raw.split("\r\n\r\n")[0].split("\r\n");
+
+    const occurrences = (raw: string, name: string): string[] =>
+      headerLines(raw)
+        .filter((line) =>
+          line.toLowerCase().startsWith(`${name.toLowerCase()}:`)
+        )
+        .map((line) => line.slice(line.indexOf(":") + 1).trim());
+
+    test("should let custom headers override the generated Message-ID", async () => {
+      const headers = new Headers({ "Message-ID": "<123@example.com>" });
+      const result = await convertMessage(createTestMessage({ headers }));
+
+      assert.deepStrictEqual(
+        occurrences(result.raw, "Message-ID"),
+        ["<123@example.com>"],
+      );
+      assert.ok(!result.raw.includes("@upyo.local"));
+    });
+
+    test("should let custom headers override the generated Date", async () => {
+      const date = "Tue, 01 Sep 2026 10:00:00 +0000";
+      const headers = new Headers({ "Date": date });
+      const result = await convertMessage(createTestMessage({ headers }));
+
+      assert.deepStrictEqual(occurrences(result.raw, "Date"), [date]);
+    });
+
+    test("should match overridable headers case-insensitively", async () => {
+      const headers = new Headers({
+        "mEsSaGe-Id": "<456@example.com>",
+        "dAtE": "Wed, 02 Sep 2026 11:00:00 +0000",
+      });
+      const result = await convertMessage(createTestMessage({ headers }));
+
+      assert.deepStrictEqual(
+        occurrences(result.raw, "Message-ID"),
+        ["<456@example.com>"],
+      );
+      assert.deepStrictEqual(
+        occurrences(result.raw, "Date"),
+        ["Wed, 02 Sep 2026 11:00:00 +0000"],
+      );
+    });
+
+    test("should still generate defaults when neither is supplied", async () => {
+      const headers = new Headers({ "X-Mailer": "Test Mailer" });
+      const result = await convertMessage(createTestMessage({ headers }));
+
+      const messageIds = occurrences(result.raw, "Message-ID");
+      assert.strictEqual(messageIds.length, 1);
+      assert.ok(messageIds[0].endsWith("@upyo.local>"));
+
+      const dates = occurrences(result.raw, "Date");
+      assert.strictEqual(dates.length, 1);
+      assert.ok(!Number.isNaN(new Date(dates[0]).getTime()));
+    });
+
+    test("should not encode overriding values as RFC 2047 words", async () => {
+      const messageId = `<${"a".repeat(80)}@example.com>`;
+      const headers = new Headers({ "Message-ID": messageId });
+      const result = await convertMessage(createTestMessage({ headers }));
+
+      assert.deepStrictEqual(
+        occurrences(result.raw, "Message-ID"),
+        [messageId],
+      );
+      assert.ok(!result.raw.includes("=?UTF-8?B?"));
+    });
+
+    test("should ignore custom headers owned by structured fields", async () => {
+      const headers = new Headers({
+        "From": "spoofed@example.com",
+        "To": "spoofed@example.net",
+        "Cc": "spoofed@example.org",
+        "Reply-To": "spoofed@example.io",
+        "Subject": "Overridden",
+      });
+      const result = await convertMessage(createTestMessage({ headers }));
+
+      assert.deepStrictEqual(
+        occurrences(result.raw, "From"),
+        ["John Doe <john@example.com>"],
+      );
+      assert.deepStrictEqual(
+        occurrences(result.raw, "To"),
+        ["Jane Doe <jane@example.com>"],
+      );
+      assert.deepStrictEqual(occurrences(result.raw, "Subject"), [
+        "Test Subject",
+      ]);
+      assert.deepStrictEqual(occurrences(result.raw, "Cc"), []);
+      assert.deepStrictEqual(occurrences(result.raw, "Reply-To"), []);
+    });
+
+    test("should ignore custom headers owned by the MIME structure", async () => {
+      const headers = new Headers({
+        "MIME-Version": "0.9",
+        "Content-Type": "text/plain",
+        "Content-Transfer-Encoding": "7bit",
+      });
+      const result = await convertMessage(createTestMessage({ headers }));
+
+      assert.deepStrictEqual(occurrences(result.raw, "MIME-Version"), ["1.0"]);
+      assert.deepStrictEqual(
+        occurrences(result.raw, "Content-Type"),
+        ["text/plain; charset=utf-8"],
+      );
+      assert.deepStrictEqual(
+        occurrences(result.raw, "Content-Transfer-Encoding"),
+        ["quoted-printable"],
+      );
+    });
+
+    test("should keep the real Content-Type first in multipart messages", async () => {
+      const headers = new Headers({ "Content-Type": "text/plain" });
+      const message = createTestMessage({
+        headers,
+        content: { html: "<p>Hi</p>", text: "Hi" },
+      });
+      const result = await convertMessage(message);
+
+      const contentTypes = occurrences(result.raw, "Content-Type");
+      assert.strictEqual(contentTypes.length, 1);
+      assert.ok(contentTypes[0].startsWith("multipart/mixed; boundary="));
+    });
+
+    // `ImmutableHeaders` is structural, so a Message may carry an adapter that
+    // is not a platform `Headers` and therefore never rejected CR or LF.
+    const headersWith = (
+      name: string,
+      value: string,
+      rest: Headers = new Headers(),
+    ): ImmutableHeaders => ({
+      get: (key: string) =>
+        key.toLowerCase() === name.toLowerCase() ? value : rest.get(key),
+      has: (key: string) =>
+        key.toLowerCase() === name.toLowerCase() || rest.has(key),
+      getSetCookie: () => rest.getSetCookie(),
+      forEach: (callback, thisArg) => rest.forEach(callback, thisArg),
+      keys: () => rest.keys(),
+      values: () => rest.values(),
+      entries: () => rest.entries(),
+      [Symbol.iterator]: () => rest.entries(),
+    });
+
+    for (const name of ["Date", "Message-ID"]) {
+      test(`should reject CR or LF in an overriding ${name}`, async () => {
+        const headers = headersWith(
+          name,
+          "<x@example.com>\r\nBcc: victim@example.com",
+        );
+
+        await assert.rejects(
+          () => convertMessage(createTestMessage({ headers })),
+          TypeError,
+        );
+      });
+    }
+
+    test("should not disclose Bcc recipients through a custom header", async () => {
+      const headers = new Headers({ "Bcc": "hidden@example.com" });
+      const message = createTestMessage({
+        headers,
+        bccRecipients: [{ address: "hidden@example.com" }],
+      });
+      const result = await convertMessage(message);
+
+      assert.deepStrictEqual(occurrences(result.raw, "Bcc"), []);
+      assert.ok(!result.raw.toLowerCase().includes("hidden@example.com"));
+      assert.ok(result.envelope.to.includes("hidden@example.com"));
+    });
+
+    for (
+      const { priority, expected } of [
+        { priority: "high", expected: ["1", "High"] },
+        { priority: "low", expected: ["5", "Low"] },
+      ] as const
+    ) {
+      test(`should keep ${priority} priority headers authoritative`, async () => {
+        const headers = new Headers({
+          "X-Priority": "3",
+          "X-MSMail-Priority": "Normal",
+        });
+        const message = createTestMessage({ headers, priority });
+        const result = await convertMessage(message);
+
+        assert.deepStrictEqual(occurrences(result.raw, "X-Priority"), [
+          expected[0],
+        ]);
+        assert.deepStrictEqual(occurrences(result.raw, "X-MSMail-Priority"), [
+          expected[1],
+        ]);
+      });
+    }
+
+    test("should pass custom priority headers through at normal priority", async () => {
+      const headers = new Headers({
+        "X-Priority": "3",
+        "X-MSMail-Priority": "Normal",
+      });
+      const message = createTestMessage({ headers, priority: "normal" });
+      const result = await convertMessage(message);
+
+      assert.deepStrictEqual(occurrences(result.raw, "X-Priority"), ["3"]);
+      assert.deepStrictEqual(
+        occurrences(result.raw, "X-MSMail-Priority"),
+        ["Normal"],
+      );
+    });
+
+    test("should still emit unrelated custom headers", async () => {
+      const headers = new Headers({
+        "Message-ID": "<789@example.com>",
+        "Subject": "Overridden",
+        "X-Mailer": "Test Mailer",
+        "In-Reply-To": "<788@example.com>",
+      });
+      const result = await convertMessage(createTestMessage({ headers }));
+
+      assert.ok(result.raw.includes("x-mailer: Test Mailer"));
+      assert.ok(result.raw.includes("in-reply-to: <788@example.com>"));
     });
   });
 

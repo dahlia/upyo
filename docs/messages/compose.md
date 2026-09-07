@@ -196,3 +196,41 @@ construction, ensuring that your messages are properly formatted and valid
 before sending them through your chosen transport.
 
 [`Headers`]: https://developer.mozilla.org/en-US/docs/Web/API/Headers
+
+### Headers the transport owns
+
+A few header fields come from the message itself rather than from `headers`,
+so the SMTP transport ignores custom headers that would collide with them:
+`From`, `To`, `Cc`, `Bcc`, `Reply-To`, `Subject`, `MIME-Version`,
+`Content-Type`, and `Content-Transfer-Encoding`.  Use the corresponding
+`createMessage()` fields to set those.  Note that `Bcc` in particular is
+carried in the SMTP envelope and never written into the message, so blind
+recipients stay hidden from everyone who receives it.
+
+`Date` and `Message-ID` work differently.  They have no dedicated field on
+`Message`, so a custom header replaces the value the transport would otherwise
+generate:
+
+~~~~ typescript twoslash
+import { createMessage } from "@upyo/core";
+// ---cut-before---
+const message = createMessage({
+  from: "support@example.com",
+  to: "customer@example.net",
+  subject: "Re: Your request",
+  content: { text: "Thanks for getting in touch." },
+  headers: {
+    "Message-ID": "<ticket-4821@example.com>",
+  },
+});
+~~~~
+
+This is useful when you need to choose an outgoing message identifier and store
+it, so that replies arriving with a matching `In-Reply-To` can be correlated
+back to the conversation.  Supply a value that is valid for the field, angle
+brackets included; it is written to the message as given.
+
+> [!NOTE]
+> This applies to the SMTP transport, which composes the message itself.
+> HTTP API transports hand the message to a provider that may assign or
+> rewrite `Message-ID` and `Date` on its own.

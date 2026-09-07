@@ -6,6 +6,38 @@ Version 0.5.4
 
 To be released.
 
+### @upyo/smtp
+
+ -  Stopped emitting duplicate header fields when a custom header collides with
+    one the transport composes itself.  RFC 5322 §3.6 permits at most one
+    `Date`, `From`, `Message-ID`, `Subject`, and similar field per message, but
+    every custom header used to be appended after the composed ones.  A
+    duplicate `Content-Type` was the worst case: it preceded the real one, so
+    receivers that take the first occurrence misread the body and ignored the
+    MIME boundaries.  [[#57]]
+
+     -  `Date` and `Message-ID` have no counterpart on `Message`, so a custom
+        header now replaces the generated default instead of adding a second
+        field.  Applications can finally choose an outgoing message identifier
+        for reply correlation.  Header names are matched case-insensitively,
+        and the values are written verbatim rather than RFC 2047 encoded.
+        A value containing a carriage return or line feed is rejected with a
+        `TypeError`, so it cannot inject additional header fields.  Messages
+        that supply neither header keep the previous generated values.
+
+     -  Custom `From`, `To`, `Cc`, `Bcc`, `Reply-To`, `Subject`,
+        `MIME-Version`, `Content-Type`, and `Content-Transfer-Encoding` headers
+        are now ignored, because the corresponding `Message` fields and the
+        MIME structure are authoritative.  Set the structured fields instead.
+        A custom `Bcc` header used to disclose blind recipients to everyone who
+        received the message.
+
+     -  Custom `X-Priority` and `X-MSMail-Priority` headers are still sent for
+        messages of normal priority, but no longer duplicate the headers
+        derived from a `high` or `low` `priority`.
+
+[#57]: https://github.com/dahlia/upyo/issues/57
+
 
 Version 0.5.3
 -------------
