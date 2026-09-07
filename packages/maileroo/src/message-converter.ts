@@ -1,4 +1,5 @@
 import type { Address, Attachment, Message } from "@upyo/core";
+import { combineSignals, readAttachmentContent } from "@upyo/core";
 import type { ResolvedMailerooConfig } from "./config.ts";
 
 const STANDARD_HEADERS = new Set([
@@ -124,14 +125,21 @@ export async function convertMessage(
   }
 
   if (message.attachments.length > 0) {
-    emailData.attachments = await Promise.all(
-      message.attachments.map((attachment) =>
-        convertAttachment(
-          attachment,
-          signal,
-        )
-      ),
-    );
+    const cancellation = new AbortController();
+    const combined = combineSignals(cancellation.signal, signal);
+    try {
+      emailData.attachments = await Promise.all(
+        message.attachments.map((attachment) =>
+          convertAttachment(
+            attachment,
+            combined.signal,
+          )
+        ),
+      );
+    } finally {
+      cancellation.abort();
+      combined.cleanup();
+    }
   }
 
   signal?.throwIfAborted();
@@ -248,7 +256,7 @@ async function convertAttachment(
   signal?: AbortSignal,
 ): Promise<MailerooAttachment> {
   signal?.throwIfAborted();
-  const content = await waitForAttachmentContent(attachment.content, signal);
+  const content = await readAttachmentContent(attachment.content, signal);
   signal?.throwIfAborted();
   return {
     file_name: getAttachmentFileName(attachment),
@@ -256,44 +264,6 @@ async function convertAttachment(
     content: uint8ArrayToBase64(content),
     inline: attachment.inline || undefined,
   };
-}
-
-function waitForAttachmentContent(
-  content: Uint8Array | Promise<Uint8Array>,
-  signal?: AbortSignal,
-): Promise<Uint8Array> {
-  if (content instanceof Uint8Array) {
-    return signal?.aborted
-      ? Promise.reject(abortReason(signal))
-      : Promise.resolve(content);
-  }
-  if (signal == null) return content;
-  if (signal.aborted) return Promise.reject(abortReason(signal));
-
-  return new Promise((resolve, reject) => {
-    const onAbort = () => {
-      signal.removeEventListener("abort", onAbort);
-      reject(abortReason(signal));
-    };
-
-    signal.addEventListener("abort", onAbort, { once: true });
-
-    Promise.resolve(content).then(
-      (value) => {
-        signal.removeEventListener("abort", onAbort);
-        resolve(value);
-      },
-      (error: unknown) => {
-        signal.removeEventListener("abort", onAbort);
-        reject(error);
-      },
-    );
-  });
-}
-
-function abortReason(signal: AbortSignal): unknown {
-  return signal.reason ??
-    new DOMException("The operation was aborted.", "AbortError");
 }
 
 function getAttachmentFileName(attachment: Attachment): string {

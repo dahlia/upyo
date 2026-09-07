@@ -1,8 +1,14 @@
-import type { Address, Message } from "@upyo/core";
+import {
+  type Address,
+  type AttachmentContent,
+  type Message,
+  readAttachmentContent,
+} from "@upyo/core";
 import { Buffer } from "node:buffer";
 import type { ResolvedSmtpDsn } from "./delivery-status.ts";
 import { type DkimConfig, signMessage } from "./dkim/index.ts";
 import { type ResolvedSmtpEnvelope, resolveSmtpEnvelope } from "./envelope.ts";
+import { attachmentEncodedSize, encodeAttachment } from "./mime-stream.ts";
 
 export interface SmtpMessage {
   readonly envelope: SmtpEnvelope;
@@ -24,6 +30,7 @@ export interface SmtpEnvelope {
  * @param dkimConfig Optional DKIM signing configuration.
  * @param dsn Optional validated SMTP delivery status notification parameters.
  * @param resolvedEnvelope The validated effective SMTP envelope.
+ * @param signal Optional cancellation signal.
  * @returns The converted SMTP message.
  * @throws {RangeError} If a header contains a token that cannot be folded
  * within the RFC 5322 hard line-length limit.
@@ -33,7 +40,64 @@ export async function convertMessage(
   dkimConfig?: DkimConfig,
   dsn?: ResolvedSmtpDsn,
   resolvedEnvelope: ResolvedSmtpEnvelope = resolveSmtpEnvelope(message),
+  signal?: AbortSignal,
 ): Promise<SmtpMessage> {
+  const plan = prepareMessage(message, dkimConfig, dsn, resolvedEnvelope);
+  const chunks: Uint8Array[] = [];
+  for await (const chunk of plan.body(signal)) chunks.push(chunk);
+  let raw = plan.headers + Buffer.concat(chunks).toString("utf8").slice(0, -2);
+  if (dkimConfig) {
+    try {
+      for (const sig of dkimConfig.signatures) {
+        const result = await signMessage(raw, sig, signal);
+        raw = `${result.headerName}: ${result.signature}\r\n${raw}`;
+      }
+    } catch (error) {
+      signal?.throwIfAborted();
+      if (dkimConfig.onSigningFailure === "send-unsigned") {
+        console.warn("DKIM signing failed, sending unsigned:", error);
+      } else {
+        throw error;
+      }
+    }
+  }
+  return {
+    envelope: plan.envelope,
+    raw,
+    requiresSmtpUtf8: plan.requiresSmtpUtf8,
+  };
+}
+
+/** A per-attempt MIME plan with stable headers and replayable body bytes. */
+export interface PreparedSmtpMessage {
+  readonly envelope: SmtpEnvelope;
+  readonly requiresSmtpUtf8: boolean;
+  readonly dkim?: DkimConfig;
+  readonly headers: string;
+  /** Includes the final transport CRLF, but not SMTP transparency or terminator. */
+  body(signal?: AbortSignal, progress?: () => void): AsyncIterable<Uint8Array>;
+  /** Unknown factory sizes do not cause a speculative read. */
+  size(
+    signal?: AbortSignal,
+    checkSize?: (size: number) => void,
+  ): Promise<number | undefined>;
+}
+
+/**
+ * Freezes message metadata without reading attachment content.
+ * @param message Message whose metadata will be frozen.
+ * @param dkimConfig Optional signing configuration.
+ * @param dsn Validated delivery-status parameters.
+ * @param resolvedEnvelope Validated effective SMTP envelope.
+ * @returns A deterministic MIME plan for one send attempt.
+ * @throws {RangeError} If a header cannot fit the RFC 5322 line limit.
+ */
+export function prepareMessage(
+  message: Message,
+  dkimConfig?: DkimConfig,
+  dsn?: ResolvedSmtpDsn,
+  resolvedEnvelope: ResolvedSmtpEnvelope = resolveSmtpEnvelope(message),
+): PreparedSmtpMessage {
   const envelope: SmtpEnvelope = {
     ...resolvedEnvelope,
     dsn,
@@ -55,29 +119,61 @@ export async function convertMessage(
       ),
   );
 
-  let raw = await buildRawMessage(message);
-
-  // Apply DKIM signing if configured
-  if (dkimConfig) {
-    try {
-      for (const sig of dkimConfig.signatures) {
-        const result = await signMessage(raw, sig);
-        raw = `${result.headerName}: ${result.signature}\r\n${raw}`;
+  const parts = buildMimeParts(message);
+  const first = parts[0];
+  if (typeof first !== "string") throw new TypeError("Missing MIME headers.");
+  const separator = first.indexOf("\r\n\r\n") + 4;
+  const headers = first.slice(0, separator);
+  parts[0] = first.slice(separator);
+  return {
+    envelope,
+    requiresSmtpUtf8,
+    dkim: dkimConfig,
+    headers,
+    async *body(signal, progress) {
+      for (const part of parts) {
+        signal?.throwIfAborted();
+        if (typeof part === "string") {
+          const bytes = Buffer.from(part);
+          for (let offset = 0; offset < bytes.length; offset += 65536) {
+            yield bytes.subarray(offset, offset + 65536);
+          }
+        } else {
+          yield* encodeAttachment(part.content, signal, progress);
+        }
       }
-    } catch (error) {
-      if (dkimConfig.onSigningFailure === "send-unsigned") {
-        console.warn("DKIM signing failed, sending unsigned:", error);
-      } else {
-        throw error;
+    },
+    async size(signal, checkSize) {
+      let size = Buffer.byteLength(headers);
+      let unknown = false;
+      for (const part of parts) {
+        signal?.throwIfAborted();
+        if (typeof part === "string") size += Buffer.byteLength(part);
+        else {
+          if (part.content instanceof Promise) {
+            part.content = await readAttachmentContent(part.content, signal);
+          }
+          if (typeof part.content === "function") unknown = true;
+          else {size += attachmentEncodedSize(
+              part.content instanceof Uint8Array
+                ? part.content.byteLength
+                : part.content.size,
+            );}
+        }
+        if (!Number.isSafeInteger(size)) {
+          throw new RangeError("Message size exceeds the safe integer range.");
+        }
       }
-    }
-  }
-
-  return { envelope, raw, requiresSmtpUtf8 };
+      checkSize?.(size);
+      return unknown ? undefined : size;
+    },
+  };
 }
 
-async function buildRawMessage(message: Message): Promise<string> {
-  const lines: string[] = [];
+type MimePart = string | { content: AttachmentContent };
+
+function buildMimeParts(message: Message): MimePart[] {
+  const lines: MimePart[] = [];
   const boundary = generateBoundary();
   const hasAttachments = message.attachments.length > 0;
   const hasHtml = "html" in message.content;
@@ -208,7 +304,7 @@ async function buildRawMessage(message: Message): Promise<string> {
       }
 
       lines.push("");
-      lines.push(encodeBase64(await attachment.content));
+      lines.push({ content: attachment.content });
     }
 
     lines.push("");
@@ -228,7 +324,18 @@ async function buildRawMessage(message: Message): Promise<string> {
     }
   }
 
-  return lines.join("\r\n");
+  const parts: MimePart[] = [];
+  let text = "";
+  for (const line of lines) {
+    if (typeof line === "string") text += line;
+    else {
+      parts.push(text, line);
+      text = "";
+    }
+    text += "\r\n";
+  }
+  parts.push(text);
+  return parts;
 }
 
 function generateBoundary(): string {
@@ -438,10 +545,4 @@ function encodeQuotedPrintable(text: string): string {
   }
 
   return result;
-}
-
-function encodeBase64(data: Uint8Array): string {
-  // Convert Uint8Array to base64 with proper line breaks
-  const base64 = Buffer.from(data).toString("base64");
-  return base64.replace(/(.{76})/g, "$1\r\n").trim();
 }

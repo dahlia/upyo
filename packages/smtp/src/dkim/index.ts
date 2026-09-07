@@ -20,6 +20,7 @@ export {
   DEFAULT_CANONICALIZATION,
   DEFAULT_SIGNED_HEADERS,
   type DkimAlgorithm,
+  type DkimBodyMode,
   type DkimCanonicalization,
   type DkimConfig,
   type DkimSignature,

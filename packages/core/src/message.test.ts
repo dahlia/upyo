@@ -1,4 +1,5 @@
 import { describe, it } from "node:test";
+import { readAttachmentContent } from "./attachment.ts";
 import assert from "node:assert/strict";
 import { createMessage, type MessageConstructor } from "./message.ts";
 
@@ -135,7 +136,8 @@ describe("createMessage", () => {
       ),
     );
 
-    const content = await attachment.content;
+    assert.equal(attachment.content, file);
+    const content = await readAttachmentContent(attachment.content);
     assert.ok(content instanceof Uint8Array);
     assert.deepEqual(content, fileContent);
   });

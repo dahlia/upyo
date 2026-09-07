@@ -1,4 +1,5 @@
 import type { Address, Message } from "@upyo/core";
+import { combineSignals, readAttachmentContent } from "@upyo/core";
 import type { ResolvedSesConfig } from "./config.ts";
 
 interface SesDestination {
@@ -62,6 +63,7 @@ interface SesEmailMessage {
 export async function convertMessage(
   message: Message,
   config: ResolvedSesConfig,
+  signal?: AbortSignal,
 ): Promise<SesEmailMessage> {
   const destination: SesDestination = {};
 
@@ -91,7 +93,7 @@ export async function convertMessage(
     sesMessage.ConfigurationSetName = config.configurationSetName;
   }
 
-  sesMessage.Content.Simple = await createSimpleContent(message);
+  sesMessage.Content.Simple = await createSimpleContent(message, signal);
 
   const tags: Array<{ Name: string; Value: string }> = [];
 
@@ -118,6 +120,7 @@ export async function convertMessage(
 
 async function createSimpleContent(
   message: Message,
+  signal?: AbortSignal,
 ): Promise<SesSimpleContent> {
   const content: SesSimpleContent = {
     Subject: {
@@ -147,21 +150,39 @@ async function createSimpleContent(
   }
 
   if (message.attachments.length > 0) {
-    content.Attachments = await Promise.all(
-      message.attachments.map(async (attachment) => {
-        const contentBytes = await attachment.content;
-        const base64Content = btoa(String.fromCharCode(...contentBytes));
+    const cancellation = new AbortController();
+    const combined = combineSignals(cancellation.signal, signal);
+    try {
+      content.Attachments = await Promise.all(
+        message.attachments.map(async (attachment) => {
+          const contentBytes = await readAttachmentContent(
+            attachment.content,
+            combined.signal,
+          );
+          const parts: string[] = [];
+          for (let offset = 0; offset < contentBytes.length; offset += 8192) {
+            parts.push(
+              String.fromCharCode(
+                ...contentBytes.subarray(offset, offset + 8192),
+              ),
+            );
+          }
+          const base64Content = btoa(parts.join(""));
 
-        return {
-          FileName: attachment.filename,
-          ContentType: attachment.contentType || "application/octet-stream",
-          ContentDisposition: attachment.inline ? "INLINE" : "ATTACHMENT",
-          ContentId: attachment.contentId,
-          ContentTransferEncoding: "BASE64",
-          RawContent: base64Content,
-        };
-      }),
-    );
+          return {
+            FileName: attachment.filename,
+            ContentType: attachment.contentType || "application/octet-stream",
+            ContentDisposition: attachment.inline ? "INLINE" : "ATTACHMENT",
+            ContentId: attachment.contentId,
+            ContentTransferEncoding: "BASE64",
+            RawContent: base64Content,
+          };
+        }),
+      );
+    } finally {
+      cancellation.abort();
+      combined.cleanup();
+    }
   }
 
   return content;
@@ -198,13 +219,14 @@ interface SesBulkEmailMessage {
 export async function convertMessagesToBulk(
   messages: Message[],
   config: ResolvedSesConfig,
+  signal?: AbortSignal,
 ): Promise<SesBulkEmailMessage> {
   if (messages.length === 0) {
     throw new Error("Cannot convert empty message array to bulk email");
   }
 
   const firstMessage = messages[0];
-  const defaultContent = await createSimpleContent(firstMessage);
+  const defaultContent = await createSimpleContent(firstMessage, signal);
 
   const defaultTags: Array<{ Name: string; Value: string }> = [];
   for (const [name, value] of Object.entries(config.defaultTags)) {
@@ -268,7 +290,7 @@ export async function convertMessagesToBulk(
           ));
 
     if (isContentDifferent) {
-      const messageContent = await createSimpleContent(message);
+      const messageContent = await createSimpleContent(message, signal);
       entry.ReplacementEmailContent = { Simple: messageContent };
     }
 

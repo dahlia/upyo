@@ -1,3 +1,4 @@
+import { readAttachmentContent } from "@upyo/core";
 import type {
   Attachment,
   CreateFailedReceiptOptions,
@@ -601,8 +602,7 @@ export class JmapTransport implements Transport<"jmap"> {
     for (const attachment of attachments) {
       signal?.throwIfAborted();
 
-      // Resolve content if it's a promise
-      const content = await attachment.content;
+      const content = await readAttachmentContent(attachment.content, signal);
 
       // Create a Blob from the Uint8Array
       // Extract the ArrayBuffer portion to ensure TypeScript compatibility

@@ -103,7 +103,9 @@ export class ResendTransport implements Transport<"resend"> {
       // Use provided idempotency key or generate one for reliable delivery
       const idempotencyKey = message.idempotencyKey ?? generateIdempotencyKey();
 
-      const emailData = await convertMessage(message, this.config);
+      const emailData = await convertMessage(message, this.config, {
+        signal: options?.signal,
+      });
 
       options?.signal?.throwIfAborted();
 

@@ -1,4 +1,5 @@
 import type { Address, Attachment, Message } from "@upyo/core";
+import { combineSignals, readAttachmentContent } from "@upyo/core";
 import type { ResolvedResendConfig } from "./config.ts";
 
 /**
@@ -53,7 +54,7 @@ interface ResendEmail {
 export async function convertMessage(
   message: Message,
   _config: ResolvedResendConfig,
-  options: { scheduledAt?: Date } = {},
+  options: { scheduledAt?: Date; signal?: AbortSignal } = {},
 ): Promise<ResendEmail> {
   const emailData: ResendEmail = {
     from: formatAddress(message.sender),
@@ -91,9 +92,18 @@ export async function convertMessage(
 
   // Attachments
   if (message.attachments.length > 0) {
-    emailData.attachments = await Promise.all(
-      message.attachments.map(convertAttachment),
-    );
+    const cancellation = new AbortController();
+    const combined = combineSignals(cancellation.signal, options.signal);
+    try {
+      emailData.attachments = await Promise.all(
+        message.attachments.map((attachment) =>
+          convertAttachment(attachment, combined.signal)
+        ),
+      );
+    } finally {
+      cancellation.abort();
+      combined.cleanup();
+    }
   }
 
   // Tags - Resend uses different format than Upyo
@@ -199,8 +209,9 @@ function formatAddress(address: Address): string {
  */
 async function convertAttachment(
   attachment: Attachment,
+  signal?: AbortSignal,
 ): Promise<ResendAttachment> {
-  const content = await attachment.content;
+  const content = await readAttachmentContent(attachment.content, signal);
   const resendAttachment: ResendAttachment = {
     filename: attachment.filename,
     content: await uint8ArrayToBase64(content),
@@ -240,8 +251,9 @@ function uint8ArrayToBase64(bytes: Uint8Array): string {
   }
 
   // Add padding
-  const padding = 3 - ((bytes.length - 1) % 3);
-  if (padding < 3) {
+  const remainder = bytes.length % 3;
+  if (remainder !== 0) {
+    const padding = 3 - remainder;
     result = result.slice(0, -padding) + "=".repeat(padding);
   }
 

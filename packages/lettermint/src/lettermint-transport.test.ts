@@ -3,6 +3,31 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { LettermintTransport } from "./lettermint-transport.ts";
 
+it("rejects a singleton batch canceled during attachment acquisition", async () => {
+  const transport = new LettermintTransport({ apiToken: "test" });
+  const controller = new AbortController();
+  const reason = new TypeError("Canceled.");
+  const message = createMessage({
+    attachments: [{
+      inline: false,
+      filename: "a",
+      contentType: "application/octet-stream",
+      contentId: "a",
+      content: () => {
+        controller.abort(reason);
+        return new Promise(() => {});
+      },
+    }],
+  });
+  await assert.rejects(async () => {
+    for await (
+      const _receipt of transport.sendMany([message], {
+        signal: controller.signal,
+      })
+    ) { /* Drain the batch. */ }
+  }, (error) => error === reason);
+});
+
 function createMessage(overrides: Partial<Message> = {}): Message {
   return {
     sender: { address: "sender@example.com" },

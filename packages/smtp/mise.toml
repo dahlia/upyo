@@ -45,7 +45,7 @@ flag "--junit-path <path>" help="Write JUnit XML test output"
 run = '''
 #!/usr/bin/env nu
 
-let args = ["test", "--allow-env", "--allow-net"]
+let args = ["test", "--allow-env", "--allow-net", "--allow-read=test-certs"]
 let args = if ($env.usage_coverage? | default "false" | into bool) {
   $args | append "--coverage=../../coverage"
 } else {

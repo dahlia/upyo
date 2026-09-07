@@ -1,4 +1,5 @@
 import type { Address, Attachment, Message } from "@upyo/core";
+import { readAttachmentContent } from "@upyo/core";
 import type { ResolvedMailgunConfig } from "./config.ts";
 
 /**
@@ -20,6 +21,7 @@ import type { ResolvedMailgunConfig } from "./config.ts";
 export async function convertMessage(
   message: Message,
   config: ResolvedMailgunConfig,
+  signal?: AbortSignal,
 ): Promise<FormData> {
   const formData = new FormData();
 
@@ -85,7 +87,7 @@ export async function convertMessage(
 
   // Attachments
   for (const attachment of message.attachments) {
-    await appendAttachment(formData, attachment);
+    await appendAttachment(formData, attachment, signal);
   }
 
   // Tracking options
@@ -128,8 +130,9 @@ function formatAddress(address: Address): string {
 async function appendAttachment(
   formData: FormData,
   attachment: Attachment,
+  signal?: AbortSignal,
 ): Promise<void> {
-  const content = await attachment.content;
+  const content = await readAttachmentContent(attachment.content, signal);
   // Ensure ArrayBuffer type compatibility for Blob constructor
   const buffer = content.buffer instanceof ArrayBuffer
     ? content.buffer.slice(

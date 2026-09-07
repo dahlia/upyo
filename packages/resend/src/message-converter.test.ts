@@ -1,4 +1,9 @@
-import type { Message } from "@upyo/core";
+import {
+  type AttachmentContent,
+  createMessage,
+  type Message,
+} from "@upyo/core";
+import { Buffer } from "node:buffer";
 import {
   convertMessage,
   convertMessagesBatch,
@@ -12,6 +17,41 @@ describe("Message Converter", () => {
   const config = createResendConfig({ apiKey: "test-key" });
 
   describe("convertMessage", () => {
+    for (const length of [0, 1, 2, 3, 4, 5, 6, 256, 257, 258]) {
+      it(`preserves attachment bytes at length ${length}`, async () => {
+        const bytes = Uint8Array.from({ length }, (_, i) => i % 256);
+        const sources: AttachmentContent[] = [
+          bytes,
+          Promise.resolve(bytes),
+          new Blob([bytes]),
+          async function* () {
+            yield bytes.subarray(0, 1);
+            yield bytes.subarray(1);
+          },
+        ];
+        for (const content of sources) {
+          const message = createMessage({
+            from: "sender@example.com",
+            to: "recipient@example.com",
+            subject: "Attachment padding",
+            content: { text: "Test" },
+            attachments: [{
+              filename: "data.bin",
+              content,
+              contentType: "application/octet-stream",
+              inline: false,
+              contentId: "",
+            }],
+          });
+          const result = await convertMessage(message, config);
+          assert.equal(
+            result.attachments?.[0].content,
+            Buffer.from(bytes).toString("base64"),
+          );
+        }
+      });
+    }
+
     it("should convert basic message correctly", async () => {
       const message: Message = {
         sender: { address: "sender@example.com" },

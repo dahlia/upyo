@@ -99,7 +99,11 @@ export class SesTransport implements Transport<"ses"> {
     options?.signal?.throwIfAborted();
 
     try {
-      const sesMessage = await convertMessage(message, this.config);
+      const sesMessage = await convertMessage(
+        message,
+        this.config,
+        options?.signal,
+      );
 
       options?.signal?.throwIfAborted();
 

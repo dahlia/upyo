@@ -1,4 +1,5 @@
 import type { DkimConfig } from "./dkim/index.ts";
+import { validateDkimBodyMode } from "./dkim/types.ts";
 
 /**
  * Configuration interface for SMTP transport connection settings.
@@ -375,6 +376,7 @@ export type ResolvedSmtpConfig =
  * @internal
  */
 export function createSmtpConfig(config: SmtpConfig): ResolvedSmtpConfig {
+  validateDkimBodyMode(config.dkim);
   const port = config.port ?? 587;
 
   return {

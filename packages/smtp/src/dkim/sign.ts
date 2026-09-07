@@ -26,6 +26,7 @@ import {
  *
  * @param rawMessage - The complete raw email message (headers + body)
  * @param config - DKIM signature configuration
+ * @param signal Optional cancellation signal.
  * @returns The DKIM-Signature header result
  * @throws Error if signing fails (e.g., invalid private key)
  * @since 0.4.0
@@ -33,16 +34,43 @@ import {
 export async function signMessage(
   rawMessage: string,
   config: DkimSignature,
+  signal?: AbortSignal,
 ): Promise<DkimSignResult> {
+  signal?.throwIfAborted();
+  const { body } = parseMessage(rawMessage);
+  const bodyCanon =
+    (config.canonicalization ?? DEFAULT_CANONICALIZATION).endsWith("/simple")
+      ? "simple"
+      : "relaxed";
+  const bodyHash = await computeBodyHash(body, bodyCanon);
+  return await signWithBodyHash(rawMessage, config, bodyHash, signal);
+}
+
+/**
+ * Signs frozen headers using a body hash computed by the MIME reader.
+ * @param rawHeaders Frozen wire headers, including earlier signatures.
+ * @param config Signature configuration.
+ * @param bodyHash Canonical body SHA-256 digest, encoded as base64.
+ * @param signal Optional cancellation signal.
+ * @returns A DKIM-Signature header value.
+ * @throws {Error} If key import, signing, or cancellation fails.
+ */
+export async function signWithBodyHash(
+  rawHeaders: string,
+  config: DkimSignature,
+  bodyHash: string,
+  signal?: AbortSignal,
+): Promise<DkimSignResult> {
+  signal?.throwIfAborted();
   const algorithm = config.algorithm ?? DEFAULT_ALGORITHM;
   const canonicalization = config.canonicalization ?? DEFAULT_CANONICALIZATION;
   const headerFields = config.headerFields ?? DEFAULT_SIGNED_HEADERS;
 
   // Parse the raw message into headers and body
-  const { headers, body } = parseMessage(rawMessage);
+  const { headers } = parseMessage(rawHeaders);
 
   // Determine canonicalization methods
-  const [headerCanon, bodyCanon] = canonicalization.split("/") as [
+  const [headerCanon] = canonicalization.split("/") as [
     "relaxed" | "simple",
     "relaxed" | "simple",
   ];
@@ -50,8 +78,7 @@ export async function signMessage(
   // Get or import the private key
   const privateKey = await getPrivateKey(config.privateKey, algorithm);
 
-  // Compute body hash
-  const bodyHash = await computeBodyHash(body, bodyCanon);
+  signal?.throwIfAborted();
 
   // Build the DKIM-Signature header value (without b= value)
   const dkimHeaderValue = buildDkimHeaderValue({
@@ -72,6 +99,7 @@ export async function signMessage(
   );
 
   const signature = await signData(signatureData, privateKey, algorithm);
+  signal?.throwIfAborted();
 
   // Return the complete DKIM-Signature header
   return {
@@ -80,11 +108,16 @@ export async function signMessage(
   };
 }
 
+interface ParsedHeader {
+  readonly name: string;
+  readonly value: string;
+}
+
 /**
  * Parses a raw email message into headers and body.
  */
 function parseMessage(rawMessage: string): {
-  headers: Map<string, string>;
+  headers: Map<string, ParsedHeader>;
   body: string;
 } {
   // Find the separator between headers and body (empty line)
@@ -110,8 +143,8 @@ function parseMessage(rawMessage: string): {
  * Parses header section into a map of header name to value.
  * Handles folded headers (continuation lines).
  */
-function parseHeaders(headerSection: string): Map<string, string> {
-  const headers = new Map<string, string>();
+function parseHeaders(headerSection: string): Map<string, ParsedHeader> {
+  const headers = new Map<string, ParsedHeader>();
   const lines = headerSection.split("\r\n");
 
   let currentName = "";
@@ -124,7 +157,10 @@ function parseHeaders(headerSection: string): Map<string, string> {
     } else {
       // New header - save previous if exists
       if (currentName) {
-        headers.set(currentName.toLowerCase(), currentValue);
+        headers.set(currentName.toLowerCase(), {
+          name: currentName,
+          value: currentValue,
+        });
       }
 
       const colonIndex = line.indexOf(":");
@@ -137,7 +173,10 @@ function parseHeaders(headerSection: string): Map<string, string> {
 
   // Save the last header
   if (currentName) {
-    headers.set(currentName.toLowerCase(), currentValue);
+    headers.set(currentName.toLowerCase(), {
+      name: currentName,
+      value: currentValue,
+    });
   }
 
   return headers;
@@ -248,7 +287,7 @@ function buildDkimHeaderValue(params: {
  * Builds the data to be signed (canonicalized headers + DKIM-Signature header).
  */
 function buildSignatureData(
-  headers: Map<string, string>,
+  headers: Map<string, ParsedHeader>,
   headerFields: readonly string[],
   canonMethod: "relaxed" | "simple",
   dkimHeaderValue: string,
@@ -257,11 +296,11 @@ function buildSignatureData(
 
   // Canonicalize each header specified in h= tag
   for (const field of headerFields) {
-    const value = headers.get(field.toLowerCase());
-    if (value !== undefined) {
+    const header = headers.get(field.toLowerCase());
+    if (header !== undefined) {
       const canonicalized = canonMethod === "relaxed"
-        ? canonicalizeHeaderRelaxed(field, value)
-        : canonicalizeHeaderSimple(field, value);
+        ? canonicalizeHeaderRelaxed(header.name, header.value)
+        : canonicalizeHeaderSimple(header.name, header.value);
       lines.push(canonicalized);
     }
   }
@@ -294,10 +333,16 @@ async function signData(
     ? "Ed25519"
     : "RSASSA-PKCS1-v1_5";
 
+  // RFC 8463 uses PureEd25519 over the SHA-256 header hash. RSA hashes
+  // internally through its imported key algorithm.
+  const signingInput = algorithm === "ed25519-sha256"
+    ? await crypto.subtle.digest("SHA-256", dataBuffer)
+    : dataBuffer;
+
   const signature = await crypto.subtle.sign(
     signAlgorithm,
     privateKey,
-    dataBuffer,
+    signingInput,
   );
 
   return arrayBufferToBase64(signature);

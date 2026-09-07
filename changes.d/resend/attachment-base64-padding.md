@@ -1,0 +1,1 @@
+ -  Fixed incorrect Base64 padding that corrupted attachment contents.  [[#59]]

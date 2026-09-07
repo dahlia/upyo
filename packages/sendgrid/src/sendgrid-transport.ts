@@ -94,7 +94,11 @@ export class SendGridTransport implements Transport<"sendgrid"> {
     options?.signal?.throwIfAborted();
 
     try {
-      const mailData = await convertMessage(message, this.config);
+      const mailData = await convertMessage(
+        message,
+        this.config,
+        options?.signal,
+      );
 
       options?.signal?.throwIfAborted();
 
