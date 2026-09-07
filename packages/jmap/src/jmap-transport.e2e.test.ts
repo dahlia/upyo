@@ -47,6 +47,35 @@ describe(
       }
     });
 
+    it("should preserve the identity and threading fields", async () => {
+      const config = getTestConfig();
+      const transport = new JmapTransport(config.jmap);
+
+      const subject = `E2E Test - Identity ${Date.now()}`;
+      const messageId = `ticket-${Date.now()}@mail.example.com`;
+      const receipt = await transport.send(createTestMessage({
+        subject,
+        content: { text: "Correlating a reply back to a conversation." },
+        messageId,
+        date: new Date("2026-09-01T10:00:00Z"),
+        inReplyTo: ["122@mail.example.com"],
+        references: ["120@mail.example.com", "121@mail.example.com"],
+      }));
+      assert.ok(receipt.successful);
+
+      // Read the stored Email back, so what is asserted is what the server
+      // kept rather than what the client sent.
+      const stored = await fetchStoredEmail(config, subject);
+
+      assert.deepEqual(stored.messageId, [messageId]);
+      assert.equal(stored.sentAt, "2026-09-01T10:00:00Z");
+      assert.deepEqual(stored.inReplyTo, ["122@mail.example.com"]);
+      assert.deepEqual(stored.references, [
+        "120@mail.example.com",
+        "121@mail.example.com",
+      ]);
+    });
+
     it("should send an HTML email", async () => {
       const config = getTestConfig();
       const transport = new JmapTransport(config.jmap);
@@ -342,5 +371,84 @@ describe(
           error instanceof Error && error.name === "AbortError",
       );
     });
+
+    interface StoredEmail {
+      readonly messageId?: readonly string[];
+      readonly inReplyTo?: readonly string[];
+      readonly references?: readonly string[];
+      readonly sentAt?: string;
+    }
+
+    /**
+     * Reads back the stored Email with a given subject through raw JMAP, so
+     * that an assertion sees the server's own representation.
+     */
+    async function fetchStoredEmail(
+      config: ReturnType<typeof getTestConfig>,
+      subject: string,
+    ): Promise<StoredEmail> {
+      const { sessionUrl, basicAuth, bearerToken, baseUrl } = config.jmap as {
+        sessionUrl: string;
+        basicAuth?: { username: string; password: string };
+        bearerToken?: string;
+        baseUrl?: string;
+      };
+      const authorization = bearerToken == null
+        ? `Basic ${btoa(`${basicAuth!.username}:${basicAuth!.password}`)}`
+        : `Bearer ${bearerToken}`;
+      const headers = {
+        authorization,
+        "content-type": "application/json",
+      };
+
+      const session = await (await fetch(sessionUrl, { headers })).json();
+      const accountId = session.primaryAccounts["urn:ietf:params:jmap:mail"];
+      // The session advertises the server's own hostname, which is not what
+      // reaches it from outside its container.
+      const apiUrl = baseUrl == null
+        ? session.apiUrl
+        : new URL(new URL(session.apiUrl).pathname, baseUrl).href;
+      const response = await (await fetch(apiUrl, {
+        method: "POST",
+        headers,
+        body: JSON.stringify({
+          using: ["urn:ietf:params:jmap:core", "urn:ietf:params:jmap:mail"],
+          methodCalls: [
+            [
+              "Email/query",
+              { accountId, filter: { subject } },
+              "query",
+            ],
+            [
+              "Email/get",
+              {
+                accountId,
+                "#ids": {
+                  resultOf: "query",
+                  name: "Email/query",
+                  path: "/ids",
+                },
+                properties: [
+                  "messageId",
+                  "inReplyTo",
+                  "references",
+                  "sentAt",
+                ],
+              },
+              "get",
+            ],
+          ],
+        }),
+      })).json();
+
+      const emails = response.methodResponses
+        .find((call: [string, unknown, string]) => call[2] === "get")?.[1]
+        ?.list as readonly StoredEmail[] | undefined;
+      assert.ok(
+        emails != null && emails.length > 0,
+        `no stored Email found for subject ${JSON.stringify(subject)}`,
+      );
+      return emails[0];
+    }
   },
 );

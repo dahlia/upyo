@@ -36,6 +36,32 @@ describe("DKIM Integration Tests", () => {
   };
 
   describe("Message Conversion with DKIM", () => {
+    test("should sign the resolved Message-ID", async () => {
+      const message = createTestMessage({ messageId: "typed@example.com" });
+      const result = await convertMessage(message, {
+        signatures: [
+          {
+            signingDomain: TEST_DKIM_DOMAIN,
+            selector: TEST_DKIM_SELECTOR,
+            privateKey: TEST_DKIM_PRIVATE_KEY,
+            headerFields: ["from", "to", "subject", "date", "message-id"],
+          },
+        ],
+      });
+
+      const signedFields = /h=([^;]+)/.exec(result.raw);
+      assert.ok(signedFields);
+      assert.ok(signedFields[1].includes("message-id"));
+
+      // The signer reads the composed header block, so the field it covered is
+      // the one resolution produced rather than anything the message carried.
+      const messageIds = result.raw
+        .split("\r\n\r\n")[0]
+        .split("\r\n")
+        .filter((line) => line.startsWith("Message-ID:"));
+      assert.deepStrictEqual(messageIds, ["Message-ID: <typed@example.com>"]);
+    });
+
     test("should add DKIM-Signature header when DKIM is configured", async () => {
       const message = createTestMessage();
       const result = await convertMessage(message, testDkimConfig);

@@ -1,4 +1,5 @@
 import type { Address, Attachment, Message, Priority } from "@upyo/core";
+import { parseMessageId } from "@upyo/core/message-id";
 
 /**
  * JMAP email address structure.
@@ -59,7 +60,40 @@ export interface JmapEmailCreate {
   readonly subject: string;
   readonly bodyStructure?: JmapBodyPart;
   readonly bodyValues: Record<string, JmapBodyValue>;
-  readonly headers?: readonly JmapHeader[];
+
+  /**
+   * The message identifier, as the single-entry array RFC 8621 §4.1.3 uses.
+   * The identifier is bare: the `asMessageIds` form these properties alias
+   * strips the angle brackets.
+   * @since 0.6.0
+   */
+  readonly messageId?: readonly string[];
+
+  /**
+   * The bare identifiers of the messages this one replies to.
+   * @since 0.6.0
+   */
+  readonly inReplyTo?: readonly string[];
+
+  /**
+   * The bare identifiers of the conversation this message belongs to.
+   * @since 0.6.0
+   */
+  readonly references?: readonly string[];
+
+  /**
+   * The origination date, as an RFC 3339 date-time.
+   * @since 0.6.0
+   */
+  readonly sentAt?: string;
+
+  /**
+   * A header field written as an individual property, which is the only form
+   * RFC 8621 §4.6 allows when creating an `Email`.  A field that has a
+   * structured property above must not also appear here.
+   * @since 0.6.0
+   */
+  readonly [name: `header:${string}`]: string | undefined;
 }
 
 /**
@@ -104,15 +138,47 @@ export function getPriorityHeaders(priority: Priority): readonly JmapHeader[] {
 }
 
 /**
- * Extracts custom headers from message headers.
+ * Header field names that must not be written as a raw header property.
+ *
+ * RFC 8621 §4.6 forbids two properties representing the same header field, and
+ * the `Email` here already carries a structured property for each of these.
+ * `Bcc` matters most: it travels in the submission envelope, so writing it into
+ * the message would disclose recipients meant to stay hidden.  `Content-*`
+ * belongs on an `EmailBodyPart` rather than on the `Email`.
+ */
+const structuredHeaders: ReadonlySet<string> = new Set([
+  "bcc",
+  "cc",
+  "from",
+  "mime-version",
+  "reply-to",
+  "subject",
+  "to",
+]);
+
+/**
+ * Extracts the custom headers of a message, dropping those the `Email` object
+ * expresses through a structured property of its own.
+ *
  * @param message The message to extract headers from.
  * @returns Array of JMAP headers.
+ * @throws {TypeError} If a header value contains a carriage return or line
+ * feed, which would forge further header fields.
  * @since 0.4.0
  */
 export function extractCustomHeaders(message: Message): readonly JmapHeader[] {
   const headers: JmapHeader[] = [];
 
   for (const [name, value] of message.headers.entries()) {
+    const lowered = name.toLowerCase();
+    if (structuredHeaders.has(lowered) || lowered.startsWith("content-")) {
+      continue;
+    }
+    if (/[\r\n]/.test(value)) {
+      throw new TypeError(
+        `Header field ${name} must not contain a carriage return or line feed.`,
+      );
+    }
     headers.push({ name, value });
   }
 
@@ -265,6 +331,10 @@ function buildAttachmentParts(
  * @param draftMailboxId The mailbox ID to store the draft in.
  * @param uploadedBlobs Map of contentId to blobId for attachments.
  * @returns The JMAP Email/set create object.
+ * @throws {TypeError} If the message carries an invalid message identifier or
+ * date, or a header value containing a carriage return or line feed.
+ * @throws {RangeError} If the year of the date is outside what an RFC 3339
+ * date-time can express.
  * @since 0.4.0
  */
 export function convertMessage(
@@ -277,15 +347,19 @@ export function convertMessage(
     uploadedBlobs,
   );
 
-  const headers: JmapHeader[] = [];
+  const identity = resolveIdentity(message);
 
-  // Add priority headers
-  if (message.priority !== "normal") {
-    headers.push(...getPriorityHeaders(message.priority));
+  // RFC 8621 §4.6 allows only individual `header:Name` properties on create,
+  // never the `headers` list, and forbids a raw header that duplicates a
+  // structured property.
+  const headerProperties: Record<string, string> = {};
+  for (const { name, value } of getPriorityHeaders(message.priority)) {
+    headerProperties[`header:${name}`] = value;
   }
-
-  // Add custom headers
-  headers.push(...extractCustomHeaders(message));
+  for (const { name, value } of extractCustomHeaders(message)) {
+    if (identity.owned.has(name.toLowerCase())) continue;
+    headerProperties[`header:${name}`] = value;
+  }
 
   const email: JmapEmailCreate = {
     mailboxIds: { [draftMailboxId]: true },
@@ -305,8 +379,118 @@ export function convertMessage(
     ...(message.replyRecipients.length > 0 && {
       replyTo: message.replyRecipients.map(formatAddress),
     }),
-    ...(headers.length > 0 && { headers }),
+    ...identity.properties,
+    ...headerProperties,
   };
 
   return email;
+}
+
+/**
+ * The identity and threading properties an `Email` carries, along with the
+ * header field names the message owns and must not repeat as a raw header.
+ */
+interface JmapIdentity {
+  readonly properties: {
+    readonly messageId?: readonly string[];
+    readonly inReplyTo?: readonly string[];
+    readonly references?: readonly string[];
+    readonly sentAt?: string;
+  };
+  readonly owned: ReadonlySet<string>;
+}
+
+/**
+ * Works out the identity and threading properties of an `Email` from the typed
+ * fields of a message.
+ *
+ * A field the message leaves unset is not owned, so a header supplied through
+ * {@link Message.headers} still reaches the server, and the server falls back
+ * to generating an identifier and a date of its own.  A threading field set to
+ * an empty list is owned but writes no property, which suppresses such a
+ * header.
+ *
+ * @param message The message being converted.
+ * @returns The properties to set, and the field names the message owns.
+ * @throws {TypeError} If a message identifier is invalid, or the date is not a
+ * valid one.
+ * @throws {RangeError} If the year of the date is outside what an RFC 3339
+ * date-time can express.
+ */
+function resolveIdentity(message: Message): JmapIdentity {
+  const owned = new Set<string>();
+  const properties: {
+    messageId?: readonly string[];
+    inReplyTo?: readonly string[];
+    references?: readonly string[];
+    sentAt?: string;
+  } = {};
+
+  if (message.priority !== "normal") {
+    owned.add("x-priority");
+    owned.add("importance");
+  }
+  if (message.messageId != null) {
+    owned.add("message-id");
+    properties.messageId = [checkMessageId(message.messageId)];
+  }
+  if (message.date != null) {
+    owned.add("date");
+    properties.sentAt = formatSentAt(message.date);
+  }
+  if (message.inReplyTo != null) {
+    owned.add("in-reply-to");
+    if (message.inReplyTo.length > 0) {
+      properties.inReplyTo = message.inReplyTo.map(checkMessageId);
+    }
+  }
+  if (message.references != null) {
+    owned.add("references");
+    if (message.references.length > 0) {
+      properties.references = message.references.map(checkMessageId);
+    }
+  }
+
+  return { properties, owned };
+}
+
+/**
+ * Checks a message identifier a message carries.
+ *
+ * `createMessage()` validates these, but `Message` is a structural type that a
+ * caller can build without it.
+ *
+ * @param id The identifier to check.
+ * @returns The identifier, unchanged.
+ * @throws {TypeError} If the value is not a valid message identifier.
+ */
+function checkMessageId(id: string): string {
+  const parsed = parseMessageId(id);
+  if (parsed == null) {
+    throw new TypeError(`Invalid message ID: ${JSON.stringify(id)}`);
+  }
+  return parsed;
+}
+
+/**
+ * Formats a date as the RFC 3339 date-time JMAP calls a `Date`.
+ *
+ * RFC 8620 §1.4 omits a fractional-seconds part that is zero, which
+ * `Date.toISOString()` always writes.
+ *
+ * @param date The date to format.
+ * @returns The formatted date.
+ * @throws {TypeError} If the date is not a valid one.
+ * @throws {RangeError} If its year cannot be written as four digits.
+ */
+function formatSentAt(date: Date): string {
+  const time = date instanceof Date ? date.getTime() : Number.NaN;
+  if (Number.isNaN(time)) {
+    throw new TypeError(`Invalid date: ${JSON.stringify(date)}`);
+  }
+  const year = date.getUTCFullYear();
+  if (year < 1 || year > 9999) {
+    throw new RangeError(`Year out of range for an RFC 3339 date: ${year}`);
+  }
+  return date.toISOString().replace(".000Z", "Z");
 }

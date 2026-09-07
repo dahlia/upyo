@@ -7,6 +7,7 @@ export default defineConfig({
     "src/address.ts",
     "src/attachment.ts",
     "src/message.ts",
+    "src/message-id.ts",
     "src/priority.ts",
     "src/receipt.ts",
     "src/transport.ts",

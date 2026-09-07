@@ -37,6 +37,45 @@ describe(
       await transport.closeAllConnections();
     }
 
+    test("should deliver the identity and threading fields", async () => {
+      const { transport, mailpitClient } = await setupTest();
+      try {
+        const subject = "Test Email Mailpit - Identity";
+        const message = createTestMessage({
+          subject,
+          content: { text: "Correlating a reply back to a conversation." },
+          messageId: "ticket-4821@example.com",
+          date: new Date("2026-09-01T10:00:00Z"),
+          inReplyTo: ["122@example.com"],
+          references: ["120@example.com", "121@example.com"],
+        });
+
+        const receipt = await transport.send(message);
+        assert.strictEqual(receipt.successful, true);
+
+        const delivered = await waitForMailpitDelivery(
+          mailpitClient,
+          { subject },
+        );
+        const source = await mailpitClient.getMessageSource(delivered.ID);
+
+        assert.strictEqual(delivered.MessageID, "ticket-4821@example.com");
+        assert.ok(
+          source.includes("Message-ID: <ticket-4821@example.com>"),
+          "the supplied identifier should reach the server unchanged",
+        );
+        assert.ok(source.includes("Date: Tue, 01 Sep 2026 10:00:00 +0000"));
+        assert.ok(source.includes("In-Reply-To: <122@example.com>"));
+        assert.ok(
+          source.includes(
+            "References: <120@example.com> <121@example.com>",
+          ),
+        );
+      } finally {
+        await teardownTest(transport);
+      }
+    });
+
     test("should send a basic email to Mailpit", async () => {
       const { transport, mailpitClient } = await setupTest();
       try {

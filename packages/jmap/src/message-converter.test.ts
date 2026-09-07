@@ -133,10 +133,8 @@ describe("convertMessage", () => {
 
     const result = convertMessage(message, "drafts-123", new Map());
 
-    assert.ok(result.headers);
-    const priorityHeader = result.headers.find((h) => h.name === "X-Priority");
-    assert.ok(priorityHeader);
-    assert.equal(priorityHeader.value, "1");
+    assert.equal(result["header:X-Priority"], "1");
+    assert.equal(result["header:Importance"], "high");
   });
 
   it("should add priority headers for low priority", () => {
@@ -147,17 +145,14 @@ describe("convertMessage", () => {
 
     const result = convertMessage(message, "drafts-123", new Map());
 
-    assert.ok(result.headers);
-    const priorityHeader = result.headers.find((h) => h.name === "X-Priority");
-    assert.ok(priorityHeader);
-    assert.equal(priorityHeader.value, "5");
+    assert.equal(result["header:X-Priority"], "5");
+    assert.equal(result["header:Importance"], "low");
   });
 
   it("should not add priority headers for normal priority", () => {
     const result = convertMessage(baseMessage, "drafts-123", new Map());
 
-    const priorityHeader = result.headers?.find((h) => h.name === "X-Priority");
-    assert.equal(priorityHeader, undefined);
+    assert.equal(result["header:X-Priority"], undefined);
   });
 
   it("should include custom headers", () => {
@@ -171,13 +166,9 @@ describe("convertMessage", () => {
 
     const result = convertMessage(message, "drafts-123", new Map());
 
-    assert.ok(result.headers);
     // Headers.entries() returns lowercase names per HTTP spec
-    const customHeader = result.headers.find(
-      (h) => h.name === "x-custom-header",
-    );
-    assert.ok(customHeader);
-    assert.equal(customHeader.value, "custom-value");
+    assert.equal(result["header:x-custom-header"], "custom-value");
+    assert.ok(!("headers" in result));
   });
 
   it("should convert a message with attachments", () => {
@@ -346,5 +337,160 @@ describe("convertMessage", () => {
     const attachmentPart = result.bodyStructure.subParts[1];
     assert.equal(attachmentPart.disposition, "attachment");
     assert.equal(attachmentPart.blobId, "blob-doc");
+  });
+});
+
+describe("convertMessage() identity and threading", () => {
+  const base: Message = {
+    sender: { address: "sender@example.com" },
+    recipients: [{ address: "recipient@example.com" }],
+    ccRecipients: [],
+    bccRecipients: [],
+    replyRecipients: [],
+    subject: "Re: Your request",
+    content: { text: "Thanks for getting in touch." },
+    attachments: [],
+    priority: "normal",
+    tags: [],
+    headers: new Headers(),
+  };
+
+  const convert = (overrides: Partial<Message> = {}) =>
+    convertMessage({ ...base, ...overrides }, "drafts-123", new Map());
+
+  it("sets the structured identity properties", () => {
+    const result = convert({
+      messageId: "ticket-4821@example.com",
+      date: new Date("2026-09-01T10:00:00Z"),
+      inReplyTo: ["122@example.com"],
+      references: ["120@example.com", "121@example.com"],
+    });
+
+    assert.deepEqual(result.messageId, ["ticket-4821@example.com"]);
+    assert.equal(result.sentAt, "2026-09-01T10:00:00Z");
+    assert.deepEqual(result.inReplyTo, ["122@example.com"]);
+    assert.deepEqual(result.references, [
+      "120@example.com",
+      "121@example.com",
+    ]);
+  });
+
+  it("keeps a non-zero fractional second in the date", () => {
+    const result = convert({ date: new Date("2026-09-01T10:00:00.250Z") });
+
+    assert.equal(result.sentAt, "2026-09-01T10:00:00.250Z");
+  });
+
+  it("omits the properties a message does not set", () => {
+    const result = convert();
+
+    assert.equal(result.messageId, undefined);
+    assert.equal(result.sentAt, undefined);
+    assert.equal(result.inReplyTo, undefined);
+    assert.equal(result.references, undefined);
+  });
+
+  it("never writes both a structured property and its raw header", () => {
+    const result = convert({
+      messageId: "typed@example.com",
+      date: new Date("2026-09-01T10:00:00Z"),
+      inReplyTo: ["typed@example.com"],
+      references: [],
+      headers: new Headers({
+        "Message-ID": "<custom@example.com>",
+        "Date": "Thu, 01 Jan 1970 00:00:00 +0000",
+        "In-Reply-To": "<custom@example.com>",
+        "References": "<custom@example.com>",
+      }),
+    });
+
+    assert.equal(result["header:message-id"], undefined);
+    assert.equal(result["header:date"], undefined);
+    assert.equal(result["header:in-reply-to"], undefined);
+    assert.equal(result["header:references"], undefined);
+    assert.equal(result.references, undefined);
+  });
+
+  it("lets a raw header through when the field is unset", () => {
+    const result = convert({
+      headers: new Headers({
+        "Message-ID": "<custom@example.com>",
+        "In-Reply-To": "<custom@example.com>",
+      }),
+    });
+
+    assert.equal(result["header:message-id"], "<custom@example.com>");
+    assert.equal(result["header:in-reply-to"], "<custom@example.com>");
+  });
+
+  it("drops a raw header a structured property already carries", () => {
+    const result = convert({
+      headers: new Headers({
+        "From": "spoofed@example.com",
+        "Bcc": "hidden@example.com",
+        "Subject": "Overridden",
+        "Content-Type": "text/plain",
+        "MIME-Version": "1.0",
+        "X-Mailer": "Test Mailer",
+      }),
+    });
+
+    for (
+      const name of ["from", "bcc", "subject", "content-type", "mime-version"]
+    ) {
+      assert.equal(result[`header:${name}`], undefined);
+    }
+    assert.equal(result["header:x-mailer"], "Test Mailer");
+  });
+
+  it("keeps a custom priority header from shadowing the derived one", () => {
+    const result = convert({
+      priority: "high",
+      headers: new Headers({ "X-Priority": "3" }),
+    });
+
+    assert.equal(result["header:X-Priority"], "1");
+    assert.equal(result["header:x-priority"], undefined);
+  });
+
+  it("rejects an invalid identifier", () => {
+    assert.throws(() => convert({ messageId: "not an identifier" }), {
+      name: "TypeError",
+      message: /Invalid message ID/,
+    });
+    assert.throws(() => convert({ references: ["a@b>"] }), {
+      name: "TypeError",
+      message: /Invalid message ID/,
+    });
+  });
+
+  it("rejects a date it cannot express", () => {
+    assert.throws(() => convert({ date: new Date("nonsense") }), {
+      name: "TypeError",
+      message: /Invalid date/,
+    });
+
+    const farFuture = new Date(0);
+    farFuture.setUTCFullYear(10000, 0, 1);
+    assert.throws(() => convert({ date: farFuture }), {
+      name: "RangeError",
+      message: /Year out of range/,
+    });
+  });
+
+  it("rejects a header value that would forge further fields", () => {
+    const headers: Message["headers"] = {
+      ...new Headers(),
+      entries: () =>
+        [["X-Evil", "value\r\nX-Injected: yes"]]
+          [Symbol.iterator]() as ReturnType<
+            Headers["entries"]
+          >,
+    };
+
+    assert.throws(() => convert({ headers }), {
+      name: "TypeError",
+      message: /carriage return or line feed/,
+    });
   });
 });

@@ -174,6 +174,76 @@ describe("SmtpTransport Integration Tests", () => {
     }
   });
 
+  test("should carry the typed identity through send and sendMany", async () => {
+    const { server, transport } = await setupTest({ pool: true });
+    try {
+      const date = new Date("2026-09-01T10:00:00Z");
+      const single = createTestMessage({
+        messageId: "single@example.com",
+        date,
+      });
+      const receipt = await transport.send(single);
+      assert.ok(receipt.successful);
+
+      const receipts: SmtpReceipt[] = [];
+      for await (
+        const each of transport.sendMany([
+          createTestMessage({ messageId: "first@example.com", date }),
+          createTestMessage({ messageId: "second@example.com", date }),
+        ])
+      ) {
+        receipts.push(each);
+      }
+      assert.deepEqual(receipts.map((each) => each.successful), [true, true]);
+
+      const delivered = server.getReceivedMessages().map((message) =>
+        message.data
+      );
+      assert.equal(delivered.length, 3);
+      for (const [index, id] of ["single", "first", "second"].entries()) {
+        assert.ok(
+          delivered[index].includes(`Message-ID: <${id}@example.com>`),
+          `expected the ${id} identifier in message ${index}`,
+        );
+        assert.ok(
+          delivered[index].includes("Date: Tue, 01 Sep 2026 10:00:00 +0000"),
+        );
+      }
+    } finally {
+      await teardownTest(server, transport);
+    }
+  });
+
+  test("should reuse the same identity when a message is sent again", async () => {
+    const { server, transport } = await setupTest({ pool: true });
+    try {
+      // A retry re-sends the very same Message, so a typed identifier and date
+      // stay put where a generated one would move.
+      const message = createTestMessage({
+        messageId: "retried@example.com",
+        date: new Date("2026-09-01T10:00:00Z"),
+      });
+      assert.ok((await transport.send(message)).successful);
+      assert.ok((await transport.send(message)).successful);
+
+      const delivered = server.getReceivedMessages().map((message) =>
+        message.data
+      );
+      const identity = delivered.map((data) =>
+        data.split("\r\n").filter((line) =>
+          line.startsWith("Message-ID:") || line.startsWith("Date:")
+        )
+      );
+      assert.deepEqual(identity[0], identity[1]);
+      assert.deepEqual(identity[0], [
+        "Date: Tue, 01 Sep 2026 10:00:00 +0000",
+        "Message-ID: <retried@example.com>",
+      ]);
+    } finally {
+      await teardownTest(server, transport);
+    }
+  });
+
   test("should resolve a different envelope for each sendMany message", async () => {
     const { server, transport } = await setupTest();
     try {

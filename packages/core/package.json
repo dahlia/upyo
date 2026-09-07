@@ -81,6 +81,14 @@
       "import": "./dist/message.js",
       "require": "./dist/message.cjs"
     },
+    "./message-id": {
+      "types": {
+        "import": "./dist/message-id.d.ts",
+        "require": "./dist/message-id.d.cts"
+      },
+      "import": "./dist/message-id.js",
+      "require": "./dist/message-id.cjs"
+    },
     "./priority": {
       "types": {
         "import": "./dist/priority.d.ts",

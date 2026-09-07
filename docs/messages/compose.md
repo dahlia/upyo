@@ -229,38 +229,167 @@ before sending them through your chosen transport.
 
 ### Headers the transport owns
 
-A few header fields come from the message itself rather than from `headers`,
-so the SMTP transport ignores custom headers that would collide with them:
-`From`, `To`, `Cc`, `Bcc`, `Reply-To`, `Subject`, `MIME-Version`,
+A few header fields come from the message itself rather than from `headers`, so
+a transport that composes the message ignores custom headers that would collide
+with them: `From`, `To`, `Cc`, `Bcc`, `Reply-To`, `Subject`, `MIME-Version`,
 `Content-Type`, and `Content-Transfer-Encoding`.  Use the corresponding
-`createMessage()` fields to set those.  Note that `Bcc` in particular is
-carried in the SMTP envelope and never written into the message, so blind
-recipients stay hidden from everyone who receives it.
+`createMessage()` fields to set those.  Note that `Bcc` in particular is carried
+in the envelope and never written into the message, so blind recipients stay
+hidden from everyone who receives it.
 
-`Date` and `Message-ID` work differently.  They have no dedicated field on
-`Message`, so a custom header replaces the value the transport would otherwise
-generate:
+`Date`, `Message-ID`, `In-Reply-To`, and `References` have dedicated fields too,
+described in the next section.  They differ from the fields above in that a
+custom header is still honored when the dedicated field is left unset, so the
+header form keeps working.
+
+
+Message identity and reply threading
+------------------------------------
+
+Applications that correlate replies, such as a helpdesk matching an incoming
+answer back to a ticket, need to choose the outgoing message identifier rather
+than discover it afterwards.  `createMessage()` takes four fields for that:
+
+`messageId`
+:   The RFC 5322 message identifier.  The enclosing angle brackets are
+    optional and stripped, so `<abc@example.com>` and `abc@example.com` mean
+    the same thing.
+
+`date`
+:   The origination date.  Left unset, a transport that composes the message
+    uses the time of conversion, so a retry carries a later date.
+
+`inReplyTo`
+:   The identifier, or identifiers, of the messages this one replies to.
+
+`references`
+:   The identifiers of the conversation, oldest first.  A reply usually carries
+    the parent's references followed by the parent's own identifier, which is
+    how a mail client reconstructs a thread.
+
+Mint an identifier with `generateMessageId()` before sending, store it with
+whatever the message is about, and the value survives conversion and any
+delivery retry, because a retry re-sends the very same message:
 
 ~~~~ typescript twoslash
-import { createMessage } from "@upyo/core";
+declare function storeTicketMessageId(id: string): Promise<void>;
 // ---cut-before---
+import { createMessage, generateMessageId } from "@upyo/core";
+
+const messageId = generateMessageId("example.com");
+await storeTicketMessageId(messageId);
+
 const message = createMessage({
   from: "support@example.com",
   to: "customer@example.net",
   subject: "Re: Your request",
   content: { text: "Thanks for getting in touch." },
-  headers: {
-    "Message-ID": "<ticket-4821@example.com>",
-  },
+  messageId,
+  date: new Date("2026-09-01T10:00:00Z"),
 });
 ~~~~
 
-This is useful when you need to choose an outgoing message identifier and store
-it, so that replies arriving with a matching `In-Reply-To` can be correlated
-back to the conversation.  Supply a value that is valid for the field, angle
-brackets included; it is written to the message as given.
+When the customer answers, their reply carries `In-Reply-To: <that identifier>`,
+which is what ties the answer back to the ticket.  Composing the next message in
+the thread is the mirror image:
+
+~~~~ typescript twoslash
+interface InboundMessage {
+  readonly messageId: string;
+  readonly references: readonly string[];
+}
+declare const inbound: InboundMessage;
+// ---cut-before---
+import { createMessage } from "@upyo/core";
+
+const reply = createMessage({
+  from: "support@example.com",
+  to: "customer@example.net",
+  subject: "Re: Your request",
+  content: { text: "Here is the answer." },
+  inReplyTo: inbound.messageId,
+  references: [...inbound.references, inbound.messageId],
+});
+~~~~
+
+An identifier that is not valid is rejected rather than repaired, since these
+fields are written into the message as given:
+
+~~~~ typescript twoslash
+import { createMessage } from "@upyo/core";
+
+try {
+  createMessage({
+    from: "support@example.com",
+    to: "customer@example.net",
+    subject: "Re: Your request",
+    content: { text: "Thanks for getting in touch." },
+    messageId: "not an identifier",
+  });
+} catch (error) {
+  console.error(error); // TypeError: Invalid message ID: "not an identifier"
+}
+~~~~
+
+`parseMessageId()` normalizes a single identifier and returns `undefined`
+instead of throwing, which is convenient for values arriving from elsewhere.
+It parses one identifier, so an `In-Reply-To` field carrying several has to be
+split first.
+
+### Dropping an inherited header
+
+`inReplyTo` and `references` distinguish three states, which matters when a
+message is assembled from a template that already carries these headers:
+
+ -  Leaving the field unset defers to a custom header of the same name.
+ -  Setting it to a non-empty array replaces that header.
+ -  Setting it to an empty array suppresses the header, so the message
+    deliberately starts a new thread.
+
+### Transport support
+
+`Message-ID` and `Date` are only as durable as the transport carrying them.  A
+provider that composes the message on its own side may assign or rewrite both,
+whatever the message asked for.
+
+| Transport          | `Message-ID` and `Date` | `In-Reply-To` and `References` |
+| ------------------ | ----------------------- | ------------------------------ |
+| *@upyo/smtp*       | Written as given        | Written as given               |
+| *@upyo/jmap*       | Written as given        | Written as given               |
+| *@upyo/mailgun*    | Not sent                | Sent as a custom header        |
+| *@upyo/sendgrid*   | Not sent                | Sent as a custom header        |
+| *@upyo/mailtrap*   | Not sent                | Sent as a custom header        |
+| *@upyo/maileroo*   | Not sent                | Sent as a custom header        |
+| *@upyo/lettermint* | Not sent                | Sent as a custom header        |
+| *@upyo/resend*     | Not sent                | Sent as a custom header        |
+| *@upyo/plunk*      | Not sent                | Sent as a custom header        |
+| *@upyo/ses*        | Not sent                | Not sent                       |
+
+“Not sent” describes Upyo, not the provider.  Most of these APIs accept a
+custom `Message-ID` without documenting whether the value survives their
+pipeline; Lettermint documents that it replaces one unless a separate opt-in
+header accompanies it, and Amazon SES documents that it overrides both fields
+even for a raw MIME message.  Rather than promise preservation Upyo cannot
+verify, those transports leave the fields alone.  *@upyo/ses* sends no custom
+headers at all.
+
+Providers also cap header values well below the length a long thread produces:
+768 characters for Maileroo, around 995 for Plunk and Amazon SES.  Upyo does not
+truncate a `References` chain, so an over-long one surfaces as a provider error.
 
 > [!NOTE]
-> This applies to the SMTP transport, which composes the message itself.
-> HTTP API transports hand the message to a provider that may assign or
-> rewrite `Message-ID` and `Date` on its own.
+> A message identifier supports *correlation*.  It is not a capability, so
+> receiving one proves nothing about who sent it; it does not deduplicate
+> anything, nor make delivery exactly-once; and a recipient's mail client may
+> thread by subject regardless.
+
+### `Message-ID` is not `Receipt.messageId`
+
+The `messageId` on a successful [`Receipt`] is the delivery handle the transport
+or the provider reports back: an SMTP queue identifier, a provider UUID, a JMAP
+submission id.  It is chosen by the far side, differs in shape between
+transports, and is not the RFC 5322 `Message-ID` the message carries.  Use it to
+look a delivery up in a provider's dashboard; use `message.messageId` to
+correlate a reply.
+
+[`Receipt`]: https://jsr.io/@upyo/core/doc/receipt/~/Receipt

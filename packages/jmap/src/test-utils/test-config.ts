@@ -108,6 +108,10 @@ export interface CreateTestMessageOptions {
     readonly contentId: string;
     readonly inline: boolean;
   }>;
+  readonly messageId?: string;
+  readonly date?: Date;
+  readonly inReplyTo?: readonly string[];
+  readonly references?: readonly string[];
 }
 
 /**
@@ -143,5 +147,9 @@ export function createTestMessage(
     priority: "normal",
     tags: [],
     headers: new Headers(),
+    messageId: options.messageId,
+    date: options.date,
+    inReplyTo: options.inReplyTo,
+    references: options.references,
   };
 }

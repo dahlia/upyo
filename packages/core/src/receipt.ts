@@ -80,7 +80,13 @@ export type Receipt<TProviderId extends string = string> =
      */
     readonly successful: true;
     /**
-     * The unique identifier for the message that was sent.
+     * The delivery handle the transport or the provider reports back, such as
+     * an SMTP queue identifier, a provider-assigned UUID, or a JMAP submission
+     * id.  Its shape differs between transports.
+     *
+     * This is not the RFC 5322 `Message-ID` of the message; that one is chosen
+     * by the sender and lives on {@link Message.messageId}.  Use this to look a
+     * delivery up with the provider, and that one to correlate a reply.
      */
     readonly messageId: string;
     /**

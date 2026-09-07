@@ -423,3 +423,108 @@ describe("createMessage", () => {
     );
   });
 });
+
+describe("createMessage() identity and threading", () => {
+  const base: MessageConstructor = {
+    from: "sender@example.com",
+    to: "recipient@example.com",
+    subject: "Test",
+    content: { text: "Test" },
+  };
+
+  it("should leave the fields unset when they are not given", () => {
+    const message = createMessage(base);
+
+    assert.equal(message.messageId, undefined);
+    assert.equal(message.date, undefined);
+    assert.equal(message.inReplyTo, undefined);
+    assert.equal(message.references, undefined);
+  });
+
+  it("should strip the angle brackets from an identifier", () => {
+    const message = createMessage({
+      ...base,
+      messageId: "<123@example.com>",
+      inReplyTo: "<122@example.com>",
+      references: ["<120@example.com>", "121@example.com"],
+    });
+
+    assert.equal(message.messageId, "123@example.com");
+    assert.deepEqual(message.inReplyTo, ["122@example.com"]);
+    assert.deepEqual(message.references, [
+      "120@example.com",
+      "121@example.com",
+    ]);
+  });
+
+  it("should keep an empty list distinct from an absent one", () => {
+    const message = createMessage({ ...base, inReplyTo: [], references: [] });
+
+    assert.deepEqual(message.inReplyTo, []);
+    assert.deepEqual(message.references, []);
+  });
+
+  it("should treat a single string as one identifier", () => {
+    const message = createMessage({ ...base, references: "120@example.com" });
+
+    assert.deepEqual(message.references, ["120@example.com"]);
+  });
+
+  it("should copy the date and the identifier lists", () => {
+    const date = new Date("2026-09-01T10:00:00Z");
+    const references = ["120@example.com"];
+    const message = createMessage({ ...base, date, references });
+
+    date.setUTCFullYear(1999);
+    references.push("121@example.com");
+
+    assert.equal(message.date?.toISOString(), "2026-09-01T10:00:00.000Z");
+    assert.deepEqual(message.references, ["120@example.com"]);
+  });
+
+  const invalidIds = [
+    "",
+    "no-at-sign",
+    "a@b c@d",
+    "a..b@example.com",
+    "a@example.com>",
+    "a@example.com\r\nX-Injected: yes",
+  ];
+
+  for (const invalid of invalidIds) {
+    it(`should reject ${JSON.stringify(invalid)} as a message ID`, () => {
+      assert.throws(
+        () => createMessage({ ...base, messageId: invalid }),
+        { name: "TypeError", message: /Invalid message ID/ },
+      );
+    });
+
+    it(`should reject ${JSON.stringify(invalid)} in a reply reference`, () => {
+      assert.throws(
+        () => createMessage({ ...base, inReplyTo: invalid }),
+        { name: "TypeError", message: /Invalid in-reply-to message ID/ },
+      );
+      assert.throws(
+        () => createMessage({ ...base, references: [invalid] }),
+        { name: "TypeError", message: /Invalid references message ID/ },
+      );
+    });
+  }
+
+  it("should reject an invalid date", () => {
+    assert.throws(
+      () => createMessage({ ...base, date: new Date("nonsense") }),
+      { name: "TypeError", message: /Invalid date/ },
+    );
+  });
+
+  it("should reject a date RFC 5322 cannot express", () => {
+    assert.throws(
+      () => createMessage({ ...base, date: new Date("1899-12-31T23:59:59Z") }),
+      { name: "TypeError", message: /Invalid date/ },
+    );
+    assert.doesNotThrow(() =>
+      createMessage({ ...base, date: new Date("1900-01-01T00:00:00Z") })
+    );
+  });
+});

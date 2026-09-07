@@ -1,5 +1,5 @@
 import type { Address, Attachment, Message } from "@upyo/core";
-import { readAttachmentContent } from "@upyo/core";
+import { readAttachmentContent, resolveThreadingHeaders } from "@upyo/core";
 import type { ResolvedMailgunConfig } from "./config.ts";
 
 /**
@@ -11,6 +11,7 @@ import type { ResolvedMailgunConfig } from "./config.ts";
  * @param message - The Upyo message to convert
  * @param config - The resolved Mailgun configuration
  * @returns FormData object ready for Mailgun API submission
+ * @throws {TypeError} If the message carries an invalid message identifier.
  *
  * @example
  * ```typescript
@@ -77,12 +78,23 @@ export async function convertMessage(
     formData.append("o:tag", tag);
   }
 
+  // Reply threading comes from the typed fields when the message defines them,
+  // and from a custom header otherwise.  A field the message owns but left
+  // empty writes nothing, which is how a caller drops an inherited header.
+  const threading = resolveThreadingHeaders(message);
+  const ownedHeaders = new Set(
+    [...threading.keys()].map((name) => name.toLowerCase()),
+  );
+
   // Custom headers
   for (const [key, value] of message.headers.entries()) {
     // Skip standard headers that are handled separately
-    if (!isStandardHeader(key)) {
+    if (!isStandardHeader(key) && !ownedHeaders.has(key.toLowerCase())) {
       formData.append(`h:${key}`, value);
     }
+  }
+  for (const [name, value] of threading) {
+    if (value != null) formData.append(`h:${name}`, value);
   }
 
   // Attachments

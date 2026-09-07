@@ -1,5 +1,9 @@
 import type { Address, Attachment, Message } from "@upyo/core";
-import { combineSignals, readAttachmentContent } from "@upyo/core";
+import {
+  combineSignals,
+  readAttachmentContent,
+  resolveThreadingHeaders,
+} from "@upyo/core";
 import type { ResolvedMailerooConfig } from "./config.ts";
 
 const STANDARD_HEADERS = new Set([
@@ -73,6 +77,7 @@ export interface MailerooEmail {
  * @param config The resolved Maileroo configuration.
  * @param signal Optional abort signal for cancellation.
  * @returns JSON object ready for Maileroo API submission.
+ * @throws {TypeError} If the message carries an invalid message identifier.
  * @throws {Error} If the caller aborts the operation.
  * @since 0.6.0
  */
@@ -242,10 +247,21 @@ function convertHeaders(message: Message): Record<string, string> {
     headers["X-Priority"] = priorityMap[message.priority];
   }
 
+  // Reply threading comes from the typed fields when the message defines them,
+  // and from a custom header otherwise.  A field the message owns but left
+  // empty writes nothing, which is how a caller drops an inherited header.
+  const threading = resolveThreadingHeaders(message);
+  const ownedHeaders = new Set(
+    [...threading.keys()].map((name) => name.toLowerCase()),
+  );
+
   for (const [key, value] of message.headers.entries()) {
-    if (!isStandardHeader(key)) {
+    if (!isStandardHeader(key) && !ownedHeaders.has(key.toLowerCase())) {
       headers[key] = value;
     }
+  }
+  for (const [name, value] of threading) {
+    if (value != null) headers[name] = value;
   }
 
   return headers;
