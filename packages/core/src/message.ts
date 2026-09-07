@@ -267,45 +267,30 @@ export interface MessageConstructor {
  *                    addresses and `File` objects for attachments.
  * @returns A new {@link Message} object with all properties normalized and
  *          validated.
- * @throws {TypeError} When any email address string cannot be parsed or when
- *                     an attachment object is invalid.
+ * @throws {TypeError} When any email address string cannot be parsed, when an
+ *                     address or attachment carries a carriage return or line
+ *                     feed that could forge header fields, or when an
+ *                     attachment object is invalid.
  */
 export function createMessage(constructor: MessageConstructor): Message {
-  const sender = typeof constructor.from === "string"
-    ? parseAddress(constructor.from) ??
-      throwTypeError(
-        `Invalid sender address: ${JSON.stringify(constructor.from)}`,
-      )
-    : constructor.from;
+  const sender = checkAddress("sender", constructor.from);
   return {
     sender,
     recipients: ensureArray(constructor.to).map((to) =>
-      typeof to === "string"
-        ? parseAddress(to) ??
-          throwTypeError(`Invalid recipient address: ${JSON.stringify(to)}`)
-        : to
+      checkAddress("recipient", to)
     ),
     ccRecipients: ensureArray(constructor.cc).map((cc) =>
-      typeof cc === "string"
-        ? parseAddress(cc) ??
-          throwTypeError(`Invalid CC address: ${JSON.stringify(cc)}`)
-        : cc
+      checkAddress("CC", cc)
     ),
     bccRecipients: ensureArray(constructor.bcc).map((bcc) =>
-      typeof bcc === "string"
-        ? parseAddress(bcc) ??
-          throwTypeError(`Invalid BCC address: ${JSON.stringify(bcc)}`)
-        : bcc
+      checkAddress("BCC", bcc)
     ),
     replyRecipients: ensureArray(constructor.replyTo).map((replyTo) =>
-      typeof replyTo === "string"
-        ? parseAddress(replyTo) ??
-          throwTypeError(`Invalid reply-to address: ${JSON.stringify(replyTo)}`)
-        : replyTo
+      checkAddress("reply-to", replyTo)
     ),
     attachments: ensureArray(constructor.attachments).map((attachment) => {
       if (attachment instanceof File) {
-        return {
+        return checkAttachment({
           inline: false,
           filename: attachment.name,
           content: attachment.arrayBuffer().then((b) => new Uint8Array(b)),
@@ -315,9 +300,9 @@ export function createMessage(constructor: MessageConstructor): Message {
           contentId: `${crypto.randomUUID()}@${
             sender.address.replace(/^[^@]*@/, "")
           }`,
-        };
+        });
       } else if (isAttachment(attachment)) {
-        return attachment;
+        return checkAttachment(attachment);
       } else {
         throwTypeError(`Invalid attachment: ${JSON.stringify(attachment)}`);
       }
@@ -333,6 +318,64 @@ export function createMessage(constructor: MessageConstructor): Message {
 
 function throwTypeError(message: string): never {
   throw new TypeError(message);
+}
+
+/**
+ * Normalizes an address and rejects one that could forge header fields.
+ *
+ * A transport that composes a message itself writes the address into a header
+ * field as given, so a carriage return or line feed in it would end that field
+ * and let the rest of the value appear as further fields.  The string form has
+ * always been rejected by {@link parseAddress}; the object form used to pass
+ * through unchecked.
+ *
+ * @param label How the address is described in the error message.
+ * @param address The address, either an object or a string to parse.
+ * @returns The normalized address.
+ * @throws {TypeError} If the string cannot be parsed, or if the resulting
+ * address contains a carriage return or line feed.
+ */
+function checkAddress(label: string, address: Address | string): Address {
+  const parsed = typeof address === "string"
+    ? parseAddress(address) ??
+      throwTypeError(`Invalid ${label} address: ${JSON.stringify(address)}`)
+    : address;
+  if (/[\r\n]/.test(parsed.address)) {
+    throwTypeError(
+      `Invalid ${label} address: ${JSON.stringify(parsed.address)}`,
+    );
+  }
+  return parsed;
+}
+
+/**
+ * Rejects an attachment whose content type or content ID could forge header
+ * fields.
+ *
+ * A transport that composes MIME itself writes both into the part headers as
+ * given, so a carriage return or line feed in either would end that field and
+ * let the rest of the value appear as further fields.  An uploaded file's
+ * declared content type is routinely chosen by whoever uploaded it.
+ *
+ * @param attachment The attachment to check.
+ * @returns The attachment, unchanged.
+ * @throws {TypeError} If the content type or content ID contains a carriage
+ * return or line feed.
+ */
+function checkAttachment(attachment: Attachment): Attachment {
+  if (/[\r\n]/.test(attachment.contentType)) {
+    throwTypeError(
+      `Invalid attachment content type: ${
+        JSON.stringify(attachment.contentType)
+      }`,
+    );
+  }
+  if (/[\r\n]/.test(attachment.contentId)) {
+    throwTypeError(
+      `Invalid attachment content ID: ${JSON.stringify(attachment.contentId)}`,
+    );
+  }
+  return attachment;
 }
 
 function ensureArray<T>(

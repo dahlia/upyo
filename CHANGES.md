@@ -6,6 +6,26 @@ Version 0.5.4
 
 To be released.
 
+### @upyo/core
+
+ -  `createMessage()` now rejects a carriage return or line feed in an address,
+    an attachment's content type, or an attachment's content ID with a
+    `TypeError`.  A transport that composes the message itself writes these
+    values into header fields as given, so either character ended the field and
+    let the rest of the value appear as further header fields.  [[#60]]
+
+    Address strings were already rejected by `parseAddress()`, but the object
+    form passed through unchecked, so
+    `createMessage({ to: { address: "victim@example.net\r\nBcc: …" } })`
+    forged a `Bcc` field.  Attachments were unchecked in either form, and an
+    uploaded file's declared content type is routinely chosen by whoever
+    uploaded it.
+
+    Values that arrive through a `Message` object built by hand rather than
+    through `createMessage()` are still passed on as given.
+
+[#60]: https://github.com/dahlia/upyo/issues/60
+
 ### @upyo/smtp
 
  -  Stopped emitting duplicate header fields when a custom header collides with

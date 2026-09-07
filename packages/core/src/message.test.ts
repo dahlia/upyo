@@ -217,6 +217,120 @@ describe("createMessage", () => {
     });
   });
 
+  const lineBreaks = [
+    { label: "CR", value: "\r" },
+    { label: "LF", value: "\n" },
+    { label: "CRLF", value: "\r\n" },
+  ] as const;
+
+  const addressFields = [
+    { key: "from", pattern: /Invalid sender address/ },
+    { key: "to", pattern: /Invalid recipient address/ },
+    { key: "cc", pattern: /Invalid CC address/ },
+    { key: "bcc", pattern: /Invalid BCC address/ },
+    { key: "replyTo", pattern: /Invalid reply-to address/ },
+  ] as const;
+
+  for (const { label, value } of lineBreaks) {
+    for (const { key, pattern } of addressFields) {
+      it(`should reject ${label} in a ${key} address object`, () => {
+        const constructor: MessageConstructor = {
+          from: "sender@example.com",
+          to: "recipient@example.com",
+          subject: "Test Subject",
+          content: { text: "Test content" },
+          [key]: {
+            address: `victim@example.net${value}Bcc: attacker@evil.example`,
+          },
+        };
+
+        assert.throws(
+          () => createMessage(constructor),
+          { name: "TypeError", message: pattern },
+        );
+      });
+    }
+
+    it(`should reject ${label} in an address string`, () => {
+      const constructor: MessageConstructor = {
+        from: "sender@example.com",
+        to: `victim@example.net${value}Bcc: attacker@evil.example`,
+        subject: "Test Subject",
+        content: { text: "Test content" },
+      };
+
+      assert.throws(
+        () => createMessage(constructor),
+        { name: "TypeError", message: /Invalid recipient address/ },
+      );
+    });
+
+    it(`should reject ${label} in an attachment content type`, () => {
+      const constructor: MessageConstructor = {
+        from: "sender@example.com",
+        to: "recipient@example.com",
+        subject: "Test Subject",
+        content: { text: "Test content" },
+        attachments: [{
+          inline: false,
+          filename: "report.pdf",
+          content: new Uint8Array([1, 2, 3]),
+          contentType: `application/pdf${value}X-Injected: header`,
+          contentId: "cid@example.com",
+        }],
+      };
+
+      assert.throws(
+        () => createMessage(constructor),
+        { name: "TypeError", message: /Invalid attachment content type/ },
+      );
+    });
+
+    it(`should reject ${label} in an attachment content ID`, () => {
+      const constructor: MessageConstructor = {
+        from: "sender@example.com",
+        to: "recipient@example.com",
+        subject: "Test Subject",
+        content: { text: "Test content" },
+        attachments: [{
+          inline: true,
+          filename: "logo.png",
+          content: new Uint8Array([1, 2, 3]),
+          contentType: "image/png",
+          contentId: `cid@example.com>${value}X-Injected: header`,
+        }],
+      };
+
+      assert.throws(
+        () => createMessage(constructor),
+        { name: "TypeError", message: /Invalid attachment content ID/ },
+      );
+    });
+  }
+
+  it("should accept addresses and attachments without CR or LF", () => {
+    const message = createMessage({
+      from: { name: "Sender", address: "sender@example.com" },
+      to: { address: "recipient@example.com" },
+      subject: "Test Subject",
+      content: { text: "Test content" },
+      attachments: [{
+        inline: false,
+        filename: "report.pdf",
+        content: new Uint8Array([1, 2, 3]),
+        contentType: "application/pdf",
+        contentId: "cid@example.com",
+      }],
+    });
+
+    assert.deepEqual(message.sender, {
+      name: "Sender",
+      address: "sender@example.com",
+    });
+    assert.equal(message.attachments.length, 1);
+    assert.equal(message.attachments[0].contentType, "application/pdf");
+  });
+
   it("should throw TypeError for invalid sender address", () => {
     const constructor: MessageConstructor = {
       from: "invalid-email",
