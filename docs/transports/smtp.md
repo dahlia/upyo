@@ -175,6 +175,24 @@ and the `~SmtpConfig.localName` identifies your server during
 the SMTP handshake.  Connection pooling improves performance by reusing
 connections across multiple messages.
 
+`~SmtpConfig.poolSize` caps how many connections one transport may have open at
+the same time.  The cap counts connections that are being established,
+connections that are currently sending, and idle connections kept for reuse, so
+it applies whether or not `~SmtpConfig.pool` is enabled.  Concurrent
+`~SmtpTransport.send()` and `~SmtpTransport.sendMany()` calls that arrive once
+the cap is reached wait for a connection to be handed back rather than opening
+another one, which is what lets you match `~SmtpConfig.poolSize` to the
+simultaneous-connection limit your provider enforces.  A waiting call still
+honours its `AbortSignal`, so cancelling it rejects without sending the message.
+Setting `~SmtpConfig.poolSize` to `Infinity` opts out of the limit entirely.
+
+> [!NOTE]
+> Because a `~SmtpTransport.sendMany()` call holds its connection until the
+> iteration ends, running more concurrent `~SmtpTransport.sendMany()` calls than
+> `~SmtpConfig.poolSize` makes the extra ones wait for an earlier iteration to
+> finish.  Raise `~SmtpConfig.poolSize`, or use separate transports, when you
+> need more bulk streams at once.
+
 
 Authentication methods
 ----------------------
@@ -615,7 +633,8 @@ for await (const receipt of transport.sendMany(messages)) {
 The `~SmtpTransport.sendMany()` method processes messages sequentially,
 providing individual receipts for each message.  Connection pooling ensures
 efficient resource usage, and failed messages don't prevent subsequent messages
-from being sent.
+from being sent.  The whole iteration runs on a single connection drawn from the
+same `~SmtpConfig.poolSize` budget as `~SmtpTransport.send()`.
 
 
 Development and testing

@@ -7,6 +7,9 @@ export class MockSmtpServer extends EventEmitter {
   private connections: Set<Socket> = new Set();
   private responses: Map<string, SmtpResponse> = new Map();
   private responseQueues: Map<string, SmtpResponse[]> = new Map();
+  private responseDelays: Map<string, number> = new Map();
+  private activeSessions: Set<Socket> = new Set();
+  private peakConcurrentConnections = 0;
   private receivedMessages: MockSmtpMessage[] = [];
   private receivedCommands: string[] = [];
   private timeouts: Set<number | NodeJS.Timeout> = new Set();
@@ -58,9 +61,14 @@ export class MockSmtpServer extends EventEmitter {
   private setupServerHandlers(): void {
     this.server.on("connection", (socket: Socket) => {
       this.connections.add(socket);
+      this.activeSessions.add(socket);
+      if (this.activeSessions.size > this.peakConcurrentConnections) {
+        this.peakConcurrentConnections = this.activeSessions.size;
+      }
 
       socket.on("close", () => {
         this.connections.delete(socket);
+        this.activeSessions.delete(socket);
       });
 
       socket.on("error", (error) => {
@@ -109,7 +117,11 @@ export class MockSmtpServer extends EventEmitter {
             this.receivedMessages.push(currentMessage as MockSmtpMessage);
 
             const response = this.responses.get("DATA_END")!;
-            socket.write(`${response.code} ${response.message}\r\n`);
+            this.writeResponse(
+              socket,
+              "DATA_END",
+              `${response.code} ${response.message}\r\n`,
+            );
 
             inDataMode = false;
             buffer = buffer.substring(buffer.indexOf("\r\n.\r\n") + 5);
@@ -235,7 +247,11 @@ export class MockSmtpServer extends EventEmitter {
             case "RSET":
               currentMessage = {};
               const rsetResponse = this.responses.get("RSET")!;
-              socket.write(`${rsetResponse.code} ${rsetResponse.message}\r\n`);
+              this.writeResponse(
+                socket,
+                "RSET",
+                `${rsetResponse.code} ${rsetResponse.message}\r\n`,
+              );
               break;
 
             case "STARTTLS": {
@@ -249,6 +265,9 @@ export class MockSmtpServer extends EventEmitter {
             }
 
             case "QUIT": {
+              // The session is over as soon as the client asks to end it, even
+              // though the socket lingers until both sides finish closing.
+              this.activeSessions.delete(socket);
               const quitResponse = this.responses.get("QUIT")!;
               socket.write(`${quitResponse.code} ${quitResponse.message}\r\n`);
               socket.end();
@@ -275,6 +294,25 @@ export class MockSmtpServer extends EventEmitter {
         }
       });
     });
+  }
+
+  /**
+   * Writes a reply, honouring any delay configured through
+   * {@link setResponseDelay} for the given command.  A delayed reply lets a
+   * test hold a client inside a single SMTP command long enough for other
+   * clients to run concurrently.
+   */
+  private writeResponse(socket: Socket, command: string, text: string): void {
+    const delay = this.responseDelays.get(command) ?? 0;
+    if (delay <= 0) {
+      socket.write(text);
+      return;
+    }
+    const timeout = setTimeout(() => {
+      this.timeouts.delete(timeout);
+      if (!socket.destroyed) socket.write(text);
+    }, delay);
+    this.timeouts.add(timeout);
   }
 
   private extractEmail(line: string): string {
@@ -336,6 +374,29 @@ export class MockSmtpServer extends EventEmitter {
 
   setResponses(command: string, responses: readonly SmtpResponse[]): void {
     this.responseQueues.set(command, [...responses]);
+  }
+
+  /**
+   * Delays the reply to the given command by `delayMs` milliseconds.
+   * Only `DATA_END` and `RSET` honour this today.
+   */
+  setResponseDelay(command: string, delayMs: number): void {
+    this.responseDelays.set(command, delayMs);
+  }
+
+  /** Returns the number of client sockets currently open. */
+  getActiveConnectionCount(): number {
+    return this.connections.size;
+  }
+
+  /**
+   * Returns the highest number of SMTP sessions that were live at the same
+   * time since the server started.  A session runs from the greeting until the
+   * client sends `QUIT` or the socket closes, so a socket still winding down
+   * after `QUIT` does not count against a client's connection limit.
+   */
+  getPeakConcurrentConnections(): number {
+    return this.peakConcurrentConnections;
   }
 
   getReceivedMessages(): MockSmtpMessage[] {
