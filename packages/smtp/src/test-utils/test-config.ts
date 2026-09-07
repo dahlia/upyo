@@ -177,8 +177,8 @@ export interface TestMessageOptions {
   priority?: Priority;
   tags?: string[];
   headers?: Headers;
-  messageId?: string;
-  date?: Date;
-  inReplyTo?: readonly string[];
-  references?: readonly string[];
+  readonly messageId?: string;
+  readonly date?: Date;
+  readonly inReplyTo?: readonly string[];
+  readonly references?: readonly string[];
 }
