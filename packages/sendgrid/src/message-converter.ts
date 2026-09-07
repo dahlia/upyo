@@ -1,5 +1,9 @@
 import type { Address, Attachment, Message } from "@upyo/core";
-import { combineSignals, readAttachmentContent } from "@upyo/core";
+import {
+  combineSignals,
+  readAttachmentContent,
+  resolveThreadingHeaders,
+} from "@upyo/core";
 import type { ResolvedSendGridConfig } from "./config.ts";
 
 /**
@@ -113,6 +117,7 @@ interface SendGridMail {
  * @param message - The Upyo message to convert
  * @param config - The resolved SendGrid configuration
  * @returns Promise that resolves to a SendGrid mail object
+ * @throws {TypeError} If the message carries an invalid message identifier.
  *
  * @example
  * ```typescript
@@ -207,11 +212,22 @@ export async function convertMessage(
 
   // Custom headers
   const customHeaders: Record<string, string> = {};
+  // Reply threading comes from the typed fields when the message defines them,
+  // and from a custom header otherwise.  A field the message owns but left
+  // empty writes nothing, which is how a caller drops an inherited header.
+  const threading = resolveThreadingHeaders(message);
+  const ownedHeaders = new Set(
+    [...threading.keys()].map((name) => name.toLowerCase()),
+  );
+
   for (const [key, value] of message.headers.entries()) {
     // Skip standard headers that are handled separately
-    if (!isStandardHeader(key)) {
+    if (!isStandardHeader(key) && !ownedHeaders.has(key.toLowerCase())) {
       customHeaders[key] = value;
     }
+  }
+  for (const [name, value] of threading) {
+    if (value != null) customHeaders[name] = value;
   }
 
   if (Object.keys(customHeaders).length > 0) {

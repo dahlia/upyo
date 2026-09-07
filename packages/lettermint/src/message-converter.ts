@@ -1,5 +1,9 @@
 import type { Address, Attachment, Message } from "@upyo/core";
-import { combineSignals, readAttachmentContent } from "@upyo/core";
+import {
+  combineSignals,
+  readAttachmentContent,
+  resolveThreadingHeaders,
+} from "@upyo/core";
 import type { ResolvedLettermintConfig } from "./config.ts";
 
 const STANDARD_HEADERS = new Set([
@@ -73,6 +77,7 @@ export interface LettermintEmail {
  * @param message The Upyo message to convert.
  * @param config The resolved Lettermint configuration.
  * @returns JSON object ready for Lettermint API submission.
+ * @throws {TypeError} If the message carries an invalid message identifier.
  * @throws {RangeError} If the message has more than one tag.
  * @since 0.5.0
  */
@@ -143,10 +148,21 @@ export async function convertMessage(
     headers["X-Priority"] = priorityMap[message.priority];
   }
 
+  // Reply threading comes from the typed fields when the message defines them,
+  // and from a custom header otherwise.  A field the message owns but left
+  // empty writes nothing, which is how a caller drops an inherited header.
+  const threading = resolveThreadingHeaders(message);
+  const ownedHeaders = new Set(
+    [...threading.keys()].map((name) => name.toLowerCase()),
+  );
+
   for (const [key, value] of message.headers.entries()) {
-    if (!isStandardHeader(key)) {
+    if (!isStandardHeader(key) && !ownedHeaders.has(key.toLowerCase())) {
       headers[key] = value;
     }
+  }
+  for (const [name, value] of threading) {
+    if (value != null) headers[name] = value;
   }
 
   if (Object.keys(headers).length > 0) {

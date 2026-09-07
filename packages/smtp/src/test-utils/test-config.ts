@@ -156,6 +156,10 @@ export function createTestMessage(
     priority: options.priority ?? "normal",
     tags: options.tags ?? [],
     headers: options.headers ?? new Headers(),
+    messageId: options.messageId,
+    date: options.date,
+    inReplyTo: options.inReplyTo,
+    references: options.references,
   };
 }
 
@@ -173,4 +177,8 @@ export interface TestMessageOptions {
   priority?: Priority;
   tags?: string[];
   headers?: Headers;
+  readonly messageId?: string;
+  readonly date?: Date;
+  readonly inReplyTo?: readonly string[];
+  readonly references?: readonly string[];
 }

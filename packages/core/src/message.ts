@@ -1,5 +1,6 @@
 import { type Address, parseAddress } from "./address.ts";
 import { type Attachment, isAttachment } from "./attachment.ts";
+import { parseMessageId } from "./message-id.ts";
 import type { Priority } from "./priority.ts";
 
 /**
@@ -105,6 +106,65 @@ export interface Message {
    * @since 0.4.0
    */
   readonly idempotencyKey?: string;
+
+  /**
+   * The RFC 5322 message identifier of the message, without the enclosing
+   * angle brackets.
+   *
+   * Set this when the identity of the message matters to the application, so
+   * that it can be stored and a reply arriving with a matching `In-Reply-To`
+   * correlated back to the conversation.  The value stays the same across
+   * delivery retries.  When it is left unset, a transport that composes the
+   * message itself generates one.
+   *
+   * Not every transport carries this.  A provider that composes the message on
+   * its own side may assign or rewrite the identifier regardless of what is
+   * given here; see the transport's documentation.  This is also unrelated to
+   * {@link Receipt.messageId}, which is the delivery handle the transport or
+   * the provider reports back.
+   *
+   * @since 0.6.0
+   */
+  readonly messageId?: string;
+
+  /**
+   * The origination date of the message: when its author considers it to have
+   * been sent, which is not necessarily when a transport delivers it.
+   *
+   * When it is left unset, a transport that composes the message itself uses
+   * the time of conversion, so a retry carries a later date than the first
+   * attempt.  Set it to keep the date stable.
+   *
+   * @since 0.6.0
+   */
+  readonly date?: Date;
+
+  /**
+   * The identifiers of the messages this one directly replies to, without the
+   * enclosing angle brackets.
+   *
+   * An empty array means the message deliberately replies to nothing, which
+   * suppresses an `In-Reply-To` header supplied through {@link headers};
+   * leaving the field unset lets that header through.
+   *
+   * @since 0.6.0
+   */
+  readonly inReplyTo?: readonly string[];
+
+  /**
+   * The identifiers of the conversation this message belongs to, oldest first
+   * and without the enclosing angle brackets.
+   *
+   * A reply usually carries the parent's references followed by the parent's
+   * own identifier, which is how a mail client reconstructs a thread.
+   *
+   * An empty array means the message deliberately belongs to no conversation,
+   * which suppresses a `References` header supplied through {@link headers};
+   * leaving the field unset lets that header through.
+   *
+   * @since 0.6.0
+   */
+  readonly references?: readonly string[];
 }
 
 /**
@@ -245,6 +305,40 @@ export interface MessageConstructor {
    * @since 0.4.0
    */
   readonly idempotencyKey?: string;
+
+  /**
+   * The RFC 5322 message identifier of the message.  The enclosing angle
+   * brackets are optional and stripped, so both `abc@example.com` and
+   * `<abc@example.com>` are accepted.
+   *
+   * Use {@link generateMessageId} to mint one before sending, so that it can
+   * be stored alongside whatever the message is about.
+   *
+   * @since 0.6.0
+   */
+  readonly messageId?: string;
+
+  /**
+   * The origination date of the message.
+   * @since 0.6.0
+   */
+  readonly date?: Date;
+
+  /**
+   * The identifier, or identifiers, of the messages this one directly replies
+   * to.  A single string is one identifier, never a list.  An empty array
+   * suppresses an `In-Reply-To` header supplied through {@link headers}.
+   * @since 0.6.0
+   */
+  readonly inReplyTo?: string | readonly string[];
+
+  /**
+   * The identifiers of the conversation this message belongs to, oldest first.
+   * A single string is one identifier, never a list.  An empty array
+   * suppresses a `References` header supplied through {@link headers}.
+   * @since 0.6.0
+   */
+  readonly references?: string | readonly string[];
 }
 
 /**
@@ -269,8 +363,9 @@ export interface MessageConstructor {
  *          validated.
  * @throws {TypeError} When any email address string cannot be parsed, when an
  *                     address or attachment carries a carriage return or line
- *                     feed that could forge header fields, or when an
- *                     attachment object is invalid.
+ *                     feed that could forge header fields, when an attachment
+ *                     object is invalid, when a message identifier is not
+ *                     valid, or when the date is not one RFC 5322 can express.
  */
 export function createMessage(constructor: MessageConstructor): Message {
   const sender = checkAddress("sender", constructor.from);
@@ -313,6 +408,12 @@ export function createMessage(constructor: MessageConstructor): Message {
     tags: ensureArray(constructor.tags),
     headers: new Headers(constructor.headers ?? {}),
     idempotencyKey: constructor.idempotencyKey,
+    messageId: constructor.messageId == null
+      ? undefined
+      : checkMessageId("", constructor.messageId),
+    date: checkDate(constructor.date),
+    inReplyTo: checkMessageIds("in-reply-to ", constructor.inReplyTo),
+    references: checkMessageIds("references ", constructor.references),
   };
 }
 
@@ -376,6 +477,62 @@ function checkAttachment(attachment: Attachment): Attachment {
     );
   }
   return attachment;
+}
+
+/**
+ * Normalizes a message identifier, rejecting one that is not valid.
+ *
+ * A transport writes the identifier into a structured header field as given,
+ * without the RFC 2047 encoding that neutralizes a carriage return or line feed
+ * in a free-form value, so an invalid one has to be refused rather than
+ * repaired.
+ *
+ * @param label How the identifier is described in the error message.
+ * @param id The identifier, with or without the enclosing angle brackets.
+ * @returns The identifier in its bare form.
+ * @throws {TypeError} If the value is not a valid message identifier.
+ */
+function checkMessageId(label: string, id: string): string {
+  return parseMessageId(id) ??
+    throwTypeError(`Invalid ${label}message ID: ${JSON.stringify(id)}`);
+}
+
+/**
+ * Normalizes a list of message identifiers, preserving the difference between
+ * an absent list and an empty one: the first defers to a header supplied
+ * through {@link MessageConstructor.headers}, while the second suppresses it.
+ *
+ * @param label How the identifiers are described in the error message.
+ * @param ids One identifier, several, or none.
+ * @returns The identifiers in their bare form, or `undefined` if none were
+ *          given.
+ * @throws {TypeError} If any value is not a valid message identifier.
+ */
+function checkMessageIds(
+  label: string,
+  ids: string | readonly string[] | undefined,
+): readonly string[] | undefined {
+  if (ids == null) return undefined;
+  return (typeof ids === "string" ? [ids] : ids)
+    .map((id) => checkMessageId(label, id));
+}
+
+/**
+ * Checks an origination date and copies it, so that a later mutation of the
+ * caller's `Date` cannot change what a retry sends.
+ *
+ * @param date The date to check, if any.
+ * @returns A copy of the date, or `undefined` if none was given.
+ * @throws {TypeError} If the date is invalid, or earlier than RFC 5322 §3.3
+ * can express.
+ */
+function checkDate(date: Date | undefined): Date | undefined {
+  if (date == null) return undefined;
+  const time = date instanceof Date ? date.getTime() : Number.NaN;
+  if (Number.isNaN(time) || date.getUTCFullYear() < 1900) {
+    throwTypeError(`Invalid date: ${JSON.stringify(date)}`);
+  }
+  return new Date(time);
 }
 
 function ensureArray<T>(

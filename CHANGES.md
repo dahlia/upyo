@@ -12,6 +12,22 @@ To be released.
     `readAttachmentContent()` and `iterateAttachmentContent()` helpers.
     `createMessage()` now retains `File` content without reading it; use the
     helpers instead of awaiting `attachment.content` directly.  [[#56], [#59]]
+ -  Added `messageId`, `date`, `inReplyTo`, and `references` fields to `Message`
+    and `createMessage()`, so that an application can choose the outgoing
+    message identifier, store it, and correlate a reply that arrives with a
+    matching `In-Reply-To`.  The identifiers are held without their enclosing
+    angle brackets, which `createMessage()` strips when they are supplied, and
+    an invalid one is rejected with a `TypeError`.  For `inReplyTo` and
+    `references`, leaving the field unset defers to an `In-Reply-To` or
+    `References` header supplied through `headers`, while an empty array
+    suppresses it.
+    [[#58], [#61]]
+ -  Added the `@upyo/core/message-id` module, with `generateMessageId()`,
+    `parseMessageId()`, `formatMessageId()`, and `resolveThreadingHeaders()`.
+    [[#58], [#61]]
+ -  Clarified that `Receipt.messageId` is the delivery handle a transport or a
+    provider reports back, which is not the RFC 5322 `Message-ID` the message
+    carries.  [[#58], [#61]]
  -  Added support for internationalized mailbox addresses, including UTF-8
     local parts and Unicode domains, to `parseAddress()` and `createMessage()`.
     [[#45], [#50]]
@@ -19,19 +35,39 @@ To be released.
 [#45]: https://github.com/dahlia/upyo/issues/45
 [#50]: https://github.com/dahlia/upyo/pull/50
 [#56]: https://github.com/dahlia/upyo/issues/56
+[#58]: https://github.com/dahlia/upyo/issues/58
 [#59]: https://github.com/dahlia/upyo/pull/59
+[#61]: https://github.com/dahlia/upyo/pull/61
 
 ### @upyo/jmap
 
  -  Added support for `Blob` and replayable async attachment factories,
     including cancellation while reading their content.  Provider payloads
     remain buffered in memory.  [[#56], [#59]]
+ -  Added support for the `messageId`, `date`, `inReplyTo`, and `references`
+    fields of `Message`, which map onto the `messageId`, `sentAt`, `inReplyTo`,
+    and `references` properties of the JMAP `Email` object.  A raw header of the
+    same name is dropped when the corresponding field is set, since RFC 8621
+    §4.6 forbids two properties representing one header field.  [[#58], [#61]]
+ -  Fixed `Email/set` creating an email with the `headers` property, which
+    RFC 8621 §4.6 forbids on create; each header field is now written as an
+    individual `header:` property.  Custom headers that duplicate a structured
+    property, including `Bcc` and any `Content-*` field, are no longer sent, and
+    a header value containing a carriage return or line feed is rejected.
+    *Breaking*: `JmapEmailCreate` no longer has a `headers` property.
+    [[#58], [#61]]
 
 ### @upyo/lettermint
 
  -  Added support for `Blob` and replayable async attachment factories,
     including cancellation while reading their content.  Provider payloads
     remain buffered in memory.  [[#56], [#59]]
+ -  Added support for the `inReplyTo` and `references` fields of `Message`,
+    which are sent as custom headers.  A field left unset defers to an
+    `In-Reply-To` or `References` header supplied through `headers`, and an
+    empty array suppresses it.
+    `messageId` and `date` are not sent, because the provider does not document
+    whether a supplied value survives.  [[#58], [#61]]
 
 ### @upyo/logtape
 
@@ -67,6 +103,13 @@ To be released.
     including cancellation while reading their content.  Provider payloads
     remain buffered in memory.  [[#56], [#59]]
 
+ -  Added support for the `inReplyTo` and `references` fields of `Message`,
+    which are sent as custom headers.  A field left unset defers to an
+    `In-Reply-To` or `References` header supplied through `headers`, and an
+    empty array suppresses it.
+    `messageId` and `date` are not sent, because the provider does not document
+    whether a supplied value survives.  [[#58], [#61]]
+
 [Maileroo]: https://maileroo.com/
 [#30]: https://github.com/dahlia/upyo/issues/30
 [#31]: https://github.com/dahlia/upyo/pull/31
@@ -76,6 +119,12 @@ To be released.
  -  Added support for `Blob` and replayable async attachment factories,
     including cancellation while reading their content.  Provider payloads
     remain buffered in memory.  [[#56], [#59]]
+ -  Added support for the `inReplyTo` and `references` fields of `Message`,
+    which are sent as custom headers.  A field left unset defers to an
+    `In-Reply-To` or `References` header supplied through `headers`, and an
+    empty array suppresses it.
+    `messageId` and `date` are not sent, because the provider does not document
+    whether a supplied value survives.  [[#58], [#61]]
 
 ### @upyo/mailtrap
 
@@ -95,6 +144,13 @@ To be released.
     including cancellation while reading their content.  Provider payloads
     remain buffered in memory.  [[#56], [#59]]
 
+ -  Added support for the `inReplyTo` and `references` fields of `Message`,
+    which are sent as custom headers.  A field left unset defers to an
+    `In-Reply-To` or `References` header supplied through `headers`, and an
+    empty array suppresses it.
+    `messageId` and `date` are not sent, because the provider does not document
+    whether a supplied value survives.  [[#58], [#61]]
+
 [Mailtrap]: https://mailtrap.io/
 [#32]: https://github.com/dahlia/upyo/pull/32
 
@@ -103,12 +159,24 @@ To be released.
  -  Added support for `Blob` and replayable async attachment factories.
     Attachment reads remain buffered, and failed reads still omit the
     attachment; caller cancellation now aborts the send instead.  [[#56], [#59]]
+ -  Added support for the `inReplyTo` and `references` fields of `Message`,
+    which are sent as custom headers.  A field left unset defers to an
+    `In-Reply-To` or `References` header supplied through `headers`, and an
+    empty array suppresses it.
+    `messageId` and `date` are not sent, because the provider does not document
+    whether a supplied value survives.  [[#58], [#61]]
 
 ### @upyo/resend
 
  -  Added support for `Blob` and replayable async attachment factories,
     including cancellation while reading their content.  Provider payloads
     remain buffered in memory.  [[#56], [#59]]
+ -  Added support for the `inReplyTo` and `references` fields of `Message`,
+    which are sent as custom headers.  A field left unset defers to an
+    `In-Reply-To` or `References` header supplied through `headers`, and an
+    empty array suppresses it.
+    `messageId` and `date` are not sent, because the provider does not document
+    whether a supplied value survives.  [[#58], [#61]]
  -  Fixed incorrect Base64 padding that corrupted attachment contents.  [[#59]]
 
 ### @upyo/sendgrid
@@ -116,6 +184,12 @@ To be released.
  -  Added support for `Blob` and replayable async attachment factories,
     including cancellation while reading their content.  Provider payloads
     remain buffered in memory.  [[#56], [#59]]
+ -  Added support for the `inReplyTo` and `references` fields of `Message`,
+    which are sent as custom headers.  A field left unset defers to an
+    `In-Reply-To` or `References` header supplied through `headers`, and an
+    empty array suppresses it.
+    `messageId` and `date` are not sent, because the provider does not document
+    whether a supplied value survives.  [[#58], [#61]]
 
 ### @upyo/ses
 
@@ -142,6 +216,24 @@ To be released.
     RFC 2034 reply prefixes expose their class, subject, and detail while
     preserving the server's original text; address, content, and network
     statuses also receive more specific error categories.  [[#46], [#51]]
+ -  Added support for the `messageId`, `date`, `inReplyTo`, and `references`
+    fields of `Message`.  Each takes precedence over the matching `Message-ID`,
+    `Date`, `In-Reply-To`, or `References` header, which still applies when the
+    field is left unset.  [[#58], [#61]]
+ -  Changed the generated `Message-ID` to use the sender's domain instead of the
+    fixed `upyo.local`, which RFC 6762 reserves for multicast DNS.
+    [[#58], [#61]]
+ -  Fixed the `Date` header ending in the obsolete `GMT` zone rather than the
+    numeric `+0000` RFC 5322 §3.3 asks for.  [[#58], [#61]]
+ -  Fixed SMTPUTF8 not being negotiated for a non-ASCII value in a header field
+    written verbatim, such as a `Message-ID` supplied as a custom header.
+    [[#58], [#61]]
+ -  Changed `In-Reply-To` and `References` supplied as custom headers to be
+    written verbatim rather than RFC 2047 encoded, since both carry structured
+    values that the encoding made invalid.  A non-ASCII value in one therefore
+    now requires a server that advertises SMTPUTF8, and a value containing a
+    carriage return or line feed is rejected instead of being neutralized by
+    the encoding.  [[#58], [#61]]
  -  Added the `requireTls` configuration option.  When enabled for a plaintext
     connection, the transport issues `STARTTLS` even if the server does not
     advertise it and fails delivery unless the TLS upgrade succeeds.  The

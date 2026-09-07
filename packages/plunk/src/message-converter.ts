@@ -1,5 +1,5 @@
 import type { Attachment, Message } from "@upyo/core";
-import { readAttachmentContent } from "@upyo/core";
+import { readAttachmentContent, resolveThreadingHeaders } from "@upyo/core";
 import type { ResolvedPlunkConfig } from "./config.ts";
 
 /**
@@ -35,6 +35,7 @@ interface PlunkEmail {
  * @param message - The Upyo message to convert
  * @param config - Resolved Plunk configuration
  * @returns Promise that resolves to Plunk-formatted email data
+ * @throws {TypeError} If the message carries an invalid message identifier.
  */
 export async function convertMessage(
   message: Message,
@@ -64,6 +65,14 @@ export async function convertMessage(
     body = "";
   }
 
+  // Reply threading comes from the typed fields when the message defines them,
+  // and from a custom header otherwise.  A field the message owns but left
+  // empty writes nothing, which is how a caller drops an inherited header.
+  const threading = resolveThreadingHeaders(message);
+  const ownedHeaders = new Set(
+    [...threading.keys()].map((name) => name.toLowerCase()),
+  );
+
   // Convert headers - merge custom headers but exclude standard ones
   const customHeaders: Record<string, string> = {};
   if (message.headers) {
@@ -73,11 +82,14 @@ export async function convertMessage(
       if (
         !["to", "from", "reply-to", "subject", "content-type"].includes(
           lowerKey,
-        )
+        ) && !ownedHeaders.has(lowerKey)
       ) {
         customHeaders[lowerKey] = value;
       }
     }
+  }
+  for (const [name, value] of threading) {
+    if (value != null) customHeaders[name] = value;
   }
 
   // Convert attachments (limit to 5 as per Plunk documentation)

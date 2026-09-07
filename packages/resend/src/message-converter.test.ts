@@ -408,3 +408,74 @@ describe("Message Converter", () => {
     });
   });
 });
+
+const threadingConfig = createResendConfig({ apiKey: "test-key" });
+
+const headerOf = (headers: Record<string, string>, name: string) =>
+  Object.entries(headers)
+    .filter(([key]) => key.toLowerCase() === name.toLowerCase())
+    .map(([, value]) => value);
+
+describe("convertMessage() reply threading", () => {
+  const base = {
+    from: "sender@example.com",
+    to: "recipient@example.com",
+    subject: "Re: Your request",
+    content: { text: "Thanks for getting in touch." },
+  } as const;
+
+  it("writes the typed threading fields", async () => {
+    const message = createMessage({
+      ...base,
+      inReplyTo: "122@example.com",
+      references: ["120@example.com", "121@example.com"],
+    });
+    const result = (await convertMessage(message, threadingConfig)).headers ??
+      {};
+
+    assert.deepEqual(headerOf(result, "In-Reply-To"), ["<122@example.com>"]);
+    assert.deepEqual(headerOf(result, "References"), [
+      "<120@example.com> <121@example.com>",
+    ]);
+  });
+
+  it("prefers a typed field over a custom header", async () => {
+    const message = createMessage({
+      ...base,
+      inReplyTo: ["typed@example.com"],
+      headers: { "In-Reply-To": "<custom@example.com>" },
+    });
+    const result = (await convertMessage(message, threadingConfig)).headers ??
+      {};
+
+    assert.deepEqual(headerOf(result, "In-Reply-To"), ["<typed@example.com>"]);
+  });
+
+  it("lets an empty list suppress a custom header", async () => {
+    const message = createMessage({
+      ...base,
+      inReplyTo: [],
+      references: [],
+      headers: {
+        "In-Reply-To": "<custom@example.com>",
+        "References": "<custom@example.com>",
+      },
+    });
+    const result = (await convertMessage(message, threadingConfig)).headers ??
+      {};
+
+    assert.deepEqual(headerOf(result, "In-Reply-To"), []);
+    assert.deepEqual(headerOf(result, "References"), []);
+  });
+
+  it("lets a custom header through when the field is unset", async () => {
+    const message = createMessage({
+      ...base,
+      headers: { "In-Reply-To": "<custom@example.com>" },
+    });
+    const result = (await convertMessage(message, threadingConfig)).headers ??
+      {};
+
+    assert.deepEqual(headerOf(result, "In-Reply-To"), ["<custom@example.com>"]);
+  });
+});

@@ -4,6 +4,11 @@ import {
   type Message,
   readAttachmentContent,
 } from "@upyo/core";
+import {
+  formatMessageId,
+  generateMessageId,
+  resolveThreadingHeaders,
+} from "@upyo/core/message-id";
 import { Buffer } from "node:buffer";
 import type { ResolvedSmtpDsn } from "./delivery-status.ts";
 import { type DkimConfig, signMessage } from "./dkim/index.ts";
@@ -34,8 +39,9 @@ export interface SmtpEnvelope {
  * @returns The converted SMTP message.
  * @throws {RangeError} If a header contains a token that cannot be folded
  * within the RFC 5322 hard line-length limit.
- * @throws {TypeError} If a `Date` or `Message-ID` header supplied by the
- * message contains a carriage return or line feed.
+ * @throws {TypeError} If the message carries an invalid message identifier or
+ * date, or a `Date` or `Message-ID` header containing a carriage return or line
+ * feed.
  */
 export async function convertMessage(
   message: Message,
@@ -93,8 +99,9 @@ export interface PreparedSmtpMessage {
  * @param resolvedEnvelope Validated effective SMTP envelope.
  * @returns A deterministic MIME plan for one send attempt.
  * @throws {RangeError} If a header cannot fit the RFC 5322 line limit.
- * @throws {TypeError} If a `Date` or `Message-ID` header supplied by the
- * message contains a carriage return or line feed.
+ * @throws {TypeError} If the message carries an invalid message identifier or
+ * date, or a `Date` or `Message-ID` header containing a carriage return or line
+ * feed.
  */
 export function prepareMessage(
   message: Message,
@@ -106,22 +113,10 @@ export function prepareMessage(
     ...resolvedEnvelope,
     dsn,
   };
-  const headerAddresses = [
-    message.sender.address,
-    ...message.recipients.map((address) => address.address),
-    ...message.ccRecipients.map((address) => address.address),
-    ...message.replyRecipients.map((address) => address.address),
-  ];
   const envelopeAddresses = [
     ...(envelope.from == null ? [] : [envelope.from]),
     ...envelope.to,
   ];
-  const requiresSmtpUtf8 = [...headerAddresses, ...envelopeAddresses].some(
-    (address) =>
-      Array.from(address).some((character) =>
-        (character.codePointAt(0) ?? 0) > 0x7f
-      ),
-  );
 
   const parts = buildMimeParts(message);
   const first = parts[0];
@@ -129,6 +124,15 @@ export function prepareMessage(
   const separator = first.indexOf("\r\n\r\n") + 4;
   const headers = first.slice(0, separator);
   parts[0] = first.slice(separator);
+
+  // The header block is read rather than the message fields it came from.  A
+  // field written verbatim, such as an address, an identifier, a date, or a
+  // structured header the message supplied, carries its own characters through,
+  // whereas a display name or a filename has already been encoded to ASCII by
+  // the time it lands here.  The body is excluded: it travels as
+  // quoted-printable or Base64, and the MIME part headers are not in this
+  // slice.
+  const requiresSmtpUtf8 = [headers, ...envelopeAddresses].some(hasNonAscii);
   return {
     envelope,
     requiresSmtpUtf8,
@@ -210,22 +214,25 @@ function buildMimeParts(message: Message): MimePart[] {
 
   lines.push(foldHeader("Subject", encodeHeaderValue(message.subject, true)));
 
-  // Date and Message-ID have no structured counterpart on Message, so a custom
-  // header replaces the generated default instead of adding a second field.
-  // Both carry structured values, so they are never RFC 2047 encoded.
-  lines.push(
-    foldHeader("Date", overridden(message, "Date") ?? new Date().toUTCString()),
-  );
-  lines.push(
-    foldHeader(
-      "Message-ID",
-      overridden(message, "Message-ID") ?? `<${generateMessageId()}>`,
-    ),
-  );
+  // The identity and threading fields all carry structured values, so they are
+  // written verbatim rather than RFC 2047 encoded.
+  lines.push(foldHeader("Date", resolveDate(message)));
+  lines.push(foldHeader("Message-ID", resolveMessageId(message)));
+  const threading = resolveThreadingHeaders(message);
+  for (const name of ["In-Reply-To", "References"]) {
+    // A field the message does not own falls back to a custom header, one it
+    // owns but left empty writes nothing at all.
+    const owned = threading.get(name);
+    const value = owned === undefined ? overridden(message, name) : owned;
+    if (value != null) lines.push(foldHeader(name, value));
+  }
 
   // Names already written above, plus Cc and Reply-To even when the message
   // carries no such recipients: a custom header there would list addresses the
-  // envelope never receives.
+  // envelope never receives.  The identity and threading names are here
+  // unconditionally too, even when nothing was written: each of them has had
+  // its one chance to be emitted above, from the typed field or from the very
+  // custom header this loop would otherwise write again.
   const composed = new Set([
     "from",
     "to",
@@ -234,6 +241,8 @@ function buildMimeParts(message: Message): MimePart[] {
     "subject",
     "date",
     "message-id",
+    "in-reply-to",
+    "references",
   ]);
 
   // Priority header
@@ -413,14 +422,137 @@ const reservedHeaders: ReadonlySet<string> = new Set([
   "mime-version",
 ]);
 
+/**
+ * Tells whether a value contains a character outside ASCII, which a message
+ * can only carry with the SMTPUTF8 extension (RFC 6531).
+ *
+ * @param value The value to check.
+ * @returns Whether the value contains a character outside ASCII.
+ */
+function hasNonAscii(value: string): boolean {
+  for (const character of value) {
+    if ((character.codePointAt(0) ?? 0) > 0x7f) return true;
+  }
+  return false;
+}
+
 function generateBoundary(): string {
   return `boundary-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 }
 
-function generateMessageId(): string {
-  const timestamp = Date.now();
-  const random = Math.random().toString(36).substr(2, 9);
-  return `${timestamp}.${random}@upyo.local`;
+/**
+ * Resolves the origination date: the typed field, then a custom header, then
+ * the time of conversion.
+ *
+ * @param message The message being composed.
+ * @returns The `Date` field value.
+ * @throws {TypeError} If the message carries an invalid date, or a custom
+ * `Date` header containing a carriage return or line feed.
+ */
+function resolveDate(message: Message): string {
+  return message.date === undefined
+    ? overridden(message, "Date") ?? formatDate(new Date())
+    : formatDate(message.date);
+}
+
+/**
+ * Resolves the message identifier: the typed field, then a custom header, then
+ * one generated within the sender's domain.
+ *
+ * @param message The message being composed.
+ * @returns The `Message-ID` field value, enclosed in angle brackets.
+ * @throws {TypeError} If the message carries an invalid identifier, or a custom
+ * `Message-ID` header containing a carriage return or line feed.
+ */
+function resolveMessageId(message: Message): string {
+  if (message.messageId !== undefined) {
+    return formatMessageId(message.messageId);
+  }
+  const custom = overridden(message, "Message-ID");
+  if (custom != null) return custom;
+  return formatMessageId(generateSenderMessageId(message.sender.address));
+}
+
+/**
+ * Generates an identifier rooted in the sender's domain.
+ *
+ * `parseAddress()` validates a domain with `URL`, which accepts spellings the
+ * identifier grammar does not, such as the trailing dot of a fully qualified
+ * name or a host carrying a port.  A sender written that way used to be
+ * delivered, so an unusable domain falls back to `localhost` rather than
+ * failing the send.  Uniqueness holds either way: the left half is a UUID.
+ *
+ * @param address The sender's address.
+ * @returns A bare message identifier.
+ */
+function generateSenderMessageId(address: string): string {
+  const domain = domainOf(address).replace(/\.$/, "");
+  try {
+    return generateMessageId(domain);
+  } catch {
+    return generateMessageId("localhost");
+  }
+}
+
+/**
+ * Extracts the domain of an address.
+ *
+ * The separator is the first at sign outside a quoted local part, since a
+ * quoted one may contain at signs of its own, as in `"a@b"@example.com`.
+ *
+ * @param address The address to read.
+ * @returns The domain, or the whole address when it carries no separator.
+ */
+function domainOf(address: string): string {
+  let quoted = false;
+  for (let index = 0; index < address.length; index++) {
+    const character = address[index];
+    if (quoted && character === "\\") index++;
+    else if (character === '"') quoted = !quoted;
+    else if (!quoted && character === "@") return address.slice(index + 1);
+  }
+  return address;
+}
+
+const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+
+const monthNames = [
+  "Jan",
+  "Feb",
+  "Mar",
+  "Apr",
+  "May",
+  "Jun",
+  "Jul",
+  "Aug",
+  "Sep",
+  "Oct",
+  "Nov",
+  "Dec",
+];
+
+/**
+ * Formats a date as an RFC 5322 §3.3 `date-time` in UTC.
+ *
+ * `Date.toUTCString()` is close but ends in the obsolete `GMT` zone rather than
+ * the numeric `+0000` the current grammar asks for.
+ *
+ * @param date The date to format.
+ * @returns The formatted date.
+ * @throws {TypeError} If the date is invalid, or earlier than the grammar can
+ * express.
+ */
+function formatDate(date: Date): string {
+  const time = date instanceof Date ? date.getTime() : Number.NaN;
+  const year = Number.isNaN(time) ? Number.NaN : date.getUTCFullYear();
+  if (Number.isNaN(time) || year < 1900) {
+    throw new TypeError(`Invalid date: ${JSON.stringify(date)}`);
+  }
+  const pad = (value: number) => value.toString().padStart(2, "0");
+  return `${dayNames[date.getUTCDay()]}, ${pad(date.getUTCDate())} ` +
+    `${monthNames[date.getUTCMonth()]} ${year.toString().padStart(4, "0")} ` +
+    `${pad(date.getUTCHours())}:${pad(date.getUTCMinutes())}:` +
+    `${pad(date.getUTCSeconds())} +0000`;
 }
 
 function encodeAddress(address: Address): string {

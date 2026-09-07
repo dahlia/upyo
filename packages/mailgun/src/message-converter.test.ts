@@ -1,3 +1,4 @@
+import { createMessage } from "@upyo/core";
 import type { Message } from "@upyo/core";
 import { MailgunTransport } from "@upyo/mailgun";
 import assert from "node:assert/strict";
@@ -270,5 +271,74 @@ describe("convertMessage", () => {
     const hasInline = attachmentEntries.some(([key]) => key === "inline");
     assert.ok(hasAttachment, "Should have regular attachment");
     assert.ok(hasInline, "Should have inline attachment");
+  });
+});
+
+const threadingConfig =
+  new MailgunTransport({ apiKey: "test-key", domain: "test-domain.com" })
+    .config;
+
+const headerOf = (form: FormData, name: string) =>
+  [...form.entries()]
+    .filter(([key]) => key.toLowerCase() === `h:${name.toLowerCase()}`)
+    .map(([, value]) => String(value));
+
+describe("convertMessage() reply threading", () => {
+  const base = {
+    from: "sender@example.com",
+    to: "recipient@example.com",
+    subject: "Re: Your request",
+    content: { text: "Thanks for getting in touch." },
+  } as const;
+
+  it("writes the typed threading fields", async () => {
+    const message = createMessage({
+      ...base,
+      inReplyTo: "122@example.com",
+      references: ["120@example.com", "121@example.com"],
+    });
+    const result = await convertMessage(message, threadingConfig);
+
+    assert.deepEqual(headerOf(result, "In-Reply-To"), ["<122@example.com>"]);
+    assert.deepEqual(headerOf(result, "References"), [
+      "<120@example.com> <121@example.com>",
+    ]);
+  });
+
+  it("prefers a typed field over a custom header", async () => {
+    const message = createMessage({
+      ...base,
+      inReplyTo: ["typed@example.com"],
+      headers: { "In-Reply-To": "<custom@example.com>" },
+    });
+    const result = await convertMessage(message, threadingConfig);
+
+    assert.deepEqual(headerOf(result, "In-Reply-To"), ["<typed@example.com>"]);
+  });
+
+  it("lets an empty list suppress a custom header", async () => {
+    const message = createMessage({
+      ...base,
+      inReplyTo: [],
+      references: [],
+      headers: {
+        "In-Reply-To": "<custom@example.com>",
+        "References": "<custom@example.com>",
+      },
+    });
+    const result = await convertMessage(message, threadingConfig);
+
+    assert.deepEqual(headerOf(result, "In-Reply-To"), []);
+    assert.deepEqual(headerOf(result, "References"), []);
+  });
+
+  it("lets a custom header through when the field is unset", async () => {
+    const message = createMessage({
+      ...base,
+      headers: { "In-Reply-To": "<custom@example.com>" },
+    });
+    const result = await convertMessage(message, threadingConfig);
+
+    assert.deepEqual(headerOf(result, "In-Reply-To"), ["<custom@example.com>"]);
   });
 });

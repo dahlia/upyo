@@ -1,4 +1,4 @@
-import type { Receipt } from "@upyo/core";
+import { createMessage, type Receipt } from "@upyo/core";
 import { MockTransport } from "@upyo/mock";
 import assert from "node:assert/strict";
 import { describe, test } from "node:test";
@@ -295,5 +295,33 @@ describe("MockTransport", () => {
 
     assert.equal(transport.getSentMessagesCount(), 0);
     assert.equal(transport.getLastSentMessage(), undefined);
+  });
+});
+
+describe("MockTransport identity inspection", () => {
+  test("should expose the identity and threading fields of a sent message", async () => {
+    const transport = new MockTransport();
+    const message = createMessage({
+      from: "support@example.com",
+      to: "customer@example.net",
+      subject: "Re: Your request",
+      content: { text: "Thanks for getting in touch." },
+      messageId: "<ticket-4821@example.com>",
+      date: new Date("2026-09-01T10:00:00Z"),
+      inReplyTo: "<122@example.com>",
+      references: ["<120@example.com>", "<121@example.com>"],
+    });
+
+    await transport.send(message);
+    const sent = transport.getLastSentMessage();
+
+    assert.ok(sent != null);
+    assert.equal(sent.messageId, "ticket-4821@example.com");
+    assert.equal(sent.date?.toISOString(), "2026-09-01T10:00:00.000Z");
+    assert.deepEqual(sent.inReplyTo, ["122@example.com"]);
+    assert.deepEqual(sent.references, [
+      "120@example.com",
+      "121@example.com",
+    ]);
   });
 });
