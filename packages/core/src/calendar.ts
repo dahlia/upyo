@@ -323,13 +323,35 @@ function readMethod(content: string): CalendarMethod | undefined {
 }
 
 /**
+ * Upper-cases the ASCII letters of a token, leaving everything else alone.
+ *
+ * RFC 5545 tokens are ASCII, and the case-insensitivity this folding implements
+ * is only ever applied to them.  `String.prototype.toUpperCase` would apply the
+ * full Unicode mapping instead, under which `\u017F` becomes `S` and `\u0131`
+ * becomes `I`, so `METHOD:reque\u017Ft` would read as `REQUEST`.  The payload
+ * would still carry the character no calendar client accepts, and the
+ * `Content-Type` would name a method the object does not declare, which is the
+ * exact disagreement this module exists to prevent.
+ *
+ * @param token The token to fold.
+ * @returns The token with its ASCII letters upper-cased.
+ */
+function asciiUpperCase(token: string): string {
+  return token.replace(
+    /[a-z]/g,
+    (letter) => String.fromCharCode(letter.charCodeAt(0) - 32),
+  );
+}
+
+/**
  * Splits a content line into its property name and value.
  *
  * The value begins after the first colon that is not inside a quoted parameter
  * value, so `METHOD;X-FOO="a:b":REQUEST` yields `REQUEST` rather than `b"`.
  * iCalendar parameter syntax has no backslash escaping, so none is recognized.
  * Both halves are upper-cased: RFC 5545 property names are case-insensitive,
- * and every value compared here is a token.
+ * and every value compared here is a token.  The folding is ASCII-only; see
+ * {@link asciiUpperCase}.
  *
  * @param line One unfolded content line.
  * @returns The upper-cased name and value.
@@ -344,8 +366,8 @@ function splitProperty(line: string): { name: string; value: string } {
     else if (character === ":" && !quoted) {
       const name = line.slice(0, i).split(";", 1)[0];
       return {
-        name: name.toUpperCase(),
-        value: line.slice(i + 1).toUpperCase(),
+        name: asciiUpperCase(name),
+        value: asciiUpperCase(line.slice(i + 1)),
       };
     }
   }

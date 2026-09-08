@@ -59,6 +59,11 @@ describe("parseCalendarMethod()", () => {
     assert.equal(parseCalendarMethod(content), "REQUEST");
   });
 
+  it("should still fold ASCII component names case-insensitively", () => {
+    const content = ics("begin:vcalendar", "METHOD:REQUEST", "end:vcalendar");
+    assert.equal(parseCalendarMethod(content), "REQUEST");
+  });
+
   it("should accept bare LF line endings", () => {
     assert.equal(
       parseCalendarMethod(
@@ -135,6 +140,19 @@ describe("parseCalendarMethod()", () => {
     "an unsupported method": ics(
       "BEGIN:VCALENDAR",
       "METHOD:X-CUSTOM",
+      "END:VCALENDAR",
+    ),
+    // U+017F upper-cases to "S" and U+0131 to "I" under the full Unicode
+    // mapping, which would turn an invalid token into a supported one while the
+    // payload kept the character a calendar client cannot read.
+    "a method spelled with U+017F": ics(
+      "BEGIN:VCALENDAR",
+      "METHOD:reque\u017Ft",
+      "END:VCALENDAR",
+    ),
+    "a method spelled with U+0131": ics(
+      "BEGIN:VCALENDAR",
+      "METHOD:publ\u0131sh",
       "END:VCALENDAR",
     ),
     "two top-level METHODs": ics(
@@ -303,6 +321,9 @@ describe("resolveCalendarContent()", () => {
     "a missing envelope": { content: "METHOD:REQUEST\r\n" },
     "an unsupported method": {
       content: ics("BEGIN:VCALENDAR", "METHOD:X-CUSTOM", "END:VCALENDAR"),
+    },
+    "a method a Unicode fold would rescue": {
+      content: ics("BEGIN:VCALENDAR", "METHOD:reque\u017Ft", "END:VCALENDAR"),
     },
     "two calendar objects": {
       content: ics("BEGIN:VCALENDAR", "METHOD:REQUEST", "END:VCALENDAR") +
