@@ -276,6 +276,14 @@ function readMethod(content: string): CalendarMethod | undefined {
           } rather than a VCALENDAR object.`,
         );
       }
+      // RFC 5545 §3.4 has no VCALENDAR inside a VCALENDAR.  A nested one
+      // balances, so nothing else in this scan would notice it, and the object
+      // would be sent as though it were the single one this API accepts.
+      if (stack.length > 0 && value === "VCALENDAR") {
+        throw new TypeError(
+          "The calendar content nests a VCALENDAR object inside another.",
+        );
+      }
       stack.push(value);
       continue;
     }

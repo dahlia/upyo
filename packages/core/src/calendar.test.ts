@@ -308,6 +308,28 @@ describe("resolveCalendarContent()", () => {
       content: ics("BEGIN:VCALENDAR", "METHOD:REQUEST", "END:VCALENDAR") +
         ics("BEGIN:VCALENDAR", "METHOD:REQUEST", "END:VCALENDAR"),
     },
+    // RFC 5545 has no VCALENDAR inside a VCALENDAR, and the components balance
+    // here, so nothing else in the scan would notice.
+    "a nested calendar object": {
+      content: ics(
+        "BEGIN:VCALENDAR",
+        "METHOD:REQUEST",
+        "BEGIN:VCALENDAR",
+        "VERSION:2.0",
+        "END:VCALENDAR",
+        "END:VCALENDAR",
+      ),
+    },
+    "a nested object declaring its own method": {
+      content: ics(
+        "BEGIN:VCALENDAR",
+        "METHOD:REQUEST",
+        "BEGIN:VCALENDAR",
+        "METHOD:CANCEL",
+        "END:VCALENDAR",
+        "END:VCALENDAR",
+      ),
+    },
   };
   for (const [description, calendar] of Object.entries(invalid)) {
     it(`should reject ${description}`, () => {
