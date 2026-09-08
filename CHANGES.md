@@ -4,7 +4,7 @@ Upyo changelog
 Version 0.5.5
 -------------
 
-To be released.
+Released on September 8, 2026.
 
 ### @upyo/smtp
 
