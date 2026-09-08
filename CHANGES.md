@@ -198,6 +198,10 @@ To be released.
 
 ### @upyo/opentelemetry
 
+ -  Fixed the estimated message size reported on a span and in the
+    `email.message.size` histogram, which counted UTF-16 code units rather than
+    the bytes it claimed.  A subject or body outside Basic Latin was
+    undercounted, a Korean one by roughly two thirds.  [[#69]]
  -  The estimated message size reported on a span now includes the calendar
     payload.  [[#63], [#69]]
 

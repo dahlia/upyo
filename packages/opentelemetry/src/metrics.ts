@@ -8,6 +8,7 @@ import type {
 import type { Message } from "@upyo/core";
 import type { MetricsConfig } from "./config.ts";
 import metadata from "../package.json" with { type: "json" };
+import { estimateMessageSize } from "./message-size.ts";
 
 /**
  * Manages OpenTelemetry metrics collection for email operations.
@@ -147,7 +148,7 @@ export class MetricsCollector {
       content_type: this.getContentType(message),
     };
 
-    const messageSize = this.estimateMessageSize(message);
+    const messageSize = estimateMessageSize(message);
     this.messageSizeHistogram.record(messageSize, labels);
     this.attachmentCountHistogram.record(message.attachments.length, labels);
   }
@@ -231,36 +232,5 @@ export class MetricsCollector {
       return message.content.text ? "multipart" : "html";
     }
     return "text";
-  }
-
-  private estimateMessageSize(message: Message): number {
-    let size = 0;
-
-    // Headers estimate (rough)
-    size += 500;
-
-    // Subject
-    size += message.subject.length;
-
-    // Content
-    if ("html" in message.content) {
-      size += message.content.html.length;
-      if (message.content.text) {
-        size += message.content.text.length;
-      }
-    } else {
-      size += message.content.text.length;
-    }
-
-    // Calendar payload, which travels in full whichever way a transport
-    // carries it
-    if (message.calendar != null) {
-      size += message.calendar.content.length;
-    }
-
-    // Attachment headers estimate (not content)
-    size += message.attachments.length * 100;
-
-    return size;
   }
 }

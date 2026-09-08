@@ -6,6 +6,7 @@ import type {
 import { createOpenTelemetryConfig, defaultErrorClassifier } from "./config.ts";
 import { MetricsCollector } from "./metrics.ts";
 import { TracingCollector } from "./tracing.ts";
+import { estimateMessageSize } from "./message-size.ts";
 
 /**
  * OpenTelemetry decorator transport that adds observability to any existing transport.
@@ -148,7 +149,7 @@ export class OpenTelemetryTransport<TProviderId extends string = string>
           "send",
           this.transportName,
           1,
-          this.estimateMessageSize(message),
+          estimateMessageSize(message),
         );
         span.setAttributes(customAttributes);
       }
@@ -234,7 +235,7 @@ export class OpenTelemetryTransport<TProviderId extends string = string>
       // Apply custom attributes if configured
       if (this.config.attributeExtractor && span) {
         const totalSize = messageArray.reduce(
-          (sum, msg) => sum + this.estimateMessageSize(msg),
+          (sum, msg) => sum + estimateMessageSize(msg),
           0,
         );
         const customAttributes = this.config.attributeExtractor(
@@ -440,36 +441,5 @@ export class OpenTelemetryTransport<TProviderId extends string = string>
     // Create a synthetic error for classification
     const syntheticError = new Error(errorMessages[0]);
     return this.classifyError(syntheticError);
-  }
-
-  private estimateMessageSize(message: Message): number {
-    let size = 0;
-
-    // Headers estimate
-    size += 500;
-
-    // Subject
-    size += message.subject.length;
-
-    // Content
-    if ("html" in message.content) {
-      size += message.content.html.length;
-      if (message.content.text) {
-        size += message.content.text.length;
-      }
-    } else {
-      size += message.content.text.length;
-    }
-
-    // Calendar payload, which travels in full whichever way a transport
-    // carries it
-    if (message.calendar != null) {
-      size += message.calendar.content.length;
-    }
-
-    // Attachment headers estimate
-    size += message.attachments.length * 100;
-
-    return size;
   }
 }
