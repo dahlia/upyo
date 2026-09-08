@@ -1,3 +1,9 @@
+import type { RawMessageEncoding } from "@upyo/core";
+import {
+  prepareRawSmtpStream,
+  type RawSmtpMessage,
+  Smtp8BitMimeUnsupportedError,
+} from "./raw-message.ts";
 import { Buffer } from "node:buffer";
 import { Socket } from "node:net";
 import { connect as tlsConnect, TLSSocket } from "node:tls";
@@ -955,7 +961,7 @@ export class SmtpConnection {
   }
 
   async sendMessage(
-    message: SmtpMessage | PreparedSmtpMessage,
+    message: SmtpMessage | PreparedSmtpMessage | RawSmtpMessage,
     signal?: AbortSignal,
   ): Promise<SmtpSendResult> {
     this.active = true;
@@ -969,29 +975,33 @@ export class SmtpConnection {
   }
 
   private async sendPreparedMessage(
-    message: SmtpMessage | PreparedSmtpMessage,
+    message: SmtpMessage | PreparedSmtpMessage | RawSmtpMessage,
     signal?: AbortSignal,
   ): Promise<SmtpSendResult> {
     signal?.throwIfAborted();
 
     let smtpUtf8Parameters = "";
-    if (message.requiresSmtpUtf8 === true) {
-      if (
-        !this.capabilities.some((capability) =>
-          /^SMTPUTF8(?:[ \t]|$)/i.test(capability)
-        )
-      ) {
-        throw new SmtpUtf8UnsupportedError("SMTPUTF8");
+    const negotiate = (encoding?: RawMessageEncoding) => {
+      const supports = (name: string) =>
+        this.capabilities.some((capability) =>
+          new RegExp(`^${name}(?:[ \t]|$)`, "i").test(capability)
+        );
+      if (message.requiresSmtpUtf8 || encoding === "utf8") {
+        if (!supports("SMTPUTF8")) {
+          throw new SmtpUtf8UnsupportedError("SMTPUTF8");
+        }
+        if (!supports("8BITMIME")) {
+          throw new SmtpUtf8UnsupportedError("8BITMIME");
+        }
+        smtpUtf8Parameters = " BODY=8BITMIME SMTPUTF8";
+      } else if (encoding === "8bit") {
+        if (!supports("8BITMIME")) throw new Smtp8BitMimeUnsupportedError();
+        smtpUtf8Parameters = " BODY=8BITMIME";
       }
-      if (
-        !this.capabilities.some((capability) =>
-          /^8BITMIME(?:[ \t]|$)/i.test(capability)
-        )
-      ) {
-        throw new SmtpUtf8UnsupportedError("8BITMIME");
-      }
-      smtpUtf8Parameters = " BODY=8BITMIME SMTPUTF8";
-    }
+    };
+    negotiate(
+      "rawMessage" in message ? message.rawMessage.encoding : undefined,
+    );
 
     const sizeCapability = parseSizeCapability(this.capabilities);
     let sizeParameter = "";
@@ -1023,7 +1033,21 @@ export class SmtpConnection {
     if (!this.socket || !this.usable) {
       throw new TypeError("SMTP connection is closed.");
     }
-    const stream: MessageStream = "raw" in message
+    const stream: MessageStream = "rawMessage" in message
+      ? await prepareOnSocket(
+        this.socket,
+        this.config.socketTimeout,
+        (signal, progress) =>
+          prepareRawSmtpStream(
+            message.rawMessage,
+            negotiate,
+            checkSize,
+            progress,
+            signal,
+          ),
+        signal,
+      )
+      : "raw" in message
       ? {
         size: Buffer.byteLength(message.raw) + 2,
         async *read(signal) {

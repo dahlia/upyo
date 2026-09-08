@@ -308,6 +308,10 @@ To be released.
     addresses without changing the visible message headers.  Overrides support
     null reverse-paths and per-message resolvers for bulk VERP delivery.
     [[#52], [#54]]
+ -  Added `SmtpTransport.sendRaw()` for delivering serialized MIME with an
+    explicit envelope, streaming validation, DSN, and cancellation. Raw sends
+    preserve existing headers and signatures and bypass configured DKIM signing.
+    [[#64], [#72]]
  -  Added automatic SMTPUTF8 delivery for internationalized sender, recipient,
     and reply-to addresses.  Servers must advertise `SMTPUTF8` and `8BITMIME`;
     unsupported sends fail without starting a mail transaction.  [[#45], [#50]]

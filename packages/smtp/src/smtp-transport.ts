@@ -1,14 +1,22 @@
 import {
+  prepareRawSmtpMessage,
+  Smtp8BitMimeUnsupportedError,
+} from "./raw-message.ts";
+import {
   createFailedReceipt,
+  createRawMessagePlan,
   type Message,
+  type RawMessage,
+  RawMessageValidationError,
+  type RawTransport,
   type Receipt,
-  type Transport,
 } from "@upyo/core";
 import type { SmtpConfig } from "./config.ts";
 import {
   resolveSmtpDsn,
   SmtpDsnUnsupportedError,
   SmtpDsnValidationError,
+  type SmtpRawTransportOptions,
   type SmtpTransportOptions,
 } from "./delivery-status.ts";
 import {
@@ -65,7 +73,7 @@ import { parseEnhancedSmtpStatusCode } from "./smtp-status-code.ts";
  * }
  * ```
  */
-export class SmtpTransport implements Transport<"smtp">, AsyncDisposable {
+export class SmtpTransport implements RawTransport<"smtp">, AsyncDisposable {
   readonly id = "smtp";
 
   /**
@@ -223,6 +231,59 @@ export class SmtpTransport implements Transport<"smtp">, AsyncDisposable {
       // Cancellation rejects rather than producing a receipt.
       options?.signal?.throwIfAborted();
 
+      return createSmtpFailure(
+        error instanceof Error ? error.message : String(error),
+        error,
+      );
+    }
+  }
+
+  /**
+   * Delivers serialized MIME unchanged, apart from SMTP dot-stuffing.
+   * Configured DKIM signing and message composition are bypassed.
+   * @param message Original MIME bytes and explicit delivery envelope.
+   * @param options Optional DSN and cancellation settings.
+   * @returns An SMTP receipt, including any rejected recipients.
+   * @throws {Error} If cancellation is requested.
+   * @since 0.6.0
+   */
+  async sendRaw(
+    message: RawMessage,
+    options?: SmtpRawTransportOptions,
+  ): Promise<SmtpReceipt> {
+    if (message?.content instanceof Promise) message.content.catch(() => {});
+    options?.signal?.throwIfAborted();
+    let connection: SmtpConnection | undefined;
+    try {
+      const plan = createRawMessagePlan(message);
+      if (options?.envelope !== undefined) {
+        throw new SmtpEnvelopeValidationError(
+          "Raw message envelopes cannot be overridden.",
+        );
+      }
+      const dsn = resolveSmtpDsn(plan.envelope, options?.dsn);
+      connection = await this.getConnection(options?.signal);
+      const result = await connection.sendMessage(
+        prepareRawSmtpMessage(plan, dsn),
+        options?.signal,
+      );
+      await this.returnConnection(connection);
+      connection = undefined;
+      return {
+        successful: true,
+        provider: "smtp",
+        messageId: result.messageId,
+        rejectedRecipients: result.rejectedRecipients,
+      };
+    } catch (error) {
+      if (connection != null) {
+        if (connection.usable && isReusableLocalFailure(error)) {
+          await this.returnConnection(connection);
+        } else {
+          await this.discardConnection(connection);
+        }
+      }
+      options?.signal?.throwIfAborted();
       return createSmtpFailure(
         error instanceof Error ? error.message : String(error),
         error,
@@ -664,6 +725,27 @@ function createSmtpFailure(
   message: string,
   error?: unknown,
 ): Receipt<"smtp"> & { readonly successful: false } {
+  if (error instanceof RawMessageValidationError) {
+    return createFailedReceipt(message, {
+      provider: "smtp",
+      category: "validation",
+      retryable: false,
+      attempts: 1,
+      code: error.field === "envelope"
+        ? "smtp.envelope-invalid"
+        : "smtp.raw-message-invalid",
+    });
+  }
+  if (error instanceof Smtp8BitMimeUnsupportedError) {
+    return createFailedReceipt(message, {
+      provider: "smtp",
+      category: "configuration",
+      retryable: false,
+      attempts: 1,
+      code: "smtp.8bitmime-unsupported",
+      providerDetails: { missingCapability: "8BITMIME" },
+    });
+  }
   if (error instanceof SmtpEnvelopeValidationError) {
     return createFailedReceipt(message, {
       provider: "smtp",
@@ -767,6 +849,8 @@ function isReusableLocalFailure(error: unknown): boolean {
   return (error instanceof SmtpMessageSizeError &&
     error.phase === "preflight") ||
     error instanceof SmtpUtf8UnsupportedError ||
+    error instanceof Smtp8BitMimeUnsupportedError ||
+    error instanceof RawMessageValidationError ||
     error instanceof SmtpEnvelopeValidationError ||
     error instanceof SmtpDsnValidationError ||
     error instanceof SmtpDsnUnsupportedError;
