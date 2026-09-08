@@ -8,12 +8,21 @@ To be released.
 
 ### @upyo/smtp
 
+ -  Fixed `closeAllConnections()` and async disposal leaving connections open
+    when sends were still in progress.  Shutdown now waits for previously
+    started sends, including those waiting for a connection, and closes their
+    connections instead of returning them to the pool.  New sends wait until
+    shutdown completes, after which the transport can be reused.  Finish or
+    return any started `sendMany()` iteration before awaiting shutdown.
+    [[#66]]
+
  -  Added regression coverage for the `sendMany()` connection cleanup fix
     introduced in 0.5.5.  Breaking out of the iteration releases the connection
     without sending the remaining messages, with pooling enabled or disabled
     and with synchronous or asynchronous message sources.  [[#65]]
 
 [#65]: https://github.com/dahlia/upyo/issues/65
+[#66]: https://github.com/dahlia/upyo/issues/66
 
 
 Version 0.5.5

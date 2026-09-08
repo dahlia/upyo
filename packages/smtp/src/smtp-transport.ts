@@ -81,6 +81,11 @@ export class SmtpTransport implements Transport<"smtp">, AsyncDisposable {
    */
   private capacityWaiters: CapacityWaiter[] = [];
 
+  /** The current shutdown barrier; new callers wait until it completes. */
+  private closing: Promise<void> | undefined;
+  private pendingAcquisitions = 0;
+  private onDrained: (() => void) | undefined;
+
   /**
    * A token manager shared across all pooled connections, present only when the
    * configured authentication uses OAuth 2.0.  Sharing it ensures the
@@ -367,7 +372,45 @@ export class SmtpTransport implements Transport<"smtp">, AsyncDisposable {
    */
   private async getConnection(signal?: AbortSignal): Promise<SmtpConnection> {
     signal?.throwIfAborted();
+    while (this.closing != null) {
+      await this.waitForShutdown(this.closing, signal);
+      signal?.throwIfAborted();
+    }
+    this.pendingAcquisitions++;
+    try {
+      return await this.acquireConnection(signal);
+    } finally {
+      this.pendingAcquisitions--;
+      this.notifyDrained();
+    }
+  }
 
+  private waitForShutdown(
+    closing: Promise<void>,
+    signal?: AbortSignal,
+  ): Promise<void> {
+    return new Promise<void>((resolve, reject) => {
+      const onAbort = () => {
+        signal?.removeEventListener("abort", onAbort);
+        reject(signal?.reason);
+      };
+      signal?.addEventListener("abort", onAbort, { once: true });
+      closing.then(() => {
+        signal?.removeEventListener("abort", onAbort);
+        resolve();
+      });
+    });
+  }
+
+  private notifyDrained(): void {
+    if (this.openConnectionCount === 0 && this.pendingAcquisitions === 0) {
+      this.onDrained?.();
+    }
+  }
+
+  private async acquireConnection(
+    signal?: AbortSignal,
+  ): Promise<SmtpConnection> {
     while (true) {
       // Reuse an idle connection when the pool has one.  It already holds a
       // slot, so nothing else needs to be reserved.
@@ -449,6 +492,7 @@ export class SmtpTransport implements Transport<"smtp">, AsyncDisposable {
   private releaseConnectionSlot(): void {
     this.openConnectionCount--;
     this.wakeCapacityWaiter();
+    this.notifyDrained();
   }
 
   private async connectAndSetup(
@@ -505,7 +549,7 @@ export class SmtpTransport implements Transport<"smtp">, AsyncDisposable {
    * waiting caller.
    */
   private async returnConnection(connection: SmtpConnection): Promise<void> {
-    if (!this.config.pool) {
+    if (!this.config.pool || this.closing != null) {
       await this.discardConnection(connection);
       return;
     }
@@ -514,6 +558,12 @@ export class SmtpTransport implements Transport<"smtp">, AsyncDisposable {
       await connection.reset();
     } catch {
       // A connection that cannot be reset is not safe to reuse.
+      await this.discardConnection(connection);
+      return;
+    }
+
+    // Shutdown may have started while RSET was awaiting its reply.
+    if (this.closing != null) {
       await this.discardConnection(connection);
       return;
     }
@@ -538,10 +588,18 @@ export class SmtpTransport implements Transport<"smtp">, AsyncDisposable {
   }
 
   /**
-   * Closes all active SMTP connections in the connection pool.
+   * Closes idle connections and drains sends admitted before this call.
    *
-   * This method should be called when shutting down the application
-   * to ensure all connections are properly closed and resources are freed.
+   * Resolves once those sends have released their connections and all their
+   * sockets have closed.  Delivery is not interrupted, including sends waiting
+   * for capacity or connection setup.  A started `sendMany()` iteration must
+   * finish or be returned by its consumer before shutdown can complete.
+   *
+   * Concurrent close calls share the shutdown.  New sends wait for it to
+   * finish (and can cancel that wait through their abort signal); the transport
+   * can be reused afterward.
+   *
+   * @returns A promise that resolves after the admitted work is drained.
    *
    * @example
    * ```typescript
@@ -550,15 +608,28 @@ export class SmtpTransport implements Transport<"smtp">, AsyncDisposable {
    * ```
    */
   async closeAllConnections(): Promise<void> {
-    const connections = [...this.connectionPool];
+    if (this.closing != null) return this.closing;
+
+    let drained!: () => void;
+    const shutdown = new Promise<void>((resolve) => {
+      drained = resolve;
+    });
+    this.onDrained = drained;
+    this.closing = shutdown.then(() => {
+      this.onDrained = undefined;
+      this.closing = undefined;
+    });
+    const closing = this.closing;
+    const connections = this.connectionPool;
     this.connectionPool = [];
 
-    // Each slot stays reserved until its socket is actually gone, so a caller
-    // waiting for capacity cannot open a replacement alongside a connection
-    // that is still shutting down.
+    // Slots remain reserved until their sockets close.  Previously admitted
+    // capacity waiters may then send, but must discard their connections too.
     await Promise.all(
       connections.map((connection) => this.discardConnection(connection)),
     );
+    this.notifyDrained();
+    await closing;
   }
 
   /**
@@ -566,7 +637,8 @@ export class SmtpTransport implements Transport<"smtp">, AsyncDisposable {
    *
    * This method is called automatically when using the `using` keyword,
    * ensuring that all SMTP connections are properly closed when the
-   * transport goes out of scope.
+   * transport goes out of scope.  Like {@link closeAllConnections}, it waits
+   * for admitted sends and started batch iterations to release their connections.
    *
    * @example
    * ```typescript
