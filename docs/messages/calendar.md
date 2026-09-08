@@ -189,6 +189,16 @@ part as Base64, which keeps the object's line structure exactly as written;
 *@upyo/jmap* hands the object to the server, which picks the transfer encoding
 itself.
 
+*@upyo/jmap* depends on one thing the standard does not promise.  [RFC 8621]
+§4.1.4 defines a body part's `type` as the media type with its parameters
+stripped, and gives no property for the `method` the invitation needs, so Upyo
+writes the whole field into `type` and relies on the server passing it through.
+Stalwart does, and the end-to-end test downloads the composed message to check
+it; a server that strips the parameter instead would deliver an invitation no
+client can act on.  The same reliance is not new to calendars, since the text
+and HTML parts already carry their charset the same way, but it is worth knowing
+before pointing this transport at an unfamiliar server.
+
 “Sent as an attachment” describes Upyo, not the provider.  Those APIs take a
 text body, an HTML body, and files; none of them offers a third body
 alternative, so the object travels as a part named *invite.ics* whose content
@@ -212,6 +222,7 @@ no attachments.
 > that RSVP works.
 
 [RFC 2046]: https://www.rfc-editor.org/rfc/rfc2046
+[RFC 8621]: https://www.rfc-editor.org/rfc/rfc8621
 
 
 Recipients and privacy
