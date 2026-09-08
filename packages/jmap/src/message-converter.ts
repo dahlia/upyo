@@ -200,14 +200,20 @@ export function buildBodyStructure(
   const bodyValues: Record<string, JmapBodyValue> = {};
   const parts: JmapBodyPart[] = [];
 
+  // The bodies are tested for presence rather than for content, the way the
+  // SMTP composer does.  An empty string is a body the caller asked for, and
+  // dropping it would leave a scheduling message with the calendar as its only
+  // part, which RFC 6047 §2.1 asks not to happen: a recipient whose client
+  // knows nothing about scheduling would then see nothing at all.
+
   // Text part (charset is inferred from bodyValues, not specified with partId)
-  if ("text" in message.content && message.content.text) {
+  if ("text" in message.content && message.content.text !== undefined) {
     bodyValues["text"] = { value: message.content.text };
     parts.push({ partId: "text", type: "text/plain; charset=utf-8" });
   }
 
   // HTML part
-  if ("html" in message.content && message.content.html) {
+  if ("html" in message.content) {
     bodyValues["html"] = { value: message.content.html };
     parts.push({ partId: "html", type: "text/html; charset=utf-8" });
   }

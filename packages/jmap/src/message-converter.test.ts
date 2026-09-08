@@ -140,6 +140,48 @@ describe("convertMessage", () => {
     );
   });
 
+  it("should keep an empty prose body beside the calendar", () => {
+    // RFC 6047 §2.1 wants a human-readable alternative, and a recipient whose
+    // client does not schedule sees only that.  An empty string is still a
+    // body the caller asked for, so the calendar must not become the sole part.
+    const message: Message = {
+      ...baseMessage,
+      content: { text: "" },
+      calendar: {
+        method: "REQUEST",
+        content: "BEGIN:VCALENDAR\r\nMETHOD:REQUEST\r\nEND:VCALENDAR\r\n",
+      },
+    };
+
+    const result = convertMessage(message, "drafts-123", new Map());
+
+    assert.equal(result.bodyStructure?.type, "multipart/alternative");
+    assert.deepEqual(
+      (result.bodyStructure?.subParts ?? []).map((part) => part.partId),
+      ["text", "calendar"],
+    );
+    assert.equal(result.bodyValues.text.value, "");
+  });
+
+  it("should keep an empty HTML body beside the calendar", () => {
+    const message: Message = {
+      ...baseMessage,
+      content: { html: "" },
+      calendar: {
+        method: "REQUEST",
+        content: "BEGIN:VCALENDAR\r\nMETHOD:REQUEST\r\nEND:VCALENDAR\r\n",
+      },
+    };
+
+    const result = convertMessage(message, "drafts-123", new Map());
+
+    assert.equal(result.bodyStructure?.type, "multipart/alternative");
+    assert.deepEqual(
+      (result.bodyStructure?.subParts ?? []).map((part) => part.partId),
+      ["html", "calendar"],
+    );
+  });
+
   it("should reject calendar content that never passed createMessage()", () => {
     const message: Message = {
       ...baseMessage,

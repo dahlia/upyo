@@ -72,6 +72,9 @@ To be released.
     a header value containing a carriage return or line feed is rejected.
     *Breaking*: `JmapEmailCreate` no longer has a `headers` property.
     [[#58], [#61]]
+ -  Fixed an empty `text` or `html` body being dropped from the composed
+    message.  A body the caller supplied as an empty string is now sent as an
+    empty part, the way *@upyo/smtp* composes it, rather than omitted.  [[#69]]
 
 ### @upyo/lettermint
 
