@@ -219,7 +219,7 @@ describe("convertMessage", () => {
             filename: "invite.ics",
             content: new TextEncoder().encode("BEGIN:VCALENDAR"),
             contentType:
-              "text/calendar; method=REQUEST" as `${string}/${string}`,
+              "text/calendar; charset=utf-8; method=REQUEST" as `${string}/${string}`,
             inline: false,
             contentId: "",
           },
@@ -230,7 +230,7 @@ describe("convertMessage", () => {
 
     assert.equal(
       result.attachments?.[0]?.content_type,
-      "text/calendar; method=REQUEST",
+      "text/calendar; charset=utf-8; method=REQUEST",
     );
   });
 
@@ -341,5 +341,74 @@ describe("convertMessage() reply threading", () => {
       {};
 
     assert.deepEqual(headerOf(result, "In-Reply-To"), ["<custom@example.com>"]);
+  });
+});
+
+const CALENDAR_ICS = [
+  "BEGIN:VCALENDAR",
+  "VERSION:2.0",
+  "METHOD:REQUEST",
+  "BEGIN:VEVENT",
+  "UID:1@example.com",
+  "SUMMARY:Lunch",
+  "END:VEVENT",
+  "END:VCALENDAR",
+].join("\r\n") + "\r\n";
+
+/** The invitation content as the providers below carry it: Base64. */
+const CALENDAR_BASE64 = btoa(CALENDAR_ICS);
+
+const AGENDA_ATTACHMENT = {
+  inline: false,
+  filename: "agenda.txt",
+  content: new TextEncoder().encode("agenda"),
+  contentType: "text/plain" as const,
+  contentId: "",
+};
+
+describe("convertMessage() calendar", () => {
+  const invitation = (overrides: Partial<Message> = {}): Message =>
+    createBaseMessage({
+      calendar: { method: "REQUEST", content: CALENDAR_ICS },
+      ...overrides,
+    });
+
+  it("should carry the calendar as an invite.ics attachment", async () => {
+    const result = await convertMessage(invitation(), baseConfig);
+
+    assert.equal(result.attachments?.length, 1);
+    assert.equal(result.attachments?.[0].filename, "invite.ics");
+    assert.equal(
+      result.attachments?.[0].content_type,
+      "text/calendar; charset=utf-8; method=REQUEST",
+    );
+    assert.equal(result.attachments?.[0].content, CALENDAR_BASE64);
+    // An empty content ID keeps the part from being treated as inline.
+    assert.equal(result.attachments?.[0].content_id, undefined);
+  });
+
+  it("should place the invitation ahead of the other attachments", async () => {
+    const result = await convertMessage(
+      invitation({ attachments: [AGENDA_ATTACHMENT] }),
+      baseConfig,
+    );
+
+    assert.deepEqual(
+      result.attachments?.map((attachment) => attachment.filename),
+      ["invite.ics", "agenda.txt"],
+    );
+  });
+
+  it("should reject calendar content that never passed createMessage()", async () => {
+    await assert.rejects(
+      () =>
+        convertMessage(
+          createBaseMessage({
+            calendar: { method: "REQUEST", content: "not a calendar" },
+          }),
+          baseConfig,
+        ),
+      { name: "TypeError" },
+    );
   });
 });

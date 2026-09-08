@@ -1,4 +1,4 @@
-import type { Attachment, Message } from "@upyo/core";
+import type { Attachment, CalendarContent, Message } from "@upyo/core";
 import process from "node:process";
 import type { JmapConfig } from "../config.ts";
 
@@ -112,6 +112,7 @@ export interface CreateTestMessageOptions {
   readonly date?: Date;
   readonly inReplyTo?: readonly string[];
   readonly references?: readonly string[];
+  readonly calendar?: CalendarContent;
 }
 
 /**
@@ -151,5 +152,6 @@ export function createTestMessage(
     date: options.date,
     inReplyTo: options.inReplyTo,
     references: options.references,
+    calendar: options.calendar,
   };
 }

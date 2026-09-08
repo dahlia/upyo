@@ -163,3 +163,78 @@ test("multiple signatures share two source reads and preserve prior signatures o
   assert.equal(raw.match(/^DKIM-Signature:/gm)?.length, 2);
   assert.equal(reads, 2);
 });
+
+const CALENDAR_REQUEST = [
+  "BEGIN:VCALENDAR",
+  "VERSION:2.0",
+  "METHOD:REQUEST",
+  "BEGIN:VEVENT",
+  "UID:1@example.com",
+  "SUMMARY:점심 식사",
+  "END:VEVENT",
+  "END:VCALENDAR",
+].join("\r\n") + "\r\n";
+
+for (const bodyMode of ["buffered", "streaming"] as const) {
+  test(`a calendar body replays identically under ${bodyMode} DKIM`, async () => {
+    const dkim: DkimConfig = {
+      bodyMode,
+      signatures: [{
+        algorithm: "rsa-sha256",
+        canonicalization: "relaxed/relaxed",
+        selector: "test",
+        signingDomain: "example.com",
+        privateKey: TEST_DKIM_PRIVATE_KEY,
+      }],
+    };
+    const plan = prepareMessage(
+      createMessage({
+        from: "from@example.com",
+        to: "to@example.com",
+        subject: "Lunch",
+        content: { text: "Lunch on Wednesday." },
+        calendar: { method: "REQUEST", content: CALENDAR_REQUEST },
+      }),
+      dkim,
+    );
+
+    const first = await collect(plan.body());
+    const second = await collect(plan.body());
+
+    assert.equal(first, second);
+    assert.ok(first.includes("method=REQUEST"));
+    assert.equal(
+      Buffer.from(
+        first.slice(
+          first.indexOf("\r\n\r\n", first.indexOf("text/calendar")) + 4,
+        ).split("\r\n\r\n")[0].replace(/\r\n/g, ""),
+        "base64",
+      ).toString("utf8"),
+      CALENDAR_REQUEST,
+    );
+
+    // The signed stream is produced from the very same bytes.
+    const prepared = await prepareMessageStream(plan, () => {}, () => {});
+    const signed = await collect(prepared.read());
+    assert.ok(signed.includes("method=REQUEST"));
+    assert.ok(signed.includes("DKIM-Signature:"));
+  });
+}
+
+test("size() counts the encoded calendar body", async () => {
+  const plan = prepareMessage(
+    createMessage({
+      from: "from@example.com",
+      to: "to@example.com",
+      subject: "Lunch",
+      content: { text: "Lunch on Wednesday." },
+      calendar: { method: "REQUEST", content: CALENDAR_REQUEST },
+    }),
+  );
+
+  const size = await plan.size();
+  const emitted = Buffer.byteLength(plan.headers) +
+    Buffer.byteLength(await collect(plan.body()));
+
+  assert.equal(size, emitted);
+});

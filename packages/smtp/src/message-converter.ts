@@ -9,6 +9,7 @@ import {
   generateMessageId,
   resolveThreadingHeaders,
 } from "@upyo/core/message-id";
+import { resolveCalendarContent } from "@upyo/core/calendar";
 import { Buffer } from "node:buffer";
 import type { ResolvedSmtpDsn } from "./delivery-status.ts";
 import { type DkimConfig, signMessage } from "./dkim/index.ts";
@@ -184,9 +185,8 @@ function buildMimeParts(message: Message): MimePart[] {
   const lines: MimePart[] = [];
   const boundary = generateBoundary();
   const hasAttachments = message.attachments.length > 0;
-  const hasHtml = "html" in message.content;
-  const hasText = "text" in message.content;
-  const isMultipart = hasAttachments || (hasHtml && hasText);
+  const alternatives = buildAlternatives(message);
+  const isMultipart = hasAttachments || alternatives.length > 1;
 
   // Standard headers
   lines.push(foldHeader("From", encodeAddress(message.sender)));
@@ -275,40 +275,28 @@ function buildMimeParts(message: Message): MimePart[] {
     // Content part
     lines.push(`--${boundary}`);
 
-    if (hasHtml && hasText) {
+    if (alternatives.length > 1) {
       const contentBoundary = generateBoundary();
       lines.push(
         `Content-Type: multipart/alternative; boundary="${contentBoundary}"`,
       );
       lines.push("");
 
-      // Text part
-      lines.push(`--${contentBoundary}`);
-      lines.push("Content-Type: text/plain; charset=utf-8");
-      lines.push("Content-Transfer-Encoding: quoted-printable");
-      lines.push("");
-      lines.push(encodeQuotedPrintable(message.content.text!));
-      lines.push("");
-
-      // HTML part
-      lines.push(`--${contentBoundary}`);
-      lines.push("Content-Type: text/html; charset=utf-8");
-      lines.push("Content-Transfer-Encoding: quoted-printable");
-      lines.push("");
-      lines.push(encodeQuotedPrintable(message.content.html));
-      lines.push("");
+      for (const alternative of alternatives) {
+        lines.push(`--${contentBoundary}`);
+        lines.push(`Content-Type: ${alternative.contentType}`);
+        lines.push(`Content-Transfer-Encoding: ${alternative.encoding}`);
+        lines.push("");
+        lines.push(alternative.body);
+        lines.push("");
+      }
 
       lines.push(`--${contentBoundary}--`);
-    } else if (hasHtml) {
-      lines.push("Content-Type: text/html; charset=utf-8");
-      lines.push("Content-Transfer-Encoding: quoted-printable");
-      lines.push("");
-      lines.push(encodeQuotedPrintable(message.content.html));
     } else {
-      lines.push("Content-Type: text/plain; charset=utf-8");
-      lines.push("Content-Transfer-Encoding: quoted-printable");
+      lines.push(`Content-Type: ${alternatives[0].contentType}`);
+      lines.push(`Content-Transfer-Encoding: ${alternatives[0].encoding}`);
       lines.push("");
-      lines.push(encodeQuotedPrintable(message.content.text));
+      lines.push(alternatives[0].body);
     }
 
     // Attachments
@@ -352,17 +340,10 @@ function buildMimeParts(message: Message): MimePart[] {
     lines.push(`--${boundary}--`);
   } else {
     // Single part message
-    if (hasHtml) {
-      lines.push("Content-Type: text/html; charset=utf-8");
-      lines.push("Content-Transfer-Encoding: quoted-printable");
-      lines.push("");
-      lines.push(encodeQuotedPrintable(message.content.html));
-    } else {
-      lines.push("Content-Type: text/plain; charset=utf-8");
-      lines.push("Content-Transfer-Encoding: quoted-printable");
-      lines.push("");
-      lines.push(encodeQuotedPrintable(message.content.text));
-    }
+    lines.push(`Content-Type: ${alternatives[0].contentType}`);
+    lines.push(`Content-Transfer-Encoding: ${alternatives[0].encoding}`);
+    lines.push("");
+    lines.push(alternatives[0].body);
   }
 
   const parts: MimePart[] = [];
@@ -377,6 +358,95 @@ function buildMimeParts(message: Message): MimePart[] {
   }
   parts.push(text);
   return parts;
+}
+
+/**
+ * One body alternative, already encoded and ready to be written into a part.
+ */
+interface MimeAlternative {
+  readonly contentType: string;
+  readonly encoding: "quoted-printable" | "base64";
+  readonly body: string;
+}
+
+/**
+ * Collects the body alternatives of a message, least preferred first.
+ *
+ * RFC 2046 §5.1.4 orders a `multipart/alternative` by increasing richness, so a
+ * client picks the last one it understands.  Plain text comes first, then HTML,
+ * then the calendar object: a client that schedules should act on the
+ * invitation rather than render the prose describing it.
+ *
+ * The presence of a body is tested with `in` rather than truthiness, so an
+ * empty string a caller supplied deliberately still produces its part.
+ *
+ * @param message The message being composed.
+ * @returns At least one alternative, in the order they are written.
+ * @throws {TypeError} If the calendar content is not valid.
+ */
+function buildAlternatives(message: Message): MimeAlternative[] {
+  const alternatives: MimeAlternative[] = [];
+
+  if ("text" in message.content && message.content.text !== undefined) {
+    alternatives.push({
+      contentType: "text/plain; charset=utf-8",
+      encoding: "quoted-printable",
+      body: encodeQuotedPrintable(message.content.text),
+    });
+  }
+
+  if ("html" in message.content) {
+    alternatives.push({
+      contentType: "text/html; charset=utf-8",
+      encoding: "quoted-printable",
+      body: encodeQuotedPrintable(message.content.html),
+    });
+  }
+
+  if (message.calendar != null) {
+    // Re-validated here rather than trusted from the message: `Message` is a
+    // structural interface, and the method is written into a `Content-Type`
+    // parameter, the same reason `formatMessageId()` checks again below.
+    const calendar = resolveCalendarContent(message.calendar);
+    alternatives.push({
+      // The parameter repeats the object's own METHOD property, which RFC 6047
+      // §2.4 requires.  Base64 keeps the CRLF structure RFC 5545 §3.1 makes
+      // normative intact, which quoted-printable would not.
+      contentType: `text/calendar; charset=utf-8; method=${calendar.method}`,
+      encoding: "base64",
+      body: encodeBase64Body(calendar.content),
+    });
+  }
+
+  if (alternatives.length < 1) {
+    alternatives.push({
+      contentType: "text/plain; charset=utf-8",
+      encoding: "quoted-printable",
+      body: "",
+    });
+  }
+
+  return alternatives;
+}
+
+/**
+ * Encodes a body as Base64, wrapped at the 76 columns RFC 2045 §6.8 allows.
+ *
+ * The result carries no trailing CRLF, because MIME assembly appends one to
+ * every line it writes.
+ *
+ * @param text The body to encode.
+ * @returns The wrapped Base64 payload.
+ */
+function encodeBase64Body(text: string): string {
+  const encoded = Buffer.from(new TextEncoder().encode(text)).toString(
+    "base64",
+  );
+  const lines: string[] = [];
+  for (let offset = 0; offset < encoded.length; offset += 76) {
+    lines.push(encoded.slice(offset, offset + 76));
+  }
+  return lines.join("\r\n");
 }
 
 /**

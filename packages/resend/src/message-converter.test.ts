@@ -479,3 +479,87 @@ describe("convertMessage() reply threading", () => {
     assert.deepEqual(headerOf(result, "In-Reply-To"), ["<custom@example.com>"]);
   });
 });
+
+const CALENDAR_ICS = [
+  "BEGIN:VCALENDAR",
+  "VERSION:2.0",
+  "METHOD:REQUEST",
+  "BEGIN:VEVENT",
+  "UID:1@example.com",
+  "SUMMARY:Lunch",
+  "END:VEVENT",
+  "END:VCALENDAR",
+].join("\r\n") + "\r\n";
+
+const CALENDAR_BASE64 = btoa(CALENDAR_ICS);
+
+const AGENDA_ATTACHMENT = {
+  inline: false,
+  filename: "agenda.txt",
+  content: new TextEncoder().encode("agenda"),
+  contentType: "text/plain" as const,
+  contentId: "",
+};
+
+describe("convertMessage() calendar", () => {
+  const calendarConfig = createResendConfig({ apiKey: "test-key" });
+
+  const invitation = (attachments: typeof AGENDA_ATTACHMENT[] = []) =>
+    createMessage({
+      from: "organizer@example.com",
+      to: "attendee@example.net",
+      subject: "Lunch",
+      content: { text: "Lunch on Wednesday." },
+      calendar: { method: "REQUEST", content: CALENDAR_ICS },
+      attachments,
+    });
+
+  it("should carry the calendar as an invite.ics attachment", async () => {
+    const result = await convertMessage(invitation(), calendarConfig);
+
+    assert.equal(result.attachments?.length, 1);
+    assert.equal(result.attachments?.[0].filename, "invite.ics");
+    assert.equal(
+      result.attachments?.[0].content_type,
+      "text/calendar; charset=utf-8; method=REQUEST",
+    );
+    assert.equal(result.attachments?.[0].content, CALENDAR_BASE64);
+  });
+
+  it("should place the invitation ahead of the other attachments", async () => {
+    const result = await convertMessage(
+      invitation([AGENDA_ATTACHMENT]),
+      calendarConfig,
+    );
+
+    assert.deepEqual(
+      result.attachments?.map((attachment) => attachment.filename),
+      ["invite.ics", "agenda.txt"],
+    );
+  });
+
+  it("should refuse a calendar message in the batch API", async () => {
+    // The calendar becomes an attachment during conversion, which the batch
+    // API forbids, so reading `message.attachments` alone would miss it.
+    await assert.rejects(
+      () => convertMessagesBatch([invitation()], calendarConfig),
+      { message: /Attachments are not supported/ },
+    );
+  });
+
+  it("should reject calendar content that never passed createMessage()", async () => {
+    const message: Message = {
+      ...createMessage({
+        from: "organizer@example.com",
+        to: "attendee@example.net",
+        subject: "Lunch",
+        content: { text: "Lunch." },
+      }),
+      calendar: { method: "REQUEST", content: "not a calendar" },
+    };
+
+    await assert.rejects(() => convertMessage(message, calendarConfig), {
+      name: "TypeError",
+    });
+  });
+});

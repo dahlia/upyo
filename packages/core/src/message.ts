@@ -1,5 +1,10 @@
 import { type Address, parseAddress } from "./address.ts";
 import { type Attachment, isAttachment } from "./attachment.ts";
+import {
+  type CalendarConstructor,
+  type CalendarContent,
+  resolveCalendarContent,
+} from "./calendar.ts";
 import { parseMessageId } from "./message-id.ts";
 import type { Priority } from "./priority.ts";
 
@@ -165,6 +170,28 @@ export interface Message {
    * @since 0.6.0
    */
   readonly references?: readonly string[];
+
+  /**
+   * The scheduling payload of the message: an iCalendar object describing an
+   * invitation, a reply to one, or a cancellation.
+   *
+   * A calendar client recognizes a scheduling message from a `text/calendar`
+   * body part whose `method` parameter repeats the object's own `METHOD`
+   * property, which is what this field lets a transport compose.  Attaching an
+   * *.ics* file yourself does not do the same thing.
+   *
+   * The human-readable {@link content} is still required and still carries the
+   * message: a recipient whose client knows nothing about scheduling sees that
+   * and nothing else.  Keep it consistent with the calendar object, since
+   * Outlook substitutes the HTML alternative for the object's `DESCRIPTION`.
+   *
+   * Not every transport composes this.  One that cannot sends the object as an
+   * *invite.ics* attachment instead, which preserves the payload but not
+   * necessarily the scheduling semantics; see the transport's documentation.
+   *
+   * @since 0.6.0
+   */
+  readonly calendar?: CalendarContent;
 }
 
 /**
@@ -339,6 +366,19 @@ export interface MessageConstructor {
    * @since 0.6.0
    */
   readonly references?: string | readonly string[];
+
+  /**
+   * The scheduling payload of the message: an iCalendar object your
+   * application, or a library such as *ical-generator*, produced.  Upyo does
+   * not generate one.
+   *
+   * The method is taken from the object's own `METHOD` property; supplying
+   * {@link CalendarConstructor.method} asserts what that property says rather
+   * than overriding it.  Line endings are normalized to CRLF.
+   *
+   * @since 0.6.0
+   */
+  readonly calendar?: CalendarConstructor;
 }
 
 /**
@@ -365,7 +405,9 @@ export interface MessageConstructor {
  *                     address or attachment carries a carriage return or line
  *                     feed that could forge header fields, when an attachment
  *                     object is invalid, when a message identifier is not
- *                     valid, or when the date is not one RFC 5322 can express.
+ *                     valid, when the date is not one RFC 5322 can express, or
+ *                     when the calendar content is not a single well-formed
+ *                     iCalendar object declaring one supported method.
  */
 export function createMessage(constructor: MessageConstructor): Message {
   const sender = checkAddress("sender", constructor.from);
@@ -414,6 +456,9 @@ export function createMessage(constructor: MessageConstructor): Message {
     date: checkDate(constructor.date),
     inReplyTo: checkMessageIds("in-reply-to ", constructor.inReplyTo),
     references: checkMessageIds("references ", constructor.references),
+    calendar: constructor.calendar == null
+      ? undefined
+      : resolveCalendarContent(constructor.calendar),
   };
 }
 

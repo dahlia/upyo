@@ -1,5 +1,6 @@
 import type { Attachment, Message } from "@upyo/core";
 import { readAttachmentContent, resolveThreadingHeaders } from "@upyo/core";
+import { createCalendarAttachment } from "@upyo/core/calendar";
 import type { ResolvedPlunkConfig } from "./config.ts";
 
 /**
@@ -35,7 +36,11 @@ interface PlunkEmail {
  * @param message - The Upyo message to convert
  * @param config - Resolved Plunk configuration
  * @returns Promise that resolves to Plunk-formatted email data
- * @throws {TypeError} If the message carries an invalid message identifier.
+ * @throws {TypeError} If the message carries an invalid message identifier, or
+ *                     calendar content that is not a single well-formed
+ *                     iCalendar object.
+ * @throws {RangeError} If a calendar message carries so many attachments that
+ *                      one would have to be dropped.
  */
 export async function convertMessage(
   message: Message,
@@ -92,12 +97,32 @@ export async function convertMessage(
     if (value != null) customHeaders[name] = value;
   }
 
+  // A transport that cannot compose a `text/calendar` alternative carries the
+  // scheduling payload as an *invite.ics* part instead, ahead of the caller's
+  // own files so that a client looking for the first calendar part finds it.
+  // Built here rather than inside the loop below, whose error handling drops a
+  // part it cannot convert: an invitation must not disappear that quietly.
+  const sourceAttachments = message.calendar == null
+    ? message.attachments
+    : [createCalendarAttachment(message.calendar), ...message.attachments];
+
+  // Plunk documents a limit of five attachments, and quietly sending the first
+  // five is only acceptable while nothing important is at the end.  Once the
+  // invitation occupies a slot, going over the limit would silently drop one of
+  // the caller's own files, so it is refused instead.
+  if (message.calendar != null && sourceAttachments.length > 5) {
+    throw new RangeError(
+      "Plunk supports at most five attachments, and a calendar message needs " +
+        "one of them for the invitation.",
+    );
+  }
+
   // Convert attachments (limit to 5 as per Plunk documentation)
   const attachments: PlunkAttachment[] = [];
-  const maxAttachments = Math.min(message.attachments.length, 5);
+  const maxAttachments = Math.min(sourceAttachments.length, 5);
 
   for (let i = 0; i < maxAttachments; i++) {
-    const attachment = message.attachments[i];
+    const attachment = sourceAttachments[i];
     const convertedAttachment = await convertAttachment(attachment, signal);
     if (convertedAttachment) {
       attachments.push(convertedAttachment);

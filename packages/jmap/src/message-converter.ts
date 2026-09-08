@@ -1,4 +1,5 @@
 import type { Address, Attachment, Message, Priority } from "@upyo/core";
+import { resolveCalendarContent } from "@upyo/core/calendar";
 import { parseMessageId } from "@upyo/core/message-id";
 
 /**
@@ -209,6 +210,27 @@ export function buildBodyStructure(
   if ("html" in message.content && message.content.html) {
     bodyValues["html"] = { value: message.content.html };
     parts.push({ partId: "html", type: "text/html; charset=utf-8" });
+  }
+
+  // Calendar part, last so that a client which schedules prefers it over the
+  // prose describing the same appointment (RFC 2046 §5.1.4).
+  if (message.calendar != null) {
+    // Re-validated rather than trusted: `Message` is a structural interface,
+    // and the method is written into a `Content-Type` parameter.
+    const calendar = resolveCalendarContent(message.calendar);
+    bodyValues["calendar"] = { value: calendar.content };
+    parts.push({
+      partId: "calendar",
+      // RFC 8621 §4.1.4 describes `type` as the media type without parameters,
+      // and offers no property for the `method` RFC 6047 §2.4 requires.  The
+      // two ways of supplying it were measured against Stalwart: writing the
+      // field as `header:Content-Type` makes it emit that field *and* a
+      // derived one, so the part arrives with two `Content-Type` fields, while
+      // parameters on `type` are passed through and yield a single correct
+      // field.  The charset is left to the server, which appends its own and
+      // would otherwise duplicate the parameter.
+      type: `text/calendar; method=${calendar.method}`,
+    });
   }
 
   let contentPart: JmapBodyPart;

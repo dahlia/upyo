@@ -95,6 +95,62 @@ describe("convertMessage", () => {
     assert.equal(result.bodyStructure?.type, "multipart/alternative");
   });
 
+  it("should add a calendar part carrying the method parameter", () => {
+    const ics = [
+      "BEGIN:VCALENDAR",
+      "METHOD:REQUEST",
+      "BEGIN:VEVENT",
+      "UID:1@example.com",
+      "END:VEVENT",
+      "END:VCALENDAR",
+    ].join("\r\n") + "\r\n";
+    const message: Message = {
+      ...baseMessage,
+      content: { text: "Lunch on Wednesday." },
+      calendar: { method: "REQUEST", content: ics },
+    };
+
+    const result = convertMessage(message, "drafts-123", new Map());
+
+    assert.equal(result.bodyStructure?.type, "multipart/alternative");
+    const parts = result.bodyStructure?.subParts ?? [];
+    const calendarPart = parts[parts.length - 1];
+    assert.equal(calendarPart.partId, "calendar");
+    // The charset is left to the server, which appends its own.
+    assert.equal(calendarPart.type, "text/calendar; method=REQUEST");
+    assert.equal(calendarPart.charset, undefined);
+    assert.equal(result.bodyValues.calendar.value, ics);
+  });
+
+  it("should place the calendar after the other alternatives", () => {
+    const message: Message = {
+      ...baseMessage,
+      content: { text: "Lunch", html: "<p>Lunch</p>" },
+      calendar: {
+        method: "CANCEL",
+        content: "BEGIN:VCALENDAR\r\nMETHOD:CANCEL\r\nEND:VCALENDAR\r\n",
+      },
+    };
+
+    const result = convertMessage(message, "drafts-123", new Map());
+
+    assert.deepEqual(
+      (result.bodyStructure?.subParts ?? []).map((part) => part.partId),
+      ["text", "html", "calendar"],
+    );
+  });
+
+  it("should reject calendar content that never passed createMessage()", () => {
+    const message: Message = {
+      ...baseMessage,
+      calendar: { method: "REQUEST", content: "not a calendar" },
+    };
+
+    assert.throws(() => convertMessage(message, "drafts-123", new Map()), {
+      name: "TypeError",
+    });
+  });
+
   it("should convert cc and bcc recipients", () => {
     const message: Message = {
       ...baseMessage,

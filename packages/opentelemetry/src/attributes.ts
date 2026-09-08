@@ -220,6 +220,12 @@ export class EmailAttributeExtractor {
       size += message.content.text.length;
     }
 
+    // Calendar payload, which travels in full whichever way a transport
+    // carries it
+    if (message.calendar != null) {
+      size += message.calendar.content.length;
+    }
+
     // Attachments estimate (metadata only, not content)
     size += message.attachments.length * 100; // Rough header estimate per attachment
 

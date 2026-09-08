@@ -1,6 +1,7 @@
 import type {
   Address,
   Attachment,
+  CalendarContent,
   Message,
   MessageContent,
   Priority,
@@ -160,6 +161,7 @@ export function createTestMessage(
     date: options.date,
     inReplyTo: options.inReplyTo,
     references: options.references,
+    calendar: options.calendar,
   };
 }
 
@@ -181,4 +183,5 @@ export interface TestMessageOptions {
   readonly date?: Date;
   readonly inReplyTo?: readonly string[];
   readonly references?: readonly string[];
+  readonly calendar?: CalendarContent;
 }

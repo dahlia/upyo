@@ -252,6 +252,12 @@ export class MetricsCollector {
       size += message.content.text.length;
     }
 
+    // Calendar payload, which travels in full whichever way a transport
+    // carries it
+    if (message.calendar != null) {
+      size += message.calendar.content.length;
+    }
+
     // Attachment headers estimate (not content)
     size += message.attachments.length * 100;
 

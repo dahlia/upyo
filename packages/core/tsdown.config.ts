@@ -6,6 +6,7 @@ export default defineConfig({
     "src/abort-signal.ts",
     "src/address.ts",
     "src/attachment.ts",
+    "src/calendar.ts",
     "src/message.ts",
     "src/message-id.ts",
     "src/priority.ts",

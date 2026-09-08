@@ -1,4 +1,5 @@
 import type { Address, Attachment, Message } from "@upyo/core";
+import { createCalendarAttachment } from "@upyo/core/calendar";
 import {
   combineSignals,
   readAttachmentContent,
@@ -88,6 +89,13 @@ export async function convertMessage(
 ): Promise<MailerooEmail> {
   signal?.throwIfAborted();
 
+  // A transport that cannot compose a `text/calendar` alternative carries the
+  // scheduling payload as an *invite.ics* part instead, ahead of the caller's
+  // own files so that a client looking for the first calendar part finds it.
+  const attachments = message.calendar == null
+    ? message.attachments
+    : [createCalendarAttachment(message.calendar), ...message.attachments];
+
   const emailData: MutableMailerooEmail = {
     from: convertAddress(message.sender),
     to: convertAddressList(message.recipients),
@@ -129,12 +137,12 @@ export async function convertMessage(
     emailData.headers = headers;
   }
 
-  if (message.attachments.length > 0) {
+  if (attachments.length > 0) {
     const cancellation = new AbortController();
     const combined = combineSignals(cancellation.signal, signal);
     try {
       emailData.attachments = await Promise.all(
-        message.attachments.map((attachment) =>
+        attachments.map((attachment) =>
           convertAttachment(
             attachment,
             combined.signal,

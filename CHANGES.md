@@ -12,6 +12,18 @@ To be released.
     `readAttachmentContent()` and `iterateAttachmentContent()` helpers.
     `createMessage()` now retains `File` content without reading it; use the
     helpers instead of awaiting `attachment.content` directly.  [[#56], [#59]]
+ -  Added a `calendar` field to `Message` and `createMessage()`, which carries
+    an iCalendar object so that a transport can compose the `text/calendar`
+    part that makes a message a meeting invitation, a reply, or a
+    cancellation.  The method is read from the object's own `METHOD` property;
+    passing `method` asserts what that property says rather than supplying it,
+    and content that is not a single well-formed `VCALENDAR` object declaring
+    exactly one supported method is rejected with a `TypeError`.  Line endings
+    are normalized to CRLF.  [[#63], [#69]]
+ -  Added the `@upyo/core/calendar` module, with the `CalendarMethod`,
+    `CalendarContent`, and `CalendarConstructor` types and the
+    `parseCalendarMethod()`, `resolveCalendarContent()`, and
+    `createCalendarAttachment()` functions.  [[#63], [#69]]
  -  Added `messageId`, `date`, `inReplyTo`, and `references` fields to `Message`
     and `createMessage()`, so that an application can choose the outgoing
     message identifier, store it, and correlate a reply that arrives with a
@@ -38,9 +50,13 @@ To be released.
 [#58]: https://github.com/dahlia/upyo/issues/58
 [#59]: https://github.com/dahlia/upyo/pull/59
 [#61]: https://github.com/dahlia/upyo/pull/61
+[#63]: https://github.com/dahlia/upyo/issues/63
+[#69]: https://github.com/dahlia/upyo/pull/69
 
 ### @upyo/jmap
 
+ -  A message carrying `calendar` is now composed with a `text/calendar` body
+    part carrying the `method` parameter.  [[#63], [#69]]
  -  Added support for `Blob` and replayable async attachment factories,
     including cancellation while reading their content.  Provider payloads
     remain buffered in memory.  [[#56], [#59]]
@@ -59,6 +75,12 @@ To be released.
 
 ### @upyo/lettermint
 
+ -  A message carrying `calendar` now sends the iCalendar object as an
+    *invite.ics* attachment whose content type keeps the `method` parameter,
+    ahead of the message's own attachments.  This transport cannot compose a
+    `text/calendar` body alternative, so the scheduling semantics are not
+    guaranteed to survive; see the documentation on calendar invitations.
+    [[#63], [#69]]
  -  Added support for `Blob` and replayable async attachment factories,
     including cancellation while reading their content.  Provider payloads
     remain buffered in memory.  [[#56], [#59]]
@@ -86,6 +108,13 @@ To be released.
 [#33]: https://github.com/dahlia/upyo/pull/33
 
 ### @upyo/maileroo
+
+ -  A message carrying `calendar` now sends the iCalendar object as an
+    *invite.ics* attachment whose content type keeps the `method` parameter,
+    ahead of the message's own attachments.  This transport cannot compose a
+    `text/calendar` body alternative, so the scheduling semantics are not
+    guaranteed to survive; see the documentation on calendar invitations.
+    [[#63], [#69]]
 
  -  Added [Maileroo] transport.
     [[#30], [#31]]
@@ -116,6 +145,12 @@ To be released.
 
 ### @upyo/mailgun
 
+ -  A message carrying `calendar` now sends the iCalendar object as an
+    *invite.ics* attachment whose content type keeps the `method` parameter,
+    ahead of the message's own attachments.  This transport cannot compose a
+    `text/calendar` body alternative, so the scheduling semantics are not
+    guaranteed to survive; see the documentation on calendar invitations.
+    [[#63], [#69]]
  -  Added support for `Blob` and replayable async attachment factories,
     including cancellation while reading their content.  Provider payloads
     remain buffered in memory.  [[#56], [#59]]
@@ -127,6 +162,13 @@ To be released.
     whether a supplied value survives.  [[#58], [#61]]
 
 ### @upyo/mailtrap
+
+ -  A message carrying `calendar` now sends the iCalendar object as an
+    *invite.ics* attachment whose content type keeps the `method` parameter,
+    ahead of the message's own attachments.  This transport cannot compose a
+    `text/calendar` body alternative, so the scheduling semantics are not
+    guaranteed to survive; see the documentation on calendar invitations.
+    [[#63], [#69]]
 
  -  Added [Mailtrap] transport.
     [[#32] by Narek Hovhannisyan\]
@@ -154,8 +196,22 @@ To be released.
 [Mailtrap]: https://mailtrap.io/
 [#32]: https://github.com/dahlia/upyo/pull/32
 
+### @upyo/opentelemetry
+
+ -  The estimated message size reported on a span now includes the calendar
+    payload.  [[#63], [#69]]
+
 ### @upyo/plunk
 
+ -  A message carrying `calendar` now sends the iCalendar object as an
+    *invite.ics* attachment whose content type keeps the `method` parameter,
+    ahead of the message's own attachments.  This transport cannot compose a
+    `text/calendar` body alternative, so the scheduling semantics are not
+    guaranteed to survive; see the documentation on calendar invitations.
+    [[#63], [#69]]
+ -  A calendar message that would exceed the limit of five attachments is now
+    rejected with a `RangeError`, rather than silently dropping one of the
+    message's own files to make room for the invitation.  [[#63], [#69]]
  -  Added support for `Blob` and replayable async attachment factories.
     Attachment reads remain buffered, and failed reads still omit the
     attachment; caller cancellation now aborts the send instead.  [[#56], [#59]]
@@ -168,6 +224,14 @@ To be released.
 
 ### @upyo/resend
 
+ -  A message carrying `calendar` now sends the iCalendar object as an
+    *invite.ics* attachment whose content type keeps the `method` parameter,
+    ahead of the message's own attachments.  This transport cannot compose a
+    `text/calendar` body alternative, so the scheduling semantics are not
+    guaranteed to survive; see the documentation on calendar invitations.
+    [[#63], [#69]]
+ -  A calendar message is now sent individually rather than through the batch
+    API, which accepts no attachments.  [[#63], [#69]]
  -  Added support for `Blob` and replayable async attachment factories,
     including cancellation while reading their content.  Provider payloads
     remain buffered in memory.  [[#56], [#59]]
@@ -181,6 +245,12 @@ To be released.
 
 ### @upyo/sendgrid
 
+ -  A message carrying `calendar` now sends the iCalendar object as an
+    *invite.ics* attachment whose content type keeps the `method` parameter,
+    ahead of the message's own attachments.  This transport cannot compose a
+    `text/calendar` body alternative, so the scheduling semantics are not
+    guaranteed to survive; see the documentation on calendar invitations.
+    [[#63], [#69]]
  -  Added support for `Blob` and replayable async attachment factories,
     including cancellation while reading their content.  Provider payloads
     remain buffered in memory.  [[#56], [#59]]
@@ -193,12 +263,25 @@ To be released.
 
 ### @upyo/ses
 
+ -  A message carrying `calendar` now sends the iCalendar object as an
+    *invite.ics* attachment whose content type keeps the `method` parameter,
+    ahead of the message's own attachments.  This transport cannot compose a
+    `text/calendar` body alternative, so the scheduling semantics are not
+    guaranteed to survive; see the documentation on calendar invitations.
+    [[#63], [#69]]
+ -  An attachment with no content ID no longer sends an empty `ContentId` field.
+    [[#63], [#69]]
  -  Added support for `Blob` and replayable async attachment factories,
     including cancellation while reading their content.  Provider payloads
     remain buffered in memory.  [[#56], [#59]]
 
 ### @upyo/smtp
 
+ -  A message carrying `calendar` is now composed with a `text/calendar`
+    alternative, placed after the text and HTML bodies and Base64 encoded so
+    that the object's line structure survives unchanged.  The `method`
+    parameter repeats the object's own `METHOD` property, as RFC 6047 §2.4
+    requires.  [[#63], [#69]]
  -  Added SMTP envelope overrides for using different `MAIL FROM` and `RCPT TO`
     addresses without changing the visible message headers.  Overrides support
     null reverse-paths and per-message resolvers for bulk VERP delivery.

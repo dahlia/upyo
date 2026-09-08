@@ -528,3 +528,84 @@ describe("createMessage() identity and threading", () => {
     );
   });
 });
+
+describe("createMessage() calendar", () => {
+  const base: MessageConstructor = {
+    from: "organizer@example.com",
+    to: "attendee@example.net",
+    subject: "Lunch",
+    content: { text: "Lunch on Wednesday." },
+  };
+
+  const request = [
+    "BEGIN:VCALENDAR",
+    "VERSION:2.0",
+    "METHOD:REQUEST",
+    "BEGIN:VEVENT",
+    "UID:1@example.com",
+    "END:VEVENT",
+    "END:VCALENDAR",
+  ].join("\r\n") + "\r\n";
+
+  it("should leave the field unset when no calendar is given", () => {
+    assert.equal(createMessage(base).calendar, undefined);
+  });
+
+  it("should resolve the method from the content", () => {
+    const message = createMessage({ ...base, calendar: { content: request } });
+    assert.deepEqual(message.calendar, { method: "REQUEST", content: request });
+  });
+
+  it("should accept a method asserting what the content declares", () => {
+    const message = createMessage({
+      ...base,
+      calendar: { method: "REQUEST", content: request },
+    });
+    assert.equal(message.calendar?.method, "REQUEST");
+  });
+
+  it("should normalize the line endings of the content", () => {
+    const message = createMessage({
+      ...base,
+      calendar: {
+        content: "BEGIN:VCALENDAR\nMETHOD:CANCEL\nEND:VCALENDAR\n",
+      },
+    });
+    assert.equal(message.calendar?.method, "CANCEL");
+    assert.equal(
+      message.calendar?.content,
+      "BEGIN:VCALENDAR\r\nMETHOD:CANCEL\r\nEND:VCALENDAR\r\n",
+    );
+  });
+
+  it("should reject a method that disagrees with the content", () => {
+    assert.throws(
+      () =>
+        createMessage({
+          ...base,
+          calendar: { method: "CANCEL", content: request },
+        }),
+      { name: "TypeError", message: /METHOD:REQUEST/ },
+    );
+  });
+
+  it("should reject content that declares no method", () => {
+    assert.throws(
+      () =>
+        createMessage({
+          ...base,
+          calendar: {
+            content: "BEGIN:VCALENDAR\r\nVERSION:2.0\r\nEND:VCALENDAR\r\n",
+          },
+        }),
+      { name: "TypeError", message: /METHOD/ },
+    );
+  });
+
+  it("should reject content that is not a calendar object", () => {
+    assert.throws(
+      () => createMessage({ ...base, calendar: { content: "METHOD:REQUEST" } }),
+      { name: "TypeError" },
+    );
+  });
+});

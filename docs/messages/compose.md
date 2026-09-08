@@ -128,6 +128,10 @@ const message = createMessage({
 });
 ~~~~
 
+A message can also carry an iCalendar object alongside the text and HTML, which
+is what turns it into a meeting invitation rather than an email that mentions a
+meeting.  See [Calendar invitations](./calendar.md).
+
 If you only need plain text, you can simply provide the `text` property:
 
 ~~~~ typescript twoslash

@@ -239,3 +239,95 @@ test("convertMessage handles attachments", async () => {
   assert.equal(sesAttachment.ContentTransferEncoding, "BASE64");
   assert.equal(sesAttachment.RawContent, btoa("Hello"));
 });
+
+const CALENDAR_ICS = [
+  "BEGIN:VCALENDAR",
+  "VERSION:2.0",
+  "METHOD:REQUEST",
+  "BEGIN:VEVENT",
+  "UID:1@example.com",
+  "SUMMARY:Lunch",
+  "END:VEVENT",
+  "END:VCALENDAR",
+].join("\r\n") + "\r\n";
+
+const CALENDAR_BASE64 = btoa(CALENDAR_ICS);
+
+const AGENDA_ATTACHMENT = {
+  inline: false,
+  filename: "agenda.txt",
+  content: new TextEncoder().encode("agenda"),
+  contentType: "text/plain" as const,
+  contentId: "",
+};
+
+function calendarTestConfig() {
+  return createSesConfig({
+    authentication: {
+      type: "credentials",
+      accessKeyId: "test-key",
+      secretAccessKey: "test-secret",
+    },
+  });
+}
+
+test("convertMessage carries the calendar as an invite.ics attachment", async () => {
+  const config = calendarTestConfig();
+  const message = createMessage({
+    from: "organizer@example.com",
+    to: "attendee@example.net",
+    subject: "Lunch",
+    content: { text: "Lunch on Wednesday." },
+    calendar: { method: "REQUEST", content: CALENDAR_ICS },
+  });
+
+  const sesMessage = await convertMessage(message, config);
+  const attachments = sesMessage.Content.Simple?.Attachments;
+
+  assert.equal(attachments?.length, 1);
+  assert.equal(attachments?.[0].FileName, "invite.ics");
+  assert.equal(
+    attachments?.[0].ContentType,
+    "text/calendar; charset=utf-8; method=REQUEST",
+  );
+  assert.equal(attachments?.[0].ContentDisposition, "ATTACHMENT");
+  assert.equal(attachments?.[0].RawContent, CALENDAR_BASE64);
+  // SES rejects an empty content ID, and this part has none.
+  assert.ok(!("ContentId" in (attachments?.[0] ?? {})));
+});
+
+test("convertMessage places the invitation ahead of the other attachments", async () => {
+  const config = calendarTestConfig();
+  const message = createMessage({
+    from: "organizer@example.com",
+    to: "attendee@example.net",
+    subject: "Lunch",
+    content: { text: "Lunch on Wednesday." },
+    calendar: { method: "REQUEST", content: CALENDAR_ICS },
+    attachments: [AGENDA_ATTACHMENT],
+  });
+
+  const sesMessage = await convertMessage(message, config);
+
+  assert.deepEqual(
+    sesMessage.Content.Simple?.Attachments?.map((a) => a.FileName),
+    ["invite.ics", "agenda.txt"],
+  );
+});
+
+test("convertMessage rejects calendar content that never passed createMessage()", async () => {
+  const config = calendarTestConfig();
+  const message = {
+    ...createMessage({
+      from: "organizer@example.com",
+      to: "attendee@example.net",
+      subject: "Lunch",
+      content: { text: "Lunch." },
+    }),
+    calendar: { method: "REQUEST" as const, content: "not a calendar" },
+  };
+
+  await assert.rejects(() => convertMessage(message, config), {
+    name: "TypeError",
+  });
+});

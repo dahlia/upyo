@@ -1411,4 +1411,199 @@ describe("Message Converter Integration Tests", () => {
       assert.ok(rawWithoutSoftBreaks.includes(longLine));
     });
   });
+
+  describe("Calendar Composition", () => {
+    const ics = (...lines: readonly string[]): string =>
+      lines.join("\r\n") + "\r\n";
+
+    const request = ics(
+      "BEGIN:VCALENDAR",
+      "VERSION:2.0",
+      "METHOD:REQUEST",
+      "BEGIN:VEVENT",
+      "UID:1@example.com",
+      "DTSTAMP:20260901T100000Z",
+      "SUMMARY:Lunch",
+      "END:VEVENT",
+      "END:VCALENDAR",
+    );
+
+    /** Reads back the decoded body of the sole text/calendar part. */
+    const decodeCalendarPart = (raw: string): string => {
+      const marker = raw.indexOf("Content-Type: text/calendar");
+      assert.ok(marker >= 0, "no text/calendar part");
+      const bodyStart = raw.indexOf("\r\n\r\n", marker) + 4;
+      const bodyEnd = raw.indexOf("\r\n--", bodyStart);
+      const payload = raw.slice(bodyStart, bodyEnd < 0 ? undefined : bodyEnd);
+      return Buffer.from(payload.replace(/\r\n/g, ""), "base64").toString(
+        "utf8",
+      );
+    };
+
+    test("should add a text/calendar alternative beside a text body", async () => {
+      const message = createTestMessage({
+        content: { text: "Lunch on Wednesday." },
+        calendar: { method: "REQUEST", content: request },
+      });
+
+      const result = await convertMessage(message);
+
+      assert.ok(result.raw.includes("Content-Type: multipart/alternative"));
+      assert.ok(result.raw.includes("Content-Type: text/plain; charset=utf-8"));
+      assert.ok(
+        result.raw.includes(
+          "Content-Type: text/calendar; charset=utf-8; method=REQUEST",
+        ),
+      );
+      assert.equal(decodeCalendarPart(result.raw), request);
+    });
+
+    test("should place the calendar after the other alternatives", async () => {
+      const message = createTestMessage({
+        content: { text: "Lunch on Wednesday.", html: "<p>Lunch</p>" },
+        calendar: { method: "REQUEST", content: request },
+      });
+
+      const result = await convertMessage(message);
+
+      const plain = result.raw.indexOf("Content-Type: text/plain");
+      const html = result.raw.indexOf("Content-Type: text/html");
+      const calendar = result.raw.indexOf("Content-Type: text/calendar");
+      assert.ok(plain >= 0 && html >= 0 && calendar >= 0);
+      assert.ok(plain < html, "text/plain should precede text/html");
+      assert.ok(html < calendar, "text/html should precede text/calendar");
+    });
+
+    test("should compose a calendar beside an HTML-only body", async () => {
+      const message = createTestMessage({
+        content: { html: "<p>Lunch</p>" },
+        calendar: { method: "REQUEST", content: request },
+      });
+
+      const result = await convertMessage(message);
+
+      assert.ok(result.raw.includes("Content-Type: multipart/alternative"));
+      assert.ok(result.raw.includes("Content-Type: text/html; charset=utf-8"));
+      assert.ok(result.raw.includes("Content-Type: text/calendar"));
+      assert.ok(!result.raw.includes("Content-Type: text/plain"));
+    });
+
+    test("should encode the calendar part as base64", async () => {
+      const message = createTestMessage({
+        calendar: { method: "REQUEST", content: request },
+      });
+
+      const result = await convertMessage(message);
+
+      const marker = result.raw.indexOf("Content-Type: text/calendar");
+      const headerEnd = result.raw.indexOf("\r\n\r\n", marker);
+      const partHeaders = result.raw.slice(marker, headerEnd);
+      assert.ok(partHeaders.includes("Content-Transfer-Encoding: base64"));
+    });
+
+    test("should carry the CANCEL method through to the parameter", async () => {
+      const cancel = ics(
+        "BEGIN:VCALENDAR",
+        "METHOD:CANCEL",
+        "BEGIN:VEVENT",
+        "UID:1@example.com",
+        "STATUS:CANCELLED",
+        "END:VEVENT",
+        "END:VCALENDAR",
+      );
+      const message = createTestMessage({
+        calendar: { method: "CANCEL", content: cancel },
+      });
+
+      const result = await convertMessage(message);
+
+      assert.ok(
+        result.raw.includes(
+          "Content-Type: text/calendar; charset=utf-8; method=CANCEL",
+        ),
+      );
+      assert.equal(decodeCalendarPart(result.raw), cancel);
+    });
+
+    test("should carry non-ASCII calendar content byte for byte", async () => {
+      const unicode = ics(
+        "BEGIN:VCALENDAR",
+        "METHOD:REQUEST",
+        "BEGIN:VEVENT",
+        "UID:1@example.com",
+        "SUMMARY:점심 식사 🍜",
+        "END:VEVENT",
+        "END:VCALENDAR",
+      );
+      const message = createTestMessage({
+        calendar: { method: "REQUEST", content: unicode },
+      });
+
+      const result = await convertMessage(message);
+
+      assert.equal(decodeCalendarPart(result.raw), unicode);
+      // Base64 keeps the part ASCII, so no SMTPUTF8 is demanded for the body.
+      assert.ok(!result.requiresSmtpUtf8);
+    });
+
+    test("should keep the calendar inside the alternative when attached files exist", async () => {
+      const message = createTestMessage({
+        content: { text: "Lunch on Wednesday." },
+        calendar: { method: "REQUEST", content: request },
+        attachments: [{
+          inline: false,
+          filename: "agenda.txt",
+          content: new TextEncoder().encode("agenda"),
+          contentType: "text/plain",
+          contentId: "",
+        }],
+      });
+
+      const result = await convertMessage(message);
+
+      const alternative = result.raw.indexOf(
+        "Content-Type: multipart/alternative",
+      );
+      const calendar = result.raw.indexOf("Content-Type: text/calendar");
+      const agenda = result.raw.indexOf("agenda.txt");
+      assert.ok(alternative >= 0 && calendar >= 0 && agenda >= 0);
+      assert.ok(alternative < calendar, "calendar belongs to the alternative");
+      assert.ok(calendar < agenda, "the alternative precedes the attachments");
+      assert.equal(decodeCalendarPart(result.raw), request);
+    });
+
+    test("should reject calendar content that never passed createMessage()", async () => {
+      const message = createTestMessage({
+        calendar: {
+          method: "REQUEST",
+          content: 'BEGIN:VCALENDAR\r\nMETHOD:X"\r\nEND:VCALENDAR\r\n',
+        },
+      });
+
+      await assert.rejects(() => convertMessage(message), {
+        name: "TypeError",
+      });
+    });
+
+    test("should not fold a long calendar Content-Type", async () => {
+      const message = createTestMessage({
+        calendar: {
+          method: "DECLINECOUNTER",
+          content: ics(
+            "BEGIN:VCALENDAR",
+            "METHOD:DECLINECOUNTER",
+            "END:VCALENDAR",
+          ),
+        },
+      });
+
+      const result = await convertMessage(message);
+
+      assert.ok(
+        result.raw.includes(
+          "Content-Type: text/calendar; charset=utf-8; method=DECLINECOUNTER",
+        ),
+      );
+    });
+  });
 });

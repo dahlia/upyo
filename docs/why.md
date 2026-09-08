@@ -268,13 +268,14 @@ N/A
 
 #### Core features
 
-| Feature             | Upyo | [Nodemailer] | [Resend] | [SendGrid] | [Mailgun] |
-| ------------------- | :--: | :----------: | :------: | :--------: | :-------: |
-| Connection pooling  |  ✅  |      ✅      |   N/A    |    N/A     |    N/A    |
-| Attachments         |  ✅  |      ✅      |    ✅    |     ✅     |    ✅     |
-| Inline images       |  ✅  |      ✅      |    ✅    |     ✅     |    ✅     |
-| HTML and plain text |  ✅  |      ✅      |    ✅    |     ✅     |    ✅     |
-| Batch sending       |  ✅  |      ❌      |    ✅    |     ✅     |    ✅     |
+| Feature              | Upyo | [Nodemailer] | [Resend] | [SendGrid] | [Mailgun] |
+| -------------------- | :--: | :----------: | :------: | :--------: | :-------: |
+| Connection pooling   |  ✅  |      ✅      |   N/A    |    N/A     |    N/A    |
+| Attachments          |  ✅  |      ✅      |    ✅    |     ✅     |    ✅     |
+| Inline images        |  ✅  |      ✅      |    ✅    |     ✅     |    ✅     |
+| HTML and plain text  |  ✅  |      ✅      |    ✅    |     ✅     |    ✅     |
+| Calendar invitations |  ✅  |      ✅      |    ❌    |     ❌     |    ❌     |
+| Batch sending        |  ✅  |      ❌      |    ✅    |     ✅     |    ✅     |
 
 #### Advanced features
 

@@ -461,6 +461,12 @@ export class OpenTelemetryTransport<TProviderId extends string = string>
       size += message.content.text.length;
     }
 
+    // Calendar payload, which travels in full whichever way a transport
+    // carries it
+    if (message.calendar != null) {
+      size += message.calendar.content.length;
+    }
+
     // Attachment headers estimate
     size += message.attachments.length * 100;
 

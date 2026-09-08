@@ -1,4 +1,5 @@
 import type { Address, Attachment, Message } from "@upyo/core";
+import { createCalendarAttachment } from "@upyo/core/calendar";
 import {
   combineSignals,
   readAttachmentContent,
@@ -61,6 +62,13 @@ export async function convertMessage(
   _config: ResolvedResendConfig,
   options: { scheduledAt?: Date; signal?: AbortSignal } = {},
 ): Promise<ResendEmail> {
+  // A transport that cannot compose a `text/calendar` alternative carries the
+  // scheduling payload as an *invite.ics* part instead, ahead of the caller's
+  // own files so that a client looking for the first calendar part finds it.
+  const attachments = message.calendar == null
+    ? message.attachments
+    : [createCalendarAttachment(message.calendar), ...message.attachments];
+
   const emailData: ResendEmail = {
     from: formatAddress(message.sender),
     to: message.recipients.length === 1
@@ -96,12 +104,12 @@ export async function convertMessage(
   }
 
   // Attachments
-  if (message.attachments.length > 0) {
+  if (attachments.length > 0) {
     const cancellation = new AbortController();
     const combined = combineSignals(cancellation.signal, options.signal);
     try {
       emailData.attachments = await Promise.all(
-        message.attachments.map((attachment) =>
+        attachments.map((attachment) =>
           convertAttachment(attachment, combined.signal)
         ),
       );
@@ -183,9 +191,12 @@ export async function convertMessagesBatch(
     throw new Error("Resend batch API supports maximum 100 emails per request");
   }
 
-  // Check for unsupported features in batch mode
+  // Check for unsupported features in batch mode.  A calendar is checked here
+  // too: it becomes an attachment during conversion, so reading
+  // `message.attachments` alone would let one through the batch API that
+  // forbids attachments.
   for (const message of messages) {
-    if (message.attachments.length > 0) {
+    if (message.attachments.length > 0 || message.calendar != null) {
       throw new Error("Attachments are not supported in Resend batch API");
     }
     if (message.tags.length > 0) {
