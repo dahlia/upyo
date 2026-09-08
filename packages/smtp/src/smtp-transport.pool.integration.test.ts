@@ -252,6 +252,69 @@ describe("SmtpTransport connection limit", () => {
     }
   });
 
+  for (const pool of [false, true]) {
+    for (const asyncInput of [false, true]) {
+      for (const stopEarly of [false, true]) {
+        test(
+          `sendMany cleanup: pool=${pool}, async=${asyncInput}, break=${stopEarly}`,
+          async () => {
+            const { server, transport } = await setupTest({
+              pool,
+              poolSize: 1,
+            });
+            const messages = [createTestMessage(), createTestMessage()];
+            // Exercise both iteration branches without an external SMTP service.
+            async function* source() {
+              yield* messages;
+            }
+
+            try {
+              let receipts = 0;
+              for await (
+                const receipt of transport.sendMany(
+                  asyncInput ? source() : messages,
+                )
+              ) {
+                assert.ok(receipt.successful);
+                receipts++;
+                if (stopEarly) break;
+              }
+              assert.strictEqual(receipts, stopEarly ? 1 : 2);
+              assert.strictEqual(server.getReceivedMessages().length, receipts);
+              assert.strictEqual(
+                server.getReceivedCommands().filter((command) =>
+                  command === "RSET"
+                )
+                  .length,
+                pool ? 1 : 0,
+              );
+
+              await transport.closeAllConnections();
+              // QUIT is flushed without waiting for the server's reply.
+              for (
+                let attempt = 0;
+                attempt < 50 && !server.getReceivedCommands().includes("QUIT");
+                attempt++
+              ) {
+                await new Promise((resolve) => setTimeout(resolve, 10));
+              }
+              assert.strictEqual(
+                server.getReceivedCommands().filter((command) =>
+                  command === "QUIT"
+                )
+                  .length,
+                1,
+                "The batch connection must be closed after iteration and cleanup.",
+              );
+            } finally {
+              await teardownTest(server, transport);
+            }
+          },
+        );
+      }
+    }
+  }
+
   test("closing the pool while a send runs stays within poolSize", async () => {
     const { server, transport } = await setupTest({ poolSize: 1 });
 
@@ -272,6 +335,116 @@ describe("SmtpTransport connection limit", () => {
         `Expected at most 1 simultaneous connection, saw ${server.getPeakConcurrentConnections()}`,
       );
     } finally {
+      await teardownTest(server, transport);
+    }
+  });
+
+  for (const command of ["DATA", "RSET"]) {
+    for (const pool of command === "RSET" ? [true] : [true, false]) {
+      test(`shutdown drains sends during ${command}, pool=${pool}`, async () => {
+        const { server, transport } = await setupTest({ pool, poolSize: 1 });
+        server.setResponseDelay(command === "DATA" ? "DATA_END" : command, 100);
+        const sending = transport.send(createTestMessage());
+        try {
+          while (!server.getReceivedCommands().includes(command)) {
+            await new Promise((resolve) => setTimeout(resolve, 1));
+          }
+          const queued = transport.send(createTestMessage());
+          let closed = false;
+          const closing = transport.closeAllConnections().then(() => {
+            closed = true;
+          });
+          const disposing = transport[Symbol.asyncDispose]();
+          await new Promise((resolve) => setTimeout(resolve, 10));
+          assert.ok(!closed, "Shutdown must wait for admitted sends.");
+          assert.ok((await sending).successful);
+          assert.ok((await queued).successful);
+          await Promise.all([closing, disposing]);
+          // QUIT is flushed without waiting for the server to process it.
+          for (
+            let i = 0;
+            i < 50 && server.getActiveConnectionCount() > 0;
+            i++
+          ) {
+            await new Promise((resolve) => setTimeout(resolve, 10));
+          }
+          assert.strictEqual(server.getActiveConnectionCount(), 0);
+          assert.ok((await transport.send(createTestMessage())).successful);
+        } finally {
+          await sending;
+          await teardownTest(server, transport);
+        }
+      });
+    }
+  }
+
+  for (const failSetup of [false, true]) {
+    test(`shutdown includes connection setup, failure=${failSetup}`, async () => {
+      const { server, transport } = await setupTest({ poolSize: 1 });
+      if (failSetup) {
+        server.setResponse("EHLO", { code: 550, message: "Not today" });
+      }
+      try {
+        const sending = transport.send(createTestMessage());
+        await transport.closeAllConnections();
+        assert.strictEqual((await sending).successful, !failSetup);
+        for (let i = 0; i < 50 && server.getActiveConnectionCount() > 0; i++) {
+          await new Promise((resolve) => setTimeout(resolve, 10));
+        }
+        assert.strictEqual(server.getActiveConnectionCount(), 0);
+      } finally {
+        await teardownTest(server, transport);
+      }
+    });
+  }
+
+  test("new sends wait for shutdown and can cancel that wait", async () => {
+    const { server, transport } = await setupTest({ poolSize: 1 });
+    const batch = transport.sendMany([createTestMessage()])
+      [Symbol.asyncIterator]();
+    try {
+      assert.ok((await batch.next()).value?.successful);
+      const closing = transport.closeAllConnections();
+      const controller = new AbortController();
+      const cancelled = transport.send(createTestMessage(), {
+        signal: controller.signal,
+      });
+      const rejection = assert.rejects(cancelled, { name: "AbortError" });
+      let sent = false;
+      const later = transport.send(createTestMessage()).then((receipt) => {
+        sent = true;
+        return receipt;
+      });
+      controller.abort();
+      await rejection;
+      assert.ok(!sent);
+      await batch.return?.();
+      await closing;
+      assert.ok((await later).successful);
+      assert.strictEqual(server.getReceivedMessages().length, 2);
+    } finally {
+      await batch.return?.();
+      await teardownTest(server, transport);
+    }
+  });
+
+  test("shutdown waits for a paused batch to be returned", async () => {
+    const { server, transport } = await setupTest({ poolSize: 1 });
+    const batch = transport.sendMany([createTestMessage(), createTestMessage()])
+      [Symbol.asyncIterator]();
+    try {
+      assert.ok((await batch.next()).value?.successful);
+      let closed = false;
+      const closing = transport.closeAllConnections().then(() => {
+        closed = true;
+      });
+      await new Promise((resolve) => setTimeout(resolve, 10));
+      assert.ok(!closed);
+      await batch.return?.();
+      await closing;
+      assert.strictEqual(server.getReceivedMessages().length, 1);
+    } finally {
+      await batch.return?.();
       await teardownTest(server, transport);
     }
   });
