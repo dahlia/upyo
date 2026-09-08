@@ -261,7 +261,17 @@ function readMethod(content: string): CalendarMethod | undefined {
   let methods = 0;
 
   for (const line of unfold(content)) {
-    const { name, value } = splitProperty(line);
+    const { name, value, parameterized } = splitProperty(line);
+    if (name === "BEGIN" || name === "END") {
+      // RFC 5545 §3.4 spells a delimiter `BEGIN:<name>`, with no parameters at
+      // all.  A parameterized pair balances, so the component scan below would
+      // not notice that the object it is walking is malformed.
+      if (parameterized) {
+        throw new TypeError(
+          `The calendar content carries parameters on a ${name} delimiter.`,
+        );
+      }
+    }
     if (name === "BEGIN") {
       if (closed) {
         throw new TypeError(
@@ -354,20 +364,25 @@ function asciiUpperCase(token: string): string {
  * {@link asciiUpperCase}.
  *
  * @param line One unfolded content line.
- * @returns The upper-cased name and value.
+ * @returns The upper-cased name and value, and whether parameters followed the
+ *          name.
  * @throws {TypeError} If the line has no value separator, or leaves a parameter
  * value quoted open.
  */
-function splitProperty(line: string): { name: string; value: string } {
+function splitProperty(
+  line: string,
+): { name: string; value: string; parameterized: boolean } {
   let quoted = false;
   for (let i = 0; i < line.length; i++) {
     const character = line[i];
     if (character === '"') quoted = !quoted;
     else if (character === ":" && !quoted) {
-      const name = line.slice(0, i).split(";", 1)[0];
+      const field = line.slice(0, i);
+      const name = field.split(";", 1)[0];
       return {
         name: asciiUpperCase(name),
         value: asciiUpperCase(line.slice(i + 1)),
+        parameterized: name.length < field.length,
       };
     }
   }

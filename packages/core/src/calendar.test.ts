@@ -169,6 +169,18 @@ describe("parseCalendarMethod()", () => {
       "BEGIN:VEVENT",
       "END:VCALENDAR",
     ),
+    // RFC 5545 §3.4 spells a delimiter BEGIN:<name>, with no parameters.  A
+    // matching pair carrying them balances, so nothing else would notice.
+    "a BEGIN carrying parameters": ics(
+      "BEGIN;X=foo:VCALENDAR",
+      "METHOD:REQUEST",
+      "END;X=foo:VCALENDAR",
+    ),
+    "an END carrying parameters": ics(
+      "BEGIN:VCALENDAR",
+      "METHOD:REQUEST",
+      "END;X=foo:VCALENDAR",
+    ),
     "an unterminated quote": ics(
       "BEGIN:VCALENDAR",
       'METHOD;X-FOO="a:REQUEST',
