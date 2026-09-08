@@ -33,6 +33,13 @@ export type CalendarMethod =
   | "COUNTER"
   | "DECLINECOUNTER";
 
+/**
+ * The shape of an RFC 5545 §3.1 component name: an `iana-token` or an `x-name`,
+ * both of which are one or more of ALPHA, DIGIT and `-`.  Matched against the
+ * already upper-cased value.
+ */
+const componentNamePattern = /^[A-Z0-9-]+$/;
+
 const calendarMethods: ReadonlySet<string> = new Set<CalendarMethod>([
   "PUBLISH",
   "REQUEST",
@@ -292,6 +299,17 @@ function readMethod(content: string): CalendarMethod | undefined {
       if (stack.length > 0 && value === "VCALENDAR") {
         throw new TypeError(
           "The calendar content nests a VCALENDAR object inside another.",
+        );
+      }
+      // A component name is an `iana-token` or an `x-name`, both of which are
+      // one or more of ALPHA, DIGIT and "-".  A malformed name balances with
+      // its END the same way a well-formed one does, so it has to be checked
+      // here or not at all.
+      if (!componentNamePattern.test(value)) {
+        throw new TypeError(
+          `The calendar content opens a component named ${
+            JSON.stringify(value)
+          }, which is not a component name.`,
         );
       }
       stack.push(value);

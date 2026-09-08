@@ -112,6 +112,17 @@ describe("parseCalendarMethod()", () => {
     assert.equal(parseCalendarMethod(content), undefined);
   });
 
+  it("should accept an extension component name", () => {
+    const content = ics(
+      "BEGIN:VCALENDAR",
+      "METHOD:REQUEST",
+      "BEGIN:X-WR-THING",
+      "END:X-WR-THING",
+      "END:VCALENDAR",
+    );
+    assert.equal(parseCalendarMethod(content), "REQUEST");
+  });
+
   it("should read a METHOD written after a component", () => {
     const content = ics(
       "BEGIN:VCALENDAR",
@@ -167,6 +178,29 @@ describe("parseCalendarMethod()", () => {
       "BEGIN:VCALENDAR",
       "METHOD:REQUEST",
       "BEGIN:VEVENT",
+      "END:VCALENDAR",
+    ),
+    // A component name is an iana-token or an x-name, both of which are one
+    // or more of ALPHA, DIGIT and "-".  A malformed pair still balances.
+    "an empty component name": ics(
+      "BEGIN:VCALENDAR",
+      "METHOD:REQUEST",
+      "BEGIN:",
+      "END:",
+      "END:VCALENDAR",
+    ),
+    "a component name carrying spaces": ics(
+      "BEGIN:VCALENDAR",
+      "METHOD:REQUEST",
+      "BEGIN:NOT A TOKEN",
+      "END:NOT A TOKEN",
+      "END:VCALENDAR",
+    ),
+    "a quoted component name": ics(
+      "BEGIN:VCALENDAR",
+      "METHOD:REQUEST",
+      'BEGIN:"X"',
+      'END:"X"',
       "END:VCALENDAR",
     ),
     // RFC 5545 §3.4 spells a delimiter BEGIN:<name>, with no parameters.  A
