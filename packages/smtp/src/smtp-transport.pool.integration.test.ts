@@ -252,6 +252,69 @@ describe("SmtpTransport connection limit", () => {
     }
   });
 
+  for (const pool of [false, true]) {
+    for (const asyncInput of [false, true]) {
+      for (const stopEarly of [false, true]) {
+        test(
+          `sendMany cleanup: pool=${pool}, async=${asyncInput}, break=${stopEarly}`,
+          async () => {
+            const { server, transport } = await setupTest({
+              pool,
+              poolSize: 1,
+            });
+            const messages = [createTestMessage(), createTestMessage()];
+            // Exercise both iteration branches without an external SMTP service.
+            async function* source() {
+              yield* messages;
+            }
+
+            try {
+              let receipts = 0;
+              for await (
+                const receipt of transport.sendMany(
+                  asyncInput ? source() : messages,
+                )
+              ) {
+                assert.ok(receipt.successful);
+                receipts++;
+                if (stopEarly) break;
+              }
+              assert.strictEqual(receipts, stopEarly ? 1 : 2);
+              assert.strictEqual(server.getReceivedMessages().length, receipts);
+              assert.strictEqual(
+                server.getReceivedCommands().filter((command) =>
+                  command === "RSET"
+                )
+                  .length,
+                pool ? 1 : 0,
+              );
+
+              await transport.closeAllConnections();
+              // QUIT is flushed without waiting for the server's reply.
+              for (
+                let attempt = 0;
+                attempt < 50 && !server.getReceivedCommands().includes("QUIT");
+                attempt++
+              ) {
+                await new Promise((resolve) => setTimeout(resolve, 10));
+              }
+              assert.strictEqual(
+                server.getReceivedCommands().filter((command) =>
+                  command === "QUIT"
+                )
+                  .length,
+                1,
+                "The batch connection must be closed after iteration and cleanup.",
+              );
+            } finally {
+              await teardownTest(server, transport);
+            }
+          },
+        );
+      }
+    }
+  }
+
   test("closing the pool while a send runs stays within poolSize", async () => {
     const { server, transport } = await setupTest({ poolSize: 1 });
 

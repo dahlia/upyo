@@ -6,6 +6,15 @@ Version 0.5.6
 
 To be released.
 
+### @upyo/smtp
+
+ -  Added regression coverage for the `sendMany()` connection cleanup fix
+    introduced in 0.5.5.  Breaking out of the iteration releases the connection
+    without sending the remaining messages, with pooling enabled or disabled
+    and with synchronous or asynchronous message sources.  [[#65]]
+
+[#65]: https://github.com/dahlia/upyo/issues/65
+
 
 Version 0.5.5
 -------------
