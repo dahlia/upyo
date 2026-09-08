@@ -280,6 +280,46 @@ To be released.
 [#55]: https://github.com/dahlia/upyo/pull/55
 
 
+Version 0.5.5
+-------------
+
+Released on September 8, 2026.
+
+### @upyo/smtp
+
+ -  `SmtpConfig.poolSize` is now enforced as a hard limit on how many
+    connections one transport may have open at the same time.  Concurrent
+    `send()` and `sendMany()` calls used to open a connection each, so a
+    transport configured with `poolSize: 5` could open a hundred connections
+    for a hundred concurrent sends and trip a provider's
+    simultaneous-connection limit.  A call that arrives once the limit is
+    reached now waits for a connection to be handed back, and cancelling it
+    through its `AbortSignal` rejects without sending the message.  [[#62]]
+
+    The limit counts connections that are being established, connections that
+    are currently sending, and idle connections retained for reuse, and it
+    applies whether or not `SmtpConfig.pool` is enabled.  Note that a
+    `sendMany()` call holds its connection for the whole iteration, so running
+    more concurrent `sendMany()` calls than `poolSize` makes the extra ones
+    wait.
+
+ -  Fixed overlapping returns retaining more idle connections than
+    `SmtpConfig.poolSize`.  Returning a connection checked the pool size before
+    awaiting `RSET`, so several returns could pass the check together and then
+    all be retained.  [[#62]]
+
+ -  Abandoning a `sendMany()` iteration early, such as with `break`, now
+    returns its connection instead of leaving it open until the transport is
+    disposed.
+
+ -  `new SmtpTransport()` now throws a `RangeError` when `poolSize` is neither a
+    positive integer nor `Infinity`, rather than accepting a value that no
+    connection could satisfy.  Pass `Infinity` to opt out of the limit and keep
+    the unbounded behaviour of earlier versions.
+
+[#62]: https://github.com/dahlia/upyo/issues/62
+
+
 Version 0.5.4
 -------------
 

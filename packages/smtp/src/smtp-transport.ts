@@ -74,11 +74,33 @@ export class SmtpTransport implements Transport<"smtp">, AsyncDisposable {
   config: SmtpConfig;
 
   /**
-   * The maximum number of connections in the pool.
+   * The maximum number of SMTP connections this transport may have open at
+   * once.  The limit covers connections that are being established,
+   * connections that are currently sending, and idle connections retained for
+   * reuse, so it holds whether or not pooling is enabled.  A caller that needs
+   * a connection while the limit is reached waits until one becomes available.
+   * `Infinity` leaves the number of connections unbounded.
    */
   poolSize: number;
 
+  /**
+   * Idle connections retained for reuse.  Every connection in here also counts
+   * towards {@link openConnectionCount}, so the pool can never grow past
+   * {@link poolSize}.
+   */
   private connectionPool: SmtpConnection[] = [];
+
+  /**
+   * The number of connections this transport currently owns: connections being
+   * established, connections checked out by a caller, and idle connections in
+   * {@link connectionPool}.  Never exceeds {@link poolSize}.
+   */
+  private openConnectionCount = 0;
+
+  /**
+   * Callers waiting for a connection to become available, in arrival order.
+   */
+  private capacityWaiters: CapacityWaiter[] = [];
 
   /**
    * A token manager shared across all pooled connections, present only when the
@@ -93,11 +115,22 @@ export class SmtpTransport implements Transport<"smtp">, AsyncDisposable {
    *
    * @param config SMTP configuration including server details, authentication,
    *               and options.
+   * @throws {RangeError} If `config.poolSize` is neither a positive integer nor
+   *                        `Infinity`.
    */
   constructor(config: SmtpConfig) {
     validateDkimBodyMode(config.dkim);
     this.config = config;
-    this.poolSize = config.poolSize ?? 5;
+    const poolSize = config.poolSize ?? 5;
+    if (
+      Number.isNaN(poolSize) || poolSize < 1 ||
+      (Number.isFinite(poolSize) && !Number.isInteger(poolSize))
+    ) {
+      throw new RangeError(
+        `poolSize must be a positive integer or Infinity: ${poolSize}`,
+      );
+    }
+    this.poolSize = poolSize;
     const auth = config.auth;
     this.tokenManager =
       auth != null && ("accessToken" in auth || "refreshToken" in auth)
@@ -169,6 +202,8 @@ export class SmtpTransport implements Transport<"smtp">, AsyncDisposable {
       );
 
       await this.returnConnection(connection);
+      // Cleared so the catch below cannot hand the same connection back twice.
+      connection = undefined;
 
       return {
         successful: true,
@@ -252,6 +287,17 @@ export class SmtpTransport implements Transport<"smtp">, AsyncDisposable {
     }
 
     let connectionValid = true;
+    let connectionReleased = false;
+
+    const releaseConnection = async (): Promise<void> => {
+      if (connectionReleased) return;
+      connectionReleased = true;
+      if (connectionValid) {
+        await this.returnConnection(connection);
+      } else {
+        await this.discardConnection(connection);
+      }
+    };
 
     try {
       const isAsyncIterable = Symbol.asyncIterator in messages;
@@ -357,41 +403,117 @@ export class SmtpTransport implements Transport<"smtp">, AsyncDisposable {
           }
         }
       }
-
-      // If connection is still valid, return it to pool
-      if (connectionValid) {
-        await this.returnConnection(connection);
-      } else {
-        await this.discardConnection(connection);
-      }
     } catch (error) {
-      // Error getting connection or during iteration setup
-      await this.discardConnection(connection);
+      // Error during iteration setup or while reading the messages
+      connectionValid = false;
       throw error;
+    } finally {
+      // Runs on normal completion, on error, and when the consumer abandons
+      // the iteration early with `break` or `return`.  Without it an abandoned
+      // iteration would hold its connection slot forever.
+      await releaseConnection();
     }
   }
 
+  /**
+   * Checks out a connection, waiting when {@link poolSize} connections are
+   * already open.  The returned connection holds one of those slots until it is
+   * handed back through {@link returnConnection} or {@link discardConnection}.
+   *
+   * @param signal Signal that cancels the wait for a free connection.
+   * @returns A connection ready to send.
+   * @throws {DOMException} If `signal` is aborted before a connection is
+   *                        obtained.
+   */
   private async getConnection(signal?: AbortSignal): Promise<SmtpConnection> {
     signal?.throwIfAborted();
 
-    // Try to get a connection from the pool
-    while (this.connectionPool.length > 0) {
-      const connection = this.connectionPool.pop()!;
-      if (connection.usable) return connection;
-      await this.discardConnection(connection);
-    }
+    while (true) {
+      // Reuse an idle connection when the pool has one.  It already holds a
+      // slot, so nothing else needs to be reserved.
+      let pooled = this.connectionPool.pop();
+      while (pooled != null) {
+        if (pooled.usable) return pooled;
+        // Dropping a connection that went stale in the pool frees its slot.
+        await this.discardConnection(pooled);
+        pooled = this.connectionPool.pop();
+      }
 
-    // Create a new connection
-    const connection = new SmtpConnection(this.config, this.tokenManager);
-    try {
-      await this.connectAndSetup(connection, signal);
-    } catch (error) {
-      // Setup failed after the socket may have opened (e.g. EHLO, STARTTLS, or
-      // authentication failure); discard it so it does not leak.
-      await this.discardConnection(connection);
-      throw error;
+      if (this.openConnectionCount < this.poolSize) {
+        // Reserve the slot before connecting so that connections still being
+        // established count towards the limit.
+        this.openConnectionCount++;
+        const connection = new SmtpConnection(this.config, this.tokenManager);
+        try {
+          await this.connectAndSetup(connection, signal);
+        } catch (error) {
+          // Setup failed after the socket may have opened (e.g. EHLO,
+          // STARTTLS, or authentication failure); discard it so neither the
+          // socket nor its slot leaks.
+          await this.discardConnection(connection);
+          throw error;
+        }
+        return connection;
+      }
+
+      // Every slot is taken, so wait for one to come back.
+      await this.waitForCapacity(signal);
+      try {
+        signal?.throwIfAborted();
+      } catch (error) {
+        // This caller consumed a wake-up it can no longer use; pass it on so
+        // that a waiter behind it is not stranded.
+        this.wakeCapacityWaiter();
+        throw error;
+      }
     }
-    return connection;
+  }
+
+  /**
+   * Waits until {@link wakeCapacityWaiter} reports that a connection or a free
+   * slot may be available.
+   *
+   * @param signal Signal that cancels the wait.
+   * @returns A promise that resolves when the caller should retry.
+   * @throws {DOMException} If `signal` is aborted while waiting.
+   */
+  private waitForCapacity(signal?: AbortSignal): Promise<void> {
+    return new Promise<void>((resolve, reject) => {
+      const waiters = this.capacityWaiters;
+      const onAbort = () => {
+        // Dropping the waiter from the queue before rejecting keeps it from
+        // consuming a wake-up meant for someone still waiting.
+        const index = waiters.indexOf(waiter);
+        if (index >= 0) waiters.splice(index, 1);
+        waiter.reject(signal?.reason);
+      };
+      const waiter: CapacityWaiter = {
+        resolve: () => {
+          signal?.removeEventListener("abort", onAbort);
+          resolve();
+        },
+        reject: (reason) => {
+          signal?.removeEventListener("abort", onAbort);
+          reject(reason);
+        },
+      };
+      signal?.addEventListener("abort", onAbort, { once: true });
+      waiters.push(waiter);
+    });
+  }
+
+  /** Wakes the caller that has been waiting longest, if there is one. */
+  private wakeCapacityWaiter(): void {
+    this.capacityWaiters.shift()?.resolve();
+  }
+
+  /**
+   * Gives up the slot held by a connection that is no longer open, letting a
+   * waiting caller take its place.
+   */
+  private releaseConnectionSlot(): void {
+    this.openConnectionCount--;
+    this.wakeCapacityWaiter();
   }
 
   private async connectAndSetup(
@@ -447,31 +569,42 @@ export class SmtpTransport implements Transport<"smtp">, AsyncDisposable {
     await connection.authenticate(signal);
   }
 
+  /**
+   * Hands a connection back after a successful send, either retaining it for
+   * reuse or closing it.  Either way the slot it occupies is passed on to a
+   * waiting caller.
+   */
   private async returnConnection(connection: SmtpConnection): Promise<void> {
     if (!connection.usable || !connection.config.pool) {
-      await connection.quit();
+      await this.discardConnection(connection);
       return;
     }
 
-    if (this.connectionPool.length < this.poolSize) {
-      try {
-        await connection.reset();
-        this.connectionPool.push(connection);
-      } catch {
-        // If reset fails, discard the connection
-        await this.discardConnection(connection);
-      }
-    } else {
-      await connection.quit();
+    try {
+      await connection.reset();
+    } catch {
+      // A connection that cannot be reset is not safe to reuse.
+      await this.discardConnection(connection);
+      return;
     }
+
+    // The connection keeps its slot while it sits idle, so no separate check
+    // against `poolSize` is needed here: at most `poolSize` connections can be
+    // checked out at once, hence at most `poolSize` can ever be returned.
+    this.connectionPool.push(connection);
+    this.wakeCapacityWaiter();
   }
 
+  /**
+   * Closes a checked-out connection and frees the slot it held.
+   */
   private async discardConnection(connection: SmtpConnection): Promise<void> {
     try {
       await connection.quit();
     } catch {
       // Ignore errors during cleanup
     }
+    this.releaseConnectionSlot();
   }
 
   /**
@@ -490,6 +623,9 @@ export class SmtpTransport implements Transport<"smtp">, AsyncDisposable {
     const connections = [...this.connectionPool];
     this.connectionPool = [];
 
+    // Each slot stays reserved until its socket is actually gone, so a caller
+    // waiting for capacity cannot open a replacement alongside a connection
+    // that is still shutting down.
     await Promise.all(
       connections.map((connection) => this.discardConnection(connection)),
     );
@@ -513,6 +649,15 @@ export class SmtpTransport implements Transport<"smtp">, AsyncDisposable {
   async [Symbol.asyncDispose](): Promise<void> {
     await this.closeAllConnections();
   }
+}
+
+/**
+ * A caller parked in {@link SmtpTransport.waitForCapacity} until a connection
+ * or a free connection slot becomes available.
+ */
+interface CapacityWaiter {
+  readonly resolve: () => void;
+  readonly reject: (reason: unknown) => void;
 }
 
 function createSmtpFailure(

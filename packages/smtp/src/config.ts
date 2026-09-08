@@ -85,7 +85,19 @@ export interface SmtpConfig {
   readonly pool?: boolean;
 
   /**
-   * Maximum number of connections in the pool.
+   * Maximum number of SMTP connections the transport may have open at once.
+   *
+   * The limit counts every connection the transport owns: connections that are
+   * being established, connections that are currently sending, and idle
+   * connections retained for reuse.  It therefore applies whether or not
+   * {@link SmtpConfig.pool} is enabled.  When the limit is reached, `send()`
+   * and `sendMany()` wait for a connection to become available instead of
+   * opening another one, so this value can be matched to a provider's
+   * simultaneous-connection limit.
+   *
+   * Must be a positive integer, or `Infinity` to leave the number of
+   * connections unbounded.
+   *
    * @default 5
    */
   readonly poolSize?: number;
