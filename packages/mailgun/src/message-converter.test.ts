@@ -413,6 +413,31 @@ describe("convertMessage() calendar", () => {
     );
   });
 
+  it("should reject malformed calendar property syntax", async () => {
+    const message: Message = {
+      sender: { address: "organizer@example.com" },
+      recipients: [{ address: "attendee@example.net" }],
+      ccRecipients: [],
+      bccRecipients: [],
+      replyRecipients: [],
+      subject: "Lunch",
+      content: { text: "Lunch." },
+      attachments: [],
+      priority: "normal",
+      tags: [],
+      headers: new Headers(),
+      calendar: {
+        method: "REQUEST",
+        content:
+          "BEGIN:VCALENDAR\r\nMETHOD:REQUEST\r\nSUMMARY;BROKEN:Lunch\r\nEND:VCALENDAR\r\n",
+      },
+    };
+
+    await assert.rejects(() => convertMessage(message, config), {
+      name: "TypeError",
+    });
+  });
+
   it("should reject calendar content that never passed createMessage()", async () => {
     const message: Message = {
       sender: { address: "organizer@example.com" },

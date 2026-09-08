@@ -107,8 +107,8 @@ export interface CalendarConstructor {
  * does.  It answers one question—which iTIP method does this object declare?—
  * and answers `undefined` whenever it cannot answer with confidence: no
  * `METHOD` at the top level, more than one, a method Upyo does not support, or
- * an envelope it cannot make sense of.  It never salvages a plausible token
- * from malformed input.
+ * malformed content line syntax or component structure.  It never salvages a
+ * plausible token from malformed input.
  *
  * Use {@link resolveCalendarContent} instead when you want to know *why* a
  * payload was refused.
@@ -145,11 +145,12 @@ export function parseCalendarMethod(
  * before its method reaches a `Content-Type` parameter.
  *
  * This is deliberately not a full iCalendar validator.  It checks what MIME
- * composition depends on—that there is one calendar object, that its components
- * balance, and that it declares exactly one supported method—and leaves the
- * rest to the caller.  Whether the object names an `ORGANIZER`, carries a
- * stable `UID`, bumps `SEQUENCE` on an update, or satisfies the iTIP
- * constraints for its method is not checked here.
+ * composition depends on: the syntax of every content line, one calendar
+ * object with balanced components, and exactly one supported method.  It
+ * leaves property-specific value syntax and scheduling semantics to the caller.
+ * Whether the object names an `ORGANIZER`, carries a stable `UID`, bumps
+ * `SEQUENCE` on an update, or satisfies the iTIP constraints for its method is
+ * not checked here.
  *
  * @example
  * ```ts
@@ -161,8 +162,8 @@ export function parseCalendarMethod(
  * @param calendar The payload to check.
  * @returns The payload with CRLF line endings and a resolved method.
  * @throws {TypeError} If the content is not a single well-formed calendar
- * object, if it does not declare exactly one supported method, or if it
- * declares a method other than the one asserted.
+ * object with valid content line syntax, if it does not declare exactly one
+ * supported method, or if it declares a method other than the one asserted.
  * @since 0.6.0
  */
 export function resolveCalendarContent(
@@ -262,30 +263,35 @@ function normalizeLineEndings(content: string): string {
  * object.
  */
 function readMethod(content: string): CalendarMethod | undefined {
+  // Check the transmitted text before unfolding: a fold between two lone
+  // surrogates must not rescue them into a pair only in the parsed view.
+  for (const character of content) {
+    const code = character.codePointAt(0)!;
+    if (code >= 0xd800 && code <= 0xdfff) {
+      throw new TypeError(
+        "The calendar content contains an unpaired UTF-16 surrogate.",
+      );
+    }
+  }
   const stack: string[] = [];
   let closed = false;
   let method: CalendarMethod | undefined;
   let methods = 0;
 
   for (const line of unfold(content)) {
-    const { name, value, parameters } = splitProperty(line);
+    const parsed = parseContentLine(line);
+    const { name } = parsed;
+    const value = name === "BEGIN" || name === "END" ||
+        (name === "METHOD" && stack.length === 1)
+      ? asciiUpperCase(parsed.value)
+      : parsed.value;
 
-    // Only these three lines decide what gets composed, so only these three
-    // are held to the grammar.  A malformed parameter on a SUMMARY says
-    // nothing about the method this module claims in a `Content-Type`, and
-    // refusing the payload over one would reject objects a calendar client
-    // reads perfectly well.
-    if (name === "BEGIN" || name === "END") {
-      // RFC 5545 §3.4 spells a delimiter `BEGIN:<name>`, with no parameters at
-      // all.  A parameterized pair balances, so the component scan below would
-      // not notice that the object it is walking is malformed.
-      if (parameters !== "") {
-        throw new TypeError(
-          `The calendar content carries parameters on a ${name} delimiter.`,
-        );
-      }
-    } else if (name === "METHOD" && stack.length === 1) {
-      checkParameters(parameters);
+    // Every line has passed the generic grammar.  Component delimiters also
+    // have the stricter BEGIN:<name> / END:<name> shape from RFC 5545 §3.4.
+    if ((name === "BEGIN" || name === "END") && parsed.hasParameters) {
+      throw new TypeError(
+        `The calendar content carries parameters on a ${name} delimiter.`,
+      );
     }
 
     if (name === "BEGIN") {
@@ -360,66 +366,6 @@ function readMethod(content: string): CalendarMethod | undefined {
 }
 
 /**
- * Checks the parameter section of a content line against RFC 5545 §3.1.
- *
- * The grammar is `*(";" param-name "=" param-value *("," param-value))`, where
- * a name is an `iana-token` or an `x-name` and a value is either a quoted
- * string or unquoted text holding no `;`, `:`, `,` or double quote.  A section
- * that does not fit it, such as the bare `;BROKEN` of `METHOD;BROKEN:REQUEST`,
- * is not a parameter list, and the content line carrying it is one a calendar
- * client may refuse; composing a `method` from it would claim something the
- * payload does not reliably say.
- *
- * @param parameters The raw section between the property name and the colon,
- *                   empty when the line has no parameters.
- * @throws {TypeError} If the section is not a well-formed parameter list.
- */
-function checkParameters(parameters: string): void {
-  if (parameters === "") return;
-  for (const parameter of splitParameters(parameters)) {
-    const separator = parameter.indexOf("=");
-    if (separator < 1) {
-      throw new TypeError(
-        `The calendar content carries a malformed METHOD parameter: ${
-          JSON.stringify(parameter)
-        }`,
-      );
-    }
-    const name = parameter.slice(0, separator);
-    if (!componentNamePattern.test(asciiUpperCase(name))) {
-      throw new TypeError(
-        `The calendar content carries a METHOD parameter named ${
-          JSON.stringify(name)
-        }, which is not a parameter name.`,
-      );
-    }
-  }
-}
-
-/**
- * Splits a parameter section into its parameters, at the semicolons that are
- * not inside a quoted value.
- *
- * @param parameters The raw section, which begins with a semicolon.
- * @returns The parameters, without their leading semicolons.
- */
-function splitParameters(parameters: string): string[] {
-  const split: string[] = [];
-  let quoted = false;
-  let start = 1;
-  for (let i = 1; i < parameters.length; i++) {
-    const character = parameters[i];
-    if (character === '"') quoted = !quoted;
-    else if (character === ";" && !quoted) {
-      split.push(parameters.slice(start, i));
-      start = i + 1;
-    }
-  }
-  split.push(parameters.slice(start));
-  return split;
-}
-
-/**
  * Upper-cases the ASCII letters of a token, leaving everything else alone.
  *
  * RFC 5545 tokens are ASCII, and the case-insensitivity this folding implements
@@ -441,47 +387,87 @@ function asciiUpperCase(token: string): string {
 }
 
 /**
- * Splits a content line into its property name and value.
+ * Parses the generic content line grammar of RFC 5545 §3.1.
  *
- * The value begins after the first colon that is not inside a quoted parameter
- * value, so `METHOD;X-FOO="a:b":REQUEST` yields `REQUEST` rather than `b"`.
- * iCalendar parameter syntax has no backslash escaping, so none is recognized.
- * Both halves are upper-cased: RFC 5545 property names are case-insensitive,
- * and every value compared here is a token.  The folding is ASCII-only; see
- * {@link asciiUpperCase}.
+ * VALUE-CHAR allows HTAB, printable ASCII and non-ASCII characters.  QSAFE-CHAR
+ * further excludes quotes, and SAFE-CHAR also excludes commas, semicolons and
+ * colons.  After checking VALUE-CHAR across the line, the cursor recognizes
+ * those delimiters only where the parameter grammar permits them.  Backslashes
+ * and caret sequences are data; property-specific value syntax is not checked.
  *
- * @param line One unfolded content line.
- * @returns The upper-cased name and value, and the raw parameter section
- *          between them, which is empty when there is none.
- * @throws {TypeError} If the line has no value separator, or leaves a parameter
- * value quoted open.
+ * @param line An unfolded line from already well-formed UTF-16 content.
+ * @returns The ASCII-folded name, unchanged value and parameter presence.
+ * @throws {TypeError} If the line does not match the content line grammar.
  */
-function splitProperty(
-  line: string,
-): { name: string; value: string; parameters: string } {
-  let quoted = false;
-  for (let i = 0; i < line.length; i++) {
-    const character = line[i];
-    if (character === '"') quoted = !quoted;
-    else if (character === ":" && !quoted) {
-      const field = line.slice(0, i);
-      const name = field.split(";", 1)[0];
-      return {
-        name: asciiUpperCase(name),
-        value: asciiUpperCase(line.slice(i + 1)),
-        parameters: field.slice(name.length),
-      };
+function parseContentLine(line: string): {
+  readonly name: string;
+  readonly value: string;
+  readonly hasParameters: boolean;
+} {
+  function fail(reason: string): never {
+    throw new TypeError(
+      `The calendar content has ${reason}: ${JSON.stringify(line)}`,
+    );
+  }
+
+  for (const character of line) {
+    const code = character.codePointAt(0)!;
+    if ((code < 0x20 && code !== 0x09) || code === 0x7f) {
+      fail("a forbidden control character in a content line");
     }
   }
-  throw new TypeError(
-    quoted
-      ? `The calendar content leaves a parameter value quoted open: ${
-        JSON.stringify(line)
-      }`
-      : `The calendar content holds a line with no value: ${
-        JSON.stringify(line)
-      }`,
-  );
+
+  let cursor = 0;
+  function readName(): string {
+    const start = cursor;
+    while (isTokenCharacter(line.charCodeAt(cursor))) cursor++;
+    if (cursor === start) fail("an invalid property or parameter name");
+    return line.slice(start, cursor);
+  }
+
+  const name = asciiUpperCase(readName());
+  const hasParameters = line[cursor] === ";";
+  while (line[cursor] === ";") {
+    cursor++;
+    readName();
+    if (line[cursor] !== "=") fail("a parameter without an equals sign");
+    cursor++;
+
+    // Both paramtext and quoted-string may be empty.  A comma therefore
+    // always starts another value, even immediately before ';' or ':'.
+    while (true) {
+      if (line[cursor] === '"') {
+        cursor++;
+        while (cursor < line.length && line[cursor] !== '"') cursor++;
+        if (cursor === line.length) fail("an unterminated quoted parameter");
+        cursor++;
+      } else {
+        while (
+          cursor < line.length && line[cursor] !== "," &&
+          line[cursor] !== ";" && line[cursor] !== ":"
+        ) {
+          if (line[cursor] === '"') {
+            fail("a quote inside an unquoted parameter");
+          }
+          cursor++;
+        }
+      }
+      if (line[cursor] !== ",") break;
+      cursor++;
+    }
+    if (line[cursor] !== ";" && line[cursor] !== ":") {
+      fail("an invalid delimiter after a parameter value");
+    }
+  }
+  if (line[cursor] !== ":") fail("a missing content line value separator");
+  return { name, value: line.slice(cursor + 1), hasParameters };
+}
+
+/** Whether a code unit belongs to the iana-token / x-name character set. */
+function isTokenCharacter(code: number): boolean {
+  return (code >= 0x41 && code <= 0x5a) ||
+    (code >= 0x61 && code <= 0x7a) ||
+    (code >= 0x30 && code <= 0x39) || code === 0x2d;
 }
 
 /**

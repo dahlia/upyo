@@ -110,21 +110,6 @@ describe("parseCalendarMethod()", () => {
     assert.equal(parseCalendarMethod(content), "REQUEST");
   });
 
-  it("should not validate lines whose meaning it does not use", () => {
-    // Only BEGIN, END and METHOD decide what gets composed, so a malformed
-    // parameter elsewhere is the caller's business, not a reason to refuse
-    // a payload a calendar client would read.
-    const content = ics(
-      "BEGIN:VCALENDAR",
-      "METHOD:REQUEST",
-      "BEGIN:VEVENT",
-      "SUMMARY;BROKEN:Lunch",
-      "END:VEVENT",
-      "END:VCALENDAR",
-    );
-    assert.equal(parseCalendarMethod(content), "REQUEST");
-  });
-
   it("should ignore a colon inside a quoted parameter value", () => {
     const content = ics(
       "BEGIN:VCALENDAR",
@@ -505,5 +490,192 @@ describe("createCalendarAttachment() charset", () => {
     });
 
     assert.ok(attachment.contentType.includes("charset=utf-8"));
+  });
+});
+
+describe("calendar content line grammar", () => {
+  const invalidLines: Readonly<Record<string, readonly string[]>> = {
+    "spaces in a property name": ["SUM MARY:x"],
+    "quoted property name": ['"SUMMARY":x'],
+    "empty property name": [":x"],
+    "non-ASCII property name": ["SUMMÁRY:x"],
+    "punctuation in a property name": ["SUM_MARY:x"],
+    "bare parameter": ["SUMMARY;BROKEN:Lunch"],
+    "unnamed parameter": ["SUMMARY;=x:y"],
+    "empty trailing parameter": ["SUMMARY;X=a;:y"],
+    "invalid parameter name": ["SUMMARY;X_A=x:y"],
+    "non-ASCII parameter name": ["SUMMARY;X-Á=x:y"],
+    "space in a parameter name": ["SUMMARY;X A=x:y"],
+    "quoted parameter name": ['SUMMARY;"X"=x:y'],
+    "embedded balanced quotes": ['METHOD;X=a"b":REQUEST'],
+    "junk after a quoted value": ['METHOD;X="a"b:REQUEST'],
+    "adjacent quoted values": ['METHOD;X="a""b":REQUEST'],
+    "space after a quoted value": ['METHOD;X="a" :REQUEST'],
+    "unterminated quoted value": ['SUMMARY;X="a:b'],
+    "missing colon after quoted value": ['SUMMARY;X="a"'],
+    "missing colon": ["SUMMARY"],
+    "backslash before an embedded quote": ['METHOD;X="a\\"b":REQUEST'],
+    "malformed nested METHOD": [
+      "BEGIN:VEVENT",
+      "METHOD;BROKEN:REQUEST",
+      "END:VEVENT",
+    ],
+    "leading method whitespace": ["METHOD: REQUEST"],
+    "trailing method whitespace": ["METHOD:REQUEST "],
+    "lone high surrogate": ["SUMMARY:\uD83D"],
+    "lone low surrogate": ["SUMMARY:\uDE00"],
+    "surrogate pair split by folding": ["SUMMARY:\uD83D", " \uDE00"],
+  };
+
+  // Only the METHOD-specific cases replace the valid top-level method.
+  function objectWith(lines: readonly string[]): string {
+    return ics(
+      "BEGIN:VCALENDAR",
+      ...(lines[0].startsWith("METHOD") ? [] : ["METHOD:REQUEST"]),
+      ...lines,
+      "END:VCALENDAR",
+    );
+  }
+
+  for (const [description, lines] of Object.entries(invalidLines)) {
+    it(`should reject ${description} through both public functions`, () => {
+      const content = objectWith(lines);
+      assert.equal(parseCalendarMethod(content), undefined);
+      assert.throws(() => resolveCalendarContent({ content }), TypeError);
+    });
+  }
+
+  for (let code = 0; code <= 0x7f; code++) {
+    if (
+      code === 9 || code === 10 || code === 13 || (code >= 32 && code < 127)
+    ) {
+      continue;
+    }
+    const character = String.fromCharCode(code);
+    for (
+      const line of [
+        `SUMMARY:a${character}b`,
+        `METHOD;X=a${character}b:REQUEST`,
+        `METHOD;X="a${character}b":REQUEST`,
+      ]
+    ) {
+      it(`should reject control U+${code.toString(16)} in ${JSON.stringify(line)}`, () => {
+        const content = objectWith([line]);
+        assert.equal(parseCalendarMethod(content), undefined);
+        assert.throws(() => resolveCalendarContent({ content }), TypeError);
+      });
+    }
+  }
+
+  for (const value of ["\uD800", "\uDC00"]) {
+    for (const parameter of [value, `"${value}"`]) {
+      it(`should reject a lone surrogate in parameter ${JSON.stringify(parameter)}`, () => {
+        const content = objectWith([`METHOD;X=${parameter}:REQUEST`]);
+        assert.equal(parseCalendarMethod(content), undefined);
+        assert.throws(() => resolveCalendarContent({ content }), TypeError);
+      });
+    }
+  }
+
+  it("should reject a byte order mark before the envelope", () => {
+    const content = "\uFEFF" + request;
+    assert.equal(parseCalendarMethod(content), undefined);
+    assert.throws(() => resolveCalendarContent({ content }), TypeError);
+  });
+
+  const validLines: Readonly<Record<string, readonly string[]>> = {
+    "empty parameter values and list members": ['METHOD;X=,"",a,,b,:REQUEST'],
+    "mixed quoted and unquoted values": ['METHOD;X="a:b;c,d",plain,"":REQUEST'],
+    "equals, backslash and caret in parameters": [
+      "METHOD;X=a=b\\c^n^'^^:REQUEST",
+    ],
+    "spaces and tabs in parameters": ['METHOD;X= a\tb ;Y=" a\tb ":REQUEST'],
+    "Unicode parameter and property values": [
+      'ATTENDEE;CN="점심 🍜";X=é\u0080\u0085\u009F:mailto:a@example.com',
+      "SUMMARY:점심 🍜\uD7FF\uE000\uFFFF\u{10FFFF}",
+    ],
+    "unknown token names": ["X-ABC-THING;X-ABC-PARAM=x:y", "1;-=x:y", "X-:x"],
+    "empty property value": ["SUMMARY:"],
+    "realistic attendee parameters": [
+      "ATTENDEE;CUTYPE=INDIVIDUAL;ROLE=REQ-PARTICIPANT;PARTSTAT=NEEDS-ACTION;RSVP=TRUE;CN=Jane Doe;X-NUM-GUESTS=0:mailto:jane@example.net",
+      'ATTENDEE;CN="Doe, Jane":mailto:jane@example.net',
+    ],
+    "structured values": [
+      "DTSTART;TZID=America/New_York:20260902T100000",
+      "RRULE:FREQ=WEEKLY;BYDAY=MO,WE;UNTIL=20261231T000000Z",
+      "GEO:37.386013;-122.082932",
+      'X-ALT-DESC;FMTTYPE=text/html:<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2//EN">',
+      "ATTACH;FMTTYPE=text/plain;ENCODING=BASE64;VALUE=BINARY:SGVsbG8=",
+      "DESCRIPTION:Line one\\nLine two\\, with comma",
+    ],
+    "property name folding": ["ME", " THOD:REQUEST"],
+    "parameter name folding": ["METHOD;X-", " A=1:REQUEST"],
+    "quoted parameter folding": [
+      'ATTENDEE;CN="Doe,',
+      '  Jane":mailto:jane@example.net',
+    ],
+    "fold immediately after colon": ["METHOD:", " REQUEST"],
+    "fold after a closing quote": ['METHOD;X="a"', " ,b:REQUEST"],
+    "tab-led continuation": ["METHOD:REQ", "\tUEST"],
+    "long unfolded line": ["SUMMARY:" + "x".repeat(100)],
+    "parameterized nested METHOD": [
+      "BEGIN:VEVENT",
+      "METHOD;X-A=1:CANCEL",
+      "END:VEVENT",
+    ],
+  };
+  for (const [description, lines] of Object.entries(validLines)) {
+    it(`should preserve ${description}`, () => {
+      // A folded property name does not begin with METHOD until unfolded.
+      const content = description === "property name folding"
+        ? ics("BEGIN:VCALENDAR", ...lines, "END:VCALENDAR")
+        : objectWith(lines);
+      assert.equal(parseCalendarMethod(content), "REQUEST");
+      assert.deepEqual(resolveCalendarContent({ content }), {
+        method: "REQUEST",
+        content,
+      });
+    });
+  }
+
+  it("should normalize a bare LF fold without removing it from output", () => {
+    const content =
+      "BEGIN:VCALENDAR\nMETHOD:REQUEST\nSUMMARY:a\n b\nEND:VCALENDAR\n";
+    assert.equal(parseCalendarMethod(content), "REQUEST");
+    assert.equal(
+      resolveCalendarContent({ content }).content,
+      content.replaceAll("\n", "\r\n"),
+    );
+  });
+
+  it("should accept the documented invitation", () => {
+    const content = ics(
+      "BEGIN:VCALENDAR",
+      "VERSION:2.0",
+      "PRODID:-//Example//Booking//EN",
+      "METHOD:REQUEST",
+      "BEGIN:VEVENT",
+      "UID:booking-42@example.com",
+      "SEQUENCE:0",
+      "DTSTAMP:20260901T090000Z",
+      "DTSTART:20260902T120000Z",
+      "DTEND:20260902T130000Z",
+      "ORGANIZER:mailto:organizer@example.com",
+      "ATTENDEE;RSVP=TRUE:mailto:attendee@example.net",
+      "SUMMARY:Lunch",
+      "END:VEVENT",
+      "END:VCALENDAR",
+    );
+    assert.deepEqual(resolveCalendarContent({ content }), {
+      method: "REQUEST",
+      content,
+    });
+  });
+
+  it("should refuse malformed lines when creating the attachment fallback", () => {
+    assert.throws(() =>
+      createCalendarAttachment({
+        content: objectWith(["SUMMARY;BROKEN:Lunch"]),
+      }), TypeError);
   });
 });
