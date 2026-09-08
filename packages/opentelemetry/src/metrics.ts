@@ -228,6 +228,12 @@ export class MetricsCollector {
   }
 
   private getContentType(message: Message): string {
+    // A calendar is a second body part wherever it goes: an alternative beside
+    // the text and HTML on the transports that compose one, and a synthesized
+    // invite.ics attachment on the rest.
+    if (message.calendar != null) {
+      return "multipart";
+    }
     if ("html" in message.content) {
       return message.content.text ? "multipart" : "html";
     }

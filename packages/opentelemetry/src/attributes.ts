@@ -195,6 +195,13 @@ export class EmailAttributeExtractor {
       return "multipart";
     }
 
+    // A calendar is a second body part wherever it goes: an alternative beside
+    // the text and HTML on the transports that compose one, and a synthesized
+    // invite.ics attachment on the rest.
+    if (message.calendar != null) {
+      return "multipart";
+    }
+
     // For content without attachments
     if ("html" in message.content) {
       return "html";

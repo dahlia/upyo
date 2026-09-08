@@ -198,6 +198,11 @@ To be released.
 
 ### @upyo/opentelemetry
 
+ -  Fixed the `email.content.type` span attribute and the `content_type` metric
+    label, which reported `text` or `html` for a message carrying a calendar.
+    Such a message is multipart on every transport, either as a
+    `text/calendar` alternative or as an *invite.ics* attachment, and is now
+    labelled `multipart`.  [[#69]]
  -  Fixed the estimated message size reported on a span and in the
     `email.message.size` histogram, which counted UTF-16 code units rather than
     the bytes it claimed.  A subject or body outside Basic Latin was
