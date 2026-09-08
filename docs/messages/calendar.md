@@ -12,8 +12,9 @@ An appointment confirmation, a reservation, or a meeting invitation is more than
 an email with a date in it.  A calendar client offers to add the event, or shows
 accept and decline buttons, when the message carries a `text/calendar` body part
 whose `method` parameter repeats the iCalendar object's own `METHOD` property,
-as [RFC 6047] describes.  Attaching an *.ics* file by hand does not produce that
-structure.
+as [RFC 6047] describes.  An *.ics* attachment reaches the same place only if
+the part keeps that media type and that parameter; the attachment API leaves
+both to you, and a file typed `application/octet-stream` is just a download.
 
 The `calendar` field on `createMessage()` takes the iCalendar object and lets
 the transport compose the rest:
