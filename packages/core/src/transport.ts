@@ -1,3 +1,4 @@
+import type { RawMessage } from "./raw-message.ts";
 import type { Message } from "./message.ts";
 import type { Receipt } from "./receipt.ts";
 
@@ -55,4 +56,36 @@ export interface TransportOptions {
    * The abort signal to cancel the send operation if needed.
    */
   readonly signal?: AbortSignal;
+}
+
+/**
+ * Optional capability for delivering already serialized MIME messages.
+ * Wrappers must explicitly preserve this capability to expose it themselves.
+ * @since 0.6.0
+ */
+export interface RawTransport<TProviderId extends string = string>
+  extends Transport<TProviderId> {
+  /**
+   * Delivers original MIME bytes using an explicit envelope.
+   * @param message The serialized message and its delivery envelope.
+   * @param options Optional cancellation signal.
+   * @returns A delivery receipt; server-side processing may modify the message.
+   * @throws {Error} If cancellation is requested.
+   */
+  sendRaw(
+    message: RawMessage,
+    options?: TransportOptions,
+  ): Promise<Receipt<TProviderId>>;
+}
+
+/**
+ * Checks whether a transport exposes raw MIME delivery.
+ * @param transport The transport to inspect.
+ * @returns Whether the transport implements the optional raw capability.
+ * @since 0.6.0
+ */
+export function isRawTransport<TProviderId extends string>(
+  transport: Transport<TProviderId>,
+): transport is RawTransport<TProviderId> {
+  return "sendRaw" in transport && typeof transport.sendRaw === "function";
 }

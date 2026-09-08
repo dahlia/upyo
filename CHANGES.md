@@ -46,6 +46,9 @@ To be released.
  -  Added support for internationalized mailbox addresses, including UTF-8
     local parts and Unicode domains, to `parseAddress()` and `createMessage()`.
     [[#45], [#50]]
+ -  Added the optional `RawTransport` interface and replayable `RawMessage`
+    types for delivering serialized MIME with an explicit envelope. Raw sources
+    support incremental validation and cancellation. [[#64], [#72]]
 
 [#45]: https://github.com/dahlia/upyo/issues/45
 [#50]: https://github.com/dahlia/upyo/pull/50
@@ -54,9 +57,11 @@ To be released.
 [#59]: https://github.com/dahlia/upyo/pull/59
 [#61]: https://github.com/dahlia/upyo/pull/61
 [#63]: https://github.com/dahlia/upyo/issues/63
+[#64]: https://github.com/dahlia/upyo/issues/64
 [#69]: https://github.com/dahlia/upyo/pull/69
 [#70]: https://github.com/dahlia/upyo/issues/70
 [#71]: https://github.com/dahlia/upyo/pull/71
+[#72]: https://github.com/dahlia/upyo/pull/72
 
 ### @upyo/jmap
 
