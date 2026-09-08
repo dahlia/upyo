@@ -1,5 +1,6 @@
 import type { Address, Message } from "@upyo/core";
 import { combineSignals, readAttachmentContent } from "@upyo/core";
+import { createCalendarAttachment } from "@upyo/core/calendar";
 import type { ResolvedSesConfig } from "./config.ts";
 
 interface SesDestination {
@@ -23,15 +24,17 @@ interface SesSimpleContent {
       Charset?: string;
     };
   };
-  Attachments?: Array<{
-    ContentDescription?: string;
-    ContentDisposition?: string;
-    ContentId?: string;
-    ContentTransferEncoding?: string;
-    ContentType?: string;
-    FileName?: string;
-    RawContent: string;
-  }>;
+  Attachments?: SesAttachment[];
+}
+
+interface SesAttachment {
+  ContentDescription?: string;
+  ContentDisposition?: string;
+  ContentId?: string;
+  ContentTransferEncoding?: string;
+  ContentType?: string;
+  FileName?: string;
+  RawContent: string;
 }
 
 interface SesRawContent {
@@ -149,12 +152,19 @@ async function createSimpleContent(
     };
   }
 
-  if (message.attachments.length > 0) {
+  // A transport that cannot compose a `text/calendar` alternative carries the
+  // scheduling payload as an *invite.ics* part instead, ahead of the caller's
+  // own files so that a client looking for the first calendar part finds it.
+  const attachments = message.calendar == null
+    ? message.attachments
+    : [createCalendarAttachment(message.calendar), ...message.attachments];
+
+  if (attachments.length > 0) {
     const cancellation = new AbortController();
     const combined = combineSignals(cancellation.signal, signal);
     try {
       content.Attachments = await Promise.all(
-        message.attachments.map(async (attachment) => {
+        attachments.map(async (attachment) => {
           const contentBytes = await readAttachmentContent(
             attachment.content,
             combined.signal,
@@ -169,14 +179,19 @@ async function createSimpleContent(
           }
           const base64Content = btoa(parts.join(""));
 
-          return {
+          const converted: SesAttachment = {
             FileName: attachment.filename,
             ContentType: attachment.contentType || "application/octet-stream",
             ContentDisposition: attachment.inline ? "INLINE" : "ATTACHMENT",
-            ContentId: attachment.contentId,
             ContentTransferEncoding: "BASE64",
             RawContent: base64Content,
           };
+          // An empty content ID is how Upyo spells "this part has none", so it
+          // is left out rather than sent as an empty header value.
+          if (attachment.contentId !== "") {
+            converted.ContentId = attachment.contentId;
+          }
+          return converted;
         }),
       );
     } finally {
@@ -270,6 +285,8 @@ export async function convertMessagesToBulk(
     const isContentDifferent = message.subject !== firstMessage.subject ||
       JSON.stringify(message.content) !==
         JSON.stringify(firstMessage.content) ||
+      JSON.stringify(message.calendar) !==
+        JSON.stringify(firstMessage.calendar) ||
       message.attachments.length !== firstMessage.attachments.length ||
       (message.attachments.length > 0 &&
         JSON.stringify(

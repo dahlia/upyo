@@ -1,5 +1,6 @@
 import { type SmtpConfig, SmtpTransport } from "@upyo/smtp";
 import assert from "node:assert/strict";
+import { Buffer } from "node:buffer";
 import { describe, test } from "node:test";
 import { MailpitClient } from "./test-utils/mailpit-client.ts";
 import {
@@ -70,6 +71,60 @@ describe(
           source.includes(
             "References: <120@example.com> <121@example.com>",
           ),
+        );
+      } finally {
+        await teardownTest(transport);
+      }
+    });
+
+    test("should deliver a calendar invitation Mailpit can parse", async () => {
+      const { transport, mailpitClient } = await setupTest();
+      try {
+        const subject = "Test Email Mailpit - Calendar";
+        const ics = [
+          "BEGIN:VCALENDAR",
+          "VERSION:2.0",
+          "PRODID:-//Upyo//Mailpit//EN",
+          "METHOD:REQUEST",
+          "BEGIN:VEVENT",
+          "UID:mailpit-calendar@example.com",
+          "DTSTAMP:20260901T100000Z",
+          "DTSTART:20260902T120000Z",
+          "SUMMARY:점심 식사",
+          "END:VEVENT",
+          "END:VCALENDAR",
+        ].join("\r\n") + "\r\n";
+
+        const receipt = await transport.send(createTestMessage({
+          subject,
+          content: { text: "Lunch on Wednesday." },
+          calendar: { method: "REQUEST", content: ics },
+        }));
+        assert.ok(receipt.successful);
+
+        const delivered = await waitForMailpitDelivery(
+          mailpitClient,
+          { subject },
+        );
+        const source = await mailpitClient.getMessageSource(delivered.ID);
+
+        assert.ok(
+          source.includes(
+            "Content-Type: text/calendar; charset=utf-8; method=REQUEST",
+          ),
+          "the calendar part should keep its method parameter",
+        );
+        assert.ok(source.includes("Content-Type: multipart/alternative"));
+
+        // The Base64 payload has to decode back to the object as written,
+        // including the multi-byte SUMMARY and the CRLF line endings.
+        const marker = source.indexOf("Content-Type: text/calendar");
+        const bodyStart = source.indexOf("\r\n\r\n", marker) + 4;
+        const bodyEnd = source.indexOf("\r\n--", bodyStart);
+        const payload = source.slice(bodyStart, bodyEnd).replace(/\r\n/g, "");
+        assert.equal(
+          Buffer.from(payload, "base64").toString("utf8"),
+          ics,
         );
       } finally {
         await teardownTest(transport);

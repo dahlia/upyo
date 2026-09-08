@@ -1,4 +1,5 @@
 import type { Address, Attachment, Message } from "@upyo/core";
+import { createCalendarAttachment } from "@upyo/core/calendar";
 import { readAttachmentContent, resolveThreadingHeaders } from "@upyo/core";
 import type { ResolvedMailgunConfig } from "./config.ts";
 
@@ -25,6 +26,12 @@ export async function convertMessage(
   signal?: AbortSignal,
 ): Promise<FormData> {
   const formData = new FormData();
+  // A transport that cannot compose a `text/calendar` alternative carries the
+  // scheduling payload as an *invite.ics* part instead, ahead of the caller's
+  // own files so that a client looking for the first calendar part finds it.
+  const attachments = message.calendar == null
+    ? message.attachments
+    : [createCalendarAttachment(message.calendar), ...message.attachments];
 
   // Required fields
   formData.append("from", formatAddress(message.sender));
@@ -98,7 +105,7 @@ export async function convertMessage(
   }
 
   // Attachments
-  for (const attachment of message.attachments) {
+  for (const attachment of attachments) {
     await appendAttachment(formData, attachment, signal);
   }
 

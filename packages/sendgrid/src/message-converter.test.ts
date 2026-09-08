@@ -368,3 +368,89 @@ describe("convertMessage() reply threading", () => {
     assert.deepEqual(headerOf(result, "In-Reply-To"), ["<custom@example.com>"]);
   });
 });
+
+const CALENDAR_ICS = [
+  "BEGIN:VCALENDAR",
+  "VERSION:2.0",
+  "METHOD:REQUEST",
+  "BEGIN:VEVENT",
+  "UID:1@example.com",
+  "SUMMARY:Lunch",
+  "END:VEVENT",
+  "END:VCALENDAR",
+].join("\r\n") + "\r\n";
+
+/** The invitation content as the providers below carry it: Base64. */
+const CALENDAR_BASE64 = btoa(CALENDAR_ICS);
+
+describe("convertMessage() calendar", () => {
+  const transport = new SendGridTransport({ apiKey: "SG.test-key" });
+  const config = (transport as SendGridTransport).config;
+
+  const invitation = (
+    extra: Partial<Parameters<typeof createMessage>[0]> = {},
+  ) =>
+    createMessage({
+      from: "organizer@example.com",
+      to: "attendee@example.net",
+      subject: "Lunch",
+      content: { text: "Lunch on Wednesday." },
+      calendar: { method: "REQUEST", content: CALENDAR_ICS },
+      ...extra,
+    });
+
+  it("should carry the calendar as an invite.ics attachment", async () => {
+    const mail = await convertMessage(invitation(), config);
+
+    assert.equal(mail.attachments?.length, 1);
+    assert.equal(mail.attachments?.[0].filename, "invite.ics");
+    assert.equal(
+      mail.attachments?.[0].type,
+      "text/calendar; charset=utf-8; method=REQUEST",
+    );
+    assert.equal(mail.attachments?.[0].content, CALENDAR_BASE64);
+    // An empty content ID keeps the part an ordinary attachment.
+    assert.equal(mail.attachments?.[0].disposition, "attachment");
+  });
+
+  it("should place the invitation ahead of the other attachments", async () => {
+    const mail = await convertMessage(
+      invitation({
+        attachments: [{
+          inline: false,
+          filename: "agenda.txt",
+          content: new TextEncoder().encode("agenda"),
+          contentType: "text/plain",
+          contentId: "",
+        }],
+      }),
+      config,
+    );
+
+    assert.deepEqual(
+      mail.attachments?.map((attachment) => attachment.filename),
+      ["invite.ics", "agenda.txt"],
+    );
+  });
+
+  it("should reject calendar content that never passed createMessage()", async () => {
+    const message: Message = {
+      sender: { address: "organizer@example.com" },
+      recipients: [{ address: "attendee@example.net" }],
+      ccRecipients: [],
+      bccRecipients: [],
+      replyRecipients: [],
+      subject: "Lunch",
+      content: { text: "Lunch." },
+      attachments: [],
+      priority: "normal",
+      tags: [],
+      headers: new Headers(),
+      calendar: { method: "REQUEST", content: "not a calendar" },
+    };
+
+    await assert.rejects(() => convertMessage(message, config), {
+      name: "TypeError",
+    });
+  });
+});

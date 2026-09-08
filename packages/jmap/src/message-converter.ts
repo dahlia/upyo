@@ -1,4 +1,5 @@
 import type { Address, Attachment, Message, Priority } from "@upyo/core";
+import { resolveCalendarContent } from "@upyo/core/calendar";
 import { parseMessageId } from "@upyo/core/message-id";
 
 /**
@@ -199,16 +200,46 @@ export function buildBodyStructure(
   const bodyValues: Record<string, JmapBodyValue> = {};
   const parts: JmapBodyPart[] = [];
 
+  // The bodies are tested for presence rather than for content, the way the
+  // SMTP composer does.  An empty string is a body the caller asked for, and
+  // dropping it would leave a scheduling message with the calendar as its only
+  // part, which RFC 6047 §2.1 asks not to happen: a recipient whose client
+  // knows nothing about scheduling would then see nothing at all.  An
+  // undefined one is not a body: `createMessage()` passes `content` through
+  // unchecked and `Message` is structural, so it can arrive that way, and it
+  // must not become a `bodyValues` entry holding a non-string.
+
   // Text part (charset is inferred from bodyValues, not specified with partId)
-  if ("text" in message.content && message.content.text) {
+  if ("text" in message.content && message.content.text !== undefined) {
     bodyValues["text"] = { value: message.content.text };
     parts.push({ partId: "text", type: "text/plain; charset=utf-8" });
   }
 
   // HTML part
-  if ("html" in message.content && message.content.html) {
+  if ("html" in message.content && message.content.html !== undefined) {
     bodyValues["html"] = { value: message.content.html };
     parts.push({ partId: "html", type: "text/html; charset=utf-8" });
+  }
+
+  // Calendar part, last so that a client which schedules prefers it over the
+  // prose describing the same appointment (RFC 2046 §5.1.4).
+  if (message.calendar != null) {
+    // Re-validated rather than trusted: `Message` is a structural interface,
+    // and the method is written into a `Content-Type` parameter.
+    const calendar = resolveCalendarContent(message.calendar);
+    bodyValues["calendar"] = { value: calendar.content };
+    parts.push({
+      partId: "calendar",
+      // RFC 8621 §4.1.4 describes `type` as the media type without parameters,
+      // and offers no property for the `method` RFC 6047 §2.4 requires.  The
+      // two ways of supplying it were measured against Stalwart: writing the
+      // field as `header:Content-Type` makes it emit that field *and* a
+      // derived one, so the part arrives with two `Content-Type` fields, while
+      // parameters on `type` are passed through and yield a single correct
+      // field.  The charset is left to the server, which appends its own and
+      // would otherwise duplicate the parameter.
+      type: `text/calendar; method=${calendar.method}`,
+    });
   }
 
   let contentPart: JmapBodyPart;

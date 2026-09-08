@@ -95,6 +95,123 @@ describe("convertMessage", () => {
     assert.equal(result.bodyStructure?.type, "multipart/alternative");
   });
 
+  it("should add a calendar part carrying the method parameter", () => {
+    const ics = [
+      "BEGIN:VCALENDAR",
+      "METHOD:REQUEST",
+      "BEGIN:VEVENT",
+      "UID:1@example.com",
+      "END:VEVENT",
+      "END:VCALENDAR",
+    ].join("\r\n") + "\r\n";
+    const message: Message = {
+      ...baseMessage,
+      content: { text: "Lunch on Wednesday." },
+      calendar: { method: "REQUEST", content: ics },
+    };
+
+    const result = convertMessage(message, "drafts-123", new Map());
+
+    assert.equal(result.bodyStructure?.type, "multipart/alternative");
+    const parts = result.bodyStructure?.subParts ?? [];
+    const calendarPart = parts[parts.length - 1];
+    assert.equal(calendarPart.partId, "calendar");
+    // The charset is left to the server, which appends its own.
+    assert.equal(calendarPart.type, "text/calendar; method=REQUEST");
+    assert.equal(calendarPart.charset, undefined);
+    assert.equal(result.bodyValues.calendar.value, ics);
+  });
+
+  it("should place the calendar after the other alternatives", () => {
+    const message: Message = {
+      ...baseMessage,
+      content: { text: "Lunch", html: "<p>Lunch</p>" },
+      calendar: {
+        method: "CANCEL",
+        content: "BEGIN:VCALENDAR\r\nMETHOD:CANCEL\r\nEND:VCALENDAR\r\n",
+      },
+    };
+
+    const result = convertMessage(message, "drafts-123", new Map());
+
+    assert.deepEqual(
+      (result.bodyStructure?.subParts ?? []).map((part) => part.partId),
+      ["text", "html", "calendar"],
+    );
+  });
+
+  it("should keep an empty prose body beside the calendar", () => {
+    // RFC 6047 §2.1 wants a human-readable alternative, and a recipient whose
+    // client does not schedule sees only that.  An empty string is still a
+    // body the caller asked for, so the calendar must not become the sole part.
+    const message: Message = {
+      ...baseMessage,
+      content: { text: "" },
+      calendar: {
+        method: "REQUEST",
+        content: "BEGIN:VCALENDAR\r\nMETHOD:REQUEST\r\nEND:VCALENDAR\r\n",
+      },
+    };
+
+    const result = convertMessage(message, "drafts-123", new Map());
+
+    assert.equal(result.bodyStructure?.type, "multipart/alternative");
+    assert.deepEqual(
+      (result.bodyStructure?.subParts ?? []).map((part) => part.partId),
+      ["text", "calendar"],
+    );
+    assert.equal(result.bodyValues.text.value, "");
+  });
+
+  it("should keep an empty HTML body beside the calendar", () => {
+    const message: Message = {
+      ...baseMessage,
+      content: { html: "" },
+      calendar: {
+        method: "REQUEST",
+        content: "BEGIN:VCALENDAR\r\nMETHOD:REQUEST\r\nEND:VCALENDAR\r\n",
+      },
+    };
+
+    const result = convertMessage(message, "drafts-123", new Map());
+
+    assert.equal(result.bodyStructure?.type, "multipart/alternative");
+    assert.deepEqual(
+      (result.bodyStructure?.subParts ?? []).map((part) => part.partId),
+      ["html", "calendar"],
+    );
+  });
+
+  it("should not send an undefined HTML body value", () => {
+    // `createMessage()` passes `content` through without checking it, and
+    // `Message` is structural, so a body can reach here undefined.  Sending
+    // `{ value: undefined }` would hand the server a non-string.
+    const message: Message = {
+      ...baseMessage,
+      content: { text: "Lunch.", html: undefined as unknown as string },
+    };
+
+    const result = convertMessage(message, "drafts-123", new Map());
+
+    assert.ok(!("html" in result.bodyValues));
+    assert.deepEqual(
+      (result.bodyStructure?.subParts ?? []).map((part) => part.partId),
+      [],
+    );
+    assert.equal(result.bodyStructure?.partId, "text");
+  });
+
+  it("should reject calendar content that never passed createMessage()", () => {
+    const message: Message = {
+      ...baseMessage,
+      calendar: { method: "REQUEST", content: "not a calendar" },
+    };
+
+    assert.throws(() => convertMessage(message, "drafts-123", new Map()), {
+      name: "TypeError",
+    });
+  });
+
   it("should convert cc and bcc recipients", () => {
     const message: Message = {
       ...baseMessage,

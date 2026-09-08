@@ -1,4 +1,5 @@
 import type { Message } from "@upyo/core";
+import { estimateMessageSize } from "./message-size.ts";
 
 /**
  * Email attribute extractor class for generating OpenTelemetry attributes.
@@ -92,7 +93,7 @@ export class EmailAttributeExtractor {
     attributes["email.content.type"] = this.detectContentType(message);
 
     // Calculate message size estimate
-    attributes["email.message.size"] = this.estimateMessageSize(message);
+    attributes["email.message.size"] = estimateMessageSize(message);
 
     return attributes;
   }
@@ -109,7 +110,7 @@ export class EmailAttributeExtractor {
       0,
     );
     const totalSize = messages.reduce(
-      (sum, msg) => sum + this.estimateMessageSize(msg),
+      (sum, msg) => sum + estimateMessageSize(msg),
       0,
     );
 
@@ -194,36 +195,18 @@ export class EmailAttributeExtractor {
       return "multipart";
     }
 
+    // A calendar is a second body part wherever it goes: an alternative beside
+    // the text and HTML on the transports that compose one, and a synthesized
+    // invite.ics attachment on the rest.
+    if (message.calendar != null) {
+      return "multipart";
+    }
+
     // For content without attachments
     if ("html" in message.content) {
       return "html";
     }
     return "text";
-  }
-
-  private estimateMessageSize(message: Message): number {
-    let size = 0;
-
-    // Headers estimate (rough)
-    size += 500;
-
-    // Subject
-    size += message.subject.length;
-
-    // Content
-    if ("html" in message.content) {
-      size += message.content.html.length;
-      if (message.content.text) {
-        size += message.content.text.length;
-      }
-    } else {
-      size += message.content.text.length;
-    }
-
-    // Attachments estimate (metadata only, not content)
-    size += message.attachments.length * 100; // Rough header estimate per attachment
-
-    return size;
   }
 
   private extractDomain(email: string): string {

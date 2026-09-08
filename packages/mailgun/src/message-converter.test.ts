@@ -342,3 +342,95 @@ describe("convertMessage() reply threading", () => {
     assert.deepEqual(headerOf(result, "In-Reply-To"), ["<custom@example.com>"]);
   });
 });
+
+const CALENDAR_ICS = [
+  "BEGIN:VCALENDAR",
+  "VERSION:2.0",
+  "METHOD:REQUEST",
+  "BEGIN:VEVENT",
+  "UID:1@example.com",
+  "SUMMARY:Lunch",
+  "END:VEVENT",
+  "END:VCALENDAR",
+].join("\r\n") + "\r\n";
+
+describe("convertMessage() calendar", () => {
+  const transport = new MailgunTransport({
+    apiKey: "test-key",
+    domain: "test-domain.com",
+  });
+  const config = (transport as MailgunTransport).config;
+
+  it("should carry the calendar as an invite.ics attachment", async () => {
+    const form = await convertMessage(
+      createMessage({
+        from: "organizer@example.com",
+        to: "attendee@example.net",
+        subject: "Lunch",
+        content: { text: "Lunch on Wednesday." },
+        calendar: { method: "REQUEST", content: CALENDAR_ICS },
+      }),
+      config,
+    );
+
+    const attachments = form.getAll("attachment") as File[];
+    assert.equal(attachments.length, 1);
+    assert.equal(attachments[0].name, "invite.ics");
+    // `Blob` lower-cases the media type it is given, which is harmless: RFC
+    // 6047 §2.4 compares the method ignoring case.
+    assert.equal(
+      attachments[0].type.toUpperCase(),
+      "TEXT/CALENDAR; CHARSET=UTF-8; METHOD=REQUEST",
+    );
+    assert.equal(await attachments[0].text(), CALENDAR_ICS);
+    // An empty content ID keeps it out of the inline field.
+    assert.equal(form.getAll("inline").length, 0);
+  });
+
+  it("should place the invitation ahead of the other attachments", async () => {
+    const form = await convertMessage(
+      createMessage({
+        from: "organizer@example.com",
+        to: "attendee@example.net",
+        subject: "Lunch",
+        content: { text: "Lunch on Wednesday." },
+        calendar: { method: "REQUEST", content: CALENDAR_ICS },
+        attachments: [{
+          inline: false,
+          filename: "agenda.txt",
+          content: new TextEncoder().encode("agenda"),
+          contentType: "text/plain",
+          contentId: "",
+        }],
+      }),
+      config,
+    );
+
+    const attachments = form.getAll("attachment") as File[];
+    assert.deepEqual(
+      attachments.map((file) => file.name),
+      ["invite.ics", "agenda.txt"],
+    );
+  });
+
+  it("should reject calendar content that never passed createMessage()", async () => {
+    const message: Message = {
+      sender: { address: "organizer@example.com" },
+      recipients: [{ address: "attendee@example.net" }],
+      ccRecipients: [],
+      bccRecipients: [],
+      replyRecipients: [],
+      subject: "Lunch",
+      content: { text: "Lunch." },
+      attachments: [],
+      priority: "normal",
+      tags: [],
+      headers: new Headers(),
+      calendar: { method: "REQUEST", content: "not a calendar" },
+    };
+
+    await assert.rejects(() => convertMessage(message, config), {
+      name: "TypeError",
+    });
+  });
+});

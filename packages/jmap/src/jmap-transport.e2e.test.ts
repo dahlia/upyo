@@ -113,6 +113,93 @@ describe(
       assert.ok(receipt.successful);
     });
 
+    it("should compose a text/calendar alternative carrying the method", async () => {
+      const config = getTestConfig();
+      const transport = new JmapTransport(config.jmap);
+      const subject = `E2E Test - Calendar ${crypto.randomUUID()}`;
+      const ics = [
+        "BEGIN:VCALENDAR",
+        "VERSION:2.0",
+        "PRODID:-//Upyo//E2E//EN",
+        "METHOD:REQUEST",
+        "BEGIN:VEVENT",
+        "UID:e2e-calendar@example.com",
+        "DTSTAMP:20260901T100000Z",
+        "DTSTART:20260902T100000Z",
+        "SUMMARY:점심 식사",
+        "END:VEVENT",
+        "END:VCALENDAR",
+      ].join("\r\n") + "\r\n";
+
+      const receipt = await transport.send(createTestMessage({
+        subject,
+        content: { text: "Lunch on Wednesday." },
+        calendar: { method: "REQUEST", content: ics },
+      }));
+
+      assert.ok(receipt.successful);
+
+      const mime = await downloadComposedMime(config, subject);
+
+      // The media type and the method parameter both have to survive: RFC 6047
+      // §2.4 makes the parameter the thing a client keys on.
+      const contentType = mime
+        .split(/\r?\n/)
+        .find((line) => /^Content-Type:\s*text\/calendar/i.test(line));
+      assert.ok(
+        contentType != null,
+        `no text/calendar part in the composed message:\n${mime}`,
+      );
+      assert.match(contentType, /method=["]?REQUEST["]?/i);
+      assert.match(mime, /multipart\/alternative/i);
+
+      // And the object itself has to come back byte for byte, the multi-byte
+      // SUMMARY included, whatever transfer encoding the server chose.
+      assert.equal(decodeCalendarPart(mime), ics);
+    });
+
+    /**
+     * Extracts and decodes the `text/calendar` part of a composed message,
+     * whichever transfer encoding the server chose for it.
+     */
+    function decodeCalendarPart(mime: string): string {
+      const marker = mime.search(/^Content-Type:\s*text\/calendar/im);
+      assert.ok(marker >= 0, "no text/calendar part");
+      const headerEnd = mime.indexOf("\r\n\r\n", marker);
+      const partHeaders = mime.slice(marker, headerEnd);
+      const body = mime.slice(headerEnd + 4);
+      // The CRLF that introduces the boundary delimiter belongs to the
+      // boundary, not to the body (RFC 2046 §5.1.1).
+      const boundary = body.search(/\r\n--/);
+      const payload = boundary < 0 ? body : body.slice(0, boundary);
+      const encoding =
+        /Content-Transfer-Encoding:\s*(\S+)/i.exec(partHeaders)?.[1]
+          ?.toLowerCase() ?? "7bit";
+
+      if (encoding === "base64") {
+        return new TextDecoder().decode(
+          Uint8Array.from(
+            atob(payload.replace(/\s/g, "")),
+            (character) => character.charCodeAt(0),
+          ),
+        );
+      }
+      if (encoding === "quoted-printable") {
+        // Undo the soft line breaks, then read the escapes back as the bytes
+        // they name, so that a multi-byte character survives the round trip.
+        const unwrapped = payload.replace(/=\r\n/g, "");
+        const bytes: number[] = [];
+        for (let i = 0; i < unwrapped.length; i++) {
+          if (unwrapped[i] === "=" && i + 2 < unwrapped.length) {
+            bytes.push(parseInt(unwrapped.slice(i + 1, i + 3), 16));
+            i += 2;
+          } else bytes.push(unwrapped.charCodeAt(i));
+        }
+        return new TextDecoder().decode(Uint8Array.from(bytes));
+      }
+      return payload;
+    }
+
     it("should send an email with attachment", async () => {
       const config = getTestConfig();
       const transport = new JmapTransport(config.jmap);
@@ -371,6 +458,80 @@ describe(
           error instanceof Error && error.name === "AbortError",
       );
     });
+
+    /**
+     * Downloads the RFC 5322 message the server composed for a subject, which
+     * is the only way to see whether a part header survived `Email/set`.
+     */
+    async function downloadComposedMime(
+      config: ReturnType<typeof getTestConfig>,
+      subject: string,
+    ): Promise<string> {
+      const { sessionUrl, basicAuth, bearerToken, baseUrl } = config.jmap as {
+        sessionUrl: string;
+        basicAuth?: { username: string; password: string };
+        bearerToken?: string;
+        baseUrl?: string;
+      };
+      const authorization = bearerToken == null
+        ? `Basic ${btoa(`${basicAuth!.username}:${basicAuth!.password}`)}`
+        : `Bearer ${bearerToken}`;
+      const headers = {
+        authorization,
+        "content-type": "application/json",
+      };
+
+      const session = await (await fetch(sessionUrl, { headers })).json();
+      const accountId = session.primaryAccounts["urn:ietf:params:jmap:mail"];
+      const rebase = (url: string): string =>
+        baseUrl == null
+          ? url
+          : new URL(new URL(url).pathname + new URL(url).search, baseUrl).href;
+      const apiUrl = rebase(session.apiUrl);
+
+      const response = await (await fetch(apiUrl, {
+        method: "POST",
+        headers,
+        body: JSON.stringify({
+          using: ["urn:ietf:params:jmap:core", "urn:ietf:params:jmap:mail"],
+          methodCalls: [
+            ["Email/query", { accountId, filter: { subject } }, "query"],
+            [
+              "Email/get",
+              {
+                accountId,
+                "#ids": {
+                  resultOf: "query",
+                  name: "Email/query",
+                  path: "/ids",
+                },
+                properties: ["blobId"],
+              },
+              "get",
+            ],
+          ],
+        }),
+      })).json();
+
+      const emails = response.methodResponses
+        .find((call: [string, unknown, string]) => call[2] === "get")?.[1]
+        ?.list as readonly { blobId: string }[] | undefined;
+      assert.ok(
+        emails != null && emails.length > 0,
+        `no stored Email found for subject ${JSON.stringify(subject)}`,
+      );
+
+      const downloadUrl = (session.downloadUrl as string)
+        .replace("{accountId}", encodeURIComponent(accountId))
+        .replace("{blobId}", encodeURIComponent(emails[0].blobId))
+        .replace("{type}", encodeURIComponent("message/rfc822"))
+        .replace("{name}", encodeURIComponent("message.eml"));
+      const download = await fetch(rebase(downloadUrl), {
+        headers: { authorization },
+      });
+      assert.ok(download.ok, `download failed: ${download.status}`);
+      return await download.text();
+    }
 
     interface StoredEmail {
       readonly messageId?: readonly string[];

@@ -73,6 +73,14 @@
       "import": "./dist/attachment.js",
       "require": "./dist/attachment.cjs"
     },
+    "./calendar": {
+      "types": {
+        "import": "./dist/calendar.d.ts",
+        "require": "./dist/calendar.d.cts"
+      },
+      "import": "./dist/calendar.js",
+      "require": "./dist/calendar.cjs"
+    },
     "./message": {
       "types": {
         "import": "./dist/message.d.ts",
