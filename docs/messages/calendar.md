@@ -43,8 +43,8 @@ Upyo does not generate iCalendar objects
 
 The `content` is an iCalendar object your application already has, whether from
 a template, from your own code, or from a library such as [ical-generator].
-Upyo reads it only far enough to compose the message around it, and everything
-about the event itself stays yours:
+Upyo checks the syntax of every content line before composing the message.
+The event's meaning and scheduling requirements stay yours:
 
  -  `ORGANIZER` and `ATTENDEE`, which decide who the invitation is from and who
     may reply to it.  These are separate fields from the message's `from` and
@@ -113,9 +113,17 @@ An object declaring a different method, or none at all, is rejected with a
 are normalized to the CRLF [RFC 5545] requires, so an object held with plain
 newlines works as it is.
 
-Upyo checks that the content is a single well-formed `VCALENDAR` object
-declaring exactly one supported method.  It is not a full iCalendar validator:
-whether the event itself makes sense is still yours to get right.
+Upyo checks every content line against the grammar in [RFC 5545] §3.1,
+including property names, parameters, and the characters allowed in values.
+For example, `SUMMARY;BROKEN:Lunch` is refused because a parameter needs an
+`=` and a value, which may be empty.  A double quote inside an unquoted
+parameter value or a forbidden control character is refused too.  Correct
+these errors in the template or generator that produced the object.
+
+The content must also be one `VCALENDAR` object with balanced components and
+exactly one supported top-level `METHOD`.  This is not full iCalendar or iTIP
+validation: Upyo does not check property-specific value syntax, required event
+fields, or whether the event itself makes sense.
 
 [RFC 5545]: https://www.rfc-editor.org/rfc/rfc5545
 

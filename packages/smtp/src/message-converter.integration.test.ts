@@ -1572,6 +1572,17 @@ describe("Message Converter Integration Tests", () => {
       assert.equal(decodeCalendarPart(result.raw), request);
     });
 
+    test("should reject malformed calendar property syntax", async () => {
+      const message = createTestMessage({
+        calendar: {
+          method: "REQUEST",
+          content:
+            "BEGIN:VCALENDAR\r\nMETHOD:REQUEST\r\nSUMMARY;BROKEN:Lunch\r\nEND:VCALENDAR\r\n",
+        },
+      });
+      await assert.rejects(() => convertMessage(message), TypeError);
+    });
+
     test("should reject calendar content that never passed createMessage()", async () => {
       const message = createTestMessage({
         calendar: {

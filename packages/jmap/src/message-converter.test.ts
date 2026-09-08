@@ -201,6 +201,21 @@ describe("convertMessage", () => {
     assert.equal(result.bodyStructure?.partId, "text");
   });
 
+  it("should reject malformed calendar property syntax", () => {
+    const message: Message = {
+      ...baseMessage,
+      calendar: {
+        method: "REQUEST",
+        content:
+          "BEGIN:VCALENDAR\r\nMETHOD:REQUEST\r\nSUMMARY;BROKEN:Lunch\r\nEND:VCALENDAR\r\n",
+      },
+    };
+    assert.throws(
+      () => convertMessage(message, "drafts-123", new Map()),
+      TypeError,
+    );
+  });
+
   it("should reject calendar content that never passed createMessage()", () => {
     const message: Message = {
       ...baseMessage,

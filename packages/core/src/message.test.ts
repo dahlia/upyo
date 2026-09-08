@@ -602,6 +602,17 @@ describe("createMessage() calendar", () => {
     );
   });
 
+  it("should reject malformed calendar property syntax", () => {
+    assert.throws(() =>
+      createMessage({
+        ...base,
+        calendar: {
+          content:
+            "BEGIN:VCALENDAR\r\nMETHOD:REQUEST\r\nSUMMARY;BROKEN:Lunch\r\nEND:VCALENDAR\r\n",
+        },
+      }), TypeError);
+  });
+
   it("should reject content that is not a calendar object", () => {
     assert.throws(
       () => createMessage({ ...base, calendar: { content: "METHOD:REQUEST" } }),
