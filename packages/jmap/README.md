@@ -133,3 +133,66 @@ try {
   }
 }
 ~~~~
+
+
+Sending raw MIME
+----------------
+
+`JmapTransport` implements the optional `RawTransport` interface. It uploads
+serialized MIME, imports the uploaded blob into Drafts, and submits that Email
+with an explicit delivery envelope:
+
+~~~~ typescript
+import { JmapTransport } from "@upyo/jmap";
+
+const transport = new JmapTransport({
+  sessionUrl: "https://mail.example.com/.well-known/jmap",
+  bearerToken: "your-token",
+});
+const receipt = await transport.sendRaw({
+  envelope: { from: "sender@example.com", to: ["recipient@example.net"] },
+  content: new TextEncoder().encode(
+    "From: sender@example.com\r\nSubject: Hello\r\n\r\nHello!\r\n"
+  ),
+  encoding: "7bit",
+});
+~~~~
+
+Content accepts bytes, promised bytes, Blob, or replayable attachment-style
+factories. Declaring `encoding` reads the source once per successful send;
+omitting it adds an analysis pass before upload. Every reader must reproduce
+the same bytes. `7bit` requires ASCII, `8bit` asserts ASCII MIME headers with an
+8-bit body, and `utf8` permits internationalized headers. Automatic analysis
+conservatively selects `utf8` for any non-ASCII byte. No transcoding occurs.
+
+Sources must have CRLF line endings including the final CRLF, nonempty headers,
+no NUL, and no line longer than 998 bytes excluding CRLF. Uploads stream without
+collecting the message in memory. Progress refreshes the inactivity timeout;
+cancellation stops source reads and requests source cleanup. Response parsing
+also remains subject to timeout. Pass an `AbortSignal` through `signal` in the
+second argument to `sendRaw()`.
+
+The envelope is independent of MIME headers. A configured `identityId` takes
+precedence; otherwise Upyo selects the identity matching the envelope sender,
+or falls back to the first available identity. A null sender also uses that
+fallback. The server may reject the chosen identity, envelope, or null sender.
+
+Upyo does not compose or repair the uploaded bytes. JMAP servers may repair
+imported MIME and modify messages during submission; RFC 8621 requires removal
+of Bcc during submission. Raw JMAP delivery therefore does not guarantee that
+an existing signature or byte-for-byte representation reaches the recipient.
+
+Import and submission are each attempted once. `jmap.raw_import_failed` with
+`retryable: true` means no submission was issued, although an imported Email
+may remain after a lost response. A definite server rejection is non-retryable.
+`jmap.raw_submission_unknown` means submission may have succeeded: inspect the
+server state before attempting another send. It is marked non-retryable to
+avoid duplicate delivery. Cancellation cannot recall a submitted message.
+
+An `alreadyExists` import result is reused only when the existing Email refers
+to the exact uploaded blob; matching Message-ID alone is insufficient. Upyo
+leaves imported Emails in Drafts and does not delete them after success or
+failure. The server expires unreferenced uploaded blobs according to its policy.
+
+See [RFC 8620] for uploads and request errors, and [RFC 8621] for import and
+submission behavior.

@@ -1,10 +1,14 @@
+import { createRawMessagePlan, RawMessageValidationError } from "@upyo/core";
+import { deliverRawMessage, rawDiscoveryResult } from "./raw-delivery.ts";
+import { isRecord, rawOperation } from "./raw-upload.ts";
 import { readAttachmentContent } from "@upyo/core";
 import type {
   Attachment,
   CreateFailedReceiptOptions,
   Message,
+  RawMessage,
+  RawTransport,
   Receipt,
-  Transport,
   TransportOptions,
 } from "@upyo/core";
 import { createFailedReceipt } from "@upyo/core";
@@ -33,7 +37,7 @@ const JMAP_CAPABILITIES = {
  * JMAP transport for sending emails via JMAP protocol (RFC 8620/8621).
  * @since 0.4.0
  */
-export class JmapTransport implements Transport<"jmap"> {
+export class JmapTransport implements RawTransport<"jmap"> {
   readonly id = "jmap";
 
   readonly config: ResolvedJmapConfig;
@@ -177,6 +181,96 @@ export class JmapTransport implements Transport<"jmap"> {
       return createJmapFailure(
         error instanceof Error ? error.message : String(error),
         error,
+      );
+    }
+  }
+
+  /**
+   * Uploads serialized MIME, imports it, and submits it with an explicit envelope.
+   * JMAP servers may modify imported or submitted messages, including removing
+   * Bcc. Import and submission are never retried automatically.
+   * @param message Original MIME and delivery envelope.
+   * @param options Optional cancellation signal.
+   * @returns A receipt; uncertain submission outcomes are non-retryable.
+   * @throws {Error} If cancellation is requested.
+   * @since 0.6.0
+   */
+  async sendRaw(
+    message: RawMessage,
+    options?: TransportOptions,
+  ): Promise<Receipt<"jmap">> {
+    if (message?.content instanceof Promise) message.content.catch(() => {});
+    const signal = options?.signal;
+    signal?.throwIfAborted();
+    try {
+      const plan = createRawMessagePlan(message);
+      const session = await rawOperation(
+        this.config.timeout,
+        (owned) => this.getSession(owned),
+        signal,
+      );
+      const capable = (id: string) => {
+        const account = session.accounts[id];
+        return account != null && !account.isReadOnly &&
+          JMAP_CAPABILITIES.mail in account.accountCapabilities &&
+          JMAP_CAPABILITIES.submission in account.accountCapabilities;
+      };
+      const accountId = this.config.accountId ??
+        Object.keys(session.accounts).find(capable);
+      if (
+        accountId == null || !capable(accountId) ||
+        !Object.values(JMAP_CAPABILITIES).every((capability) =>
+          capability in session.capabilities
+        )
+      ) {
+        return createJmapFailure(
+          "No writable mail and submission account found.",
+          undefined,
+          {
+            category: "configuration",
+            code: "jmap.no_mail_account",
+            retryable: false,
+          },
+        );
+      }
+      const drafts = await rawOperation(
+        this.config.timeout,
+        (owned) => this.getDraftsMailboxId(session, accountId, owned, true),
+        signal,
+      );
+      const identity = await rawOperation(
+        this.config.timeout,
+        (owned) =>
+          this.getIdentityId(
+            session,
+            accountId,
+            plan.envelope.from ?? "",
+            owned,
+            true,
+          ),
+        signal,
+      );
+      return await deliverRawMessage(
+        this.config,
+        session,
+        accountId,
+        drafts,
+        identity,
+        plan,
+        signal,
+      );
+    } catch (error) {
+      signal?.throwIfAborted();
+      return createJmapFailure(
+        error instanceof Error ? error.message : String(error),
+        error,
+        error instanceof RawMessageValidationError
+          ? {
+            category: "validation",
+            code: "jmap.raw_message_invalid",
+            retryable: false,
+          }
+          : undefined,
       );
     }
   }
@@ -448,6 +542,7 @@ export class JmapTransport implements Transport<"jmap"> {
     session: JmapSession,
     accountId: string,
     signal?: AbortSignal,
+    strict = false,
   ): Promise<string> {
     const response = await this.httpClient.executeRequest(
       session.apiUrl,
@@ -467,22 +562,32 @@ export class JmapTransport implements Transport<"jmap"> {
       signal,
     );
 
-    const mailboxResponse = response.methodResponses.find(
-      (r) => r[0] === "Mailbox/get",
-    );
+    const mailboxResponse = strict
+      ? rawDiscoveryResult(response, "Mailbox/get", accountId)
+      : response.methodResponses.find((r) => r[0] === "Mailbox/get")?.[1];
 
     if (!mailboxResponse) {
       throw new JmapApiError("No Mailbox/get response received");
     }
 
     const mailboxes =
-      (mailboxResponse[1] as { list?: { id: string; role?: string }[] })
+      (mailboxResponse as { list?: { id: string; role?: string }[] })
         .list;
 
     if (!mailboxes) {
       throw new JmapApiError("No mailboxes found");
     }
 
+    if (
+      strict &&
+      (!Array.isArray(mailboxes) ||
+        !mailboxes.every((mailbox) =>
+          isRecord(mailbox) && typeof mailbox.id === "string" &&
+          mailbox.id.length > 0
+        ))
+    ) {
+      throw new JmapApiError("Invalid mailbox identifiers in raw discovery.");
+    }
     // Find drafts mailbox
     const drafts = mailboxes.find((m) => m.role === "drafts");
 
@@ -507,13 +612,19 @@ export class JmapTransport implements Transport<"jmap"> {
     accountId: string,
     senderEmail: string,
     signal?: AbortSignal,
+    strict = false,
   ): Promise<string> {
     // If identity ID is configured, use it
     if (this.config.identityId) {
       return this.config.identityId;
     }
 
-    const identityMap = await this.getIdentityMap(session, accountId, signal);
+    const identityMap = await this.getIdentityMap(
+      session,
+      accountId,
+      signal,
+      strict,
+    );
     const matching = identityMap.get(senderEmail.toLowerCase());
     if (matching) {
       return matching;
@@ -535,6 +646,7 @@ export class JmapTransport implements Transport<"jmap"> {
     session: JmapSession,
     accountId: string,
     signal?: AbortSignal,
+    strict = false,
   ): Promise<Map<string, string>> {
     // If identity ID is configured, return a map with just that
     if (this.config.identityId) {
@@ -558,22 +670,32 @@ export class JmapTransport implements Transport<"jmap"> {
       signal,
     );
 
-    const identityResponse = response.methodResponses.find(
-      (r) => r[0] === "Identity/get",
-    );
+    const identityResponse = strict
+      ? rawDiscoveryResult(response, "Identity/get", accountId)
+      : response.methodResponses.find((r) => r[0] === "Identity/get")?.[1];
 
     if (!identityResponse) {
       throw new JmapApiError("No Identity/get response received");
     }
 
     const identities =
-      (identityResponse[1] as { list?: { id: string; email: string }[] })
+      (identityResponse as { list?: { id: string; email: string }[] })
         .list;
 
     if (!identities || identities.length === 0) {
       throw new JmapApiError("No identities found");
     }
 
+    if (
+      strict &&
+      (!Array.isArray(identities) ||
+        !identities.every((identity) =>
+          isRecord(identity) && typeof identity.id === "string" &&
+          identity.id.length > 0 && typeof identity.email === "string"
+        ))
+    ) {
+      throw new JmapApiError("Invalid identity identifiers in raw discovery.");
+    }
     const identityMap = new Map<string, string>();
     for (const identity of identities) {
       identityMap.set(identity.email.toLowerCase(), identity.id);

@@ -67,6 +67,10 @@ To be released.
 
  -  A message carrying `calendar` is now composed with a `text/calendar` body
     part carrying the `method` parameter.  [[#63], [#69]]
+ -  Added `JmapTransport.sendRaw()` to stream serialized MIME through blob
+    upload, import, and submission with an explicit envelope. Raw mutations are
+    not retried automatically; uncertain submission outcomes are reported as
+    non-retryable to prevent duplicate delivery. [[#64], [#72]]
  -  Added support for `Blob` and replayable async attachment factories,
     including cancellation while reading their content.  Provider payloads
     remain buffered in memory.  [[#56], [#59]]

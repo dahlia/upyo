@@ -30,6 +30,47 @@ describe(
   () => {
     if (!isStalwartTestingEnabled()) return;
 
+    for (const encoding of ["7bit", undefined] as const) {
+      it(`should upload and import raw MIME unchanged (${encoding ?? "automatic"})`, async () => {
+        const config = getTestConfig();
+        const transport = new JmapTransport(config.jmap);
+        const subject = `Raw JMAP ${crypto.randomUUID()}`;
+        const metadata = createTestMessage({ subject });
+        const original = [
+          `From: ${metadata.sender.address}`,
+          `To: ${metadata.recipients[0].address}`,
+          `Bcc: ${metadata.recipients[0].address}`,
+          `Subject: ${subject}`,
+          `Message-ID: <${crypto.randomUUID()}@mail.example.com>`,
+          "Date: Tue, 1 Sep 2026 00:00:00 +0000",
+          "MIME-Version: 1.0",
+          "Content-Type: text/plain; charset=utf-8",
+          "X-Preserved: first",
+          " second",
+          "",
+          ".original raw body",
+          "",
+        ].join("\r\n");
+        let opens = 0;
+        const receipt = await transport.sendRaw({
+          envelope: {
+            from: metadata.sender.address,
+            to: metadata.recipients.map((r) => r.address),
+          },
+          encoding,
+          content: async function* () {
+            opens++;
+            yield new TextEncoder().encode(original);
+          },
+        });
+        assert.ok(receipt.successful, JSON.stringify(receipt));
+        assert.equal(opens, encoding === undefined ? 2 : 1);
+        // Inspect the imported Email, separately from any outgoing server
+        // transformations such as stripping Bcc during submission.
+        assert.equal(await downloadComposedMime(config, subject), original);
+      });
+    }
+
     it("should send a basic text email", async () => {
       const config = getTestConfig();
       const transport = new JmapTransport(config.jmap);
