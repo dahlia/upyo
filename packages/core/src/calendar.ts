@@ -268,17 +268,26 @@ function readMethod(content: string): CalendarMethod | undefined {
   let methods = 0;
 
   for (const line of unfold(content)) {
-    const { name, value, parameterized } = splitProperty(line);
+    const { name, value, parameters } = splitProperty(line);
+
+    // Only these three lines decide what gets composed, so only these three
+    // are held to the grammar.  A malformed parameter on a SUMMARY says
+    // nothing about the method this module claims in a `Content-Type`, and
+    // refusing the payload over one would reject objects a calendar client
+    // reads perfectly well.
     if (name === "BEGIN" || name === "END") {
       // RFC 5545 §3.4 spells a delimiter `BEGIN:<name>`, with no parameters at
       // all.  A parameterized pair balances, so the component scan below would
       // not notice that the object it is walking is malformed.
-      if (parameterized) {
+      if (parameters !== "") {
         throw new TypeError(
           `The calendar content carries parameters on a ${name} delimiter.`,
         );
       }
+    } else if (name === "METHOD" && stack.length === 1) {
+      checkParameters(parameters);
     }
+
     if (name === "BEGIN") {
       if (closed) {
         throw new TypeError(
@@ -351,6 +360,66 @@ function readMethod(content: string): CalendarMethod | undefined {
 }
 
 /**
+ * Checks the parameter section of a content line against RFC 5545 §3.1.
+ *
+ * The grammar is `*(";" param-name "=" param-value *("," param-value))`, where
+ * a name is an `iana-token` or an `x-name` and a value is either a quoted
+ * string or unquoted text holding no `;`, `:`, `,` or double quote.  A section
+ * that does not fit it, such as the bare `;BROKEN` of `METHOD;BROKEN:REQUEST`,
+ * is not a parameter list, and the content line carrying it is one a calendar
+ * client may refuse; composing a `method` from it would claim something the
+ * payload does not reliably say.
+ *
+ * @param parameters The raw section between the property name and the colon,
+ *                   empty when the line has no parameters.
+ * @throws {TypeError} If the section is not a well-formed parameter list.
+ */
+function checkParameters(parameters: string): void {
+  if (parameters === "") return;
+  for (const parameter of splitParameters(parameters)) {
+    const separator = parameter.indexOf("=");
+    if (separator < 1) {
+      throw new TypeError(
+        `The calendar content carries a malformed METHOD parameter: ${
+          JSON.stringify(parameter)
+        }`,
+      );
+    }
+    const name = parameter.slice(0, separator);
+    if (!componentNamePattern.test(asciiUpperCase(name))) {
+      throw new TypeError(
+        `The calendar content carries a METHOD parameter named ${
+          JSON.stringify(name)
+        }, which is not a parameter name.`,
+      );
+    }
+  }
+}
+
+/**
+ * Splits a parameter section into its parameters, at the semicolons that are
+ * not inside a quoted value.
+ *
+ * @param parameters The raw section, which begins with a semicolon.
+ * @returns The parameters, without their leading semicolons.
+ */
+function splitParameters(parameters: string): string[] {
+  const split: string[] = [];
+  let quoted = false;
+  let start = 1;
+  for (let i = 1; i < parameters.length; i++) {
+    const character = parameters[i];
+    if (character === '"') quoted = !quoted;
+    else if (character === ";" && !quoted) {
+      split.push(parameters.slice(start, i));
+      start = i + 1;
+    }
+  }
+  split.push(parameters.slice(start));
+  return split;
+}
+
+/**
  * Upper-cases the ASCII letters of a token, leaving everything else alone.
  *
  * RFC 5545 tokens are ASCII, and the case-insensitivity this folding implements
@@ -382,14 +451,14 @@ function asciiUpperCase(token: string): string {
  * {@link asciiUpperCase}.
  *
  * @param line One unfolded content line.
- * @returns The upper-cased name and value, and whether parameters followed the
- *          name.
+ * @returns The upper-cased name and value, and the raw parameter section
+ *          between them, which is empty when there is none.
  * @throws {TypeError} If the line has no value separator, or leaves a parameter
  * value quoted open.
  */
 function splitProperty(
   line: string,
-): { name: string; value: string; parameterized: boolean } {
+): { name: string; value: string; parameters: string } {
   let quoted = false;
   for (let i = 0; i < line.length; i++) {
     const character = line[i];
@@ -400,7 +469,7 @@ function splitProperty(
       return {
         name: asciiUpperCase(name),
         value: asciiUpperCase(line.slice(i + 1)),
-        parameterized: name.length < field.length,
+        parameters: field.slice(name.length),
       };
     }
   }

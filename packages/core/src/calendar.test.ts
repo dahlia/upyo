@@ -92,6 +92,39 @@ describe("parseCalendarMethod()", () => {
     assert.equal(parseCalendarMethod(content), "REQUEST");
   });
 
+  it("should accept a multi-valued parameter", () => {
+    const content = ics(
+      "BEGIN:VCALENDAR",
+      "METHOD;X-A=a,b:REQUEST",
+      "END:VCALENDAR",
+    );
+    assert.equal(parseCalendarMethod(content), "REQUEST");
+  });
+
+  it("should accept an empty parameter value", () => {
+    const content = ics(
+      "BEGIN:VCALENDAR",
+      "METHOD;X-A=:REQUEST",
+      "END:VCALENDAR",
+    );
+    assert.equal(parseCalendarMethod(content), "REQUEST");
+  });
+
+  it("should not validate lines whose meaning it does not use", () => {
+    // Only BEGIN, END and METHOD decide what gets composed, so a malformed
+    // parameter elsewhere is the caller's business, not a reason to refuse
+    // a payload a calendar client would read.
+    const content = ics(
+      "BEGIN:VCALENDAR",
+      "METHOD:REQUEST",
+      "BEGIN:VEVENT",
+      "SUMMARY;BROKEN:Lunch",
+      "END:VEVENT",
+      "END:VCALENDAR",
+    );
+    assert.equal(parseCalendarMethod(content), "REQUEST");
+  });
+
   it("should ignore a colon inside a quoted parameter value", () => {
     const content = ics(
       "BEGIN:VCALENDAR",
@@ -178,6 +211,19 @@ describe("parseCalendarMethod()", () => {
       "BEGIN:VCALENDAR",
       "METHOD:REQUEST",
       "BEGIN:VEVENT",
+      "END:VCALENDAR",
+    ),
+    // A parameter is `name=value`, so a bare token is not one.  The method it
+    // declares would be composed into a Content-Type while the content line
+    // carrying it is one a calendar client may refuse.
+    "a METHOD with a malformed parameter": ics(
+      "BEGIN:VCALENDAR",
+      "METHOD;BROKEN:REQUEST",
+      "END:VCALENDAR",
+    ),
+    "a METHOD with an unnamed parameter": ics(
+      "BEGIN:VCALENDAR",
+      "METHOD;=bar:REQUEST",
       "END:VCALENDAR",
     ),
     // A component name is an iana-token or an x-name, both of which are one
