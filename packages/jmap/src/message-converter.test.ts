@@ -182,6 +182,25 @@ describe("convertMessage", () => {
     );
   });
 
+  it("should not send an undefined HTML body value", () => {
+    // `createMessage()` passes `content` through without checking it, and
+    // `Message` is structural, so a body can reach here undefined.  Sending
+    // `{ value: undefined }` would hand the server a non-string.
+    const message: Message = {
+      ...baseMessage,
+      content: { text: "Lunch.", html: undefined as unknown as string },
+    };
+
+    const result = convertMessage(message, "drafts-123", new Map());
+
+    assert.ok(!("html" in result.bodyValues));
+    assert.deepEqual(
+      (result.bodyStructure?.subParts ?? []).map((part) => part.partId),
+      [],
+    );
+    assert.equal(result.bodyStructure?.partId, "text");
+  });
+
   it("should reject calendar content that never passed createMessage()", () => {
     const message: Message = {
       ...baseMessage,

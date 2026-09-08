@@ -204,7 +204,10 @@ export function buildBodyStructure(
   // SMTP composer does.  An empty string is a body the caller asked for, and
   // dropping it would leave a scheduling message with the calendar as its only
   // part, which RFC 6047 §2.1 asks not to happen: a recipient whose client
-  // knows nothing about scheduling would then see nothing at all.
+  // knows nothing about scheduling would then see nothing at all.  An
+  // undefined one is not a body: `createMessage()` passes `content` through
+  // unchecked and `Message` is structural, so it can arrive that way, and it
+  // must not become a `bodyValues` entry holding a non-string.
 
   // Text part (charset is inferred from bodyValues, not specified with partId)
   if ("text" in message.content && message.content.text !== undefined) {
@@ -213,7 +216,7 @@ export function buildBodyStructure(
   }
 
   // HTML part
-  if ("html" in message.content) {
+  if ("html" in message.content && message.content.html !== undefined) {
     bodyValues["html"] = { value: message.content.html };
     parts.push({ partId: "html", type: "text/html; charset=utf-8" });
   }
