@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { createRequire } from "node:module";
+import { fileURLToPath } from "node:url";
 import { build } from "esbuild";
 import { Miniflare } from "miniflare";
 import { composeMessage, MimeAttachmentReplayError } from "../dist/index.js";
@@ -19,7 +20,7 @@ assert.equal(
 );
 assert.equal(typeof require("@upyo/mime").composeMessage, "function");
 const bundle = await build({
-  entryPoints: [new URL("worker.ts", import.meta.url).pathname],
+  entryPoints: [fileURLToPath(new URL("worker.ts", import.meta.url))],
   bundle: true,
   write: false,
   format: "esm",
