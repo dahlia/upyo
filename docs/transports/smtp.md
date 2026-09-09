@@ -1116,3 +1116,53 @@ explicit encoding starts reading after the server accepts DATA and does not
 need a preliminary size pass. Inactivity limits and cancellation cover reading
 and writing; a failure during DATA closes that connection without completing
 the message. Raw delivery is not retried automatically.
+
+
+Verifying the configuration
+---------------------------
+
+Call `~SmtpTransport.verify()` to check your SMTP settings without sending
+an email. It opens a fresh connection, checks the server greeting and
+EHLO/HELO negotiation, applies the same TLS policy as sending, and performs
+any configured authentication, including OAuth 2.0. Relay configurations
+without authentication are supported.
+
+~~~~ typescript twoslash
+import { SmtpAuthError, SmtpResponseError, SmtpTransport } from "@upyo/smtp";
+
+await using transport = new SmtpTransport({
+  host: "smtp.example.com",
+  port: 587,
+  requireTls: true,
+});
+
+try {
+  await transport.verify({ signal: AbortSignal.timeout(10_000) });
+} catch (error) {
+  if (error instanceof SmtpAuthError) {
+    console.error("Check the SMTP credentials.");
+  } else if (error instanceof SmtpResponseError) {
+    console.error(error.command, error.code, error.response);
+  } else {
+    throw error;
+  }
+}
+~~~~
+
+Unlike sending, verification rejects on failure and does not return a receipt.
+`~SmtpAuthResponseError` extends `~SmtpAuthError` with the SMTP reply's `code`,
+`command`, and `response`. Network, TLS, and timeout failures may use native
+error types. Cancellation preserves the caller's abort reason.
+
+Verification shares the transport's `poolSize` limit and shutdown barrier.
+It waits when all slots are busy; when necessary, it replaces one idle
+connection to make room for a fresh handshake. Its connection is closed
+afterward, including on failure or cancellation, and is never pooled.
+The existing connection and socket timeouts apply; use an abort signal to
+bound the whole call, including waiting for capacity.
+
+Success confirms setup at verification time. It does not guarantee that a
+particular sender, recipient, or message will be accepted, or that delivery
+will succeed. No envelope or message data is sent. Verification is an
+[optional transport capability](./custom.md#verifying-transport-configuration);
+wrappers do not automatically expose it.

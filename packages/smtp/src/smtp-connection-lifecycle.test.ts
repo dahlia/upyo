@@ -43,3 +43,30 @@ for (const event of ["timeout", "close"] as const) {
     }
   });
 }
+
+test("cancels a stalled TCP connect with the original reason", async () => {
+  const connection = new SmtpConnection({
+    host: "localhost",
+    port: 25,
+    connectionTimeout: 5000,
+  });
+  const connect = Socket.prototype.connect;
+  const controller = new AbortController();
+  let pending: Promise<void>;
+  Socket.prototype.connect = function () {
+    return this;
+  };
+  try {
+    pending = connection.connect(controller.signal);
+  } finally {
+    Socket.prototype.connect = connect;
+  }
+  const checked = assert.rejects(pending, (e) => e === "cancel TCP");
+  controller.abort("cancel TCP");
+  try {
+    await checked;
+    assert.ok(connection.socket?.destroyed);
+  } finally {
+    await connection.quit();
+  }
+});

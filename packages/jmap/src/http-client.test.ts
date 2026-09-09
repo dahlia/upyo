@@ -1,4 +1,4 @@
-import { describe, it } from "node:test";
+import { describe, it, test } from "node:test";
 import * as assert from "node:assert/strict";
 import { JmapHttpClient } from "./http-client.ts";
 import { createJmapConfig } from "./config.ts";
@@ -235,4 +235,48 @@ describe("JmapHttpClient", () => {
       }
     });
   });
+});
+
+test("caller cancellation clears the retry backoff", async () => {
+  const originalFetch = globalThis.fetch;
+  const controller = new AbortController();
+  let calls = 0;
+  let abortedAt = 0;
+  globalThis.fetch = () => {
+    calls++;
+    const response = new Response("Unavailable.", { status: 503 });
+    const text = response.text.bind(response);
+    response.text = async () => {
+      const body = await text();
+      setTimeout(() => {
+        abortedAt = Date.now();
+        controller.abort("stop retry");
+      }, 0);
+      return body;
+    };
+    return Promise.resolve(response);
+  };
+  try {
+    const client = new JmapHttpClient(
+      createJmapConfig({
+        sessionUrl: "https://example.com/session",
+        bearerToken: "token",
+        retries: 3,
+      }),
+    );
+    await assert.rejects(
+      client.executeRequest("https://example.com/api", {
+        using: [],
+        methodCalls: [],
+      }, controller.signal),
+      (e) => e === "stop retry",
+    );
+    assert.ok(
+      Date.now() - abortedAt < 800,
+      "Cancellation must not wait for the one-second retry backoff.",
+    );
+    assert.equal(calls, 1);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
 });

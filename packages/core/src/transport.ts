@@ -49,11 +49,11 @@ export interface Transport<TProviderId extends string = string> {
 }
 
 /**
- * Options for sending messages with the email service.
+ * Options for operations on the email service.
  */
 export interface TransportOptions {
   /**
-   * The abort signal to cancel the send operation if needed.
+   * The abort signal to cancel the operation if needed.
    */
   readonly signal?: AbortSignal;
 }
@@ -88,4 +88,35 @@ export function isRawTransport<TProviderId extends string>(
   transport: Transport<TProviderId>,
 ): transport is RawTransport<TProviderId> {
   return "sendRaw" in transport && typeof transport.sendRaw === "function";
+}
+
+/**
+ * Optional capability for checking setup without sending a message.
+ * Success describes the configuration at verification time, not acceptance of
+ * any particular sender, recipient, message, or eventual delivery. Wrappers
+ * must explicitly preserve this capability to expose it themselves.
+ * @since 0.6.0
+ */
+export interface VerifiableTransport<TProviderId extends string = string>
+  extends Transport<TProviderId> {
+  /**
+   * Checks connectivity, configured authentication, and transport prerequisites.
+   * @param options Optional cancellation signal.
+   * @returns A promise that resolves when verification succeeds.
+   * @throws {Error} If setup or verification fails; errors are transport-specific.
+   * @throws The caller's abort reason if the operation is cancelled.
+   */
+  verify(options?: TransportOptions): Promise<void>;
+}
+
+/**
+ * Checks whether a transport exposes configuration verification.
+ * @param transport The transport to inspect.
+ * @returns Whether the transport implements the optional verification capability.
+ * @since 0.6.0
+ */
+export function isVerifiableTransport<TProviderId extends string>(
+  transport: Transport<TProviderId>,
+): transport is VerifiableTransport<TProviderId> {
+  return "verify" in transport && typeof transport.verify === "function";
 }

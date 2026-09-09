@@ -91,7 +91,7 @@ export interface SmtpConfig {
    * being established, connections that are currently sending, and idle
    * connections retained for reuse.  It therefore applies whether or not
    * {@link SmtpConfig.pool} is enabled.  When the limit is reached, `send()`
-   * and `sendMany()` wait for a connection to become available instead of
+   * `sendMany()`, `sendRaw()`, and `verify()` wait for a connection to become available instead of
    * opening another one, so this value can be matched to a provider's
    * simultaneous-connection limit.
    *

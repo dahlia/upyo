@@ -373,6 +373,13 @@ export class SmtpConnection {
         this.socket?.off("error", onError);
         this.socket?.off("close", onClose);
         this.socket?.off("timeout", onTimeout);
+        signal?.removeEventListener("abort", onAbort);
+      };
+
+      const onAbort = () => {
+        cleanup();
+        this.socket?.destroy();
+        reject(signal?.reason);
       };
 
       const onConnect = () => {
@@ -392,28 +399,36 @@ export class SmtpConnection {
         this.socket?.destroy();
       };
 
-      if (this.config.secure) {
-        this.socket = tlsConnect({
-          host: this.config.host,
-          port: this.config.port,
-          rejectUnauthorized: this.config.tls?.rejectUnauthorized ?? true,
-          ca: this.config.tls?.ca,
-          key: this.config.tls?.key,
-          cert: this.config.tls?.cert,
-          minVersion: this.config.tls?.minVersion,
-          maxVersion: this.config.tls?.maxVersion,
-        });
-      } else {
-        this.socket = new Socket();
-        this.socket.connect(this.config.port, this.config.host);
-      }
+      try {
+        if (this.config.secure) {
+          this.socket = tlsConnect({
+            host: this.config.host,
+            port: this.config.port,
+            rejectUnauthorized: this.config.tls?.rejectUnauthorized ?? true,
+            ca: this.config.tls?.ca,
+            key: this.config.tls?.key,
+            cert: this.config.tls?.cert,
+            minVersion: this.config.tls?.minVersion,
+            maxVersion: this.config.tls?.maxVersion,
+          });
+        } else {
+          this.socket = new Socket();
+          this.socket.connect(this.config.port, this.config.host);
+        }
 
-      this.socket.setTimeout(this.config.socketTimeout);
-      this.observeSocket(this.socket);
-      this.socket.once("connect", onConnect);
-      this.socket.once("error", onError);
-      this.socket.once("close", onClose);
-      this.socket.once("timeout", onTimeout);
+        this.socket.setTimeout(this.config.socketTimeout);
+        this.observeSocket(this.socket);
+        this.socket.once("connect", onConnect);
+        this.socket.once("error", onError);
+        this.socket.once("close", onClose);
+        this.socket.once("timeout", onTimeout);
+        signal?.addEventListener("abort", onAbort, { once: true });
+        if (signal?.aborted) onAbort();
+      } catch (error) {
+        cleanup();
+        this.socket?.destroy();
+        reject(error);
+      }
     });
   }
 
@@ -577,7 +592,7 @@ export class SmtpConnection {
     return new Promise((resolve, reject) => {
       let buffer = "";
       const timeout = setTimeout(() => {
-        reject(new Error("Greeting timeout"));
+        onError(new Error("Greeting timeout."));
       }, this.config.socketTimeout);
 
       const onData = (data: Uint8Array) => {
@@ -601,14 +616,26 @@ export class SmtpConnection {
         reject(error);
       };
 
+      const onClose = () =>
+        onError(new TypeError("SMTP connection closed before greeting."));
+      const onAbort = () => {
+        cleanup();
+        this.socket?.destroy();
+        reject(signal?.reason);
+      };
       const cleanup = () => {
         clearTimeout(timeout);
         this.socket?.off("data", onData);
         this.socket?.off("error", onError);
+        this.socket?.off("close", onClose);
+        signal?.removeEventListener("abort", onAbort);
       };
 
       this.socket!.on("data", onData);
       this.socket!.on("error", onError);
+      this.socket!.on("close", onClose);
+      signal?.addEventListener("abort", onAbort, { once: true });
+      if (signal?.aborted) onAbort();
     });
   }
 
@@ -675,44 +702,51 @@ export class SmtpConnection {
 
     signal?.throwIfAborted();
 
-    // Upgrade the socket to TLS
-    return new Promise((resolve, reject) => {
-      const timeout = setTimeout(() => {
-        this.socket?.destroy();
-        reject(new Error("STARTTLS upgrade timeout"));
-      }, this.config.connectionTimeout);
-
-      const plainSocket = this.socket as Socket;
-      plainSocket.setTimeout(0);
-
-      const tlsSocket = tlsConnect({
-        socket: plainSocket,
-        host: this.config.host,
-        rejectUnauthorized: this.config.tls?.rejectUnauthorized ?? true,
-        ca: this.config.tls?.ca,
-        key: this.config.tls?.key,
-        cert: this.config.tls?.cert,
-        minVersion: this.config.tls?.minVersion,
-        maxVersion: this.config.tls?.maxVersion,
-      });
-
-      const onSecureConnect = () => {
+    // Own the upgraded socket throughout its handshake, including cancellation.
+    const plainSocket = this.socket;
+    plainSocket.setTimeout(0);
+    const tlsSocket = tlsConnect({
+      socket: plainSocket,
+      host: this.config.host,
+      rejectUnauthorized: this.config.tls?.rejectUnauthorized ?? true,
+      ca: this.config.tls?.ca,
+      key: this.config.tls?.key,
+      cert: this.config.tls?.cert,
+      minVersion: this.config.tls?.minVersion,
+      maxVersion: this.config.tls?.maxVersion,
+    });
+    this.socket = tlsSocket;
+    this.observeSocket(tlsSocket);
+    return new Promise<void>((resolve, reject) => {
+      const timeout = setTimeout(
+        () => fail(new Error("STARTTLS upgrade timeout.")),
+        this.config.connectionTimeout,
+      );
+      const cleanup = () => {
         clearTimeout(timeout);
-        tlsSocket.off("error", onError);
-        this.socket = tlsSocket;
-        this.observeSocket(tlsSocket);
-        this.socket.setTimeout(this.config.socketTimeout);
-        resolve();
+        tlsSocket.off("secureConnect", onSecureConnect);
+        tlsSocket.off("error", fail);
+        tlsSocket.off("close", onClose);
+        signal?.removeEventListener("abort", onAbort);
       };
-
-      const onError = (error: Error) => {
-        clearTimeout(timeout);
+      const fail = (error: unknown) => {
+        cleanup();
         tlsSocket.destroy();
         reject(error);
       };
-
+      const onAbort = () => fail(signal?.reason);
+      const onClose = () =>
+        fail(new TypeError("SMTP connection closed during STARTTLS."));
+      const onSecureConnect = () => {
+        cleanup();
+        tlsSocket.setTimeout(this.config.socketTimeout);
+        resolve();
+      };
       tlsSocket.once("secureConnect", onSecureConnect);
-      tlsSocket.once("error", onError);
+      tlsSocket.once("error", fail);
+      tlsSocket.once("close", onClose);
+      signal?.addEventListener("abort", onAbort, { once: true });
+      if (signal?.aborted) onAbort();
     });
   }
 
@@ -1213,7 +1247,7 @@ export class SmtpConnection {
       : `smtp-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
   }
 
-  async quit(): Promise<void> {
+  async quit(signal?: AbortSignal): Promise<void> {
     const socket = this.socket;
     if (!socket) {
       return;
@@ -1222,7 +1256,7 @@ export class SmtpConnection {
     // Only attempt a graceful QUIT on a writable socket; a socket that never
     // finished connecting (e.g. a refused or timed-out connection) would
     // otherwise error or leave a dangling command timeout.
-    if (socket.writable) {
+    if (socket.writable && !signal?.aborted) {
       // Send QUIT best-effort and wait only until it has been flushed (bounded
       // by QUIT_TIMEOUT_MS) rather than for the server's reply, so an
       // unresponsive server cannot block teardown for the full socket timeout.
@@ -1231,13 +1265,23 @@ export class SmtpConnection {
           clearTimeout(timer);
           socket.off("error", done);
           socket.off("close", done);
+          signal?.removeEventListener("abort", onAbort);
           resolve();
+        };
+        const onAbort = () => {
+          socket.destroy();
+          done();
         };
         const timer = setTimeout(done, QUIT_TIMEOUT_MS);
         // Teardown is best-effort: an asynchronous socket error or close must
         // not surface as an unhandled error event, so settle on those too.
         socket.once("error", done);
         socket.once("close", done);
+        signal?.addEventListener("abort", onAbort, { once: true });
+        if (signal?.aborted) {
+          onAbort();
+          return;
+        }
         try {
           socket.write("QUIT\r\n", done);
         } catch {
@@ -1271,7 +1315,7 @@ export class SmtpConnection {
 /**
  * Error thrown when an SMTP command receives an unsuccessful server reply.
  *
- * @since 0.5.0
+ * @since 0.6.0
  */
 export class SmtpResponseError extends Error {
   /**

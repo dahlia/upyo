@@ -10,6 +10,8 @@ import {
   RawMessageValidationError,
   type RawTransport,
   type Receipt,
+  type TransportOptions,
+  type VerifiableTransport,
 } from "@upyo/core";
 import type { SmtpConfig } from "./config.ts";
 import {
@@ -73,7 +75,11 @@ import { parseEnhancedSmtpStatusCode } from "./smtp-status-code.ts";
  * }
  * ```
  */
-export class SmtpTransport implements RawTransport<"smtp">, AsyncDisposable {
+export class SmtpTransport
+  implements
+    RawTransport<"smtp">,
+    VerifiableTransport<"smtp">,
+    AsyncDisposable {
   readonly id = "smtp";
 
   /**
@@ -149,6 +155,35 @@ export class SmtpTransport implements RawTransport<"smtp">, AsyncDisposable {
       auth != null && ("accessToken" in auth || "refreshToken" in auth)
         ? new OAuth2TokenManager(auth)
         : undefined;
+  }
+
+  /**
+   * Checks a fresh SMTP connection, TLS policy, and configured authentication
+   * without sending mail. Uses the shared connection limit and closes the
+   * verification connection afterward, even when pooling is enabled.
+   * Success does not guarantee acceptance of a sender, recipient, or message.
+   * @param options Optional cancellation signal, including while waiting for capacity.
+   * @returns A promise that resolves after successful verification and cleanup.
+   * @throws {SmtpResponseError} If greeting, EHLO/HELO, or STARTTLS is rejected.
+   * @throws {SmtpAuthError} If authentication fails.
+   * @throws {Error} If a connection, TLS, or timeout error occurs.
+   * @throws The caller's abort reason if cancelled.
+   * @since 0.6.0
+   */
+  async verify(options?: TransportOptions): Promise<void> {
+    const signal = options?.signal;
+    signal?.throwIfAborted();
+    let connection: SmtpConnection | undefined;
+    try {
+      connection = await this.getConnection(signal, true);
+      signal?.throwIfAborted();
+    } catch (error) {
+      signal?.throwIfAborted();
+      throw error;
+    } finally {
+      if (connection != null) await this.discardConnection(connection, signal);
+    }
+    signal?.throwIfAborted();
   }
 
   /**
@@ -487,11 +522,15 @@ export class SmtpTransport implements RawTransport<"smtp">, AsyncDisposable {
    * handed back through {@link returnConnection} or {@link discardConnection}.
    *
    * @param signal Signal that cancels the wait for a free connection.
+   * @param fresh Whether setup must run on a new connection.
    * @returns A connection ready to send.
    * @throws {DOMException} If `signal` is aborted before a connection is
    *                        obtained.
    */
-  private async getConnection(signal?: AbortSignal): Promise<SmtpConnection> {
+  private async getConnection(
+    signal?: AbortSignal,
+    fresh = false,
+  ): Promise<SmtpConnection> {
     signal?.throwIfAborted();
     while (this.closing != null) {
       await this.waitForShutdown(this.closing, signal);
@@ -499,7 +538,7 @@ export class SmtpTransport implements RawTransport<"smtp">, AsyncDisposable {
     }
     this.pendingAcquisitions++;
     try {
-      return await this.acquireConnection(signal);
+      return await this.acquireConnection(signal, fresh);
     } finally {
       this.pendingAcquisitions--;
       this.notifyDrained();
@@ -531,11 +570,21 @@ export class SmtpTransport implements RawTransport<"smtp">, AsyncDisposable {
 
   private async acquireConnection(
     signal?: AbortSignal,
+    fresh = false,
   ): Promise<SmtpConnection> {
     while (true) {
+      signal?.throwIfAborted();
+      if (fresh && this.openConnectionCount >= this.poolSize) {
+        const idle = this.connectionPool.pop();
+        if (idle != null) {
+          // Transfer this slot without waking a competing acquisition.
+          await this.closeConnection(idle, signal);
+          return await this.setupReservedConnection(signal);
+        }
+      }
       // Reuse an idle connection when the pool has one.  It already holds a
       // slot, so nothing else needs to be reserved.
-      let pooled = this.connectionPool.pop();
+      let pooled = fresh ? undefined : this.connectionPool.pop();
       while (pooled != null) {
         if (pooled.usable) return pooled;
         // Dropping a connection that went stale in the pool frees its slot.
@@ -547,17 +596,7 @@ export class SmtpTransport implements RawTransport<"smtp">, AsyncDisposable {
         // Reserve the slot before connecting so that connections still being
         // established count towards the limit.
         this.openConnectionCount++;
-        const connection = new SmtpConnection(this.config, this.tokenManager);
-        try {
-          await this.connectAndSetup(connection, signal);
-        } catch (error) {
-          // Setup failed after the socket may have opened (e.g. EHLO,
-          // STARTTLS, or authentication failure); discard it so neither the
-          // socket nor its slot leaks.
-          await this.discardConnection(connection);
-          throw error;
-        }
-        return connection;
+        return await this.setupReservedConnection(signal);
       }
 
       // Every slot is taken, so wait for one to come back.
@@ -570,6 +609,24 @@ export class SmtpTransport implements RawTransport<"smtp">, AsyncDisposable {
         this.wakeCapacityWaiter();
         throw error;
       }
+    }
+  }
+
+  /** Establishes a connection using a slot already owned by this acquisition. */
+  private async setupReservedConnection(
+    signal?: AbortSignal,
+  ): Promise<SmtpConnection> {
+    let connection: SmtpConnection | undefined;
+    try {
+      signal?.throwIfAborted();
+      connection = new SmtpConnection(this.config, this.tokenManager);
+      await this.connectAndSetup(connection, signal);
+      signal?.throwIfAborted();
+      return connection;
+    } catch (error) {
+      if (connection != null) await this.closeConnection(connection, signal);
+      this.releaseConnectionSlot();
+      throw error;
     }
   }
 
@@ -709,26 +766,38 @@ export class SmtpTransport implements RawTransport<"smtp">, AsyncDisposable {
   }
 
   /**
-   * Closes a checked-out connection and frees the slot it held.
+   * Closes a connection without giving up the caller's reserved slot.
    */
-  private async discardConnection(connection: SmtpConnection): Promise<void> {
+  private async closeConnection(
+    connection: SmtpConnection,
+    signal?: AbortSignal,
+  ): Promise<void> {
     try {
-      await connection.quit();
+      await connection.quit(signal);
     } catch {
       // Ignore errors during cleanup
     }
+  }
+
+  /** Closes a connection and releases its slot exactly once. */
+  private async discardConnection(
+    connection: SmtpConnection,
+    signal?: AbortSignal,
+  ): Promise<void> {
+    await this.closeConnection(connection, signal);
     this.releaseConnectionSlot();
   }
 
   /**
-   * Closes idle connections and drains sends admitted before this call.
+   * Closes idle connections and drains sends and verification admitted before
+   * this call.
    *
    * Resolves once those sends have released their connections and all their
    * sockets have closed.  Delivery is not interrupted, including sends waiting
    * for capacity or connection setup.  A started `sendMany()` iteration must
    * finish or be returned by its consumer before shutdown can complete.
    *
-   * Concurrent close calls share the shutdown.  New sends wait for it to
+   * Concurrent close calls share the shutdown. New sends and verification wait for it to
    * finish (and can cancel that wait through their abort signal); the transport
    * can be reused afterward.
    *

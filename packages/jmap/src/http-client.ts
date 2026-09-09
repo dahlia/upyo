@@ -186,7 +186,22 @@ export class JmapHttpClient {
 
         // Exponential backoff
         const delay = Math.pow(2, attempt) * 1000;
-        await new Promise((resolve) => setTimeout(resolve, delay));
+        await new Promise<void>((resolve, reject) => {
+          const cleanup = () => {
+            clearTimeout(timer);
+            signal?.removeEventListener("abort", onAbort);
+          };
+          const onAbort = () => {
+            cleanup();
+            reject(signal?.reason);
+          };
+          const timer = setTimeout(() => {
+            cleanup();
+            resolve();
+          }, delay);
+          signal?.addEventListener("abort", onAbort, { once: true });
+          if (signal?.aborted) onAbort();
+        });
       }
     }
 
