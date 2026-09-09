@@ -8,6 +8,16 @@ import {
 } from "@upyo/smtp";
 import { MockSmtpServer } from "./test-utils/mock-smtp-server.ts";
 
+function deferred<T>() {
+  let resolve!: (value: T | PromiseLike<T>) => void;
+  let reject!: (reason?: unknown) => void;
+  const promise = new Promise<T>((resolvePromise, rejectPromise) => {
+    resolve = resolvePromise;
+    reject = rejectPromise;
+  });
+  return { promise, resolve, reject };
+}
+
 const message = () =>
   createMessage({
     from: "a@example.com",
@@ -92,8 +102,8 @@ test("verification rejects greeting/EHLO/TLS errors and releases capacity", asyn
 test("fresh verification keeps its slot while a token callback is pending", async () => {
   const server = new MockSmtpServer();
   const port = await server.start();
-  const entered = Promise.withResolvers<void>();
-  const token = Promise.withResolvers<string>();
+  const entered = deferred<void>();
+  const token = deferred<string>();
   let calls = 0;
   const transport = new SmtpTransport({
     host: "localhost",
@@ -135,8 +145,8 @@ test("fresh verification keeps its slot while a token callback is pending", asyn
 test("verification cancellation releases a slot held by an uncooperative token provider", async () => {
   const server = new MockSmtpServer();
   const port = await server.start();
-  const entered = Promise.withResolvers<void>();
-  const token = Promise.withResolvers<string>();
+  const entered = deferred<void>();
+  const token = deferred<string>();
   let calls = 0;
   const transport = new SmtpTransport({
     host: "localhost",
@@ -186,7 +196,7 @@ for (const warm of [false, true]) {
       port,
       poolSize: 1,
     });
-    const entered = Promise.withResolvers<void>();
+    const entered = deferred<void>();
     const controller = new AbortController();
     const originalQuit = SmtpConnection.prototype.quit;
     try {
@@ -225,8 +235,8 @@ for (const warm of [false, true]) {
 test("shutdown drains admitted verification and newly arriving verification can cancel", async () => {
   const server = new MockSmtpServer();
   const port = await server.start();
-  const entered = Promise.withResolvers<void>();
-  const token = Promise.withResolvers<string>();
+  const entered = deferred<void>();
+  const token = deferred<string>();
   const transport = new SmtpTransport({
     host: "localhost",
     port,
@@ -278,8 +288,8 @@ test("failed connection establishment does not leak the verification slot", asyn
 
 test("cancelled verification does not cancel a shared OAuth2 refresh needed by a send", async () => {
   const originalFetch = globalThis.fetch;
-  const entered = Promise.withResolvers<void>();
-  const refreshed = Promise.withResolvers<Response>();
+  const entered = deferred<void>();
+  const refreshed = deferred<Response>();
   let refreshes = 0;
   globalThis.fetch = () => {
     refreshes++;

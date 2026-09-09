@@ -17,7 +17,11 @@ const credentials = {
 async function setup(implicit: boolean, stall = "") {
   const sockets = new Set<Socket>();
   const commands: string[] = [];
-  const reached = Promise.withResolvers<void>();
+  let resolveReached!: () => void;
+  const reachedPromise = new Promise<void>((resolve) => {
+    resolveReached = resolve;
+  });
+  const reached = { promise: reachedPromise, resolve: resolveReached };
   const handle = (socket: Socket, upgraded = false) => {
     sockets.add(socket);
     socket.on("error", () => {});
