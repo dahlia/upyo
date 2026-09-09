@@ -44,6 +44,8 @@ interface ServerOptions {
 async function setup(options: ServerOptions = {}) {
   const calls: { name: string; args: Record<string, unknown> }[] = [];
   const uploads: Buffer[] = [];
+  const uploadContentTypes: (string | undefined)[] = [];
+  const uploadsAtImport: number[] = [];
   const sockets = new Set<Socket>();
   let base = "";
   const server = createServer(async (req, res) => {
@@ -67,7 +69,7 @@ async function setup(options: ServerOptions = {}) {
       return;
     }
     if (req.url?.startsWith("/upload/")) {
-      assert.equal(req.headers["content-type"], "message/rfc822");
+      uploadContentTypes.push(req.headers["content-type"]);
       if (options.upload === "early") {
         reply({ accountId: "a", blobId: "blob", size: 0 });
         return;
@@ -125,7 +127,7 @@ async function setup(options: ServerOptions = {}) {
         email: "sender@example.com",
       }];
     } else if (name === "Email/import") {
-      assert.equal(uploads.length, 1, "must finish upload before importing");
+      uploadsAtImport.push(uploads.length);
       if (options.importing === "partial") {
         reply({
           methodResponses: [["error", { type: "serverPartialFail" }, id]],
@@ -235,6 +237,13 @@ async function setup(options: ServerOptions = {}) {
     async close() {
       for (const socket of sockets) socket.destroy();
       await new Promise<void>((resolve) => server.close(() => resolve()));
+      // close() is awaited by each test, so assertion failures reach its runner.
+      for (const contentType of uploadContentTypes) {
+        assert.equal(contentType, "message/rfc822");
+      }
+      for (const count of uploadsAtImport) {
+        assert.equal(count, 1, "must finish upload before importing");
+      }
     },
   };
 }
