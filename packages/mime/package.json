@@ -1,6 +1,6 @@
 {
   "name": "@upyo/mime",
-  "version": "0.6.0",
+  "version": "0.6.1",
   "description": "Portable MIME composition and DKIM signing for Upyo",
   "keywords": [
     "email",

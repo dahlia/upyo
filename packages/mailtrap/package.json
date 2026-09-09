@@ -1,6 +1,6 @@
 {
   "name": "@upyo/mailtrap",
-  "version": "0.6.0",
+  "version": "0.6.1",
   "description": "Mailtrap transport for Upyo email library",
   "keywords": [
     "email",

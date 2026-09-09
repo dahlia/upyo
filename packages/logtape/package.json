@@ -1,6 +1,6 @@
 {
   "name": "@upyo/logtape",
-  "version": "0.6.0",
+  "version": "0.6.1",
   "description": "LogTape observability transport for Upyo email library",
   "keywords": [
     "email",
