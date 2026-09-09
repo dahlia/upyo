@@ -235,7 +235,9 @@ To be released.
     bytes without a transport connection, with optional DKIM signing.  Save
     the bytes as an *.eml* file or pass the result directly to SMTP or JMAP
     `sendRaw()`.  The package supports Node.js, Deno, Bun, and edge runtimes
-    without Node.js compatibility.  [[#68], [#74]]
+    without Node.js compatibility.  Address line breaks and invalid custom
+    header names are rejected even for directly constructed messages.
+    [[#68], [#74]]
 
 [#68]: https://github.com/dahlia/upyo/issues/68
 [#74]: https://github.com/dahlia/upyo/pull/74
@@ -417,7 +419,8 @@ To be released.
  -  Fixed quoted-printable encoding of CRLF, isolated line endings, trailing
     spaces, and long lines so messages preserve their text and respect MIME
     line limits.  Inline Content-ID headers now reject values that cannot fit
-    the RFC 5322 line limit.  [[#68], [#74]]
+    the RFC 5322 line limit.  Directly constructed messages now reject address
+    line breaks and invalid custom header names.  [[#68], [#74]]
 
 [#42]: https://github.com/dahlia/upyo/issues/42
 [#43]: https://github.com/dahlia/upyo/issues/43

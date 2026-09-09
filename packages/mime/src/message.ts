@@ -34,8 +34,8 @@ export interface PreparedMimeMessage {
  * @returns A deterministic MIME plan for one send attempt.
  * @throws {RangeError} If a header cannot fit the RFC 5322 line limit.
  * @throws {TypeError} If the message carries an invalid message identifier or
- * date, or a `Date` or `Message-ID` header containing a carriage return or line
- * feed.
+ * date, an address or identity header containing a carriage return or line
+ * feed, or an invalid custom header field name.
  */
 export function prepareMimeMessage(
   message: Message,
@@ -560,6 +560,11 @@ function formatDate(date: Date): string {
 }
 
 function encodeAddress(address: Address): string {
+  if (/[\r\n]/.test(address.address)) {
+    throw new TypeError(
+      "Address must not contain a carriage return or line feed.",
+    );
+  }
   if (address.name == null) {
     // No display name, just return the email address
     return address.address;
@@ -650,6 +655,11 @@ function encodeMimeParameter(name: string, value: string): string {
 }
 
 function foldHeader(name: string, value: string): string {
+  if (!/^[\x21-\x39\x3b-\x7e]+$/.test(name)) {
+    throw new TypeError(
+      "Header field name must contain printable ASCII characters other than colon.",
+    );
+  }
   const recommendedLineLength = 78;
   const lines: string[] = [];
   let prefix = `${name}: `;
