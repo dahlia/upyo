@@ -11,6 +11,7 @@ import {
   MailtrapApiError,
   type MailtrapBatchItemResponse,
   MailtrapHttpClient,
+  MailtrapResponseError,
   type MailtrapSendResponse,
   MailtrapTimeoutError,
 } from "./http-client.ts";
@@ -280,6 +281,17 @@ function createMailtrapFailure(
   message: string,
   error: unknown,
 ): Receipt<"mailtrap"> & { readonly successful: false } {
+  if (error instanceof MailtrapResponseError) {
+    return createFailedReceipt(message, {
+      provider: "mailtrap",
+      ...(error.cause instanceof MailtrapTimeoutError
+        ? { category: "timeout", code: "timeout" } as const
+        : {}),
+      retryable: false,
+      attempts: error.attempts,
+    });
+  }
+
   if (error instanceof MailtrapApiError) {
     return createFailedReceipt(message, {
       provider: "mailtrap",

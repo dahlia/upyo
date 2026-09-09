@@ -122,6 +122,33 @@ export class MailtrapTimeoutError extends Error {
 }
 
 /**
+ * Failure to read a successful Mailtrap response after the request was accepted.
+ * Retrying the request could send the message again.
+ *
+ * @since 0.6.0
+ */
+export class MailtrapResponseError extends Error {
+  /**
+   * Number of attempts made before this error was produced.
+   *
+   * @since 0.6.0
+   */
+  readonly attempts?: number;
+
+  /**
+   * Creates an error for an unreadable successful response.
+   *
+   * @param cause The response body error, including a possible timeout.
+   * @param attempts Number of attempts made before this error.
+   */
+  constructor(cause: unknown, attempts?: number) {
+    super(cause instanceof Error ? cause.message : String(cause), { cause });
+    this.name = "MailtrapResponseError";
+    this.attempts = attempts;
+  }
+}
+
+/**
  * HTTP client wrapper for Mailtrap API requests.
  *
  * @since 0.6.0
@@ -212,6 +239,10 @@ export class MailtrapHttpClient {
       } catch (error) {
         lastError = error instanceof Error ? error : new Error(String(error));
 
+        if (error instanceof MailtrapResponseError) {
+          throw new MailtrapResponseError(error.cause, attempt + 1);
+        }
+
         if (error instanceof MailtrapApiError && !isRetryable(error)) {
           throw error;
         }
@@ -270,8 +301,9 @@ export class MailtrapHttpClient {
       : undefined;
     const requestSignal = combineSignals(timeoutController.signal, signal);
 
+    let response: Response | undefined;
     try {
-      const response = await globalThis.fetch(url, {
+      response = await globalThis.fetch(url, {
         method: "POST",
         headers,
         body: JSON.stringify(body),
@@ -280,15 +312,21 @@ export class MailtrapHttpClient {
       const text = await response.text();
       return { response, text };
     } catch (error) {
+      signal?.throwIfAborted();
+      let cause = error;
       if (
         error instanceof Error &&
         error.name === "AbortError" &&
         timeoutController.signal.aborted &&
         !signal?.aborted
       ) {
-        throw new MailtrapTimeoutError(this.config.timeout);
+        cause = new MailtrapTimeoutError(this.config.timeout);
       }
-      throw error;
+      // A 2xx response means Mailtrap may already have sent the message.
+      if (response?.ok) {
+        throw new MailtrapResponseError(cause);
+      }
+      throw cause;
     } finally {
       requestSignal.cleanup();
       if (timeoutId !== undefined) {

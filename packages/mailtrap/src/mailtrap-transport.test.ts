@@ -2,6 +2,8 @@ import type { Message } from "@upyo/core";
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { MailtrapTransport } from "./mailtrap-transport.ts";
+import { createMailtrapConfig, MailtrapResponseError } from "./index.ts";
+import { MailtrapHttpClient } from "./http-client.ts";
 
 function createMessage(overrides: Partial<Message> = {}): Message {
   return {
@@ -425,34 +427,178 @@ describe("MailtrapTransport - API Errors", () => {
     },
   );
 
-  serialIt("times out while reading the response body", async () => {
-    const originalFetch = globalThis.fetch;
-    try {
-      // deno-lint-ignore require-await
-      globalThis.fetch = async (_input, init) => {
-        return createDelayedJsonResponse(init?.signal, () => {}, 100);
-      };
-
-      const transport = new MailtrapTransport({
-        apiToken: "test-token",
-        timeout: 10,
-        retries: 0,
-      });
-
-      const receipt = await transport.send(createMessage());
-
-      assert.ok(!receipt.successful);
-      if (!receipt.successful) {
-        assert.equal(
-          receipt.errorMessages[0],
-          "Mailtrap API request timed out after 10 ms.",
-        );
-        assert.equal(receipt.errors?.[0]?.category, "timeout");
+  for (const failure of ["network", "timeout", "status", "error body"]) {
+    serialIt(`retries a ${failure} failure before acceptance`, async () => {
+      const originalFetch = globalThis.fetch;
+      let requests = 0;
+      try {
+        // deno-lint-ignore require-await
+        globalThis.fetch = async (_input, init) => {
+          requests++;
+          if (requests === 1) {
+            if (failure === "network") throw new TypeError("Failed to fetch.");
+            if (failure === "timeout") {
+              return new Promise<Response>((_resolve, reject) => {
+                init?.signal?.addEventListener("abort", () => {
+                  reject(init.signal?.reason);
+                }, { once: true });
+              });
+            }
+            if (failure === "error body") {
+              return new Response(
+                new ReadableStream<Uint8Array>({
+                  start(controller) {
+                    controller.error(
+                      new TypeError("Failed to fetch response body."),
+                    );
+                  },
+                }),
+                { status: 503 },
+              );
+            }
+            return new Response("Unavailable", { status: 503 });
+          }
+          return Response.json({ success: true, message_ids: ["id"] });
+        };
+        const transport = new MailtrapTransport({
+          apiToken: "test-token",
+          retries: 1,
+          timeout: 10,
+        });
+        const receipt = await transport.send(createMessage());
+        assert.ok(receipt.successful);
+        assert.equal(requests, 2);
+      } finally {
+        globalThis.fetch = originalFetch;
       }
-    } finally {
-      globalThis.fetch = originalFetch;
-    }
-  });
+    });
+  }
+
+  serialIt(
+    "preserves the cause of an unreadable successful response",
+    async () => {
+      const originalFetch = globalThis.fetch;
+      const cause = new TypeError("Failed to fetch response body.");
+      try {
+        // deno-lint-ignore require-await
+        globalThis.fetch = async () =>
+          new Response(
+            new ReadableStream<Uint8Array>({
+              start(controller) {
+                controller.error(cause);
+              },
+            }),
+          );
+        const client = new MailtrapHttpClient(createMailtrapConfig({
+          apiToken: "test-token",
+          retries: 1,
+        }));
+        await assert.rejects(client.sendBatch([]), (error: unknown) => {
+          assert.ok(error instanceof MailtrapResponseError);
+          assert.equal(error.cause, cause);
+          assert.equal(error.attempts, 1);
+          return true;
+        });
+      } finally {
+        globalThis.fetch = originalFetch;
+      }
+    },
+  );
+
+  for (const batch of [false, true]) {
+    serialIt(
+      `does not retry an unreadable successful ${
+        batch ? "batch" : "single"
+      } response`,
+      async () => {
+        const originalFetch = globalThis.fetch;
+        let requests = 0;
+        try {
+          // deno-lint-ignore require-await
+          globalThis.fetch = async () => {
+            requests++;
+            return new Response(
+              new ReadableStream<Uint8Array>({
+                start(controller) {
+                  controller.error(
+                    new TypeError("Failed to fetch response body."),
+                  );
+                },
+              }),
+              { status: 200 },
+            );
+          };
+          const transport = new MailtrapTransport({
+            apiToken: "test-token",
+            retries: 1,
+          });
+          const receipts = [];
+          if (batch) {
+            for await (
+              const receipt of transport.sendMany([
+                createMessage(),
+                createMessage(),
+              ])
+            ) receipts.push(receipt);
+          } else {
+            receipts.push(await transport.send(createMessage()));
+          }
+          assert.equal(requests, 1);
+          assert.equal(receipts.length, batch ? 2 : 1);
+          for (const receipt of receipts) {
+            assert.ok(!receipt.successful);
+            if (!receipt.successful) {
+              assert.equal(
+                receipt.errorMessages[0],
+                "Failed to fetch response body.",
+              );
+              assert.ok(!receipt.errors?.[0]?.retryable);
+              assert.equal(receipt.attempts, 1);
+            }
+          }
+        } finally {
+          globalThis.fetch = originalFetch;
+        }
+      },
+    );
+  }
+
+  serialIt(
+    "times out while reading the response body without retrying",
+    async () => {
+      const originalFetch = globalThis.fetch;
+      let requests = 0;
+      try {
+        // deno-lint-ignore require-await
+        globalThis.fetch = async (_input, init) => {
+          requests++;
+          return createDelayedJsonResponse(init?.signal, () => {}, 100);
+        };
+
+        const transport = new MailtrapTransport({
+          apiToken: "test-token",
+          timeout: 10,
+          retries: 1,
+        });
+
+        const receipt = await transport.send(createMessage());
+
+        assert.ok(!receipt.successful);
+        if (!receipt.successful) {
+          assert.equal(
+            receipt.errorMessages[0],
+            "Mailtrap API request timed out after 10 ms.",
+          );
+          assert.equal(receipt.errors?.[0]?.category, "timeout");
+          assert.ok(!receipt.errors?.[0]?.retryable);
+          assert.equal(receipt.attempts, 1);
+          assert.equal(requests, 1);
+        }
+      } finally {
+        globalThis.fetch = originalFetch;
+      }
+    },
+  );
 
   serialIt(
     "propagates caller cancellation while reading the response body",
@@ -473,7 +619,7 @@ describe("MailtrapTransport - API Errors", () => {
         const transport = new MailtrapTransport({
           apiToken: "test-token",
           timeout: 0,
-          retries: 0,
+          retries: 1,
         });
         const sending = transport.send(createMessage(), {
           signal: controller.signal,
