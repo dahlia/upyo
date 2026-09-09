@@ -24,7 +24,11 @@ async function setup() {
     contradiction: false,
     session: {} as Record<string, unknown>,
   };
-  const stalled = Promise.withResolvers<void>();
+  let resolveStalled!: () => void;
+  const stalledPromise = new Promise<void>((resolve) => {
+    resolveStalled = resolve;
+  });
+  const stalled = { promise: stalledPromise, resolve: resolveStalled };
   const server = createServer(async (req, res) => {
     req.on("error", () => {});
     authorizations.push(req.headers.authorization);
