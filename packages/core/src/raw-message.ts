@@ -9,8 +9,10 @@ export type RawMessageContent = AttachmentContent;
 
 /**
  * Transport requirements of serialized bytes, not a request to transcode them.
- * `8bit` asserts ASCII MIME headers (including nested parts); `utf8` permits
- * internationalized headers. Neither permits NUL or binary MIME transfer.
+ * With `8bit`, the caller guarantees ASCII MIME headers, including nested
+ * parts. Upyo checks only the top-level headers and does not parse nested MIME.
+ * `utf8` permits internationalized headers. Neither permits NUL or binary MIME
+ * transfer.
  * @since 0.6.0
  */
 export type RawMessageEncoding = "7bit" | "8bit" | "utf8";

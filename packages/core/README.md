@@ -255,7 +255,10 @@ identical bytes on both passes, and on concurrent sends. Upyo checks structure
 and known size again but does not compare a digest of the two passes.
 
 `7bit` requires ASCII bytes. `8bit` allows non-ASCII body bytes and asserts that
-all MIME headers, including nested part headers, are ASCII. `utf8` permits
+all MIME headers, including nested part headers, are ASCII. This is a caller
+guarantee: Upyo checks only the top-level headers and does not parse nested
+MIME. Use `utf8` or omit `encoding` if you cannot guarantee ASCII headers
+throughout. `utf8` permits
 internationalized headers. Automatic analysis conservatively selects `utf8`
 for any non-ASCII byte, even in the body; specify `8bit` to avoid that
 additional transport requirement when the headers are ASCII. These values do

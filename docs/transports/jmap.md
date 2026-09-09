@@ -477,7 +477,9 @@ factories. Declaring `encoding` reads the source once per successful send;
 omitting it adds an analysis pass before upload. Every reader must reproduce
 the same bytes. `7bit` requires ASCII, `8bit` asserts ASCII MIME headers with an
 8-bit body, and `utf8` permits internationalized headers. Automatic analysis
-conservatively selects `utf8` for any non-ASCII byte. No transcoding occurs.
+conservatively selects `utf8` for any non-ASCII byte. With `8bit`, the caller
+must ensure nested MIME headers are ASCII; Upyo checks only top-level headers.
+Use `utf8` or omit `encoding` if unsure. No transcoding occurs.
 
 Sources must have CRLF line endings including the final CRLF, nonempty headers,
 no NUL, and no line longer than 998 bytes excluding CRLF. Uploads stream without

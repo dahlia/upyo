@@ -447,8 +447,10 @@ Raw sources accept bytes, promised bytes, Blob, or replayable attachment-style
 factories. With `encoding` specified, the source is read once; otherwise it is
 analyzed and then read again. Every reader must produce identical bytes.
 Automatic analysis requires SMTPUTF8 for any non-ASCII byte. Specify `8bit`
-when all MIME headers are ASCII and only the body needs 8BITMIME. `utf8`, and
-internationalized envelope addresses, require both SMTPUTF8 and 8BITMIME.
+when all MIME headers are ASCII and only the body needs 8BITMIME. Upyo checks
+only top-level headers; the caller must ensure nested MIME headers are ASCII.
+Use `utf8` or omit `encoding` if unsure. Both `utf8` and internationalized
+envelope addresses require SMTPUTF8 and 8BITMIME.
 Unsupported capabilities produce a failed receipt before MAIL FROM.
 
 The content must already have CRLF line endings including the final CRLF,
