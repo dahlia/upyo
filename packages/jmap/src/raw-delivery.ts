@@ -21,11 +21,24 @@ function failure(
   stage: "import" | "submission" | "upload",
   retryable: boolean,
   unknown = false,
+  error?: JmapApiError,
 ): Receipt<"jmap"> {
   return createFailedReceipt(message, {
     provider: "jmap",
     code: `jmap.raw_${stage}_${unknown ? "unknown" : "failed"}`,
-    category: unknown ? "unknown" : retryable ? undefined : "rejected",
+    category: unknown
+      ? "unknown"
+      : error?.statusCode !== undefined || retryable
+      ? undefined
+      : "rejected",
+    statusCode: error?.statusCode,
+    retryAfterMilliseconds: error?.retryAfterMilliseconds,
+    providerDetails: error
+      ? {
+        responseBody: error.responseBody,
+        jmapErrorType: error.jmapErrorType,
+      }
+      : undefined,
     retryable,
     attempts: 1,
   });
@@ -87,8 +100,11 @@ function errorDescription(error: Record<string, unknown>): string {
 }
 
 function isRequestRejection(error: unknown): boolean {
+  if (!(error instanceof JmapApiError)) return false;
+  // HTTP authentication failures reject the request regardless of body format.
+  if (error.statusCode === 401 || error.statusCode === 403) return true;
   if (
-    !(error instanceof JmapApiError) || !error.responseBody ||
+    !error.responseBody ||
     error.statusCode === undefined || error.statusCode < 400 ||
     error.statusCode > 599
   ) return false;
@@ -259,6 +275,7 @@ export async function deliverRawMessage(
       stage,
       stage !== "submission" && !definite,
       stage === "submission" && !definite,
+      error instanceof JmapApiError ? error : undefined,
     );
   }
 }

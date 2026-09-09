@@ -2,6 +2,7 @@ import {
   analyzeRawMessage,
   combineSignals,
   iterateRawMessage,
+  parseRetryAfter,
   type RawMessagePlan,
 } from "@upyo/core";
 import type { ResolvedJmapConfig } from "./config.ts";
@@ -149,26 +150,30 @@ export async function uploadRawMessage(
       body,
       duplex: "half",
       redirect: "error",
-      signal: owned,
+      // Runtime cancellation of the request body must not discard a response.
+      // The owned signal stops source reads; the outer signal controls HTTP.
+      signal: outerSignal,
     };
     try {
       const response = await fetch(
         uploadUrl.replace("{accountId}", encodeURIComponent(accountId)),
         request,
       );
-      owned.throwIfAborted();
-      if (!eof) {
-        throw new JmapApiError("Raw upload responded before validated EOF.");
-      }
+      outerSignal.throwIfAborted();
       if (!response.ok) {
         throw new JmapApiError(
           `Raw upload failed: ${response.status}`,
           response.status,
           await response.text(),
+          undefined,
+          parseRetryAfter(response.headers.get("Retry-After")),
         );
       }
+      if (!eof) {
+        throw new JmapApiError("Raw upload responded before validated EOF.");
+      }
       const result: unknown = await response.json();
-      owned.throwIfAborted();
+      outerSignal.throwIfAborted();
       if (
         !isRecord(result) || result.accountId !== accountId ||
         typeof result.blobId !== "string" || !result.blobId ||
@@ -185,7 +190,6 @@ export async function uploadRawMessage(
     } catch (error) {
       outerSignal.throwIfAborted();
       if (hasSourceError) throw sourceError;
-      owned.throwIfAborted();
       throw error;
     } finally {
       owned.removeEventListener("abort", abort);

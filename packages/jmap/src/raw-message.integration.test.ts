@@ -18,6 +18,11 @@ const raw: RawMessage = {
   encoding: "7bit",
 };
 interface ServerOptions {
+  readonly httpError?: {
+    readonly stage: "upload" | "import" | "submission";
+    readonly status: number;
+    readonly body: string;
+  };
   readonly upload?: "early" | "wrong-size" | "stall-response";
   readonly discovery?: {
     readonly method: "Mailbox/get" | "Identity/get";
@@ -54,6 +59,15 @@ async function setup(options: ServerOptions = {}) {
       res.writeHead(status, { "Content-Type": "application/json" });
       res.end(JSON.stringify(body));
     };
+    const httpError = (stage: "upload" | "import" | "submission") => {
+      if (options.httpError?.stage !== stage) return false;
+      res.writeHead(options.httpError.status, {
+        "Content-Type": "text/plain",
+        "Retry-After": "7",
+      });
+      res.end(options.httpError.body);
+      return true;
+    };
     if (req.url === "/session") {
       reply({
         capabilities: { [core]: {}, [mail]: {}, [submission]: {} },
@@ -71,6 +85,7 @@ async function setup(options: ServerOptions = {}) {
     if (req.url?.startsWith("/upload/")) {
       uploadContentTypes.push(req.headers["content-type"]);
       if (options.upload === "early") {
+        if (httpError("upload")) return;
         reply({ accountId: "a", blobId: "blob", size: 0 });
         return;
       }
@@ -93,6 +108,7 @@ async function setup(options: ServerOptions = {}) {
       }
       const bytes = Buffer.concat(chunks);
       uploads.push(bytes);
+      if (httpError("upload")) return;
       if (options.upload === "stall-response") {
         res.writeHead(200, { "Content-Type": "application/json" });
         res.flushHeaders();
@@ -128,6 +144,7 @@ async function setup(options: ServerOptions = {}) {
       }];
     } else if (name === "Email/import") {
       uploadsAtImport.push(uploads.length);
+      if (httpError("import")) return;
       if (options.importing === "partial") {
         reply({
           methodResponses: [["error", { type: "serverPartialFail" }, id]],
@@ -156,6 +173,7 @@ async function setup(options: ServerOptions = {}) {
         blobId: options.importing === "different-blob" ? "old-blob" : "blob",
       }];
     } else if (name === "EmailSubmission/set") {
+      if (httpError("submission")) return;
       if (
         options.submitting === "partial" ||
         options.submitting === "method-error"
@@ -567,3 +585,97 @@ for (const method of ["Mailbox/get", "Identity/get"] as const) {
     });
   }
 }
+
+for (const stage of ["upload", "import", "submission"] as const) {
+  for (const status of [401, 403, 429, 502]) {
+    for (const body of ["", "plain response"]) {
+      test(`JMAP raw ${stage} HTTP ${status} retains ${body ? "text" : "empty"} error metadata`, async () => {
+        const context = await setup({ httpError: { stage, status, body } });
+        try {
+          const receipt = await context.transport.sendRaw(raw);
+          assert.ok(!receipt.successful);
+          const auth = status === 401 || status === 403;
+          const unknown = stage === "submission" && !auth;
+          assert.equal(receipt.retryable, stage !== "submission" && !auth);
+          assert.equal(receipt.attempts, 1);
+          const error = receipt.errors?.[0];
+          assert.ok(error);
+          assert.equal(
+            error.code,
+            `jmap.raw_${stage}_${unknown ? "unknown" : "failed"}`,
+          );
+          assert.equal(error.statusCode, status);
+          assert.equal(error.retryAfterMilliseconds, 7000);
+          assert.deepEqual(error.providerDetails, {
+            responseBody: body,
+            jmapErrorType: undefined,
+          });
+          assert.equal(
+            error.category,
+            unknown
+              ? "unknown"
+              : auth
+              ? "auth"
+              : status === 429
+              ? "rate-limit"
+              : "server-error",
+          );
+          assert.equal(context.uploads.length, 1);
+          assert.equal(
+            context.calls.filter((c) => c.name === "Email/import").length,
+            stage === "upload" ? 0 : 1,
+          );
+          assert.equal(
+            context.calls.filter((c) => c.name === "EmailSubmission/set")
+              .length,
+            stage === "submission" ? 1 : 0,
+          );
+        } finally {
+          await context.close();
+        }
+      });
+    }
+  }
+}
+
+test("JMAP raw keeps an authentication rejection before upload EOF", async () => {
+  const context = await setup({
+    upload: "early",
+    httpError: { stage: "upload", status: 401, body: "unauthorized" },
+  });
+  let closed = 0;
+  try {
+    const receipt = await context.transport.sendRaw({
+      ...raw,
+      content: () => ({
+        [Symbol.asyncIterator]() {
+          let first = true;
+          return {
+            next() {
+              if (first) {
+                first = false;
+                return Promise.resolve({
+                  done: false as const,
+                  value: content,
+                });
+              }
+              return new Promise<IteratorResult<Uint8Array>>(() => {});
+            },
+            return() {
+              closed++;
+              return Promise.resolve({ done: true as const, value: undefined });
+            },
+          };
+        },
+      }),
+    });
+    assert.ok(!receipt.successful);
+    assert.ok(!receipt.retryable);
+    assert.equal(receipt.errors?.[0].statusCode, 401);
+    assert.equal(receipt.errors?.[0].category, "auth");
+    assert.equal(closed, 1);
+    assert.ok(!context.calls.some((c) => c.name === "Email/import"));
+  } finally {
+    await context.close();
+  }
+});
