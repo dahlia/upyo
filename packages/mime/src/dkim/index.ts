@@ -1,11 +1,11 @@
 /**
  * DKIM (DomainKeys Identified Mail) signing module.
  *
- * Provides DKIM signing functionality for the SMTP transport
+ * Provides DKIM signing functionality for composed messages
  * following RFC 6376.
  *
  * @see https://www.rfc-editor.org/rfc/rfc6376
- * @since 0.4.0
+ * @since 0.6.0
  */
 
 export {

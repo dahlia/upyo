@@ -38,7 +38,7 @@ import {
 import { OAuth2TokenManager } from "./oauth2.ts";
 import { prepareMessage } from "./message-converter.ts";
 import { SmtpAttachmentReplayError } from "./message-stream.ts";
-import { validateDkimBodyMode } from "./dkim/types.ts";
+import { validateDkimBodyMode } from "@upyo/mime/internal";
 import type { SmtpEnhancedStatusCode, SmtpReceipt } from "./smtp-receipt.ts";
 import { parseEnhancedSmtpStatusCode } from "./smtp-status-code.ts";
 

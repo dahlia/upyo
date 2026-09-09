@@ -1,5 +1,5 @@
-import type { DkimConfig } from "./dkim/index.ts";
-import { validateDkimBodyMode } from "./dkim/types.ts";
+import type { DkimConfig } from "@upyo/mime";
+import { validateDkimBodyMode } from "@upyo/mime/internal";
 
 /**
  * Configuration interface for SMTP transport connection settings.

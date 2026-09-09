@@ -4,7 +4,7 @@
  * - `rsa-sha256`: RSA with SHA-256, most widely used (RFC 6376)
  * - `ed25519-sha256`: Ed25519 with SHA-256, shorter keys (RFC 8463)
  *
- * @since 0.4.0
+ * @since 0.6.0
  */
 export type DkimAlgorithm = "rsa-sha256" | "ed25519-sha256";
 
@@ -17,7 +17,7 @@ export type DkimAlgorithm = "rsa-sha256" | "ed25519-sha256";
  * - `relaxed`: Normalizes whitespace and case
  *
  * @see RFC 6376 Section 3.4
- * @since 0.4.0
+ * @since 0.6.0
  */
 export type DkimCanonicalization =
   | "relaxed/relaxed"
@@ -32,7 +32,7 @@ export type DkimCanonicalization =
  * to the email. Multiple signatures can be used for different domains
  * or selectors.
  *
- * @since 0.4.0
+ * @since 0.6.0
  */
 export interface DkimSignature {
   /**
@@ -84,7 +84,7 @@ export interface DkimSignature {
  * - `throw`: Throw an error and abort sending (default)
  * - `send-unsigned`: Log a warning and send the email without DKIM signature
  *
- * @since 0.4.0
+ * @since 0.6.0
  */
 export type DkimSigningFailureAction = "throw" | "send-unsigned";
 
@@ -97,7 +97,7 @@ export type DkimBodyMode = "buffered" | "streaming";
 /**
  * Configuration for DKIM signing in SMTP transport.
  *
- * @since 0.4.0
+ * @since 0.6.0
  */
 export interface DkimConfig {
   /**
@@ -137,7 +137,7 @@ export function validateDkimBodyMode(config?: DkimConfig): void {
 /**
  * Result of DKIM signing operation.
  *
- * @since 0.4.0
+ * @since 0.6.0
  */
 export interface DkimSignResult {
   /**
@@ -154,7 +154,7 @@ export interface DkimSignResult {
 /**
  * Default header fields to sign if not specified.
  *
- * @since 0.4.0
+ * @since 0.6.0
  */
 export const DEFAULT_SIGNED_HEADERS: readonly string[] = [
   "from",
@@ -166,13 +166,13 @@ export const DEFAULT_SIGNED_HEADERS: readonly string[] = [
 /**
  * Default DKIM algorithm.
  *
- * @since 0.4.0
+ * @since 0.6.0
  */
 export const DEFAULT_ALGORITHM: DkimAlgorithm = "rsa-sha256";
 
 /**
  * Default canonicalization method.
  *
- * @since 0.4.0
+ * @since 0.6.0
  */
 export const DEFAULT_CANONICALIZATION: DkimCanonicalization = "relaxed/relaxed";

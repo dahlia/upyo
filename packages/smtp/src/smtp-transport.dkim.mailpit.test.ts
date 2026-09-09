@@ -1,7 +1,7 @@
 import { SmtpTransport } from "@upyo/smtp";
 import assert from "node:assert/strict";
 import { describe, test } from "node:test";
-import type { DkimConfig } from "./dkim/index.ts";
+import type { DkimConfig } from "@upyo/mime";
 import { MailpitClient } from "./test-utils/mailpit-client.ts";
 import { waitForMailpitDelivery } from "./test-utils/mailpit-delivery-utils.ts";
 import {

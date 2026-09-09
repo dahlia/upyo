@@ -1,8 +1,9 @@
-import { createHash } from "node:crypto";
+import { sha256 } from "@noble/hashes/sha2";
+import { base64 } from "../bytes.ts";
 
 /** Incremental RFC 6376 body hash with bounded whitespace and line state. */
 export class BodyHasher {
-  private readonly hash = createHash("sha256");
+  private readonly hash = sha256.create();
   private readonly buffer = new Uint8Array(65536);
   private used = 0;
   private cr = false;
@@ -88,6 +89,6 @@ export class BodyHasher {
       this.emit(10);
     }
     this.hash.update(this.buffer.subarray(0, this.used));
-    return this.hash.digest("base64");
+    return base64(this.hash.digest());
   }
 }

@@ -7,6 +7,10 @@ allowBuilds:
   workerd: true
 
 catalog:
+  '@noble/hashes': ^1.8.0
+  postal-mime: ^3.0.0
+  esbuild: ^0.28.2
+  miniflare: 4.20260730.0
   '@logtape/logtape': ^2.2.4
   '@logtape/testing': ^2.2.4
   '@opentelemetry/api': ^1.9.0

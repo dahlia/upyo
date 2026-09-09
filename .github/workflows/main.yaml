@@ -6,6 +6,17 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  test-edge:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - uses: jdx/mise-action@v4
+      with:
+        experimental: true
+        cache: true
+        cache_key_prefix: mise-v4
+    - run: mise run test:edge
+
   test-node:
     runs-on: ubuntu-latest
     env:
@@ -172,7 +183,7 @@ jobs:
 
   publish:
     if: github.event_name == 'push'
-    needs: [test-node, test-deno, test-bun, check]
+    needs: [test-node, test-deno, test-bun, test-edge, check]
     runs-on: ubuntu-latest
     permissions:
       contents: read

@@ -452,6 +452,9 @@ JMAP implementations include:
 Sending raw MIME
 ----------------
 
+Use [MIME composition](../messages/mime.md) to create raw bytes from an Upyo
+message without opening a transport connection.
+
 `JmapTransport` implements the optional `RawTransport` interface. It uploads
 serialized MIME, imports the uploaded blob into Drafts, and submits that Email
 with an explicit delivery envelope:

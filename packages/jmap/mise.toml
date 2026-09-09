@@ -45,12 +45,12 @@ deno ...$args
 
 [tasks."test:node"]
 description = "Run @upyo/jmap tests with Node.js"
-depends = ["build"]
+depends = ["build", "//packages/mime:build"]
 run = "node --experimental-transform-types --test"
 
 [tasks."test:bun"]
 description = "Run @upyo/jmap tests with Bun"
-depends = ["build"]
+depends = ["build", "//packages/mime:build"]
 run = "bun test --timeout=30000"
 
 [tasks.test]

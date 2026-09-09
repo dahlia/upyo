@@ -1072,6 +1072,9 @@ const testTransport = new SmtpTransport({
 Sending raw MIME
 ----------------
 
+Use [MIME composition](../messages/mime.md) to create raw bytes from an Upyo
+message without opening a transport connection.
+
 `SmtpTransport` implements `RawTransport` for already serialized messages,
 including signed or encrypted MIME. Provide delivery addresses separately:
 

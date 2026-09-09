@@ -1,0 +1,19 @@
+{
+  "name": "@upyo/mime",
+  "version": "0.6.0",
+  "license": "MIT",
+  "exports": {
+    ".": "./src/index.ts",
+    "./internal": "./src/internal.ts"
+  },
+  "imports": {
+    "@noble/hashes/sha2": "npm:@noble/hashes@^1.8.0/sha2",
+    "postal-mime": "npm:postal-mime@^3.0.0",
+    "esbuild": "npm:esbuild@^0.28.2",
+    "miniflare": "npm:miniflare@4.20260730.0"
+  },
+  "exclude": [
+    "dist/",
+    "edge/"
+  ]
+}

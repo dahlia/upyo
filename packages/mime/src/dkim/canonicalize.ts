@@ -2,7 +2,7 @@
  * DKIM Canonicalization algorithms per RFC 6376 Section 3.4.
  *
  * @see https://www.rfc-editor.org/rfc/rfc6376#section-3.4
- * @since 0.4.0
+ * @since 0.6.0
  */
 
 /**
@@ -16,7 +16,7 @@
  * @param value - The header field value
  * @returns The canonicalized header line (name:value)
  * @see RFC 6376 Section 3.4.1
- * @since 0.4.0
+ * @since 0.6.0
  */
 export function canonicalizeHeaderSimple(name: string, value: string): string {
   return `${name}:${value}`;
@@ -35,7 +35,7 @@ export function canonicalizeHeaderSimple(name: string, value: string): string {
  * @param value - The header field value
  * @returns The canonicalized header line (name:value)
  * @see RFC 6376 Section 3.4.2
- * @since 0.4.0
+ * @since 0.6.0
  */
 export function canonicalizeHeaderRelaxed(
   name: string,
@@ -65,7 +65,7 @@ export function canonicalizeHeaderRelaxed(
  * @param body - The message body
  * @returns The canonicalized body
  * @see RFC 6376 Section 3.4.3
- * @since 0.4.0
+ * @since 0.6.0
  */
 export function canonicalizeBodySimple(body: string): string {
   if (body === "") {
@@ -95,7 +95,7 @@ export function canonicalizeBodySimple(body: string): string {
  * @param body - The message body
  * @returns The canonicalized body
  * @see RFC 6376 Section 3.4.4
- * @since 0.4.0
+ * @since 0.6.0
  */
 export function canonicalizeBodyRelaxed(body: string): string {
   if (body === "") {

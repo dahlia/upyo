@@ -58,7 +58,8 @@
   "devDependencies": {
     "jmap-rfc-types": "^0.1.2",
     "tsdown": "catalog:",
-    "typescript": "catalog:"
+    "typescript": "catalog:",
+    "@upyo/mime": "workspace:*"
   },
   "scripts": {
     "prepack": "mise run --no-deps :build",

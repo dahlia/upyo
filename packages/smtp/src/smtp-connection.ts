@@ -1096,6 +1096,7 @@ export class SmtpConnection {
           prepareMessageStream(message, checkSize, progress, signal),
         signal,
       );
+    negotiate(stream.encoding);
     if (stream.size != null) {
       checkSize(stream.size);
       if (sizeCapability != null) sizeParameter = ` SIZE=${stream.size}`;

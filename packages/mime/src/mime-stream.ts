@@ -1,5 +1,5 @@
 import { type AttachmentContent, iterateAttachmentContent } from "@upyo/core";
-import { Buffer } from "node:buffer";
+import { base64, utf8 } from "./bytes.ts";
 
 /** Encodes base64 without retaining producer-owned carry bytes. */
 export async function* encodeAttachment(
@@ -23,7 +23,7 @@ export async function* encodeAttachment(
       offset += take;
       column += take;
     }
-    return Buffer.from(parts.join(""));
+    return utf8(parts.join(""));
   }
   let processed = 0;
   for await (const chunk of iterateAttachmentContent(content, signal)) {
@@ -34,7 +34,7 @@ export async function* encodeAttachment(
         carry[carried++] = chunk[offset++];
       }
       if (carried === 3) {
-        yield wrap(Buffer.from(carry).toString("base64"));
+        yield wrap(base64(carry));
         carried = 0;
       }
     }
@@ -45,9 +45,7 @@ export async function* encodeAttachment(
         Math.floor((chunk.length - offset) / 3) * 3,
       );
       yield wrap(
-        Buffer.from(chunk.buffer, chunk.byteOffset + offset, length).toString(
-          "base64",
-        ),
+        base64(chunk.subarray(offset, offset + length)),
       );
       offset += length;
       processed += length;
@@ -59,7 +57,7 @@ export async function* encodeAttachment(
     while (offset < chunk.length) carry[carried++] = chunk[offset++];
   }
   if (carried > 0) {
-    yield wrap(Buffer.from(carry.subarray(0, carried)).toString("base64"));
+    yield wrap(base64(carry.subarray(0, carried)));
   }
 }
 

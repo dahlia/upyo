@@ -1,7 +1,7 @@
 import type { Message } from "@upyo/core";
 import assert from "node:assert/strict";
 import { describe, test } from "node:test";
-import type { DkimConfig } from "./dkim/index.ts";
+import type { DkimConfig } from "@upyo/mime";
 import { convertMessage } from "./message-converter.ts";
 import {
   TEST_DKIM_DOMAIN,

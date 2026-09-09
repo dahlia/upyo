@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { Buffer } from "node:buffer";
 import { createMessage } from "@upyo/core";
-import { prepareMessage } from "./message-converter.ts";
+import { prepareMimeMessage } from "./message.ts";
 
 for (const length of [0, 1, 2, 3, 56, 57, 58, 114, 65537, 256 * 1024]) {
   test(`streams and sizes ${length} attachment bytes`, async () => {
@@ -21,7 +21,7 @@ for (const length of [0, 1, 2, 3, 56, 57, 58, 114, 65537, 256 * 1024]) {
         content: bytes,
       },
     });
-    const plan = prepareMessage(message);
+    const plan = prepareMimeMessage(message);
     const expectedSize = await plan.size();
     const chunks: Uint8Array[] = [];
     for await (const chunk of plan.body()) {
@@ -39,7 +39,7 @@ for (const length of [0, 1, 2, 3, 56, 57, 58, 114, 65537, 256 * 1024]) {
       payload,
       Buffer.from(bytes).toString("base64").replace(/(.{76})(?=.)/g, "$1\r\n"),
     );
-    const streamed = prepareMessage({
+    const streamed = prepareMimeMessage({
       ...message,
       attachments: [{
         ...message.attachments[0],
