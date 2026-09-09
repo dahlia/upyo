@@ -512,3 +512,54 @@ failure. The server expires unreferenced uploaded blobs according to its policy.
 
 See [RFC 8620] for uploads and request errors, and [RFC 8621] for import and
 submission behavior.
+
+
+Verifying the configuration
+---------------------------
+
+`~JmapTransport.verify()` checks live JMAP settings without creating or sending
+an email. It fetches a fresh Session, checks the required capabilities and a
+writable account, and reads the drafts mailbox and available identities.
+A configured `identityId` is checked against the server as well.
+
+~~~~ typescript twoslash
+import { JmapApiError, JmapTransport } from "@upyo/jmap";
+
+const transport = new JmapTransport({
+  sessionUrl: "https://mail.example.com/.well-known/jmap",
+  bearerToken: "your-bearer-token",
+});
+
+try {
+  await transport.verify({ signal: AbortSignal.timeout(10_000) });
+} catch (error) {
+  if (error instanceof JmapApiError) {
+    console.error(error.message, error.statusCode, error.jmapErrorType);
+  } else {
+    throw error;
+  }
+}
+~~~~
+
+Verification rejects with `~JmapApiError` on failure, including malformed
+responses and timeouts. Cancellation preserves the caller's abort reason.
+It does not return a delivery receipt. Existing HTTP error details remain
+available on the error.
+
+With no `accountId`, verification uses the first mail-capable account, as
+`send()` does. It fails if that account lacks submission capability or is
+read-only. Set `accountId` explicitly in a multi-account session. The default
+account selection for `sendRaw()` can differ.
+
+Each Session fetch, `Mailbox/get`, and `Identity/get` operation has `timeout`
+as its total budget, including reading the response body and any retries.
+This can stop an operation before all configured retries have run. The three
+operations run sequentially; an abort signal can bound the entire verification.
+Verification neither reads nor updates the transport's Session cache.
+
+Only Session discovery and read-only JMAP methods are used. No blobs, drafts,
+or submissions are created. Success does not guarantee a mailbox's write
+permissions, acceptance of a particular sender or message, or eventual
+delivery. See the
+[optional verification capability](./custom.md#verifying-transport-configuration)
+for use with a generic transport.

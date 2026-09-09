@@ -68,10 +68,10 @@ reliability over feature complexity.
 When implementing a custom transport, these principles ensure compatibility with
 the Upyo ecosystem:
 
-**Never throw exceptions from transport methods.** Instead of throwing errors,
-always return `Receipt` objects that clearly indicate success or failure.
-This approach provides predictable error handling and prevents uncaught
-exceptions from breaking your application flow.
+*Return receipts for delivery failures.* The sending methods report delivery
+failures through `Receipt` objects. Caller cancellation rejects instead.
+The optional `verify()` method also rejects on failure because it does not
+perform a delivery or produce a receipt.
 
 **Support cancellation through [`AbortSignal`].** Modern applications need the
 ability to cancel long-running operations.  Check
@@ -559,3 +559,34 @@ Transport implementers can use the raw-message source helpers to validate and
 read incrementally. Extra memory is limited to bounded work buffers, the
 largest chunk supplied by the source, and runtime buffers. Sources should
 honor cancellation promptly and release resources when iteration ends.
+
+
+Verifying transport configuration
+---------------------------------
+
+`~VerifiableTransport` is an optional capability for checking a transport's
+connection, configured authentication, and prerequisites without sending mail.
+The base `~Transport` interface does not require it. Use
+`~isVerifiableTransport()` to discover support while retaining the provider ID
+type:
+
+~~~~ typescript twoslash
+import { isVerifiableTransport, type Transport } from "@upyo/core";
+
+declare const transport: Transport;
+
+if (isVerifiableTransport(transport)) {
+  await transport.verify({ signal: AbortSignal.timeout(10_000) });
+}
+~~~~
+
+`verify()` resolves without a value on success and rejects with a
+transport-specific error on failure. It preserves the caller's abort reason
+when cancelled. A successful check describes setup at that time; it does not
+promise acceptance of any particular message or successful delivery.
+
+[SMTP](./smtp.md#verifying-the-configuration) and
+[JMAP](./jmap.md#verifying-the-configuration) implement this capability.
+Retry, pool, and observability wrappers do not automatically forward it.
+Verify the underlying transport before wrapping it, or implement the
+capability explicitly in a custom wrapper.

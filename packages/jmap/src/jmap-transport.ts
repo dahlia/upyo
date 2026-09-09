@@ -1,4 +1,8 @@
-import { createRawMessagePlan, RawMessageValidationError } from "@upyo/core";
+import {
+  combineSignals,
+  createRawMessagePlan,
+  RawMessageValidationError,
+} from "@upyo/core";
 import { deliverRawMessage, rawDiscoveryResult } from "./raw-delivery.ts";
 import { isRecord, rawOperation } from "./raw-upload.ts";
 import { readAttachmentContent } from "@upyo/core";
@@ -10,6 +14,7 @@ import type {
   RawTransport,
   Receipt,
   TransportOptions,
+  VerifiableTransport,
 } from "@upyo/core";
 import { createFailedReceipt } from "@upyo/core";
 import { uploadBlob } from "./blob-uploader.ts";
@@ -37,7 +42,8 @@ const JMAP_CAPABILITIES = {
  * JMAP transport for sending emails via JMAP protocol (RFC 8620/8621).
  * @since 0.4.0
  */
-export class JmapTransport implements RawTransport<"jmap"> {
+export class JmapTransport
+  implements RawTransport<"jmap">, VerifiableTransport<"jmap"> {
   readonly id = "jmap";
 
   readonly config: ResolvedJmapConfig;
@@ -53,6 +59,115 @@ export class JmapTransport implements RawTransport<"jmap"> {
   constructor(config: JmapConfig) {
     this.config = createJmapConfig(config);
     this.httpClient = new JmapHttpClient(this.config);
+  }
+
+  /**
+   * Checks a fresh Session, the account used by send(), its drafts mailbox,
+   * and the configured or available identity without creating or sending mail.
+   * Does not read or update the session cache. Each discovery operation has
+   * config.timeout as its total budget, including response bodies and retries.
+   * Success does not guarantee acceptance of a particular sender or message.
+   * @param options Optional cancellation signal.
+   * @returns A promise that resolves when live verification succeeds.
+   * @throws {JmapApiError} If discovery, authentication, or validation fails.
+   * @throws The caller's abort reason if cancelled.
+   * @since 0.6.0
+   */
+  async verify(options?: TransportOptions): Promise<void> {
+    const signal = options?.signal;
+    signal?.throwIfAborted();
+    try {
+      let session = await verificationOperation(
+        this.config.timeout,
+        (owned) => this.httpClient.fetchSession(owned),
+        signal,
+      );
+      validateVerificationSession(session);
+      if (this.config.baseUrl) session = this.rewriteSessionUrls(session);
+      validateVerificationApiUrl(session.apiUrl);
+      if (
+        !Object.values(JMAP_CAPABILITIES).every((cap) =>
+          cap in session.capabilities
+        )
+      ) {
+        throw new JmapApiError(
+          "JMAP session lacks core, mail, or submission capability.",
+        );
+      }
+      const accountId = this.config.accountId ?? findMailAccount(session);
+      const account = accountId == null
+        ? undefined
+        : session.accounts[accountId];
+      if (accountId == null || account == null) {
+        throw new JmapApiError(
+          `No JMAP mail account found: ${accountId ?? "automatic selection"}`,
+        );
+      }
+      if (
+        account.isReadOnly ||
+        !(JMAP_CAPABILITIES.mail in account.accountCapabilities) ||
+        !(JMAP_CAPABILITIES.submission in account.accountCapabilities)
+      ) {
+        throw new JmapApiError(
+          `JMAP account must be writable with mail and submission capability: ${accountId}`,
+        );
+      }
+      const get = async (
+        method: string,
+        args: Record<string, unknown>,
+        signal?: AbortSignal,
+      ) => {
+        const response = await verificationOperation(
+          this.config.timeout,
+          (owned) =>
+            this.httpClient.executeRequest(session.apiUrl, {
+              using: method === "Mailbox/get"
+                ? [JMAP_CAPABILITIES.core, JMAP_CAPABILITIES.mail]
+                : [JMAP_CAPABILITIES.core, JMAP_CAPABILITIES.submission],
+              methodCalls: [[method, { accountId, ...args }, "verify"]],
+            }, owned),
+          signal,
+        );
+        return verificationResult(response, method, accountId);
+      };
+      const mailboxes = await get(
+        "Mailbox/get",
+        { properties: ["id", "role"] },
+        signal,
+      );
+      if (!mailboxes.list.some((mailbox) => mailbox.role === "drafts")) {
+        throw new JmapApiError(
+          `No drafts mailbox found in JMAP account: ${accountId}`,
+        );
+      }
+      const identityId = this.config.identityId;
+      const identities = await get("Identity/get", {
+        ids: identityId == null ? null : [identityId],
+        properties: ["id", "email"],
+      }, signal);
+      if (
+        identities.notFound.length > 0 || identities.list.length === 0 ||
+        !identities.list.every((identity) =>
+          typeof identity.email === "string" && identity.email.length > 0
+        ) ||
+        (identityId != null &&
+          (identities.list.length !== 1 ||
+            identities.list[0].id !== identityId))
+      ) {
+        throw new JmapApiError(
+          `No valid JMAP identity found: ${identityId ?? accountId}`,
+        );
+      }
+      signal?.throwIfAborted();
+    } catch (error) {
+      signal?.throwIfAborted();
+      if (error instanceof JmapApiError) throw error;
+      throw new JmapApiError(
+        `JMAP verification failed: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      );
+    }
   }
 
   /**
@@ -965,4 +1080,139 @@ function getAbortReason(signal: AbortSignal, fallback: unknown): unknown {
 
 function isAbortError(error: unknown): boolean {
   return error instanceof Error && error.name === "AbortError";
+}
+
+/** Bounds verification through body consumption, not just receipt of headers. */
+async function verificationOperation<T>(
+  timeout: number,
+  operation: (signal: AbortSignal) => Promise<T>,
+  signal?: AbortSignal,
+): Promise<T> {
+  const controller = new AbortController();
+  const combined = combineSignals(controller.signal, signal);
+  let onAbort: (() => void) | undefined;
+  const timer = setTimeout(
+    () => controller.abort(new JmapApiError("JMAP verification timed out.")),
+    timeout,
+  );
+  try {
+    combined.signal.throwIfAborted();
+    return await new Promise<T>((resolve, reject) => {
+      onAbort = () => reject(combined.signal.reason);
+      combined.signal.addEventListener("abort", onAbort, { once: true });
+      Promise.resolve().then(() => {
+        combined.signal.throwIfAborted();
+        return operation(combined.signal);
+      }).then(resolve, reject);
+      if (combined.signal.aborted) onAbort();
+    });
+  } finally {
+    clearTimeout(timer);
+    if (onAbort) combined.signal.removeEventListener("abort", onAbort);
+    controller.abort();
+    combined.cleanup();
+  }
+}
+
+function validateVerificationApiUrl(value: unknown): void {
+  if (typeof value === "string" && URL.canParse(value)) {
+    const url = new URL(value);
+    if (url.protocol === "https:" || url.protocol === "http:") return;
+  }
+  throw new JmapApiError("Invalid JMAP Session field: apiUrl");
+}
+
+function validateVerificationSession(session: JmapSession): void {
+  if (!isRecord(session)) {
+    throw new JmapApiError("Invalid JMAP Session response.");
+  }
+  if (!isRecord(session.capabilities)) {
+    throw new JmapApiError("Invalid JMAP Session field: capabilities");
+  }
+  if (!isRecord(session.accounts)) {
+    throw new JmapApiError("Invalid JMAP Session field: accounts");
+  }
+  for (const [id, account] of Object.entries(session.accounts)) {
+    if (
+      !isRecord(account) || typeof account.isReadOnly !== "boolean" ||
+      !isRecord(account.accountCapabilities)
+    ) {
+      throw new JmapApiError(`Invalid JMAP Session account: ${id}`);
+    }
+  }
+  validateVerificationApiUrl(session.apiUrl);
+}
+
+/** Validates only the discovery fields used by verification. */
+function verificationResult(
+  response: unknown,
+  method: string,
+  accountId: string,
+): {
+  readonly list: readonly Record<string, unknown>[];
+  readonly notFound: readonly string[];
+} {
+  if (!isRecord(response) || !Array.isArray(response.methodResponses)) {
+    throw new JmapApiError("Invalid JMAP verification response.");
+  }
+  const matches: unknown[] = response.methodResponses.filter((entry: unknown) =>
+    Array.isArray(entry) && entry[2] === "verify"
+  );
+  if (matches.length !== 1) {
+    throw new JmapApiError("Missing or duplicate JMAP verification response.");
+  }
+  const entry = matches[0];
+  if (!Array.isArray(entry) || entry.length !== 3 || !isRecord(entry[1])) {
+    throw new JmapApiError("Invalid JMAP verification method response.");
+  }
+  const result = entry[1];
+  if (entry[0] === "error") {
+    if (typeof result.type !== "string" || !result.type) {
+      throw new JmapApiError("Invalid JMAP method error.");
+    }
+    throw new JmapApiError(
+      typeof result.description === "string"
+        ? result.description
+        : `JMAP method failed: ${result.type}`,
+      undefined,
+      undefined,
+      result.type,
+    );
+  }
+  if (
+    entry[0] !== method || result.accountId !== accountId ||
+    !Array.isArray(result.list) || !Array.isArray(result.notFound)
+  ) {
+    throw new JmapApiError(`Invalid JMAP discovery result: ${method}`);
+  }
+  const list: Record<string, unknown>[] = [];
+  const ids = new Set<string>();
+  for (const item of result.list) {
+    if (
+      !isRecord(item) || typeof item.id !== "string" || !item.id ||
+      ids.has(item.id)
+    ) {
+      throw new JmapApiError(`Invalid JMAP discovery identifiers: ${method}`);
+    }
+    ids.add(item.id);
+    list.push(item);
+  }
+  const notFound: string[] = [];
+  for (const id of result.notFound) {
+    if (typeof id !== "string" || !id || ids.has(id)) {
+      throw new JmapApiError(
+        `Contradictory JMAP discovery identifiers: ${method}`,
+      );
+    }
+    ids.add(id);
+    notFound.push(id);
+  }
+  if (
+    method === "Mailbox/get" &&
+    (notFound.length > 0 ||
+      !list.every((item) => item.role == null || typeof item.role === "string"))
+  ) {
+    throw new JmapApiError("Invalid JMAP mailbox discovery result.");
+  }
+  return { list, notFound };
 }

@@ -51,6 +51,9 @@ To be released.
     support incremental validation and cancellation. An explicit `8bit` encoding
     requires the caller to guarantee ASCII headers in nested MIME parts, which
     Upyo does not parse. [[#64], [#72]]
+ -  Added the optional `VerifiableTransport` interface and
+    `isVerifiableTransport()` type guard for checking transport configuration
+    without sending a message.  [[#67], [#73]]
 
 [#45]: https://github.com/dahlia/upyo/issues/45
 [#50]: https://github.com/dahlia/upyo/pull/50
@@ -60,10 +63,12 @@ To be released.
 [#61]: https://github.com/dahlia/upyo/pull/61
 [#63]: https://github.com/dahlia/upyo/issues/63
 [#64]: https://github.com/dahlia/upyo/issues/64
+[#67]: https://github.com/dahlia/upyo/issues/67
 [#69]: https://github.com/dahlia/upyo/pull/69
 [#70]: https://github.com/dahlia/upyo/issues/70
 [#71]: https://github.com/dahlia/upyo/pull/71
 [#72]: https://github.com/dahlia/upyo/pull/72
+[#73]: https://github.com/dahlia/upyo/pull/73
 
 ### @upyo/jmap
 
@@ -75,6 +80,13 @@ To be released.
     non-retryable to prevent duplicate delivery. HTTP failures retain their
     status, retry delay, and response details; authentication rejections are
     non-retryable even without a JMAP error body. [[#64], [#72]]
+ -  Added `JmapTransport.verify()` to check live session, account, drafts
+    mailbox, and identity settings without sending mail or changing the session
+    cache. Verification rejects on failure and bounds each discovery operation,
+    including response bodies and retries, by the configured timeout.
+    [[#67], [#73]]
+ -  Fixed cancellation during JMAP retry delays so cancelled requests stop
+    waiting immediately.
  -  Added support for `Blob` and replayable async attachment factories,
     including cancellation while reading their content.  Provider payloads
     remain buffered in memory.  [[#56], [#59]]
@@ -320,6 +332,14 @@ To be released.
     explicit envelope, streaming validation, DSN, and cancellation. Raw sends
     preserve existing headers and signatures and bypass configured DKIM signing.
     [[#64], [#72]]
+ -  Added `SmtpTransport.verify()` to check a fresh connection, TLS policy, and
+    configured authentication without sending mail.  Verification shares the
+    connection limit, closes its connection afterward, and rejects on failure.
+    `SmtpResponseError` and `SmtpAuthResponseError` are now exported for
+    inspecting server replies.  [[#67], [#73]]
+ -  Fixed cancellation during SMTP connection setup and while waiting for a
+    custom OAuth2 token provider, so cancelled operations release their
+    connections promptly.
  -  Added automatic SMTPUTF8 delivery for internationalized sender, recipient,
     and reply-to addresses.  Servers must advertise `SMTPUTF8` and `8BITMIME`;
     unsupported sends fail without starting a mail transaction.  [[#45], [#50]]

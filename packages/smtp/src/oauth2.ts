@@ -206,7 +206,10 @@ function abortable<T>(promise: Promise<T>, signal?: AbortSignal): Promise<T> {
     const abortReason = () =>
       signal.reason ??
         new DOMException("The operation was aborted.", "AbortError");
-    const onAbort = () => reject(abortReason());
+    const onAbort = () => {
+      signal.removeEventListener("abort", onAbort);
+      reject(abortReason());
+    };
     if (signal.aborted) {
       reject(abortReason());
     } else {
@@ -278,7 +281,7 @@ export class OAuth2TokenManager {
     const auth = this.auth;
     if ("accessToken" in auth) {
       return typeof auth.accessToken === "function"
-        ? await auth.accessToken(signal)
+        ? await abortable(Promise.resolve(auth.accessToken(signal)), signal)
         : auth.accessToken;
     }
 

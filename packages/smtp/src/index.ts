@@ -1,4 +1,5 @@
 export { SmtpTransport } from "./smtp-transport.ts";
+export { SmtpAuthResponseError, SmtpResponseError } from "./smtp-connection.ts";
 export type {
   OAuth2TokenProvider,
   SmtpAuth,
