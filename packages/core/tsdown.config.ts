@@ -11,6 +11,7 @@ export default defineConfig({
     "src/message-id.ts",
     "src/priority.ts",
     "src/receipt.ts",
+    "src/raw-message.ts",
     "src/transport.ts",
   ],
   dts: true,

@@ -507,3 +507,55 @@ to help you polish your implementation and bring it up to project standards.
 Feel free to open a draft PR early in your development process if you'd like
 feedback or guidance. Check the existing transport implementations for examples,
 but remember that we're here to help you succeed!
+
+
+Raw MIME delivery
+-----------------
+
+`RawTransport` extends `Transport` with an optional `sendRaw()` capability.
+Use `isRawTransport()` before sending through a transport supplied by another
+component; decorators must explicitly expose this capability themselves.
+
+~~~~ typescript twoslash
+import { isRawTransport, type Transport } from "@upyo/core";
+
+declare const transport: Transport;
+if (isRawTransport(transport)) {
+  await transport.sendRaw({
+    envelope: { from: "sender@example.com", to: ["recipient@example.net"] },
+    content: new TextEncoder().encode("Subject: Hello\r\n\r\nHello!\r\n"),
+    encoding: "7bit",
+  });
+}
+~~~~
+
+The envelope is required and independent of all MIME headers, including Bcc.
+Use `null` for a null reverse-path. Content accepts `Uint8Array`, a Promise of
+bytes, `Blob`, or an attachment-style factory that opens an independent reader
+on every call. Do not pass a one-shot stream directly.
+
+An explicit `encoding` reads the source once per successful send. Omitting it
+reads twice: analysis followed by transmission. Factories must reproduce
+identical bytes on both passes, and on concurrent sends. Upyo checks structure
+and known size again but does not compare a digest of the two passes.
+
+`7bit` requires ASCII bytes. `8bit` allows non-ASCII body bytes and asserts that
+all MIME headers, including nested part headers, are ASCII. This is a caller
+guarantee: Upyo checks only the top-level headers and does not parse nested
+MIME. Use `utf8` or omit `encoding` if you cannot guarantee ASCII headers
+throughout. `utf8` permits
+internationalized headers. Automatic analysis conservatively selects `utf8`
+for any non-ASCII byte, even in the body; specify `8bit` to avoid that
+additional transport requirement when the headers are ASCII. These values do
+not request transcoding and do not permit binary MIME with NUL bytes.
+
+Raw content must use CRLF throughout, end in CRLF, have a nonempty header
+section, and contain no NUL or line longer than 998 bytes excluding CRLF.
+Headers without a body are valid. Upyo validates these wire constraints, not
+full MIME syntax or signatures, and never repairs the content. Server-side
+processing can still modify the message.
+
+Transport implementers can use the raw-message source helpers to validate and
+read incrementally. Extra memory is limited to bounded work buffers, the
+largest chunk supplied by the source, and runtime buffers. Sources should
+honor cancellation promptly and release resources when iteration ends.

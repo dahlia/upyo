@@ -420,3 +420,52 @@ one with [msal-node].
 
 [google-auth-library]: https://github.com/googleapis/google-auth-library-nodejs
 [msal-node]: https://github.com/AzureAD/microsoft-authentication-library-for-js/tree/dev/lib/msal-node
+
+
+Sending raw MIME
+----------------
+
+`SmtpTransport` implements `RawTransport` for already serialized messages,
+including signed or encrypted MIME. Provide delivery addresses separately:
+
+~~~~ typescript
+import { SmtpTransport } from "@upyo/smtp";
+
+const transport = new SmtpTransport({ host: "localhost", port: 1025 });
+try {
+  await transport.sendRaw({
+    envelope: { from: "sender@example.com", to: ["recipient@example.net"] },
+    content: new TextEncoder().encode("Subject: Hello\r\n\r\nHello!\r\n"),
+    encoding: "7bit",
+  });
+} finally {
+  await transport.closeAllConnections();
+}
+~~~~
+
+Raw sources accept bytes, promised bytes, Blob, or replayable attachment-style
+factories. With `encoding` specified, the source is read once; otherwise it is
+analyzed and then read again. Every reader must produce identical bytes.
+Automatic analysis requires SMTPUTF8 for any non-ASCII byte. Specify `8bit`
+when all MIME headers are ASCII and only the body needs 8BITMIME. Upyo checks
+only top-level headers; the caller must ensure nested MIME headers are ASCII.
+Use `utf8` or omit `encoding` if unsure. Both `utf8` and internationalized
+envelope addresses require SMTPUTF8 and 8BITMIME.
+Unsupported capabilities produce a failed receipt before MAIL FROM.
+
+The content must already have CRLF line endings including the final CRLF,
+nonempty headers, no NUL, and no line longer than 998 bytes excluding CRLF.
+SMTP delivery adds only dot-stuffing and protocol framing. It does not compose
+headers, remove Bcc, add Date or Message-ID, or run configured DKIM signing.
+The caller is responsible for the MIME structure and any existing signatures.
+
+`sendRaw()` accepts `dsn` and `signal` options. Its envelope cannot be
+overridden through options; use `envelope.from: null` for a null reverse-path.
+Receipts include partial recipient rejections just like `send()`. The returned
+message ID identifies the SMTP transaction, not necessarily the MIME Message-ID.
+
+Known sizes exclude dot-stuffing and protocol framing. A factory with an
+explicit encoding starts reading after the server accepts DATA and does not
+need a preliminary size pass. Inactivity limits and cancellation cover reading
+and writing; a failure during DATA closes that connection without completing
+the message. Raw delivery is not retried automatically.

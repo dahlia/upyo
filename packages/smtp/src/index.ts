@@ -21,6 +21,7 @@ export type {
   SmtpDsnNotification,
   SmtpDsnOptions,
   SmtpDsnRecipientOptions,
+  SmtpRawTransportOptions,
   SmtpTransportOptions,
 } from "./delivery-status.ts";
 export type {
@@ -41,3 +42,4 @@ export type {
   DkimSigningFailureAction,
 } from "./dkim/index.ts";
 export { SmtpAttachmentReplayError } from "./message-stream.ts";
+export { Smtp8BitMimeUnsupportedError } from "./raw-message.ts";

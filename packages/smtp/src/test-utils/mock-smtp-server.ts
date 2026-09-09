@@ -1,3 +1,4 @@
+import { Buffer } from "node:buffer";
 import { EventEmitter } from "node:events";
 import { createServer, type Server, type Socket } from "node:net";
 
@@ -91,6 +92,7 @@ export class MockSmtpServer extends EventEmitter {
       socket.write(`${greeting.code} ${greeting.message}\r\n`);
 
       let buffer = "";
+      let rawBuffer = Buffer.alloc(0);
       let inDataMode = false;
       let currentMessage: Partial<MockSmtpMessage> = {};
       // When set, the server has sent a SASL failure challenge (334) for an
@@ -115,31 +117,28 @@ export class MockSmtpServer extends EventEmitter {
       };
 
       socket.on("data", (data) => {
-        buffer += data.toString();
-
         if (inDataMode) {
-          // In DATA mode, look for end of message
-          if (buffer.includes("\r\n.\r\n")) {
-            const messageData = buffer.substring(
-              0,
-              buffer.indexOf("\r\n.\r\n"),
-            );
-            currentMessage.data = messageData;
+          rawBuffer = Buffer.concat([rawBuffer, data]);
+          const end = rawBuffer.indexOf("\r\n.\r\n");
+          if (end >= 0) {
+            currentMessage.rawData = rawBuffer.subarray(0, end + 2);
+            // Keep the legacy text view without its final CRLF or de-stuffing.
+            currentMessage.data = rawBuffer.subarray(0, end).toString("utf8");
             this.receivedMessages.push(currentMessage as MockSmtpMessage);
-
             const response = this.responses.get("DATA_END")!;
             this.writeResponse(
               socket,
               "DATA_END",
               `${response.code} ${response.message}\r\n`,
             );
-
             inDataMode = false;
-            buffer = buffer.substring(buffer.indexOf("\r\n.\r\n") + 5);
+            buffer = rawBuffer.subarray(end + 5).toString("utf8");
+            rawBuffer = Buffer.alloc(0);
             currentMessage = {};
           }
           return;
         }
+        buffer += data.toString();
 
         const lines = buffer.split("\r\n");
         buffer = lines.pop() || "";
@@ -520,4 +519,6 @@ export interface MockSmtpMessage {
   from: string;
   to: string[];
   data: string;
+  /** Exact dot-stuffed DATA bytes, including the final CRLF. */
+  rawData: Buffer;
 }

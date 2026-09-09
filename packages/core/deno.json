@@ -12,7 +12,8 @@
     "./message-id": "./src/message-id.ts",
     "./priority": "./src/priority.ts",
     "./receipt": "./src/receipt.ts",
-    "./transport": "./src/transport.ts"
+    "./transport": "./src/transport.ts",
+    "./raw-message": "./src/raw-message.ts"
   },
   "exclude": [
     "dist/"

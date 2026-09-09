@@ -7,3 +7,4 @@ export * from "./message-id.ts";
 export * from "./priority.ts";
 export * from "./receipt.ts";
 export * from "./transport.ts";
+export * from "./raw-message.ts";

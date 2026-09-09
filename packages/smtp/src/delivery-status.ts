@@ -297,3 +297,11 @@ function assertParameterLength(
     );
   }
 }
+
+/** Options for raw SMTP delivery. @since 0.6.0 */
+export interface SmtpRawTransportOptions extends TransportOptions {
+  /** Optional delivery status notifications for the explicit raw envelope. */
+  readonly dsn?: SmtpDsnOptions;
+  /** The envelope must be specified on the raw message itself. */
+  readonly envelope?: never;
+}

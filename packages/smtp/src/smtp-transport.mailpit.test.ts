@@ -38,6 +38,31 @@ describe(
       await transport.closeAllConnections();
     }
 
+    test("should deliver original raw MIME through Mailpit", async () => {
+      const { transport, mailpitClient } = await setupTest();
+      const subject = "Raw MIME Mailpit delivery";
+      const raw =
+        `From: sender@example.com\r\nTo: recipient@example.com\r\nSubject: ${subject}\r\nMessage-ID: <raw-mailpit@example.com>\r\nX-Preserved: first\r\n second\r\n\r\n.leading dot\r\n`;
+      try {
+        const receipt = await transport.sendRaw({
+          envelope: {
+            from: "sender@example.com",
+            to: ["recipient@example.com"],
+          },
+          content: Buffer.from(raw),
+          encoding: "7bit",
+        });
+        assert.ok(receipt.successful, JSON.stringify(receipt));
+        const delivered = await waitForMailpitDelivery(mailpitClient, {
+          subject,
+        });
+        const source = await mailpitClient.getMessageSource(delivered.ID);
+        assert.ok(source.endsWith(raw), source);
+      } finally {
+        await teardownTest(transport);
+      }
+    });
+
     test("should deliver the identity and threading fields", async () => {
       const { transport, mailpitClient } = await setupTest();
       try {

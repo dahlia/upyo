@@ -38,7 +38,14 @@ export interface JmapResponse {
 export class JmapHttpClient {
   readonly config: ResolvedJmapConfig;
 
-  constructor(config: ResolvedJmapConfig) {
+  /**
+   * @param config HTTP and authentication settings.
+   * @param replayableRequests Whether request bodies and failed requests may be replayed.
+   */
+  constructor(
+    config: ResolvedJmapConfig,
+    private readonly replayableRequests = true,
+  ) {
     this.config = config;
   }
 
@@ -89,7 +96,8 @@ export class JmapHttpClient {
 
     let lastError: Error | null = null;
 
-    for (let attempt = 0; attempt <= this.config.retries; attempt++) {
+    const retries = this.replayableRequests ? this.config.retries : 0;
+    for (let attempt = 0; attempt <= retries; attempt++) {
       signal?.throwIfAborted();
 
       try {
@@ -98,7 +106,21 @@ export class JmapHttpClient {
           {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(request),
+            // A stream prevents runtime-level replay of a POST after a lost
+            // response (observed with Deno even when application retries are 0).
+            body: this.replayableRequests
+              ? JSON.stringify(request)
+              : new ReadableStream<Uint8Array>({
+                start(controller) {
+                  controller.enqueue(
+                    new TextEncoder().encode(JSON.stringify(request)),
+                  );
+                  controller.close();
+                },
+              }),
+            ...(this.replayableRequests
+              ? {}
+              : { duplex: "half" as const, redirect: "error" as const }),
           },
           signal,
         );
@@ -138,7 +160,7 @@ export class JmapHttpClient {
 
         lastError = error instanceof Error ? error : new Error(String(error));
 
-        if (attempt === this.config.retries) {
+        if (attempt === retries) {
           if (error instanceof JmapApiError) {
             throw error;
           }

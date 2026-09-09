@@ -121,7 +121,15 @@
       "import": "./dist/transport.js",
       "require": "./dist/transport.cjs"
     },
-    "./package.json": "./package.json"
+    "./package.json": "./package.json",
+    "./raw-message": {
+      "types": {
+        "import": "./dist/raw-message.d.ts",
+        "require": "./dist/raw-message.d.cts"
+      },
+      "import": "./dist/raw-message.js",
+      "require": "./dist/raw-message.cjs"
+    }
   },
   "sideEffects": false,
   "devDependencies": {
