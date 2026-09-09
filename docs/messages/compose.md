@@ -12,6 +12,9 @@ provides the `createMessage()` function from the *@upyo/core* package,
 which accepts various input formats and automatically handles validation
 and type conversion for you.
 
+To serialize a message without sending it, use the
+[MIME composition API](./mime.md).
+
 
 Basic message creation
 ----------------------

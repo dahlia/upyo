@@ -679,3 +679,75 @@ test("JMAP raw keeps an authentication rejection before upload EOF", async () =>
     await context.close();
   }
 });
+
+import { composeMessage } from "@upyo/mime";
+import { createMessage, readAttachmentContent } from "@upyo/core";
+
+test("JMAP uploads composed MIME unchanged", async () => {
+  const context = await setup();
+  try {
+    const composed = await composeMessage(
+      createMessage({
+        from: "sender@example.com",
+        to: "recipient@example.com",
+        bcc: "blind@example.com",
+        subject: "Composed",
+        content: { text: "First\r\nSecond", html: "<b>Second</b>" },
+      }),
+    );
+    const bytes = await readAttachmentContent(composed.content);
+    assert.ok((await context.transport.sendRaw(composed)).successful);
+    assert.deepEqual(context.uploads, [Buffer.from(bytes)]);
+    const submission = context.calls.find((call) =>
+      call.name === "EmailSubmission/set"
+    );
+    assert.ok(JSON.stringify(submission).includes("blind@example.com"));
+    assert.ok(!Buffer.from(bytes).toString().includes("Bcc:"));
+  } finally {
+    await context.close();
+  }
+});
+
+import { TEST_DKIM_PRIVATE_KEY } from "../../mime/src/test-utils/dkim-test-keys.ts";
+
+test("JMAP classifies composed replay failures without retrying upload", async () => {
+  const context = await setup();
+  try {
+    let reads = 0;
+    const composed = await composeMessage(
+      createMessage({
+        from: "sender@example.com",
+        to: "recipient@example.com",
+        subject: "Changed attachment",
+        content: { text: "Hello" },
+        attachments: {
+          filename: "a",
+          contentId: "a",
+          contentType: "text/plain",
+          inline: false,
+          content: async function* () {
+            yield new Uint8Array([reads++]);
+          },
+        },
+      }),
+      {
+        dkim: {
+          bodyMode: "streaming",
+          signatures: [{
+            signingDomain: "example.com",
+            selector: "test",
+            privateKey: TEST_DKIM_PRIVATE_KEY,
+          }],
+        },
+      },
+    );
+    const receipt = await context.transport.sendRaw(composed);
+    assert.ok(!receipt.successful);
+    assert.equal(receipt.errors?.[0].code, "jmap.raw_message_invalid");
+    assert.ok(!receipt.errors?.[0].retryable);
+    assert.equal(reads, 2);
+    assert.ok(!context.calls.some((call) => call.name === "Email/import"));
+  } finally {
+    await context.close();
+  }
+});

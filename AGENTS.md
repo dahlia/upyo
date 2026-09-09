@@ -33,6 +33,7 @@ functions.  It's structured as a monorepo with multiple packages:
 *Repository*: <https://github.com/dahlia/upyo>
 
  -  *@upyo/core*: Shared types and interfaces for email messages
+ -  *@upyo/mime*: Portable MIME composition and DKIM signing
  -  *@upyo/smtp*: SMTP transport implementation
  -  *@upyo/lettermint*: Lettermint transport implementation
  -  *@upyo/logtape*: LogTape observability transport

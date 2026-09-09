@@ -7,12 +7,12 @@ import {
   prepareMessageStream,
   SmtpAttachmentReplayError,
 } from "./message-stream.ts";
-import { signMessage } from "./dkim/sign.ts";
+import { signMessage } from "@upyo/mime/internal";
 import {
   TEST_DKIM_ED25519_PRIVATE_KEY,
   TEST_DKIM_PRIVATE_KEY,
 } from "./test-utils/dkim-test-keys.ts";
-import type { DkimConfig } from "./dkim/types.ts";
+import type { DkimConfig } from "@upyo/mime";
 
 async function collect(
   source: AsyncIterable<Uint8Array>,

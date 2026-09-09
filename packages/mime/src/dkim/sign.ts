@@ -4,7 +4,7 @@
  * Uses Web Crypto API for cross-runtime compatibility.
  *
  * @see https://www.rfc-editor.org/rfc/rfc6376
- * @since 0.4.0
+ * @since 0.6.0
  */
 
 import {
@@ -29,7 +29,7 @@ import {
  * @param signal Optional cancellation signal.
  * @returns The DKIM-Signature header result
  * @throws Error if signing fails (e.g., invalid private key)
- * @since 0.4.0
+ * @since 0.6.0
  */
 export async function signMessage(
   rawMessage: string,

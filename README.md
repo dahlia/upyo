@@ -67,6 +67,7 @@ sending messages.  The following is a list of the available packages:
 | Package                                         | JSR                            | npm                            | Description                                        |
 | ----------------------------------------------- | ------------------------------ | ------------------------------ | -------------------------------------------------- |
 | [@upyo/core](/packages/core/)                   | [JSR][jsr:@upyo/core]          | [npm][npm:@upyo/core]          | Shared types and interfaces for email messages     |
+| [@upyo/mime](/packages/mime/)                   | [JSR][jsr:@upyo/mime]          | [npm][npm:@upyo/mime]          | Portable MIME composition and DKIM signing         |
 | [@upyo/smtp](/packages/smtp/)                   | [JSR][jsr:@upyo/smtp]          | [npm][npm:@upyo/smtp]          | SMTP transport                                     |
 | [@upyo/jmap](/packages/jmap/)                   | [JSR][jsr:@upyo/jmap]          | [npm][npm:@upyo/jmap]          | [JMAP] transport (RFC 8620/8621)                   |
 | [@upyo/lettermint](/packages/lettermint/)       | [JSR][jsr:@upyo/lettermint]    | [npm][npm:@upyo/lettermint]    | [Lettermint] transport                             |
@@ -84,6 +85,8 @@ sending messages.  The following is a list of the available packages:
 
 [jsr:@upyo/core]: https://jsr.io/@upyo/core
 [npm:@upyo/core]: https://www.npmjs.com/package/@upyo/core
+[jsr:@upyo/mime]: https://jsr.io/@upyo/mime
+[npm:@upyo/mime]: https://www.npmjs.com/package/@upyo/mime
 [jsr:@upyo/smtp]: https://jsr.io/@upyo/smtp
 [npm:@upyo/smtp]: https://www.npmjs.com/package/@upyo/smtp
 [jsr:@upyo/jmap]: https://jsr.io/@upyo/jmap

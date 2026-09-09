@@ -2,6 +2,7 @@
 _.file = { path = ".env", redact = true }
 
 [tasks.build]
+depends = ["//packages/core:build", "//packages/mime:build"]
 description = "Build @upyo/smtp"
 run = "pnpm exec tsdown"
 sources = ["deno.json", "package.json", "tsdown.config.ts", "src/**/*.ts", "../../pnpm-lock.yaml", "../../pnpm-workspace.yaml"]

@@ -341,3 +341,141 @@ test("SMTP raw reports partial RCPT rejection", async () => {
     await context.close();
   }
 });
+
+import { composeMessage } from "@upyo/mime";
+import { readAttachmentContent } from "@upyo/core";
+import { TEST_DKIM_PRIVATE_KEY } from "./test-utils/dkim-test-keys.ts";
+
+const composedMessage = () =>
+  createMessage({
+    from: "sender@example.com",
+    to: "recipient@example.com",
+    bcc: "blind@example.com",
+    subject: "Composed",
+    content: { text: ".First\r\nSecond" },
+  });
+const signing = {
+  signingDomain: "example.com",
+  selector: "test",
+  privateKey: TEST_DKIM_PRIVATE_KEY,
+};
+
+test("SMTP delivers composed bytes and the Bcc envelope", async () => {
+  const context = await setup();
+  try {
+    const composed = await composeMessage(composedMessage(), {
+      dkim: { signatures: [signing] },
+    });
+    const expected = await readAttachmentContent(composed.content);
+    assert.ok((await context.transport.sendRaw(composed)).successful);
+    const received = context.server.getReceivedMessages()[0];
+    assert.deepEqual(
+      Buffer.from(received.rawData.toString().replace(/^\.\./gm, ".")),
+      Buffer.from(expected),
+    );
+    assert.ok(
+      context.server.getReceivedCommands().includes(
+        "RCPT TO:<blind@example.com>",
+      ),
+    );
+  } finally {
+    await context.close();
+  }
+});
+
+test("SMTP raw maps composed replay errors and discards interrupted DATA connections", async () => {
+  const context = await setup();
+  try {
+    let reads = 0;
+    const composed = await composeMessage({
+      ...composedMessage(),
+      attachments: [{
+        filename: "a",
+        contentId: "a",
+        contentType: "text/plain",
+        inline: false,
+        content: async function* () {
+          yield new Uint8Array([reads++]);
+        },
+      }],
+    }, { dkim: { bodyMode: "streaming", signatures: [signing] } });
+    const receipt = await context.transport.sendRaw(composed);
+    assert.ok(!receipt.successful);
+    assert.equal(receipt.errors?.[0].code, "smtp.raw-message-invalid");
+    assert.ok(!receipt.errors?.[0].retryable);
+    assert.ok((await context.transport.send(composedMessage())).successful);
+    assert.equal(context.server.getConnectionCount(), 2);
+  } finally {
+    await context.close();
+  }
+});
+
+for (const source of ["nested", "signed"] as const) {
+  test(`SMTP negotiates ${source} Unicode headers before MAIL`, async () => {
+    const context = await setup(["8BITMIME"]);
+    try {
+      if (source === "signed") {
+        context.transport.config = {
+          ...context.transport.config,
+          dkim: { signatures: [{ ...signing, signingDomain: "한글.example" }] },
+        };
+      }
+      const message = source === "nested"
+        ? {
+          ...composedMessage(),
+          attachments: [{
+            filename: "a",
+            contentId: "한글",
+            contentType: "text/plain" as const,
+            inline: true,
+            content: new Uint8Array(),
+          }],
+        }
+        : composedMessage();
+      const receipt = await context.transport.send(message);
+      assert.ok(!receipt.successful);
+      assert.ok(
+        !context.server.getReceivedCommands().some((c) =>
+          c.startsWith("MAIL ")
+        ),
+      );
+      context.transport.config = {
+        ...context.transport.config,
+        dkim: undefined,
+      };
+      assert.ok((await context.transport.send(composedMessage())).successful);
+      assert.equal(context.server.getConnectionCount(), 1);
+    } finally {
+      await context.close();
+    }
+    const supported = await setup();
+    try {
+      if (source === "signed") {
+        supported.transport.config = {
+          ...supported.transport.config,
+          dkim: { signatures: [{ ...signing, signingDomain: "한글.example" }] },
+        };
+      }
+      const message = source === "nested"
+        ? {
+          ...composedMessage(),
+          attachments: [{
+            filename: "a",
+            contentId: "한글",
+            contentType: "text/plain" as const,
+            inline: true,
+            content: new Uint8Array(),
+          }],
+        }
+        : composedMessage();
+      assert.ok((await supported.transport.send(message)).successful);
+      assert.ok(
+        supported.server.getReceivedCommands().some((c) =>
+          c.startsWith("MAIL ") && c.includes("SMTPUTF8")
+        ),
+      );
+    } finally {
+      await supported.close();
+    }
+  });
+}

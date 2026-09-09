@@ -1,7 +1,7 @@
 {
-  "name": "@upyo/smtp",
+  "name": "@upyo/mime",
   "version": "0.6.0",
-  "description": "SMTP transport for Upyo email library",
+  "description": "Portable MIME composition and DKIM signing for Upyo",
   "keywords": [
     "email",
     "mail",
@@ -14,11 +14,11 @@
     "email": "hong@minhee.org",
     "url": "https://hongminhee.org/"
   },
-  "homepage": "https://upyo.org/transports/smtp",
+  "homepage": "https://upyo.org/",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/dahlia/upyo.git",
-    "directory": "packages/smtp/"
+    "directory": "packages/mime/"
   },
   "bugs": {
     "url": "https://github.com/dahlia/upyo/issues"
@@ -49,21 +49,32 @@
       "import": "./dist/index.js",
       "require": "./dist/index.cjs"
     },
-    "./package.json": "./package.json"
+    "./package.json": "./package.json",
+    "./internal": {
+      "types": {
+        "import": "./dist/internal.d.ts",
+        "require": "./dist/internal.d.cts"
+      },
+      "import": "./dist/internal.js",
+      "require": "./dist/internal.cjs"
+    }
   },
   "sideEffects": false,
-  "peerDependencies": {
-    "@upyo/core": "workspace:*"
-  },
   "devDependencies": {
     "tsdown": "catalog:",
-    "typescript": "catalog:"
+    "typescript": "catalog:",
+    "postal-mime": "catalog:",
+    "esbuild": "catalog:",
+    "miniflare": "catalog:"
   },
   "scripts": {
     "prepack": "mise run --no-deps :build",
     "prepublish": "mise run --no-deps :build"
   },
+  "peerDependencies": {
+    "@upyo/core": "workspace:*"
+  },
   "dependencies": {
-    "@upyo/mime": "workspace:*"
+    "@noble/hashes": "catalog:"
   }
 }

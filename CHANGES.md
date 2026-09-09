@@ -229,6 +229,19 @@ To be released.
 [Mailtrap]: https://mailtrap.io/
 [#32]: https://github.com/dahlia/upyo/pull/32
 
+### @upyo/mime
+
+ -  Added *@upyo/mime* with `composeMessage()` for composing replayable MIME
+    bytes without a transport connection, with optional DKIM signing.  Save
+    the bytes as an *.eml* file or pass the result directly to SMTP or JMAP
+    `sendRaw()`.  The package supports Node.js, Deno, Bun, and edge runtimes
+    without Node.js compatibility.  Address line breaks and invalid custom
+    header names are rejected even for directly constructed messages.
+    [[#68], [#74]]
+
+[#68]: https://github.com/dahlia/upyo/issues/68
+[#74]: https://github.com/dahlia/upyo/pull/74
+
 ### @upyo/opentelemetry
 
  -  Fixed the `email.content.type` span attribute and the `content_type` metric
@@ -341,7 +354,8 @@ To be released.
     custom OAuth2 token provider, so cancelled operations release their
     connections promptly.
  -  Added automatic SMTPUTF8 delivery for internationalized sender, recipient,
-    and reply-to addresses.  Servers must advertise `SMTPUTF8` and `8BITMIME`;
+    and reply-to addresses, as well as internationalized nested MIME and DKIM
+    headers.  Servers must advertise `SMTPUTF8` and `8BITMIME`;
     unsupported sends fail without starting a mail transaction.  [[#45], [#50]]
  -  Added incremental SMTP attachment encoding and backpressured DATA writes.
     Set `dkim.bodyMode` to `"streaming"` for bounded attachment memory with two
@@ -402,6 +416,11 @@ To be released.
     465 uses implicit TLS; all other ports start with plaintext and upgrade with
     STARTTLS when advertised.  Set `secure: true` explicitly to use implicit
     TLS on a nonstandard port.  [[#53], [#55]]
+ -  Fixed quoted-printable encoding of CRLF, isolated line endings, trailing
+    spaces, and long lines so messages preserve their text and respect MIME
+    line limits.  Inline Content-ID headers now reject values that cannot fit
+    the RFC 5322 line limit.  Directly constructed messages now reject address
+    line breaks and invalid custom header names.  [[#68], [#74]]
 
 [#42]: https://github.com/dahlia/upyo/issues/42
 [#43]: https://github.com/dahlia/upyo/issues/43

@@ -30,6 +30,7 @@
     "typescript": "catalog:",
     "vitepress": "^2.0.0-alpha.17",
     "vitepress-plugin-group-icons": "^1.7.5",
-    "vitepress-plugin-llms": "^1.13.2"
+    "vitepress-plugin-llms": "^1.13.2",
+    "@upyo/mime": "workspace:"
   }
 }

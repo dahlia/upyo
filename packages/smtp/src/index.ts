@@ -41,6 +41,6 @@ export type {
   DkimConfig,
   DkimSignature,
   DkimSigningFailureAction,
-} from "./dkim/index.ts";
+} from "@upyo/mime";
 export { SmtpAttachmentReplayError } from "./message-stream.ts";
 export { Smtp8BitMimeUnsupportedError } from "./raw-message.ts";
