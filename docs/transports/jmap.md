@@ -452,6 +452,8 @@ JMAP implementations include:
 Sending raw MIME
 ----------------
 
+*This feature is introduced in Upyo 0.6.0.*
+
 Use [MIME composition](../messages/mime.md) to create raw bytes from an Upyo
 message without opening a transport connection.
 
@@ -519,6 +521,8 @@ submission behavior.
 
 Verifying the configuration
 ---------------------------
+
+*This feature is introduced in Upyo 0.6.0.*
 
 `~JmapTransport.verify()` checks live JMAP settings without creating or sending
 an email. It fetches a fresh Session, checks the required capabilities and a

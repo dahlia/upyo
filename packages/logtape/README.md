@@ -3,6 +3,8 @@
 @upyo/logtape
 =============
 
+*This transport is introduced in Upyo 0.6.0.*
+
 *@upyo/logtape* records Upyo email delivery lifecycle events through
 [LogTape].  It can act as a log-only transport during local development or
 decorate another transport while preserving its delivery behavior.

@@ -3,6 +3,8 @@
 @upyo/maileroo
 ==============
 
+*This transport is introduced in Upyo 0.6.0.*
+
 [![JSR][JSR badge]][JSR]
 [![npm][npm badge]][npm]
 

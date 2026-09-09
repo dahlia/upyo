@@ -1,6 +1,8 @@
 @upyo/mime
 ==========
 
+*This package is introduced in Upyo 0.6.0.*
+
 Portable MIME composition and DKIM signing for [Upyo]. Compose a structured
 message without a transport connection, then save its bytes or pass it to
 `sendRaw()` on an SMTP or JMAP transport.

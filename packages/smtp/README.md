@@ -122,6 +122,8 @@ Configuration options
 | `poolSize`          | `number`         | `5`            | Maximum pool connections         |
 | `dkim`              | `DkimConfig`     |                | DKIM signing configuration       |
 
+*The `requireTls` option is available since Upyo 0.6.0.*
+
 Set `requireTls: true` with `secure: false` to issue `STARTTLS` even when the
 server does not advertise it and fail delivery unless the upgrade succeeds.
 When `secure` is omitted, it defaults to `true` on port 465 and `false` on all
@@ -176,6 +178,8 @@ token across pooled connections.  See the
 Message size limits
 -------------------
 
+*This feature is introduced in Upyo 0.6.0.*
+
 When the server advertises the `SIZE` extension, the transport declares the
 encoded message size on `MAIL FROM`.  If the server also advertises a fixed
 maximum, an oversized message produces a failed receipt before Upyo sends the
@@ -189,6 +193,8 @@ See [RFC 1870] for the SMTP Message Size Declaration extension.
 
 Enhanced status codes
 ---------------------
+
+*This feature is introduced in Upyo 0.6.0.*
 
 SMTP failures include a parsed enhanced status code when the server prefixes
 its reply text with a valid RFC 2034 code such as `5.1.1`.  The final reply
@@ -223,6 +229,8 @@ structure.
 
 Envelope overrides
 ------------------
+
+*This feature is introduced in Upyo 0.6.0.*
 
 Use the `envelope` send option when the SMTP reverse-path or recipients must
 differ from the visible message headers:
@@ -261,6 +269,8 @@ the code `smtp.envelope-invalid` before `MAIL FROM` is sent.
 Internationalized addresses
 ---------------------------
 
+*This feature is introduced in Upyo 0.6.0.*
+
 The transport automatically negotiates [RFC 6531] SMTPUTF8 when the effective
 SMTP envelope or a visible message-header mailbox contains a non-ASCII
 character.  A supporting server must advertise both `SMTPUTF8` and `8BITMIME`;
@@ -276,6 +286,8 @@ and do not require SMTPUTF8 when the mailbox addresses remain ASCII-only.
 
 Delivery status notifications
 -----------------------------
+
+*This feature is introduced in Upyo 0.6.0.*
 
 Pass SMTP-specific DSN settings to `send()` to request delivery status
 notifications under [RFC 3461]:
@@ -424,6 +436,8 @@ one with [msal-node].
 
 Sending raw MIME
 ----------------
+
+*This feature is introduced in Upyo 0.6.0.*
 
 `SmtpTransport` implements `RawTransport` for already serialized messages,
 including signed or encrypted MIME. Provide delivery addresses separately:

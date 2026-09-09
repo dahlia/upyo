@@ -138,6 +138,8 @@ try {
 Sending raw MIME
 ----------------
 
+*This feature is introduced in Upyo 0.6.0.*
+
 `JmapTransport` implements the optional `RawTransport` interface. It uploads
 serialized MIME, imports the uploaded blob into Drafts, and submits that Email
 with an explicit delivery envelope:

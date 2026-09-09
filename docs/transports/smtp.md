@@ -667,6 +667,8 @@ and acceptable TLS versions based on your security requirements.
 
 ### STARTTLS support
 
+*The `requireTls` option is available since Upyo 0.6.0.*
+
 The SMTP transport automatically supports STARTTLS, which allows upgrading
 a plain connection to an encrypted TLS connection.  When `secure` is set to
 `false` and the server advertises STARTTLS capability, the transport will
@@ -1072,6 +1074,8 @@ const testTransport = new SmtpTransport({
 Sending raw MIME
 ----------------
 
+*This feature is introduced in Upyo 0.6.0.*
+
 Use [MIME composition](../messages/mime.md) to create raw bytes from an Upyo
 message without opening a transport connection.
 
@@ -1123,6 +1127,8 @@ the message. Raw delivery is not retried automatically.
 
 Verifying the configuration
 ---------------------------
+
+*This feature is introduced in Upyo 0.6.0.*
 
 Call `~SmtpTransport.verify()` to check your SMTP settings without sending
 an email. It opens a fresh connection, checks the server greeting and

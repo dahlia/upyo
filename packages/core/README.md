@@ -71,8 +71,8 @@ const message = createMessage({
 });
 ~~~~
 
-Internationalized mailbox addresses are accepted, including UTF-8 local parts
-and Unicode domains:
+Since Upyo 0.6.0, internationalized mailbox addresses are accepted, including
+UTF-8 local parts and Unicode domains:
 
 ~~~~ typescript
 const message = createMessage({
@@ -226,6 +226,8 @@ API reference documentation is available on JSR: *<https://jsr.io/@upyo/core>*.
 
 Raw MIME delivery
 -----------------
+
+*This feature is introduced in Upyo 0.6.0.*
 
 `RawTransport` extends `Transport` with an optional `sendRaw()` capability.
 Use `isRawTransport()` before sending through a transport supplied by another

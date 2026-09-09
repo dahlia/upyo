@@ -83,6 +83,8 @@ const message = createMessage({
 Internationalized addresses
 ---------------------------
 
+*This feature is introduced in Upyo 0.6.0.*
+
 Upyo accepts internationalized mailbox addresses with UTF-8 local parts and
 Unicode domains, as defined by the internationalized email framework in
 [RFC 6530]:
@@ -252,6 +254,8 @@ header form keeps working.
 
 Message identity and reply threading
 ------------------------------------
+
+*This feature is introduced in Upyo 0.6.0.*
 
 Applications that correlate replies, such as a helpdesk matching an incoming
 answer back to a ticket, need to choose the outgoing message identifier rather

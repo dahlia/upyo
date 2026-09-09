@@ -126,6 +126,9 @@ than as a separate downloadable attachment.
 Working with binary content
 ---------------------------
 
+*Blob attachments, replayable content factories, and SMTP attachment streaming
+are available since Upyo 0.6.0.*
+
 When working with binary file content, you can provide the attachment data as
 a [`Uint8Array`], a `Promise<Uint8Array>`, a `Blob`, or a replayable content
 factory.  A promise represents a read that has already started; it does not

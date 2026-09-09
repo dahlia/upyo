@@ -8,6 +8,8 @@ description: >-
 Calendar invitations
 ====================
 
+*This feature is introduced in Upyo 0.6.0.*
+
 An appointment confirmation, a reservation, or a meeting invitation is more than
 an email with a date in it.  A calendar client offers to add the event, or shows
 accept and decline buttons, when the message carries a `text/calendar` body part

@@ -512,6 +512,8 @@ but remember that we're here to help you succeed!
 Raw MIME delivery
 -----------------
 
+*This feature is introduced in Upyo 0.6.0.*
+
 `RawTransport` extends `Transport` with an optional `sendRaw()` capability.
 Use `isRawTransport()` before sending through a transport supplied by another
 component; decorators must explicitly expose this capability themselves.
@@ -563,6 +565,8 @@ honor cancellation promptly and release resources when iteration ends.
 
 Verifying transport configuration
 ---------------------------------
+
+*This feature is introduced in Upyo 0.6.0.*
 
 `~VerifiableTransport` is an optional capability for checking a transport's
 connection, configured authentication, and prerequisites without sending mail.
