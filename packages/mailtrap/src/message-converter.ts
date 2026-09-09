@@ -281,7 +281,7 @@ function uint8ArrayToBase64(bytes: Uint8Array): string {
     return bufferBase64;
   }
 
-  const chunkSize = 0x8000;
+  const chunkSize = 0x1000;
   const chunks: string[] = [];
 
   for (let offset = 0; offset < bytes.length; offset += chunkSize) {
