@@ -4,7 +4,7 @@ Upyo changelog
 Version 0.6.0
 -------------
 
-To be released.
+Released on September 9, 2026.
 
 ### @upyo/core
 
