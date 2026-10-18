@@ -1,37 +1,40 @@
-import { expandGlob } from "@std/fs";
-import { dirname, join } from "@std/path";
+import { glob, readFile, writeFile } from "node:fs/promises";
+import { dirname, join } from "node:path";
+import process from "node:process";
 import workspaceMetadata from "../deno.json" with { type: "json" };
 import coreMetadata from "../packages/core/deno.json" with { type: "json" };
 
-if (Deno.args.includes("--help") || Deno.args.includes("-h")) {
+const args = process.argv.slice(2);
+
+if (args.includes("--help") || args.includes("-h")) {
   console.log("Usage: mise run check:versions [--help|-h] [--fix|-f]");
   console.log("Checks that all workspace members have the same version.");
   console.log(
     "If --fix or -f is provided, it will attempt to fix version mismatches.",
   );
-  Deno.exit(0);
+  process.exit(0);
 }
 
 const workspaceMembers = workspaceMetadata.workspace;
-const fix = Deno.args.includes("--fix") || Deno.args.includes("-f");
+const fix = args.includes("--fix") || args.includes("-f");
 
 let version = coreMetadata.version;
 let mismatched = 0;
 for (const member of workspaceMembers) {
   const globPath = join(dirname(import.meta.dirname!), member);
-  for await (const entry of expandGlob(globPath)) {
-    if (!entry.isDirectory) continue;
-    const memberPath = entry.path;
+  for await (const entry of glob(globPath, { withFileTypes: true })) {
+    if (!entry.isDirectory()) continue;
+    const memberPath = join(entry.parentPath, entry.name);
 
     // deno.json
     const denoJsonPath = join(memberPath, "deno.json");
     let denoJson: string;
     try {
-      denoJson = await Deno.readTextFile(denoJsonPath);
+      denoJson = await readFile(denoJsonPath, "utf8");
     } catch {
       continue;
     }
-    const deno = JSON.parse(denoJson);
+    const deno: { version?: string } = JSON.parse(denoJson);
     if (deno.version) {
       if (version == null) version = deno.version;
       else if (version !== deno.version) {
@@ -44,7 +47,7 @@ for (const member of workspaceMembers) {
         );
         if (fix) {
           deno.version = version;
-          await Deno.writeTextFile(
+          await writeFile(
             denoJsonPath,
             JSON.stringify(deno, null, 2) + "\n",
           );
@@ -57,11 +60,11 @@ for (const member of workspaceMembers) {
     const pkgJsonPath = join(memberPath, "package.json");
     let pkgJson: string;
     try {
-      pkgJson = await Deno.readTextFile(pkgJsonPath);
+      pkgJson = await readFile(pkgJsonPath, "utf8");
     } catch {
       continue;
     }
-    const pkg = JSON.parse(pkgJson);
+    const pkg: { version?: string } = JSON.parse(pkgJson);
     if (pkg.version) {
       if (version == null) version = pkg.version;
       else if (version !== pkg.version) {
@@ -74,7 +77,7 @@ for (const member of workspaceMembers) {
         );
         if (fix) {
           pkg.version = version;
-          await Deno.writeTextFile(
+          await writeFile(
             pkgJsonPath,
             JSON.stringify(pkg, null, 2) + "\n",
           );
@@ -85,7 +88,7 @@ for (const member of workspaceMembers) {
   }
 }
 
-if (mismatched > 0 && !fix) Deno.exit(1);
+if (mismatched > 0 && !fix) process.exit(1);
 else if (mismatched > 0 && fix) {
   if (mismatched === 1) {
     console.error(

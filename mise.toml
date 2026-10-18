@@ -80,7 +80,7 @@ depends = ["check"]
 [tasks."check:versions"]
 description = "Check workspace package versions"
 usage = 'flag "-f --fix" help="Fix version mismatches"'
-run = "deno run --allow-read --allow-write scripts/check_versions.ts{% if usage.fix %} --fix{% endif %}"
+run = "node scripts/check_versions.ts{% if usage.fix %} --fix{% endif %}"
 
 [tasks."check:workflow"]
 description = "Lint GitHub Actions workflows"
@@ -92,7 +92,7 @@ run = ["deno fmt --check", "hongdown --check", "mise fmt --check"]
 
 [tasks.check]
 description = "Run full repository validation"
-depends = ["check:versions", "check:fmt"]
+depends = ["check:versions", "check:fmt", "test:scripts"]
 run = [
   "deno check",
   "deno lint",
@@ -286,3 +286,7 @@ if ($env.usage_tag? | default "false" | into bool) {
 [tasks."test:edge"]
 description = "Test MIME composition in workerd"
 run = "mise run //packages/mime:test:edge"
+
+[tasks."test:scripts"]
+description = "Test repository maintenance scripts with Node.js"
+run = "node --test scripts/*.test.ts"

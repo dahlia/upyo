@@ -3,8 +3,6 @@
     "packages/*"
   ],
   "imports": {
-    "@std/fs": "jsr:@std/fs@^1.0.19",
-    "@std/path": "jsr:@std/path@^1.1.1",
     "tsdown": "npm:tsdown@^0.12.7"
   },
   "nodeModulesDir": "none",

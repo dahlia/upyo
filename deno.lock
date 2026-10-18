@@ -3,9 +3,6 @@
   "specifiers": {
     "jsr:@logtape/logtape@^2.2.4": "2.2.4",
     "jsr:@logtape/testing@^2.2.4": "2.2.4",
-    "jsr:@std/fs@^1.0.19": "1.0.19",
-    "jsr:@std/internal@^1.0.9": "1.0.9",
-    "jsr:@std/path@^1.1.1": "1.1.1",
     "npm:@noble/hashes@^1.8.0": "1.8.0",
     "npm:@opentelemetry/api@^1.9.0": "1.9.0",
     "npm:@opentelemetry/context-async-hooks@^1.25.1": "1.30.1_@opentelemetry+api@1.9.0",
@@ -28,22 +25,6 @@
       "integrity": "17c275d0389eca7b0601ce9fd5a25ed9b30c237b94858c1e9892b3ba357782d9",
       "dependencies": [
         "jsr:@logtape/logtape"
-      ]
-    },
-    "@std/fs@1.0.19": {
-      "integrity": "051968c2b1eae4d2ea9f79a08a3845740ef6af10356aff43d3e2ef11ed09fb06",
-      "dependencies": [
-        "jsr:@std/internal",
-        "jsr:@std/path"
-      ]
-    },
-    "@std/internal@1.0.9": {
-      "integrity": "bdfb97f83e4db7a13e8faab26fb1958d1b80cc64366501af78a0aee151696eb8"
-    },
-    "@std/path@1.1.1": {
-      "integrity": "fe00026bd3a7e6a27f73709b83c607798be40e20c81dde655ce34052fd82ec76",
-      "dependencies": [
-        "jsr:@std/internal"
       ]
     }
   },
@@ -926,8 +907,6 @@
   },
   "workspace": {
     "dependencies": [
-      "jsr:@std/fs@^1.0.19",
-      "jsr:@std/path@^1.1.1",
       "npm:tsdown@~0.12.7"
     ],
     "members": {
