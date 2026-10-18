@@ -21,9 +21,11 @@ describe("createMessage", () => {
     assert.deepEqual(message.sender, {
       address: "sender@example.com",
     });
-    assert.deepEqual(message.recipients, [{
-      address: "recipient@example.com",
-    }]);
+    assert.deepEqual(message.recipients, [
+      {
+        address: "recipient@example.com",
+      },
+    ]);
     assert.equal(message.subject, "Test Subject");
     assert.deepEqual(message.content, { text: "Test content" });
     assert.equal(message.priority, "normal");
@@ -49,10 +51,12 @@ describe("createMessage", () => {
       name: "John Doe",
       address: "john@example.com",
     });
-    assert.deepEqual(message.recipients, [{
-      name: "Jane Smith",
-      address: "jane@example.com",
-    }]);
+    assert.deepEqual(message.recipients, [
+      {
+        name: "Jane Smith",
+        address: "jane@example.com",
+      },
+    ]);
   });
 
   it("should parse internationalized email addresses", () => {
@@ -67,9 +71,11 @@ describe("createMessage", () => {
       name: "José",
       address: "josé@example.com",
     });
-    assert.deepEqual(message.recipients, [{
-      address: "用户@例子.广告",
-    }]);
+    assert.deepEqual(message.recipients, [
+      {
+        address: "用户@例子.广告",
+      },
+    ]);
   });
 
   it("should handle multiple recipients as array", () => {
@@ -295,10 +301,10 @@ describe("createMessage", () => {
           },
         };
 
-        assert.throws(
-          () => createMessage(constructor),
-          { name: "TypeError", message: pattern },
-        );
+        assert.throws(() => createMessage(constructor), {
+          name: "TypeError",
+          message: pattern,
+        });
       });
     }
 
@@ -310,10 +316,10 @@ describe("createMessage", () => {
         content: { text: "Test content" },
       };
 
-      assert.throws(
-        () => createMessage(constructor),
-        { name: "TypeError", message: /Invalid recipient address/ },
-      );
+      assert.throws(() => createMessage(constructor), {
+        name: "TypeError",
+        message: /Invalid recipient address/,
+      });
     });
 
     it(`should reject ${label} in an attachment content type`, () => {
@@ -322,19 +328,21 @@ describe("createMessage", () => {
         to: "recipient@example.com",
         subject: "Test Subject",
         content: { text: "Test content" },
-        attachments: [{
-          inline: false,
-          filename: "report.pdf",
-          content: new Uint8Array([1, 2, 3]),
-          contentType: `application/pdf${value}X-Injected: header`,
-          contentId: "cid@example.com",
-        }],
+        attachments: [
+          {
+            inline: false,
+            filename: "report.pdf",
+            content: new Uint8Array([1, 2, 3]),
+            contentType: `application/pdf${value}X-Injected: header`,
+            contentId: "cid@example.com",
+          },
+        ],
       };
 
-      assert.throws(
-        () => createMessage(constructor),
-        { name: "TypeError", message: /Invalid attachment content type/ },
-      );
+      assert.throws(() => createMessage(constructor), {
+        name: "TypeError",
+        message: /Invalid attachment content type/,
+      });
     });
 
     it(`should reject ${label} in an attachment content ID`, () => {
@@ -343,19 +351,21 @@ describe("createMessage", () => {
         to: "recipient@example.com",
         subject: "Test Subject",
         content: { text: "Test content" },
-        attachments: [{
-          inline: true,
-          filename: "logo.png",
-          content: new Uint8Array([1, 2, 3]),
-          contentType: "image/png",
-          contentId: `cid@example.com>${value}X-Injected: header`,
-        }],
+        attachments: [
+          {
+            inline: true,
+            filename: "logo.png",
+            content: new Uint8Array([1, 2, 3]),
+            contentType: "image/png",
+            contentId: `cid@example.com>${value}X-Injected: header`,
+          },
+        ],
       };
 
-      assert.throws(
-        () => createMessage(constructor),
-        { name: "TypeError", message: /Invalid attachment content ID/ },
-      );
+      assert.throws(() => createMessage(constructor), {
+        name: "TypeError",
+        message: /Invalid attachment content ID/,
+      });
     });
   }
 
@@ -365,13 +375,15 @@ describe("createMessage", () => {
       to: { address: "recipient@example.com" },
       subject: "Test Subject",
       content: { text: "Test content" },
-      attachments: [{
-        inline: false,
-        filename: "report.pdf",
-        content: new Uint8Array([1, 2, 3]),
-        contentType: "application/pdf",
-        contentId: "cid@example.com",
-      }],
+      attachments: [
+        {
+          inline: false,
+          filename: "report.pdf",
+          content: new Uint8Array([1, 2, 3]),
+          contentType: "application/pdf",
+          contentId: "cid@example.com",
+        },
+      ],
     });
 
     assert.deepEqual(message.sender, {
@@ -390,10 +402,10 @@ describe("createMessage", () => {
       content: { text: "Test" },
     };
 
-    assert.throws(
-      () => createMessage(constructor),
-      { name: "TypeError", message: /Invalid sender address/ },
-    );
+    assert.throws(() => createMessage(constructor), {
+      name: "TypeError",
+      message: /Invalid sender address/,
+    });
   });
 
   it("should throw TypeError for invalid recipient address", () => {
@@ -404,10 +416,10 @@ describe("createMessage", () => {
       content: { text: "Test" },
     };
 
-    assert.throws(
-      () => createMessage(constructor),
-      { name: "TypeError", message: /Invalid recipient address/ },
-    );
+    assert.throws(() => createMessage(constructor), {
+      name: "TypeError",
+      message: /Invalid recipient address/,
+    });
   });
 
   it("should throw TypeError for invalid CC address", () => {
@@ -419,10 +431,10 @@ describe("createMessage", () => {
       content: { text: "Test" },
     };
 
-    assert.throws(
-      () => createMessage(constructor),
-      { name: "TypeError", message: /Invalid CC address/ },
-    );
+    assert.throws(() => createMessage(constructor), {
+      name: "TypeError",
+      message: /Invalid CC address/,
+    });
   });
 
   it("should throw TypeError for invalid BCC address", () => {
@@ -434,10 +446,10 @@ describe("createMessage", () => {
       content: { text: "Test" },
     };
 
-    assert.throws(
-      () => createMessage(constructor),
-      { name: "TypeError", message: /Invalid BCC address/ },
-    );
+    assert.throws(() => createMessage(constructor), {
+      name: "TypeError",
+      message: /Invalid BCC address/,
+    });
   });
 
   it("should throw TypeError for invalid reply-to address", () => {
@@ -449,10 +461,10 @@ describe("createMessage", () => {
       content: { text: "Test" },
     };
 
-    assert.throws(
-      () => createMessage(constructor),
-      { name: "TypeError", message: /Invalid reply-to address/ },
-    );
+    assert.throws(() => createMessage(constructor), {
+      name: "TypeError",
+      message: /Invalid reply-to address/,
+    });
   });
 });
 
@@ -525,21 +537,21 @@ describe("createMessage() identity and threading", () => {
 
   for (const invalid of invalidIds) {
     it(`should reject ${JSON.stringify(invalid)} as a message ID`, () => {
-      assert.throws(
-        () => createMessage({ ...base, messageId: invalid }),
-        { name: "TypeError", message: /Invalid message ID/ },
-      );
+      assert.throws(() => createMessage({ ...base, messageId: invalid }), {
+        name: "TypeError",
+        message: /Invalid message ID/,
+      });
     });
 
     it(`should reject ${JSON.stringify(invalid)} in a reply reference`, () => {
-      assert.throws(
-        () => createMessage({ ...base, inReplyTo: invalid }),
-        { name: "TypeError", message: /Invalid in-reply-to message ID/ },
-      );
-      assert.throws(
-        () => createMessage({ ...base, references: [invalid] }),
-        { name: "TypeError", message: /Invalid references message ID/ },
-      );
+      assert.throws(() => createMessage({ ...base, inReplyTo: invalid }), {
+        name: "TypeError",
+        message: /Invalid in-reply-to message ID/,
+      });
+      assert.throws(() => createMessage({ ...base, references: [invalid] }), {
+        name: "TypeError",
+        message: /Invalid references message ID/,
+      });
     });
   }
 
@@ -556,7 +568,7 @@ describe("createMessage() identity and threading", () => {
       { name: "TypeError", message: /Invalid date/ },
     );
     assert.doesNotThrow(() =>
-      createMessage({ ...base, date: new Date("1900-01-01T00:00:00Z") })
+      createMessage({ ...base, date: new Date("1900-01-01T00:00:00Z") }),
     );
   });
 });
@@ -569,15 +581,16 @@ describe("createMessage() calendar", () => {
     content: { text: "Lunch on Wednesday." },
   };
 
-  const request = [
-    "BEGIN:VCALENDAR",
-    "VERSION:2.0",
-    "METHOD:REQUEST",
-    "BEGIN:VEVENT",
-    "UID:1@example.com",
-    "END:VEVENT",
-    "END:VCALENDAR",
-  ].join("\r\n") + "\r\n";
+  const request =
+    [
+      "BEGIN:VCALENDAR",
+      "VERSION:2.0",
+      "METHOD:REQUEST",
+      "BEGIN:VEVENT",
+      "UID:1@example.com",
+      "END:VEVENT",
+      "END:VCALENDAR",
+    ].join("\r\n") + "\r\n";
 
   it("should leave the field unset when no calendar is given", () => {
     assert.equal(createMessage(base).calendar, undefined);
@@ -635,14 +648,17 @@ describe("createMessage() calendar", () => {
   });
 
   it("should reject malformed calendar property syntax", () => {
-    assert.throws(() =>
-      createMessage({
-        ...base,
-        calendar: {
-          content:
-            "BEGIN:VCALENDAR\r\nMETHOD:REQUEST\r\nSUMMARY;BROKEN:Lunch\r\nEND:VCALENDAR\r\n",
-        },
-      }), TypeError);
+    assert.throws(
+      () =>
+        createMessage({
+          ...base,
+          calendar: {
+            content:
+              "BEGIN:VCALENDAR\r\nMETHOD:REQUEST\r\nSUMMARY;BROKEN:Lunch\r\nEND:VCALENDAR\r\n",
+          },
+        }),
+      TypeError,
+    );
   });
 
   it("should reject content that is not a calendar object", () => {

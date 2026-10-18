@@ -35,13 +35,15 @@ describe("Message Converter", () => {
             to: "recipient@example.com",
             subject: "Attachment padding",
             content: { text: "Test" },
-            attachments: [{
-              filename: "data.bin",
-              content,
-              contentType: "application/octet-stream",
-              inline: false,
-              contentId: "",
-            }],
+            attachments: [
+              {
+                filename: "data.bin",
+                content,
+                contentType: "application/octet-stream",
+                inline: false,
+                contentId: "",
+              },
+            ],
           });
           const result = await convertMessage(message, config);
           assert.equal(
@@ -319,24 +321,25 @@ describe("Message Converter", () => {
     });
 
     it("should reject batch with more than 100 messages", async () => {
-      const messages: Message[] = Array(101).fill(null).map((_, i) => ({
-        sender: { address: "sender@example.com" },
-        recipients: [{ address: `recipient${i}@example.com` }],
-        ccRecipients: [],
-        bccRecipients: [],
-        replyRecipients: [],
-        subject: `Test Subject ${i}`,
-        content: { text: `Test content ${i}` },
-        attachments: [],
-        priority: "normal" as const,
-        tags: [],
-        headers: new Headers(),
-      }));
+      const messages: Message[] = Array(101)
+        .fill(null)
+        .map((_, i) => ({
+          sender: { address: "sender@example.com" },
+          recipients: [{ address: `recipient${i}@example.com` }],
+          ccRecipients: [],
+          bccRecipients: [],
+          replyRecipients: [],
+          subject: `Test Subject ${i}`,
+          content: { text: `Test content ${i}` },
+          attachments: [],
+          priority: "normal" as const,
+          tags: [],
+          headers: new Headers(),
+        }));
 
-      await assert.rejects(
-        () => convertMessagesBatch(messages, config),
-        { message: "Resend batch API supports maximum 100 emails per request" },
-      );
+      await assert.rejects(() => convertMessagesBatch(messages, config), {
+        message: "Resend batch API supports maximum 100 emails per request",
+      });
     });
 
     it("should reject batch with attachments", async () => {
@@ -348,22 +351,23 @@ describe("Message Converter", () => {
         replyRecipients: [],
         subject: "Test Subject",
         content: { text: "Test content" },
-        attachments: [{
-          filename: "test.txt",
-          content: new Uint8Array(10),
-          contentType: "text/plain",
-          inline: false,
-          contentId: "",
-        }],
+        attachments: [
+          {
+            filename: "test.txt",
+            content: new Uint8Array(10),
+            contentType: "text/plain",
+            inline: false,
+            contentId: "",
+          },
+        ],
         priority: "normal",
         tags: [],
         headers: new Headers(),
       };
 
-      await assert.rejects(
-        () => convertMessagesBatch([message], config),
-        { message: "Attachments are not supported in Resend batch API" },
-      );
+      await assert.rejects(() => convertMessagesBatch([message], config), {
+        message: "Attachments are not supported in Resend batch API",
+      });
     });
 
     it("should reject batch with tags", async () => {
@@ -381,10 +385,9 @@ describe("Message Converter", () => {
         headers: new Headers(),
       };
 
-      await assert.rejects(
-        () => convertMessagesBatch([message], config),
-        { message: "Tags are not supported in Resend batch API" },
-      );
+      await assert.rejects(() => convertMessagesBatch([message], config), {
+        message: "Tags are not supported in Resend batch API",
+      });
     });
   });
 
@@ -430,8 +433,8 @@ describe("convertMessage() reply threading", () => {
       inReplyTo: "122@example.com",
       references: ["120@example.com", "121@example.com"],
     });
-    const result = (await convertMessage(message, threadingConfig)).headers ??
-      {};
+    const result =
+      (await convertMessage(message, threadingConfig)).headers ?? {};
 
     assert.deepEqual(headerOf(result, "In-Reply-To"), ["<122@example.com>"]);
     assert.deepEqual(headerOf(result, "References"), [
@@ -445,8 +448,8 @@ describe("convertMessage() reply threading", () => {
       inReplyTo: ["typed@example.com"],
       headers: { "In-Reply-To": "<custom@example.com>" },
     });
-    const result = (await convertMessage(message, threadingConfig)).headers ??
-      {};
+    const result =
+      (await convertMessage(message, threadingConfig)).headers ?? {};
 
     assert.deepEqual(headerOf(result, "In-Reply-To"), ["<typed@example.com>"]);
   });
@@ -461,8 +464,8 @@ describe("convertMessage() reply threading", () => {
         "References": "<custom@example.com>",
       },
     });
-    const result = (await convertMessage(message, threadingConfig)).headers ??
-      {};
+    const result =
+      (await convertMessage(message, threadingConfig)).headers ?? {};
 
     assert.deepEqual(headerOf(result, "In-Reply-To"), []);
     assert.deepEqual(headerOf(result, "References"), []);
@@ -473,23 +476,24 @@ describe("convertMessage() reply threading", () => {
       ...base,
       headers: { "In-Reply-To": "<custom@example.com>" },
     });
-    const result = (await convertMessage(message, threadingConfig)).headers ??
-      {};
+    const result =
+      (await convertMessage(message, threadingConfig)).headers ?? {};
 
     assert.deepEqual(headerOf(result, "In-Reply-To"), ["<custom@example.com>"]);
   });
 });
 
-const CALENDAR_ICS = [
-  "BEGIN:VCALENDAR",
-  "VERSION:2.0",
-  "METHOD:REQUEST",
-  "BEGIN:VEVENT",
-  "UID:1@example.com",
-  "SUMMARY:Lunch",
-  "END:VEVENT",
-  "END:VCALENDAR",
-].join("\r\n") + "\r\n";
+const CALENDAR_ICS =
+  [
+    "BEGIN:VCALENDAR",
+    "VERSION:2.0",
+    "METHOD:REQUEST",
+    "BEGIN:VEVENT",
+    "UID:1@example.com",
+    "SUMMARY:Lunch",
+    "END:VEVENT",
+    "END:VCALENDAR",
+  ].join("\r\n") + "\r\n";
 
 const CALENDAR_BASE64 = btoa(CALENDAR_ICS);
 
@@ -504,7 +508,7 @@ const AGENDA_ATTACHMENT = {
 describe("convertMessage() calendar", () => {
   const calendarConfig = createResendConfig({ apiKey: "test-key" });
 
-  const invitation = (attachments: typeof AGENDA_ATTACHMENT[] = []) =>
+  const invitation = (attachments: (typeof AGENDA_ATTACHMENT)[] = []) =>
     createMessage({
       from: "organizer@example.com",
       to: "attendee@example.net",

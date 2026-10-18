@@ -384,9 +384,10 @@ describe("LogTapeTransport", { concurrency: 1 }, () => {
       const base = new BufferedTransport();
       const transport = new LogTapeTransport({ transport: base });
 
-      for await (
-        const _receipt of transport.sendMany([message, secondMessage])
-      ) {
+      for await (const _receipt of transport.sendMany([
+        message,
+        secondMessage,
+      ])) {
         break;
       }
 
@@ -410,9 +411,10 @@ describe("LogTapeTransport", { concurrency: 1 }, () => {
       const base = new RecordingTransport();
       const transport = new LogTapeTransport({ transport: base });
 
-      for await (
-        const _receipt of transport.sendMany([message, secondMessage])
-      ) {
+      for await (const _receipt of transport.sendMany([
+        message,
+        secondMessage,
+      ])) {
         break;
       }
 
@@ -441,13 +443,11 @@ describe("LogTapeTransport", { concurrency: 1 }, () => {
       const base = new PrefetchingTransport();
       const transport = new LogTapeTransport({ transport: base });
 
-      for await (
-        const _receipt of transport.sendMany([
-          message,
-          secondMessage,
-          thirdMessage,
-        ])
-      ) {
+      for await (const _receipt of transport.sendMany([
+        message,
+        secondMessage,
+        thirdMessage,
+      ])) {
         break;
       }
 
@@ -473,12 +473,10 @@ describe("LogTapeTransport", { concurrency: 1 }, () => {
 
       let thrown: unknown;
       try {
-        for await (
-          const _receipt of transport.sendMany([
-            message,
-            secondMessage,
-          ])
-        ) {
+        for await (const _receipt of transport.sendMany([
+          message,
+          secondMessage,
+        ])) {
           // The wrapped transport throws before yielding a receipt.
         }
       } catch (caught) {
@@ -499,9 +497,7 @@ describe("LogTapeTransport", { concurrency: 1 }, () => {
         failures.map((record) => record.properties.recipientCount),
         [2, 1],
       );
-      assert.ok(
-        failures.every((record) => record.properties.error === error),
-      );
+      assert.ok(failures.every((record) => record.properties.error === error));
       recorder.assertLogged({
         message:
           /^Failed to send email: TypeError: Batch transport failed\.[\s\S]*\n\nSubject: ["']Test message["']\n\n["']Hello from Upyo\.["']$/,
@@ -546,8 +542,7 @@ describe("LogTapeTransport", { concurrency: 1 }, () => {
           /^Failed to send email: TypeError: Batch transport failed before consuming\./,
         rawMessage: "Failed to send email: {error}",
         properties: (properties) =>
-          properties.event === "email.failed" &&
-          !("message" in properties),
+          properties.event === "email.failed" && !("message" in properties),
       });
     });
   });
@@ -563,9 +558,10 @@ describe("LogTapeTransport", { concurrency: 1 }, () => {
       });
 
       const receipts: Receipt<"logtape">[] = [];
-      for await (
-        const receipt of transport.sendMany([message, secondMessage])
-      ) {
+      for await (const receipt of transport.sendMany([
+        message,
+        secondMessage,
+      ])) {
         receipts.push(receipt);
       }
 
@@ -658,10 +654,7 @@ class RecordingTransport implements Transport<"base"> {
   };
   throwError?: unknown;
 
-  send(
-    message: Message,
-    options?: TransportOptions,
-  ): Promise<Receipt<"base">> {
+  send(message: Message, options?: TransportOptions): Promise<Receipt<"base">> {
     this.sendCalls++;
     this.sentMessages.push(message);
     this.lastOptions = options;
@@ -688,8 +681,10 @@ class RecordingTransport implements Transport<"base"> {
   }
 }
 
-class AsyncDisposableTransport extends RecordingTransport
-  implements AsyncDisposable {
+class AsyncDisposableTransport
+  extends RecordingTransport
+  implements AsyncDisposable
+{
   disposed = false;
 
   [Symbol.asyncDispose](): Promise<void> {
@@ -766,9 +761,10 @@ class PrefetchingTransport implements Transport<"base"> {
     messages: Iterable<Message> | AsyncIterable<Message>,
   ): AsyncIterable<Receipt<"base">> {
     try {
-      const iterator = Symbol.asyncIterator in messages
-        ? messages[Symbol.asyncIterator]()
-        : messages[Symbol.iterator]();
+      const iterator =
+        Symbol.asyncIterator in messages
+          ? messages[Symbol.asyncIterator]()
+          : messages[Symbol.iterator]();
       const first = await iterator.next();
       const second = await iterator.next();
       if (first.done || second.done) return;

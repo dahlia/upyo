@@ -29,9 +29,10 @@ export async function convertMessage(
   // A transport that cannot compose a `text/calendar` alternative carries the
   // scheduling payload as an *invite.ics* part instead, ahead of the caller's
   // own files so that a client looking for the first calendar part finds it.
-  const attachments = message.calendar == null
-    ? message.attachments
-    : [createCalendarAttachment(message.calendar), ...message.attachments];
+  const attachments =
+    message.calendar == null
+      ? message.attachments
+      : [createCalendarAttachment(message.calendar), ...message.attachments];
 
   // Required fields
   formData.append("from", formatAddress(message.sender));
@@ -153,12 +154,13 @@ async function appendAttachment(
 ): Promise<void> {
   const content = await readAttachmentContent(attachment.content, signal);
   // Ensure ArrayBuffer type compatibility for Blob constructor
-  const buffer = content.buffer instanceof ArrayBuffer
-    ? content.buffer.slice(
-      content.byteOffset,
-      content.byteOffset + content.byteLength,
-    )
-    : content.slice(); // fallback to create new Uint8Array if SharedArrayBuffer
+  const buffer =
+    content.buffer instanceof ArrayBuffer
+      ? content.buffer.slice(
+          content.byteOffset,
+          content.byteOffset + content.byteLength,
+        )
+      : content.slice(); // fallback to create new Uint8Array if SharedArrayBuffer
   const blob = new Blob([buffer], {
     type: attachment.contentType,
   });

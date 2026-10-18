@@ -13,11 +13,12 @@ test("collects large replayable attachments without argument overflow", async ()
       secretAccessKey: "test",
     },
   });
-  for (
-    const content of [new Blob([bytes]), async function* () {
+  for (const content of [
+    new Blob([bytes]),
+    async function* () {
       yield bytes;
-    }]
-  ) {
+    },
+  ]) {
     const result = await convertMessage(
       createMessage({
         from: "from@example.com",

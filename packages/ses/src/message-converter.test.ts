@@ -240,16 +240,17 @@ test("convertMessage handles attachments", async () => {
   assert.equal(sesAttachment.RawContent, btoa("Hello"));
 });
 
-const CALENDAR_ICS = [
-  "BEGIN:VCALENDAR",
-  "VERSION:2.0",
-  "METHOD:REQUEST",
-  "BEGIN:VEVENT",
-  "UID:1@example.com",
-  "SUMMARY:Lunch",
-  "END:VEVENT",
-  "END:VCALENDAR",
-].join("\r\n") + "\r\n";
+const CALENDAR_ICS =
+  [
+    "BEGIN:VCALENDAR",
+    "VERSION:2.0",
+    "METHOD:REQUEST",
+    "BEGIN:VEVENT",
+    "UID:1@example.com",
+    "SUMMARY:Lunch",
+    "END:VEVENT",
+    "END:VCALENDAR",
+  ].join("\r\n") + "\r\n";
 
 const CALENDAR_BASE64 = btoa(CALENDAR_ICS);
 

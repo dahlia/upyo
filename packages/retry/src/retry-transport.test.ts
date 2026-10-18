@@ -43,7 +43,10 @@ describe("RetryTransport", () => {
     assert.equal(receipt.messageId, "delivered");
     assert.equal(receipt.provider, "base");
     assert.equal(receipt.attempts, 2);
-    assert.deepEqual(delays.map((delay) => delay.delayMilliseconds), [100]);
+    assert.deepEqual(
+      delays.map((delay) => delay.delayMilliseconds),
+      [100],
+    );
   });
 
   it("does not retry permanent failed receipts", async () => {
@@ -77,11 +80,13 @@ describe("RetryTransport", () => {
   it("uses capped Retry-After metadata before computed backoff", async () => {
     const delays: number[] = [];
     const base = new SequenceTransport([
-      createFailedReceipt(createReceiptError("Rate limited", {
-        provider: "base",
-        statusCode: 429,
-        retryAfterMilliseconds: 5_000,
-      })),
+      createFailedReceipt(
+        createReceiptError("Rate limited", {
+          provider: "base",
+          statusCode: 429,
+          retryAfterMilliseconds: 5_000,
+        }),
+      ),
       { successful: true, messageId: "delivered" },
     ]);
     const transport = createRetryTransport(base, {
@@ -105,11 +110,13 @@ describe("RetryTransport", () => {
   it("preserves zero Retry-After metadata", async () => {
     const delays: number[] = [];
     const base = new SequenceTransport([
-      createFailedReceipt(createReceiptError("Rate limited", {
-        provider: "base",
-        statusCode: 429,
-        retryAfterMilliseconds: 0,
-      })),
+      createFailedReceipt(
+        createReceiptError("Rate limited", {
+          provider: "base",
+          statusCode: 429,
+          retryAfterMilliseconds: 0,
+        }),
+      ),
       { successful: true, messageId: "delivered" },
     ]);
     const transport = createRetryTransport(base, {
@@ -133,11 +140,13 @@ describe("RetryTransport", () => {
     for (const retryAfterMilliseconds of invalidRetryAfterValues) {
       const delays: number[] = [];
       const base = new SequenceTransport([
-        createFailedReceipt(createReceiptError("Rate limited", {
-          provider: "base",
-          statusCode: 429,
-          retryAfterMilliseconds,
-        })),
+        createFailedReceipt(
+          createReceiptError("Rate limited", {
+            provider: "base",
+            statusCode: 429,
+            retryAfterMilliseconds,
+          }),
+        ),
         { successful: true, messageId: "delivered" },
       ]);
       const transport = createRetryTransport(base, {
@@ -412,10 +421,9 @@ describe("RetryTransport", () => {
       wait: () => Promise.resolve(),
     });
 
-    const receipts = await collect(transport.sendMany([
-      message("First"),
-      message("Second"),
-    ]));
+    const receipts = await collect(
+      transport.sendMany([message("First"), message("Second")]),
+    );
 
     assert.equal(base.calls, 3);
     assert.deepEqual(
@@ -452,10 +460,9 @@ describe("RetryTransport", () => {
       },
     });
 
-    const receiptsPromise = collect(transport.sendMany([
-      message("First"),
-      message("Second"),
-    ]));
+    const receiptsPromise = collect(
+      transport.sendMany([message("First"), message("Second")]),
+    );
 
     releaseSecond.resolve();
     await waitFor(() => events.includes("finish:1"));
@@ -490,7 +497,7 @@ describe("RetryTransport", () => {
       Promise.resolve({
         successful: true,
         messageId: `message-${index}`,
-      })
+      }),
     );
     const transport = createRetryTransport(base, {
       maxAttempts: 1,
@@ -532,7 +539,7 @@ describe("RetryTransport", () => {
       Promise.resolve({
         successful: true,
         messageId: `message-${index}`,
-      })
+      }),
     );
     const transport = createRetryTransport(base, {
       maxAttempts: 1,
@@ -565,16 +572,18 @@ describe("RetryTransport", () => {
       Promise.resolve({
         successful: true,
         messageId: `message-${index}`,
-      })
+      }),
     );
     const transport = createRetryTransport(base, {
       maxAttempts: 1,
       sendMany: { maxConcurrent: 2 },
     });
 
-    const iterator = transport.sendMany(messages(), {
-      signal: controller.signal,
-    })[Symbol.asyncIterator]();
+    const iterator = transport
+      .sendMany(messages(), {
+        signal: controller.signal,
+      })
+      [Symbol.asyncIterator]();
     const first = await iterator.next();
     assert.ok(!first.done);
     assert.ok(first.value.successful);
@@ -603,9 +612,11 @@ describe("RetryTransport", () => {
       sendMany: { maxConcurrent: 1 },
     });
 
-    const iterator = transport.sendMany([message("First")], {
-      signal: controller.signal,
-    })[Symbol.asyncIterator]();
+    const iterator = transport
+      .sendMany([message("First")], {
+        signal: controller.signal,
+      })
+      [Symbol.asyncIterator]();
     const next = iterator.next();
 
     await waitFor(() => events.includes("start:0"));
@@ -641,7 +652,7 @@ describe("RetryTransport", () => {
       Promise.resolve({
         successful: true,
         messageId: `message-${index}`,
-      })
+      }),
     );
     const transport = createRetryTransport(base, {
       maxAttempts: 1,
@@ -717,7 +728,7 @@ describe("RetryTransport", () => {
     const firstResult = iterator.next();
 
     await waitFor(() => events.includes("input-error"));
-    assert.ok(!await settlesWithin(firstResult));
+    assert.ok(!(await settlesWithin(firstResult)));
 
     releaseFirst.resolve();
 
@@ -752,7 +763,7 @@ describe("RetryTransport", () => {
       Promise.resolve({
         successful: true,
         messageId: `message-${index}`,
-      })
+      }),
     );
     const transport = createRetryTransport(base, {
       maxAttempts: 1,
@@ -797,7 +808,7 @@ describe("RetryTransport", () => {
       Promise.resolve({
         successful: true,
         messageId: `message-${index}`,
-      })
+      }),
     );
     const transport = createRetryTransport(base, {
       maxAttempts: 1,
@@ -825,7 +836,7 @@ describe("RetryTransport", () => {
       Promise.resolve({
         successful: true,
         messageId: `message-${index}`,
-      })
+      }),
     );
     const transport = createRetryTransport(base, {
       maxAttempts: 1,
@@ -838,10 +849,9 @@ describe("RetryTransport", () => {
       },
     });
 
-    const iterator = transport.sendMany([
-      message("First"),
-      message("Second"),
-    ])[Symbol.asyncIterator]();
+    const iterator = transport
+      .sendMany([message("First"), message("Second")])
+      [Symbol.asyncIterator]();
     const firstResult = iterator.next();
     const firstSettled = await settlesWithin(firstResult);
 
@@ -878,11 +888,13 @@ describe("RetryTransport", () => {
       sendMany: { maxConcurrent: 2 },
     });
 
-    const receiptsPromise = collect(transport.sendMany([
-      message("First"),
-      message("Second"),
-      message("Third"),
-    ]));
+    const receiptsPromise = collect(
+      transport.sendMany([
+        message("First"),
+        message("Second"),
+        message("Third"),
+      ]),
+    );
 
     await waitFor(() => events.includes("finish:1"));
     await waitFor(() => events.includes("start:2"));
@@ -925,11 +937,9 @@ describe("RetryTransport", () => {
       wait: () => Promise.reject(sendError),
     });
 
-    const iterator = transport.sendMany([
-      message("First"),
-      message("Second"),
-      message("Third"),
-    ])[Symbol.asyncIterator]();
+    const iterator = transport
+      .sendMany([message("First"), message("Second"), message("Third")])
+      [Symbol.asyncIterator]();
     const firstResult = iterator.next();
 
     await waitFor(() => events.includes("start:1"));
@@ -959,10 +969,7 @@ describe("RetryTransport", () => {
       sendMany: { maxConcurrent: 2 },
     });
 
-    const receipts = transport.sendMany([
-      message("First"),
-      message("Second"),
-    ]);
+    const receipts = transport.sendMany([message("First"), message("Second")]);
     const iterator = receipts[Symbol.asyncIterator]();
 
     await Promise.resolve();
@@ -1033,18 +1040,21 @@ describe("RetryTransport", () => {
       wait: (_context, signal) => {
         waitStarted = true;
         return new Promise<void>((_resolve, reject) => {
-          signal?.addEventListener("abort", () => {
-            waitAborted = true;
-            reject(signal.reason);
-          }, { once: true });
+          signal?.addEventListener(
+            "abort",
+            () => {
+              waitAborted = true;
+              reject(signal.reason);
+            },
+            { once: true },
+          );
         });
       },
     });
 
-    const iterator = transport.sendMany([
-      message("First"),
-      message("Second"),
-    ])[Symbol.asyncIterator]();
+    const iterator = transport
+      .sendMany([message("First"), message("Second")])
+      [Symbol.asyncIterator]();
     const firstResult = iterator.next();
     await waitFor(() => waitStarted);
     releaseFirst.resolve();
@@ -1143,7 +1153,10 @@ async function settlesWithin<T>(
   let timeout: ReturnType<typeof setTimeout> | undefined;
   try {
     return await Promise.race([
-      promise.then(() => true, () => true),
+      promise.then(
+        () => true,
+        () => true,
+      ),
       new Promise<boolean>((resolve) => {
         timeout = setTimeout(() => resolve(false), milliseconds);
       }),
@@ -1178,13 +1191,9 @@ class SequenceTransport implements Transport<"base"> {
   readonly id = "base";
   calls = 0;
 
-  constructor(readonly results: readonly SequenceResult[]) {
-  }
+  constructor(readonly results: readonly SequenceResult[]) {}
 
-  send(
-    message: Message,
-    options?: TransportOptions,
-  ): Promise<Receipt<"base">> {
+  send(message: Message, options?: TransportOptions): Promise<Receipt<"base">> {
     options?.signal?.throwIfAborted();
     const result = this.results[this.calls++];
     if (result instanceof Error) return Promise.reject(result);
@@ -1207,8 +1216,13 @@ class SequenceTransport implements Transport<"base"> {
 }
 
 function isReceiptError(value: unknown): value is ReceiptError<"base"> {
-  return typeof value === "object" && value != null && "category" in value &&
-    "retryable" in value && "message" in value;
+  return (
+    typeof value === "object" &&
+    value != null &&
+    "category" in value &&
+    "retryable" in value &&
+    "message" in value
+  );
 }
 
 class TrackingTransport implements Transport<"base"> {
@@ -1221,13 +1235,9 @@ class TrackingTransport implements Transport<"base"> {
       index: number,
       options?: TransportOptions,
     ) => Promise<Receipt<"base">>,
-  ) {
-  }
+  ) {}
 
-  send(
-    message: Message,
-    options?: TransportOptions,
-  ): Promise<Receipt<"base">> {
+  send(message: Message, options?: TransportOptions): Promise<Receipt<"base">> {
     const index = this.calls++;
     return this.handler(message, index, options);
   }

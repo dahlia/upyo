@@ -140,19 +140,17 @@ describe("generateMessageId()", () => {
   });
 
   it("rejects a domain that is not a valid identifier right-hand side", () => {
-    for (
-      const domain of [
-        "",
-        " ",
-        "example.com:80",
-        "http://example.com",
-        "example com",
-        "exa\r\nmple.com",
-        ".example.com",
-        "example..com",
-        "[]",
-      ]
-    ) {
+    for (const domain of [
+      "",
+      " ",
+      "example.com:80",
+      "http://example.com",
+      "example com",
+      "exa\r\nmple.com",
+      ".example.com",
+      "example..com",
+      "[]",
+    ]) {
       assert.throws(
         () => generateMessageId(domain),
         { name: "TypeError" },
@@ -188,11 +186,13 @@ describe("resolveThreadingHeaders()", () => {
   });
 
   it("formats the identifiers of a populated list", () => {
-    const resolved = resolveThreadingHeaders(createMessage({
-      ...base,
-      inReplyTo: "122@example.com",
-      references: ["120@example.com", "121@example.com"],
-    }));
+    const resolved = resolveThreadingHeaders(
+      createMessage({
+        ...base,
+        inReplyTo: "122@example.com",
+        references: ["120@example.com", "121@example.com"],
+      }),
+    );
 
     assert.equal(resolved.get("In-Reply-To"), "<122@example.com>");
     assert.equal(

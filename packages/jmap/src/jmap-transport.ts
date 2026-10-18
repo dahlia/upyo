@@ -43,7 +43,8 @@ const JMAP_CAPABILITIES = {
  * @since 0.4.0
  */
 export class JmapTransport
-  implements RawTransport<"jmap">, VerifiableTransport<"jmap"> {
+  implements RawTransport<"jmap">, VerifiableTransport<"jmap">
+{
   readonly id = "jmap";
 
   readonly config: ResolvedJmapConfig;
@@ -86,8 +87,8 @@ export class JmapTransport
       if (this.config.baseUrl) session = this.rewriteSessionUrls(session);
       validateVerificationApiUrl(session.apiUrl);
       if (
-        !Object.values(JMAP_CAPABILITIES).every((cap) =>
-          cap in session.capabilities
+        !Object.values(JMAP_CAPABILITIES).every(
+          (cap) => cap in session.capabilities,
         )
       ) {
         throw new JmapApiError(
@@ -95,9 +96,8 @@ export class JmapTransport
         );
       }
       const accountId = this.config.accountId ?? findMailAccount(session);
-      const account = accountId == null
-        ? undefined
-        : session.accounts[accountId];
+      const account =
+        accountId == null ? undefined : session.accounts[accountId];
       if (accountId == null || account == null) {
         throw new JmapApiError(
           `No JMAP mail account found: ${accountId ?? "automatic selection"}`,
@@ -120,12 +120,17 @@ export class JmapTransport
         const response = await verificationOperation(
           this.config.timeout,
           (owned) =>
-            this.httpClient.executeRequest(session.apiUrl, {
-              using: method === "Mailbox/get"
-                ? [JMAP_CAPABILITIES.core, JMAP_CAPABILITIES.mail]
-                : [JMAP_CAPABILITIES.core, JMAP_CAPABILITIES.submission],
-              methodCalls: [[method, { accountId, ...args }, "verify"]],
-            }, owned),
+            this.httpClient.executeRequest(
+              session.apiUrl,
+              {
+                using:
+                  method === "Mailbox/get"
+                    ? [JMAP_CAPABILITIES.core, JMAP_CAPABILITIES.mail]
+                    : [JMAP_CAPABILITIES.core, JMAP_CAPABILITIES.submission],
+                methodCalls: [[method, { accountId, ...args }, "verify"]],
+              },
+              owned,
+            ),
           signal,
         );
         return verificationResult(response, method, accountId);
@@ -141,14 +146,20 @@ export class JmapTransport
         );
       }
       const identityId = this.config.identityId;
-      const identities = await get("Identity/get", {
-        ids: identityId == null ? null : [identityId],
-        properties: ["id", "email"],
-      }, signal);
+      const identities = await get(
+        "Identity/get",
+        {
+          ids: identityId == null ? null : [identityId],
+          properties: ["id", "email"],
+        },
+        signal,
+      );
       if (
-        identities.notFound.length > 0 || identities.list.length === 0 ||
-        !identities.list.every((identity) =>
-          typeof identity.email === "string" && identity.email.length > 0
+        identities.notFound.length > 0 ||
+        identities.list.length === 0 ||
+        !identities.list.every(
+          (identity) =>
+            typeof identity.email === "string" && identity.email.length > 0,
         ) ||
         (identityId != null &&
           (identities.list.length !== 1 ||
@@ -326,16 +337,20 @@ export class JmapTransport
       );
       const capable = (id: string) => {
         const account = session.accounts[id];
-        return account != null && !account.isReadOnly &&
+        return (
+          account != null &&
+          !account.isReadOnly &&
           JMAP_CAPABILITIES.mail in account.accountCapabilities &&
-          JMAP_CAPABILITIES.submission in account.accountCapabilities;
+          JMAP_CAPABILITIES.submission in account.accountCapabilities
+        );
       };
-      const accountId = this.config.accountId ??
-        Object.keys(session.accounts).find(capable);
+      const accountId =
+        this.config.accountId ?? Object.keys(session.accounts).find(capable);
       if (
-        accountId == null || !capable(accountId) ||
-        !Object.values(JMAP_CAPABILITIES).every((capability) =>
-          capability in session.capabilities
+        accountId == null ||
+        !capable(accountId) ||
+        !Object.values(JMAP_CAPABILITIES).every(
+          (capability) => capability in session.capabilities,
         )
       ) {
         return createJmapFailure(
@@ -381,10 +396,10 @@ export class JmapTransport
         error,
         error instanceof RawMessageValidationError
           ? {
-            category: "validation",
-            code: "jmap.raw_message_invalid",
-            retryable: false,
-          }
+              category: "validation",
+              code: "jmap.raw_message_invalid",
+              retryable: false,
+            }
           : undefined,
       );
     }
@@ -492,8 +507,8 @@ export class JmapTransport
 
         // Find identity for this sender
         const senderEmail = message.sender.address.toLowerCase();
-        const identityId = identityMap.get(senderEmail) ??
-          identityMap.values().next().value;
+        const identityId =
+          identityMap.get(senderEmail) ?? identityMap.values().next().value;
 
         emailCreates[`draft${i}`] = emailCreate;
         submissionCreates[`sub${i}`] = {
@@ -546,29 +561,30 @@ export class JmapTransport
       const timeoutOverride =
         error instanceof Error && error.name === "AbortError"
           ? {
-            category: "timeout" as const,
-            code: "abort",
-            retryable: true,
-          }
+              category: "timeout" as const,
+              code: "abort",
+              retryable: true,
+            }
           : undefined;
 
       // For any error during batch processing, yield failure for all messages
       // with detailed stage information
-      const baseMessage = error instanceof Error && error.name === "AbortError"
-        ? `Request aborted: ${error.message}`
-        : error instanceof JmapApiError
-        ? error.message
-        : error instanceof Error
-        ? error.message
-        : String(error);
+      const baseMessage =
+        error instanceof Error && error.name === "AbortError"
+          ? `Request aborted: ${error.message}`
+          : error instanceof JmapApiError
+            ? error.message
+            : error instanceof Error
+              ? error.message
+              : String(error);
 
       // Build detailed error message with stage and progress info
       let detailedMessage = `Failed during ${processingStage}: ${baseMessage}`;
       if (
-        processingStage === "attachment upload" && attachmentsUploadedCount > 0
+        processingStage === "attachment upload" &&
+        attachmentsUploadedCount > 0
       ) {
-        detailedMessage +=
-          ` (${attachmentsUploadedCount}/${messageArray.length} messages had attachments uploaded before failure)`;
+        detailedMessage += ` (${attachmentsUploadedCount}/${messageArray.length} messages had attachments uploaded before failure)`;
       }
 
       for (let i = 0; i < messageArray.length; i++) {
@@ -685,9 +701,9 @@ export class JmapTransport
       throw new JmapApiError("No Mailbox/get response received");
     }
 
-    const mailboxes =
-      (mailboxResponse as { list?: { id: string; role?: string }[] })
-        .list;
+    const mailboxes = (
+      mailboxResponse as { list?: { id: string; role?: string }[] }
+    ).list;
 
     if (!mailboxes) {
       throw new JmapApiError("No mailboxes found");
@@ -696,9 +712,11 @@ export class JmapTransport
     if (
       strict &&
       (!Array.isArray(mailboxes) ||
-        !mailboxes.every((mailbox) =>
-          isRecord(mailbox) && typeof mailbox.id === "string" &&
-          mailbox.id.length > 0
+        !mailboxes.every(
+          (mailbox) =>
+            isRecord(mailbox) &&
+            typeof mailbox.id === "string" &&
+            mailbox.id.length > 0,
         ))
     ) {
       throw new JmapApiError("Invalid mailbox identifiers in raw discovery.");
@@ -793,9 +811,9 @@ export class JmapTransport
       throw new JmapApiError("No Identity/get response received");
     }
 
-    const identities =
-      (identityResponse as { list?: { id: string; email: string }[] })
-        .list;
+    const identities = (
+      identityResponse as { list?: { id: string; email: string }[] }
+    ).list;
 
     if (!identities || identities.length === 0) {
       throw new JmapApiError("No identities found");
@@ -804,9 +822,12 @@ export class JmapTransport
     if (
       strict &&
       (!Array.isArray(identities) ||
-        !identities.every((identity) =>
-          isRecord(identity) && typeof identity.id === "string" &&
-          identity.id.length > 0 && typeof identity.email === "string"
+        !identities.every(
+          (identity) =>
+            isRecord(identity) &&
+            typeof identity.id === "string" &&
+            identity.id.length > 0 &&
+            typeof identity.email === "string",
         ))
     ) {
       throw new JmapApiError("Invalid identity identifiers in raw discovery.");
@@ -906,9 +927,9 @@ export class JmapTransport
       };
 
       if (submissionResult.notCreated) {
-        for (
-          const [key, error] of Object.entries(submissionResult.notCreated)
-        ) {
+        for (const [key, error] of Object.entries(
+          submissionResult.notCreated,
+        )) {
           errors.push(
             `Email submission failed (${key}): ${error.type}${
               error.description ? ` - ${error.description}` : ""
@@ -1064,7 +1085,9 @@ function getAttemptCount(error: unknown): number {
   }
 
   if (
-    typeof error === "object" && error !== null && "attempts" in error &&
+    typeof error === "object" &&
+    error !== null &&
+    "attempts" in error &&
     typeof error.attempts === "number"
   ) {
     return error.attempts;
@@ -1074,8 +1097,11 @@ function getAttemptCount(error: unknown): number {
 }
 
 function getAbortReason(signal: AbortSignal, fallback: unknown): unknown {
-  return signal.reason ?? (isAbortError(fallback) ? fallback : undefined) ??
-    new DOMException("The operation was aborted.", "AbortError");
+  return (
+    signal.reason ??
+    (isAbortError(fallback) ? fallback : undefined) ??
+    new DOMException("The operation was aborted.", "AbortError")
+  );
 }
 
 function isAbortError(error: unknown): boolean {
@@ -1100,10 +1126,12 @@ async function verificationOperation<T>(
     return await new Promise<T>((resolve, reject) => {
       onAbort = () => reject(combined.signal.reason);
       combined.signal.addEventListener("abort", onAbort, { once: true });
-      Promise.resolve().then(() => {
-        combined.signal.throwIfAborted();
-        return operation(combined.signal);
-      }).then(resolve, reject);
+      Promise.resolve()
+        .then(() => {
+          combined.signal.throwIfAborted();
+          return operation(combined.signal);
+        })
+        .then(resolve, reject);
       if (combined.signal.aborted) onAbort();
     });
   } finally {
@@ -1134,7 +1162,8 @@ function validateVerificationSession(session: JmapSession): void {
   }
   for (const [id, account] of Object.entries(session.accounts)) {
     if (
-      !isRecord(account) || typeof account.isReadOnly !== "boolean" ||
+      !isRecord(account) ||
+      typeof account.isReadOnly !== "boolean" ||
       !isRecord(account.accountCapabilities)
     ) {
       throw new JmapApiError(`Invalid JMAP Session account: ${id}`);
@@ -1155,8 +1184,8 @@ function verificationResult(
   if (!isRecord(response) || !Array.isArray(response.methodResponses)) {
     throw new JmapApiError("Invalid JMAP verification response.");
   }
-  const matches: unknown[] = response.methodResponses.filter((entry: unknown) =>
-    Array.isArray(entry) && entry[2] === "verify"
+  const matches: unknown[] = response.methodResponses.filter(
+    (entry: unknown) => Array.isArray(entry) && entry[2] === "verify",
   );
   if (matches.length !== 1) {
     throw new JmapApiError("Missing or duplicate JMAP verification response.");
@@ -1180,8 +1209,10 @@ function verificationResult(
     );
   }
   if (
-    entry[0] !== method || result.accountId !== accountId ||
-    !Array.isArray(result.list) || !Array.isArray(result.notFound)
+    entry[0] !== method ||
+    result.accountId !== accountId ||
+    !Array.isArray(result.list) ||
+    !Array.isArray(result.notFound)
   ) {
     throw new JmapApiError(`Invalid JMAP discovery result: ${method}`);
   }
@@ -1189,7 +1220,9 @@ function verificationResult(
   const ids = new Set<string>();
   for (const item of result.list) {
     if (
-      !isRecord(item) || typeof item.id !== "string" || !item.id ||
+      !isRecord(item) ||
+      typeof item.id !== "string" ||
+      !item.id ||
       ids.has(item.id)
     ) {
       throw new JmapApiError(`Invalid JMAP discovery identifiers: ${method}`);

@@ -124,9 +124,8 @@ export class SesTransport implements Transport<"ses"> {
         throw error;
       }
 
-      const errorMessage = error instanceof Error
-        ? error.message
-        : String(error);
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
 
       return createSesFailure(errorMessage, error);
     }
@@ -205,13 +204,11 @@ export class SesTransport implements Transport<"ses"> {
     return await Promise.all(sendPromises);
   }
 
-  private extractMessageId(
-    response: {
-      statusCode?: number;
-      body?: string;
-      headers?: Record<string, string>;
-    },
-  ): string {
+  private extractMessageId(response: {
+    statusCode?: number;
+    body?: string;
+    headers?: Record<string, string>;
+  }): string {
     if (response.body) {
       try {
         const parsed = JSON.parse(response.body);
@@ -223,7 +220,8 @@ export class SesTransport implements Transport<"ses"> {
       }
     }
 
-    const messageIdHeader = response.headers?.["x-amzn-requestid"] ||
+    const messageIdHeader =
+      response.headers?.["x-amzn-requestid"] ||
       response.headers?.["X-Amzn-RequestId"];
 
     if (messageIdHeader) {
@@ -257,8 +255,9 @@ function createSesFailure(
 }
 
 function isCallerAbort(error: unknown, signal?: AbortSignal): boolean {
-  return signal?.aborted === true &&
-    (isAbortError(error) || error === signal.reason);
+  return (
+    signal?.aborted === true && (isAbortError(error) || error === signal.reason)
+  );
 }
 
 function isAbortError(error: unknown): boolean {

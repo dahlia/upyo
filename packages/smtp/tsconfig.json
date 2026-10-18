@@ -4,12 +4,6 @@
     "paths": {},
     "skipLibCheck": true
   },
-  "include": [
-    "src/**/*.ts",
-    "tsdown.config.ts"
-  ],
-  "exclude": [
-    "dist",
-    "node_modules"
-  ]
+  "include": ["src/**/*.ts", "tsdown.config.ts"],
+  "exclude": ["dist", "node_modules"]
 }

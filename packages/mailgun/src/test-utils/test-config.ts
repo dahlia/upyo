@@ -68,10 +68,12 @@ export function createTestMessage(
       name: options.senderName ?? "Mailgun E2E Test Sender",
       address: senderEmail,
     },
-    recipients: options.recipients ?? [{
-      name: "E2E Test Recipient",
-      address: recipientEmail,
-    }],
+    recipients: options.recipients ?? [
+      {
+        name: "E2E Test Recipient",
+        address: recipientEmail,
+      },
+    ],
     ccRecipients: options.ccRecipients ?? [],
     bccRecipients: options.bccRecipients ?? [],
     replyRecipients: options.replyRecipients ?? [],

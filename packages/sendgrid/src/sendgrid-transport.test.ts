@@ -100,11 +100,15 @@ describe("SendGridTransport", { concurrency: false }, () => {
             return;
           }
 
-          options.signal.addEventListener("abort", () => {
-            reject(
-              new DOMException("The operation was aborted.", "AbortError"),
-            );
-          }, { once: true });
+          options.signal.addEventListener(
+            "abort",
+            () => {
+              reject(
+                new DOMException("The operation was aborted.", "AbortError"),
+              );
+            },
+            { once: true },
+          );
           setTimeout(() => controller.abort(), 0);
         }),
       async () => {
@@ -134,9 +138,13 @@ describe("SendGridTransport", { concurrency: false }, () => {
             return;
           }
 
-          options.signal.addEventListener("abort", () => {
-            reject(options.signal?.reason);
-          }, { once: true });
+          options.signal.addEventListener(
+            "abort",
+            () => {
+              reject(options.signal?.reason);
+            },
+            { once: true },
+          );
           setTimeout(() => controller.abort(reason), 0);
         }),
       async () => {
@@ -170,11 +178,9 @@ describe("SendGridTransport", { concurrency: false }, () => {
 
     try {
       const receipts = [];
-      for await (
-        const receipt of transport.sendMany(messages, {
-          signal: controller.signal,
-        })
-      ) {
+      for await (const receipt of transport.sendMany(messages, {
+        signal: controller.signal,
+      })) {
         receipts.push(receipt);
       }
       assert.fail("Should have thrown AbortError");
@@ -193,11 +199,13 @@ describe("SendGridTransport", { concurrency: false }, () => {
           new Response(
             JSON.stringify({
               message: "Too Many Requests",
-              errors: [{
-                message: "Rate limit exceeded",
-                field: "personalizations.0.to",
-                help: "https://sendgrid.com/docs/",
-              }],
+              errors: [
+                {
+                  message: "Rate limit exceeded",
+                  field: "personalizations.0.to",
+                  help: "https://sendgrid.com/docs/",
+                },
+              ],
             }),
             {
               status: 429,
@@ -223,11 +231,13 @@ describe("SendGridTransport", { concurrency: false }, () => {
           assert.equal(receipt.errors?.[0]?.code, "http.429");
           assert.equal(receipt.errors?.[0]?.statusCode, 429);
           assert.equal(receipt.errors?.[0]?.retryAfterMilliseconds, 30_000);
-          assert.deepEqual(receipt.errors?.[0]?.providerDetails, [{
-            message: "Rate limit exceeded",
-            field: "personalizations.0.to",
-            help: "https://sendgrid.com/docs/",
-          }]);
+          assert.deepEqual(receipt.errors?.[0]?.providerDetails, [
+            {
+              message: "Rate limit exceeded",
+              field: "personalizations.0.to",
+              help: "https://sendgrid.com/docs/",
+            },
+          ]);
         }
       },
     );

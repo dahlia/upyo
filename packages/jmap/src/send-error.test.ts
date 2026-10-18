@@ -5,9 +5,7 @@ import { JmapTransport } from "./jmap-transport.ts";
 
 const baseMessage: Message = {
   sender: { address: "sender@example.com" as `${string}@${string}` },
-  recipients: [
-    { address: "recipient@example.com" as `${string}@${string}` },
-  ],
+  recipients: [{ address: "recipient@example.com" as `${string}@${string}` }],
   ccRecipients: [],
   bccRecipients: [],
   replyRecipients: [],
@@ -63,11 +61,12 @@ describe("JmapTransport send error", () => {
         init?: RequestInit,
       ): Promise<Response> => {
         fetchCount++;
-        const url = typeof input === "string"
-          ? input
-          : input instanceof URL
-          ? input.href
-          : input.url;
+        const url =
+          typeof input === "string"
+            ? input
+            : input instanceof URL
+              ? input.href
+              : input.url;
 
         if (url.includes(".well-known/jmap")) {
           return Promise.resolve(
@@ -142,9 +141,13 @@ describe("JmapTransport send error", () => {
 
         return new Promise((_resolve, reject) => {
           assert.ok(init?.signal instanceof AbortSignal);
-          init.signal.addEventListener("abort", () => {
-            reject(init.signal?.reason);
-          }, { once: true });
+          init.signal.addEventListener(
+            "abort",
+            () => {
+              reject(init.signal?.reason);
+            },
+            { once: true },
+          );
         });
       };
 

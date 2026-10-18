@@ -72,6 +72,8 @@ export function combineSignals(
 }
 
 function getAbortReason(signal: AbortSignal): unknown {
-  return signal.reason ??
-    new DOMException("The operation was aborted.", "AbortError");
+  return (
+    signal.reason ??
+    new DOMException("The operation was aborted.", "AbortError")
+  );
 }

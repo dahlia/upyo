@@ -5,9 +5,7 @@ import { JmapTransport } from "./jmap-transport.ts";
 
 const baseMessage: Message = {
   sender: { address: "sender@example.com" as `${string}@${string}` },
-  recipients: [
-    { address: "recipient@example.com" as `${string}@${string}` },
-  ],
+  recipients: [{ address: "recipient@example.com" as `${string}@${string}` }],
   ccRecipients: [],
   bccRecipients: [],
   replyRecipients: [],
@@ -29,11 +27,12 @@ describe("sendMany batch - success", () => {
         input: RequestInfo | URL,
         init?: RequestInit,
       ): Promise<Response> => {
-        const url = typeof input === "string"
-          ? input
-          : input instanceof URL
-          ? input.href
-          : input.url;
+        const url =
+          typeof input === "string"
+            ? input
+            : input instanceof URL
+              ? input.href
+              : input.url;
 
         const body = init?.body ? JSON.parse(init.body as string) : null;
         requests.push({ url, body });
@@ -70,13 +69,19 @@ describe("sendMany batch - success", () => {
             new Response(
               JSON.stringify({
                 methodResponses: [
-                  ["Mailbox/get", {
-                    list: [{
-                      id: "drafts-123",
-                      role: "drafts",
-                      name: "Drafts",
-                    }],
-                  }, "c0"],
+                  [
+                    "Mailbox/get",
+                    {
+                      list: [
+                        {
+                          id: "drafts-123",
+                          role: "drafts",
+                          name: "Drafts",
+                        },
+                      ],
+                    },
+                    "c0",
+                  ],
                 ],
               }),
               { status: 200 },
@@ -90,13 +95,19 @@ describe("sendMany batch - success", () => {
             new Response(
               JSON.stringify({
                 methodResponses: [
-                  ["Identity/get", {
-                    list: [{
-                      id: "id-1",
-                      email: "sender@example.com",
-                      name: "Sender",
-                    }],
-                  }, "c0"],
+                  [
+                    "Identity/get",
+                    {
+                      list: [
+                        {
+                          id: "id-1",
+                          email: "sender@example.com",
+                          name: "Sender",
+                        },
+                      ],
+                    },
+                    "c0",
+                  ],
                 ],
               }),
               { status: 200 },
@@ -206,11 +217,12 @@ describe("sendMany batch - partial failure", () => {
         input: RequestInfo | URL,
         init?: RequestInit,
       ): Promise<Response> => {
-        const url = typeof input === "string"
-          ? input
-          : input instanceof URL
-          ? input.href
-          : input.url;
+        const url =
+          typeof input === "string"
+            ? input
+            : input instanceof URL
+              ? input.href
+              : input.url;
 
         const body = init?.body ? JSON.parse(init.body as string) : null;
 
@@ -244,13 +256,19 @@ describe("sendMany batch - partial failure", () => {
             new Response(
               JSON.stringify({
                 methodResponses: [
-                  ["Mailbox/get", {
-                    list: [{
-                      id: "drafts-123",
-                      role: "drafts",
-                      name: "Drafts",
-                    }],
-                  }, "c0"],
+                  [
+                    "Mailbox/get",
+                    {
+                      list: [
+                        {
+                          id: "drafts-123",
+                          role: "drafts",
+                          name: "Drafts",
+                        },
+                      ],
+                    },
+                    "c0",
+                  ],
                 ],
               }),
               { status: 200 },
@@ -263,9 +281,13 @@ describe("sendMany batch - partial failure", () => {
             new Response(
               JSON.stringify({
                 methodResponses: [
-                  ["Identity/get", {
-                    list: [{ id: "id-1", email: "sender@example.com" }],
-                  }, "c0"],
+                  [
+                    "Identity/get",
+                    {
+                      list: [{ id: "id-1", email: "sender@example.com" }],
+                    },
+                    "c0",
+                  ],
                 ],
               }),
               { status: 200 },
@@ -279,30 +301,38 @@ describe("sendMany batch - partial failure", () => {
             new Response(
               JSON.stringify({
                 methodResponses: [
-                  ["Email/set", {
-                    created: {
-                      draft0: { id: "email-0" },
-                      draft2: { id: "email-2" },
-                    },
-                    notCreated: {
-                      draft1: {
-                        type: "invalidProperties",
-                        description: "Invalid recipient",
+                  [
+                    "Email/set",
+                    {
+                      created: {
+                        draft0: { id: "email-0" },
+                        draft2: { id: "email-2" },
+                      },
+                      notCreated: {
+                        draft1: {
+                          type: "invalidProperties",
+                          description: "Invalid recipient",
+                        },
                       },
                     },
-                  }, "c0"],
-                  ["EmailSubmission/set", {
-                    created: {
-                      sub0: { id: "submission-0" },
-                      sub2: { id: "submission-2" },
-                    },
-                    notCreated: {
-                      sub1: {
-                        type: "invalidEmail",
-                        description: "Email not created",
+                    "c0",
+                  ],
+                  [
+                    "EmailSubmission/set",
+                    {
+                      created: {
+                        sub0: { id: "submission-0" },
+                        sub2: { id: "submission-2" },
+                      },
+                      notCreated: {
+                        sub1: {
+                          type: "invalidEmail",
+                          description: "Email not created",
+                        },
                       },
                     },
-                  }, "c1"],
+                    "c1",
+                  ],
                 ],
               }),
               { status: 200 },
@@ -348,7 +378,7 @@ describe("sendMany batch - partial failure", () => {
       };
       assert.ok(
         failedReceipt.errorMessages.some((e) =>
-          e.includes("invalidProperties")
+          e.includes("invalidProperties"),
         ),
       );
 
@@ -373,15 +403,17 @@ describe("sendMany batch - attachment upload timeout", () => {
         input: RequestInfo | URL,
         init?: RequestInit,
       ): Promise<Response> => {
-        const url = typeof input === "string"
-          ? input
-          : input instanceof URL
-          ? input.href
-          : input.url;
+        const url =
+          typeof input === "string"
+            ? input
+            : input instanceof URL
+              ? input.href
+              : input.url;
 
-        const body = init?.body && typeof init.body === "string"
-          ? JSON.parse(init.body)
-          : null;
+        const body =
+          init?.body && typeof init.body === "string"
+            ? JSON.parse(init.body)
+            : null;
 
         if (url.includes(".well-known/jmap")) {
           return Promise.resolve(
@@ -413,13 +445,19 @@ describe("sendMany batch - attachment upload timeout", () => {
             new Response(
               JSON.stringify({
                 methodResponses: [
-                  ["Mailbox/get", {
-                    list: [{
-                      id: "drafts-123",
-                      role: "drafts",
-                      name: "Drafts",
-                    }],
-                  }, "c0"],
+                  [
+                    "Mailbox/get",
+                    {
+                      list: [
+                        {
+                          id: "drafts-123",
+                          role: "drafts",
+                          name: "Drafts",
+                        },
+                      ],
+                    },
+                    "c0",
+                  ],
                 ],
               }),
               { status: 200 },
@@ -432,9 +470,13 @@ describe("sendMany batch - attachment upload timeout", () => {
             new Response(
               JSON.stringify({
                 methodResponses: [
-                  ["Identity/get", {
-                    list: [{ id: "id-1", email: "sender@example.com" }],
-                  }, "c0"],
+                  [
+                    "Identity/get",
+                    {
+                      list: [{ id: "id-1", email: "sender@example.com" }],
+                    },
+                    "c0",
+                  ],
                 ],
               }),
               { status: 200 },
@@ -445,9 +487,13 @@ describe("sendMany batch - attachment upload timeout", () => {
         if (url.includes("/upload/")) {
           return new Promise((_resolve, reject) => {
             assert.ok(init?.signal instanceof AbortSignal);
-            init.signal.addEventListener("abort", () => {
-              reject(init.signal?.reason);
-            }, { once: true });
+            init.signal.addEventListener(
+              "abort",
+              () => {
+                reject(init.signal?.reason);
+              },
+              { once: true },
+            );
           });
         }
 
@@ -461,16 +507,20 @@ describe("sendMany batch - attachment upload timeout", () => {
         timeout: 1,
       });
 
-      const messages = [{
-        ...baseMessage,
-        attachments: [{
-          filename: "timeout.txt",
-          contentType: "text/plain" as const,
-          content: new Uint8Array([1, 2, 3]),
-          contentId: "timeout-attachment",
-          inline: false,
-        }],
-      }];
+      const messages = [
+        {
+          ...baseMessage,
+          attachments: [
+            {
+              filename: "timeout.txt",
+              contentType: "text/plain" as const,
+              content: new Uint8Array([1, 2, 3]),
+              contentId: "timeout-attachment",
+              inline: false,
+            },
+          ],
+        },
+      ];
 
       const receipts: Awaited<ReturnType<typeof transport.send>>[] = [];
       for await (const receipt of transport.sendMany(messages)) {

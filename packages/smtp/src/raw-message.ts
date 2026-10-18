@@ -33,10 +33,10 @@ export function prepareRawSmtpMessage(
   return {
     rawMessage: plan,
     envelope: { ...plan.envelope, dsn },
-    requiresSmtpUtf8: [plan.envelope.from ?? "", ...plan.envelope.to].some(
-      (address) =>
+    requiresSmtpUtf8:
+      [plan.envelope.from ?? "", ...plan.envelope.to].some((address) =>
         Array.from(address).some((character) => character.charCodeAt(0) > 127),
-    ) || plan.encoding === "utf8",
+      ) || plan.encoding === "utf8",
   };
 }
 
@@ -57,13 +57,14 @@ export async function prepareRawSmtpStream(
     progress();
   }
   if (plan.size !== undefined) checkSize(plan.size);
-  const analysis = plan.encoding === undefined
-    ? await analyzeRawMessage(plan, signal, (info) => {
-      progress();
-      negotiate(info.encoding);
-      checkSize(info.size);
-    })
-    : { size: plan.size, encoding: plan.encoding };
+  const analysis =
+    plan.encoding === undefined
+      ? await analyzeRawMessage(plan, signal, (info) => {
+          progress();
+          negotiate(info.encoding);
+          checkSize(info.size);
+        })
+      : { size: plan.size, encoding: plan.encoding };
   signal?.throwIfAborted();
   negotiate(analysis.encoding);
   return {

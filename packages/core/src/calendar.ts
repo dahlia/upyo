@@ -181,9 +181,9 @@ export function resolveCalendarContent(
   }
   if (calendar.method != null && calendar.method !== method) {
     throw new TypeError(
-      `The calendar content declares METHOD:${method}, but ${
-        JSON.stringify(calendar.method)
-      } was given.  Leave the method unset to take it from the content.`,
+      `The calendar content declares METHOD:${method}, but ${JSON.stringify(
+        calendar.method,
+      )} was given.  Leave the method unset to take it from the content.`,
     );
   }
   return { method, content };
@@ -281,10 +281,12 @@ function readMethod(content: string): CalendarMethod | undefined {
   for (const line of unfold(content)) {
     const parsed = parseContentLine(line);
     const { name } = parsed;
-    const value = name === "BEGIN" || name === "END" ||
-        (name === "METHOD" && stack.length === 1)
-      ? asciiUpperCase(parsed.value)
-      : parsed.value;
+    const value =
+      name === "BEGIN" ||
+      name === "END" ||
+      (name === "METHOD" && stack.length === 1)
+        ? asciiUpperCase(parsed.value)
+        : parsed.value;
 
     // Every line has passed the generic grammar.  Component delimiters also
     // have the stricter BEGIN:<name> / END:<name> shape from RFC 5545 §3.4.
@@ -303,9 +305,9 @@ function readMethod(content: string): CalendarMethod | undefined {
       }
       if (stack.length < 1 && value !== "VCALENDAR") {
         throw new TypeError(
-          `The calendar content begins with ${
-            JSON.stringify(value)
-          } rather than a VCALENDAR object.`,
+          `The calendar content begins with ${JSON.stringify(
+            value,
+          )} rather than a VCALENDAR object.`,
         );
       }
       // RFC 5545 §3.4 has no VCALENDAR inside a VCALENDAR.  A nested one
@@ -322,9 +324,9 @@ function readMethod(content: string): CalendarMethod | undefined {
       // here or not at all.
       if (!componentNamePattern.test(value)) {
         throw new TypeError(
-          `The calendar content opens a component named ${
-            JSON.stringify(value)
-          }, which is not a component name.`,
+          `The calendar content opens a component named ${JSON.stringify(
+            value,
+          )}, which is not a component name.`,
         );
       }
       stack.push(value);
@@ -333,9 +335,9 @@ function readMethod(content: string): CalendarMethod | undefined {
     if (name === "END") {
       if (stack.pop() !== value) {
         throw new TypeError(
-          `The calendar content closes ${
-            JSON.stringify(value)
-          } that was never opened.`,
+          `The calendar content closes ${JSON.stringify(
+            value,
+          )} that was never opened.`,
         );
       }
       if (stack.length < 1) closed = true;
@@ -348,15 +350,17 @@ function readMethod(content: string): CalendarMethod | undefined {
     }
     if (name === "METHOD" && stack.length === 1) {
       methods++;
-      method = calendarMethods.has(value) ? value as CalendarMethod : undefined;
+      method = calendarMethods.has(value)
+        ? (value as CalendarMethod)
+        : undefined;
     }
   }
 
   if (stack.length > 0) {
     throw new TypeError(
-      `The calendar content leaves ${
-        JSON.stringify(stack[stack.length - 1])
-      } unclosed.`,
+      `The calendar content leaves ${JSON.stringify(
+        stack[stack.length - 1],
+      )} unclosed.`,
     );
   }
   if (!closed) {
@@ -380,9 +384,8 @@ function readMethod(content: string): CalendarMethod | undefined {
  * @returns The token with its ASCII letters upper-cased.
  */
 function asciiUpperCase(token: string): string {
-  return token.replace(
-    /[a-z]/g,
-    (letter) => String.fromCharCode(letter.charCodeAt(0) - 32),
+  return token.replace(/[a-z]/g, (letter) =>
+    String.fromCharCode(letter.charCodeAt(0) - 32),
   );
 }
 
@@ -443,8 +446,10 @@ function parseContentLine(line: string): {
         cursor++;
       } else {
         while (
-          cursor < line.length && line[cursor] !== "," &&
-          line[cursor] !== ";" && line[cursor] !== ":"
+          cursor < line.length &&
+          line[cursor] !== "," &&
+          line[cursor] !== ";" &&
+          line[cursor] !== ":"
         ) {
           if (line[cursor] === '"') {
             fail("a quote inside an unquoted parameter");
@@ -465,9 +470,12 @@ function parseContentLine(line: string): {
 
 /** Whether a code unit belongs to the iana-token / x-name character set. */
 function isTokenCharacter(code: number): boolean {
-  return (code >= 0x41 && code <= 0x5a) ||
+  return (
+    (code >= 0x41 && code <= 0x5a) ||
     (code >= 0x61 && code <= 0x7a) ||
-    (code >= 0x30 && code <= 0x39) || code === 0x2d;
+    (code >= 0x30 && code <= 0x39) ||
+    code === 0x2d
+  );
 }
 
 /**

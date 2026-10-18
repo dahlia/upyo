@@ -231,14 +231,14 @@ export const assertions = {
     instrumentType: string,
     expectedCount?: number,
   ): TestMetric {
-    const matchingMetrics = metrics.filter((m) =>
-      m.instrument === instrumentType
+    const matchingMetrics = metrics.filter(
+      (m) => m.instrument === instrumentType,
     );
     if (matchingMetrics.length === 0) {
       throw new Error(
-        `Expected metric of type '${instrumentType}' not found. Available types: ${
-          metrics.map((m) => m.instrument).join(", ")
-        }`,
+        `Expected metric of type '${instrumentType}' not found. Available types: ${metrics
+          .map((m) => m.instrument)
+          .join(", ")}`,
       );
     }
 

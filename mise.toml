@@ -88,7 +88,11 @@ run = "actionlint"
 
 [tasks."check:fmt"]
 description = "Check formatting"
-run = ["deno fmt --check", "hongdown --check", "mise fmt --check"]
+run = [
+  "pnpm exec oxfmt --check '**/*.{ts,tsx,js,jsx,mts,cts,mjs,cjs,json,jsonc}'",
+  "hongdown --check",
+  "mise fmt --check",
+]
 
 [tasks.check]
 description = "Run full repository validation"
@@ -107,7 +111,11 @@ run = [
 
 [tasks.fmt]
 description = "Format TypeScript and Markdown files"
-run = ["deno fmt", "hongdown --write", "mise fmt"]
+run = [
+  "pnpm exec oxfmt '**/*.{ts,tsx,js,jsx,mts,cts,mjs,cjs,json,jsonc}'",
+  "hongdown --write",
+  "mise fmt",
+]
 
 [tasks.build]
 description = "Build all npm packages"
@@ -269,6 +277,7 @@ let deno_json = (open packages/core/deno.json)
 let version = $"($deno_json.version)-dev.($dev_build)+($short_commit)"
 $deno_json | upsert version $version | save --force packages/core/deno.json
 mise run check:versions --fix
+mise run fmt
 '''
 
 [tasks.publish]

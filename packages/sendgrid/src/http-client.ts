@@ -177,10 +177,7 @@ export class SendGridHttpClient {
    * @throws {Error} If the configured request timeout is reached.
    * @throws {DOMException} If the caller aborts the request.
    */
-  async fetchWithAuth(
-    url: string,
-    options: RequestInit,
-  ): Promise<Response> {
+  async fetchWithAuth(url: string, options: RequestInit): Promise<Response> {
     const headers = new Headers(options.headers);
 
     // Add authentication header
@@ -298,8 +295,9 @@ function isAbortError(error: unknown): boolean {
 }
 
 function isCallerAbort(error: unknown, signal?: AbortSignal | null): boolean {
-  return signal?.aborted === true &&
-    (isAbortError(error) || error === signal.reason);
+  return (
+    signal?.aborted === true && (isAbortError(error) || error === signal.reason)
+  );
 }
 
 function sleep(
@@ -327,6 +325,8 @@ function sleep(
 }
 
 function createAbortError(signal?: AbortSignal | null): unknown {
-  return signal?.reason ??
-    new DOMException("The operation was aborted.", "AbortError");
+  return (
+    signal?.reason ??
+    new DOMException("The operation was aborted.", "AbortError")
+  );
 }

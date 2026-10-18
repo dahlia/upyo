@@ -94,7 +94,8 @@ export function createRawMessagePlan(message: RawMessage): RawMessagePlan {
   if (
     envelope == null ||
     (envelope.from !== null && !isEmailAddress(envelope.from)) ||
-    !Array.isArray(envelope.to) || envelope.to.length === 0 ||
+    !Array.isArray(envelope.to) ||
+    envelope.to.length === 0 ||
     !Array.from(envelope.to).every(isEmailAddress)
   ) {
     throw new RawMessageValidationError(
@@ -103,8 +104,10 @@ export function createRawMessagePlan(message: RawMessage): RawMessagePlan {
     );
   }
   if (
-    message.encoding !== undefined && message.encoding !== "7bit" &&
-    message.encoding !== "8bit" && message.encoding !== "utf8"
+    message.encoding !== undefined &&
+    message.encoding !== "7bit" &&
+    message.encoding !== "8bit" &&
+    message.encoding !== "utf8"
   ) {
     throw new RawMessageValidationError(
       "Invalid raw message encoding.",
@@ -112,7 +115,8 @@ export function createRawMessagePlan(message: RawMessage): RawMessagePlan {
     );
   }
   if (
-    !(content instanceof Uint8Array) && !(content instanceof Promise) &&
+    !(content instanceof Uint8Array) &&
+    !(content instanceof Promise) &&
     !(typeof Blob !== "undefined" && content instanceof Blob) &&
     typeof content !== "function"
   ) {
@@ -125,11 +129,12 @@ export function createRawMessagePlan(message: RawMessage): RawMessagePlan {
     envelope: { from: envelope.from, to: [...envelope.to] },
     content,
     encoding: message.encoding,
-    size: content instanceof Uint8Array
-      ? content.byteLength
-      : typeof Blob !== "undefined" && content instanceof Blob
-      ? content.size
-      : undefined,
+    size:
+      content instanceof Uint8Array
+        ? content.byteLength
+        : typeof Blob !== "undefined" && content instanceof Blob
+          ? content.size
+          : undefined,
   };
 }
 
@@ -176,9 +181,10 @@ export async function* iterateRawMessage(
   ): never => {
     throw new RawMessageValidationError(message, field, offset, line);
   };
-  for await (
-    const chunk of iterateAttachmentContent(plan.content, options.signal)
-  ) {
+  for await (const chunk of iterateAttachmentContent(
+    plan.content,
+    options.signal,
+  )) {
     for (let start = 0; start < chunk.length; start += 32768) {
       options.signal?.throwIfAborted();
       const window = chunk.subarray(start, start + 32768);
@@ -255,14 +261,14 @@ export async function analyzeRawMessage(
   onProgress?: (analysis: RawMessageAnalysis) => void,
 ): Promise<RawMessageAnalysis> {
   let result: RawMessageAnalysis = { size: 0, encoding: "7bit" };
-  for await (
-    const _ of iterateRawMessage(plan, {
-      signal,
-      onProgress(info) {
-        result = info;
-        onProgress?.(info);
-      },
-    })
-  ) { /* Validation happens during iteration. */ }
+  for await (const _ of iterateRawMessage(plan, {
+    signal,
+    onProgress(info) {
+      result = info;
+      onProgress?.(info);
+    },
+  })) {
+    /* Validation happens during iteration. */
+  }
   return result;
 }

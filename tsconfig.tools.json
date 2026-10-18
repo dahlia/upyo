@@ -3,7 +3,5 @@
   "compilerOptions": {
     "skipLibCheck": true
   },
-  "include": [
-    "packages/*/tsdown.config.ts"
-  ]
+  "include": ["packages/*/tsdown.config.ts"]
 }

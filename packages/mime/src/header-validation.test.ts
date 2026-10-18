@@ -11,13 +11,11 @@ const message = createMessage({
   content: { text: "Hello" },
 });
 
-for (
-  const address of [
-    "reply@example.com\r\nBcc: injected@example.com",
-    "reply@example.com\r",
-    "reply@example.com\n",
-  ]
-) {
+for (const address of [
+  "reply@example.com\r\nBcc: injected@example.com",
+  "reply@example.com\r",
+  "reply@example.com\n",
+]) {
   test(`reject address line endings: ${JSON.stringify(address)}`, async () => {
     const direct = {
       ...message,
@@ -41,16 +39,14 @@ class DirectHeaders extends Headers {
   }
 }
 
-for (
-  const field of [
-    "X-Test\r\nBcc",
-    "X-Test: Bcc",
-    "X Test",
-    "",
-    "X-한글",
-    "X-Test\n",
-  ]
-) {
+for (const field of [
+  "X-Test\r\nBcc",
+  "X-Test: Bcc",
+  "X Test",
+  "",
+  "X-한글",
+  "X-Test\n",
+]) {
   test(`reject invalid custom field name: ${JSON.stringify(field)}`, async () => {
     const direct = { ...message, headers: new DirectHeaders(field) };
     assert.throws(() => prepareMimeMessage(direct), TypeError);
@@ -59,9 +55,10 @@ for (
 }
 
 test("accept the full printable ASCII field-name range except colon", async () => {
-  const field = Array.from(
-    { length: 94 },
-    (_, index) => String.fromCharCode(index + 33),
-  ).join("").replace(":", "");
+  const field = Array.from({ length: 94 }, (_, index) =>
+    String.fromCharCode(index + 33),
+  )
+    .join("")
+    .replace(":", "");
   await composeMessage({ ...message, headers: new DirectHeaders(field) });
 });

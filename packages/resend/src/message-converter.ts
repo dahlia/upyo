@@ -65,15 +65,17 @@ export async function convertMessage(
   // A transport that cannot compose a `text/calendar` alternative carries the
   // scheduling payload as an *invite.ics* part instead, ahead of the caller's
   // own files so that a client looking for the first calendar part finds it.
-  const attachments = message.calendar == null
-    ? message.attachments
-    : [createCalendarAttachment(message.calendar), ...message.attachments];
+  const attachments =
+    message.calendar == null
+      ? message.attachments
+      : [createCalendarAttachment(message.calendar), ...message.attachments];
 
   const emailData: ResendEmail = {
     from: formatAddress(message.sender),
-    to: message.recipients.length === 1
-      ? formatAddress(message.recipients[0])
-      : message.recipients.map(formatAddress),
+    to:
+      message.recipients.length === 1
+        ? formatAddress(message.recipients[0])
+        : message.recipients.map(formatAddress),
     subject: message.subject,
   };
 
@@ -110,7 +112,7 @@ export async function convertMessage(
     try {
       emailData.attachments = await Promise.all(
         attachments.map((attachment) =>
-          convertAttachment(attachment, combined.signal)
+          convertAttachment(attachment, combined.signal),
         ),
       );
     } finally {
@@ -220,10 +222,13 @@ export async function convertMessagesBatch(
 function formatAddress(address: Address): string {
   if (address.name) {
     // If the name contains special characters, quote it
-    const name = address.name.includes('"') || address.name.includes(",") ||
-        address.name.includes("<") || address.name.includes(">")
-      ? `"${address.name.replace(/"/g, '\\"')}"`
-      : address.name;
+    const name =
+      address.name.includes('"') ||
+      address.name.includes(",") ||
+      address.name.includes("<") ||
+      address.name.includes(">")
+        ? `"${address.name.replace(/"/g, '\\"')}"`
+        : address.name;
     return `${name} <${address.address}>`;
   }
   return address.address;
@@ -272,7 +277,8 @@ function uint8ArrayToBase64(bytes: Uint8Array): string {
 
     const bitmap = (a << 16) | (b << 8) | c;
 
-    result += chars.charAt((bitmap >> 18) & 63) +
+    result +=
+      chars.charAt((bitmap >> 18) & 63) +
       chars.charAt((bitmap >> 12) & 63) +
       chars.charAt((bitmap >> 6) & 63) +
       chars.charAt(bitmap & 63);

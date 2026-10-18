@@ -111,13 +111,13 @@ export class JmapHttpClient {
             body: this.replayableRequests
               ? JSON.stringify(request)
               : new ReadableStream<Uint8Array>({
-                start(controller) {
-                  controller.enqueue(
-                    new TextEncoder().encode(JSON.stringify(request)),
-                  );
-                  controller.close();
-                },
-              }),
+                  start(controller) {
+                    controller.enqueue(
+                      new TextEncoder().encode(JSON.stringify(request)),
+                    );
+                    controller.close();
+                  },
+                }),
             ...(this.replayableRequests
               ? {}
               : { duplex: "half" as const, redirect: "error" as const }),
@@ -279,12 +279,10 @@ export class JmapHttpClient {
   }
 }
 
-function isCallerAbort(
-  error: unknown,
-  signal?: AbortSignal | null,
-): boolean {
-  return signal?.aborted === true &&
-    (isAbortError(error) || error === signal.reason);
+function isCallerAbort(error: unknown, signal?: AbortSignal | null): boolean {
+  return (
+    signal?.aborted === true && (isAbortError(error) || error === signal.reason)
+  );
 }
 
 function isAbortError(error: unknown): boolean {

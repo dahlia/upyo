@@ -191,8 +191,8 @@ describe("convertMessage", () => {
       clickTracking: false,
       openTracking: false,
     });
-    const configWithTracking =
-      (transportWithTracking as MailgunTransport).config;
+    const configWithTracking = (transportWithTracking as MailgunTransport)
+      .config;
 
     const message: Message = {
       sender: { address: "sender@example.com" },
@@ -265,8 +265,8 @@ describe("convertMessage", () => {
     assert.equal(attachmentEntries.length, 2);
 
     // Check that we have both attachment types
-    const hasAttachment = attachmentEntries.some(([key]) =>
-      key === "attachment"
+    const hasAttachment = attachmentEntries.some(
+      ([key]) => key === "attachment",
     );
     const hasInline = attachmentEntries.some(([key]) => key === "inline");
     assert.ok(hasAttachment, "Should have regular attachment");
@@ -274,9 +274,10 @@ describe("convertMessage", () => {
   });
 });
 
-const threadingConfig =
-  new MailgunTransport({ apiKey: "test-key", domain: "test-domain.com" })
-    .config;
+const threadingConfig = new MailgunTransport({
+  apiKey: "test-key",
+  domain: "test-domain.com",
+}).config;
 
 const headerOf = (form: FormData, name: string) =>
   [...form.entries()]
@@ -343,16 +344,17 @@ describe("convertMessage() reply threading", () => {
   });
 });
 
-const CALENDAR_ICS = [
-  "BEGIN:VCALENDAR",
-  "VERSION:2.0",
-  "METHOD:REQUEST",
-  "BEGIN:VEVENT",
-  "UID:1@example.com",
-  "SUMMARY:Lunch",
-  "END:VEVENT",
-  "END:VCALENDAR",
-].join("\r\n") + "\r\n";
+const CALENDAR_ICS =
+  [
+    "BEGIN:VCALENDAR",
+    "VERSION:2.0",
+    "METHOD:REQUEST",
+    "BEGIN:VEVENT",
+    "UID:1@example.com",
+    "SUMMARY:Lunch",
+    "END:VEVENT",
+    "END:VCALENDAR",
+  ].join("\r\n") + "\r\n";
 
 describe("convertMessage() calendar", () => {
   const transport = new MailgunTransport({
@@ -395,13 +397,15 @@ describe("convertMessage() calendar", () => {
         subject: "Lunch",
         content: { text: "Lunch on Wednesday." },
         calendar: { method: "REQUEST", content: CALENDAR_ICS },
-        attachments: [{
-          inline: false,
-          filename: "agenda.txt",
-          content: new TextEncoder().encode("agenda"),
-          contentType: "text/plain",
-          contentId: "",
-        }],
+        attachments: [
+          {
+            inline: false,
+            filename: "agenda.txt",
+            content: new TextEncoder().encode("agenda"),
+            contentType: "text/plain",
+            contentId: "",
+          },
+        ],
       }),
       config,
     );

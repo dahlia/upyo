@@ -1,0 +1,30 @@
+{
+  "$schema": "./node_modules/oxfmt/configuration_schema.json",
+  "printWidth": 80,
+  "tabWidth": 2,
+  "useTabs": false,
+  "singleQuote": false,
+  "semi": true,
+  "trailingComma": "all",
+  "endOfLine": "lf",
+  "sortImports": false,
+  "sortPackageJson": false,
+  "embeddedLanguageFormatting": "off",
+  "jsdoc": false,
+  "ignorePatterns": [
+    "**/dist/**",
+    "**/node_modules/**",
+    ".agents/**",
+    ".github/**",
+    "coverage/**",
+    "docs/**",
+    "tmp/**",
+    "packages/mime/edge/**",
+    "**/*.md",
+    "**/*.yaml",
+    "**/*.yml",
+    "**/*.toml"
+  ],
+  "quoteProps": "preserve",
+  "objectWrap": "preserve"
+}

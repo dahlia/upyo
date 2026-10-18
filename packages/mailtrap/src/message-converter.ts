@@ -87,9 +87,10 @@ export async function convertMessage(
   // A transport that cannot compose a `text/calendar` alternative carries the
   // scheduling payload as an *invite.ics* part instead, ahead of the caller's
   // own files so that a client looking for the first calendar part finds it.
-  const attachments = message.calendar == null
-    ? message.attachments
-    : [createCalendarAttachment(message.calendar), ...message.attachments];
+  const attachments =
+    message.calendar == null
+      ? message.attachments
+      : [createCalendarAttachment(message.calendar), ...message.attachments];
 
   const emailData: MutableMailtrapEmail = {
     from: formatAddress(message.sender),
@@ -167,7 +168,7 @@ export async function convertMessage(
     try {
       emailData.attachments = await Promise.all(
         attachments.map((attachment) =>
-          convertAttachment(attachment, combined.signal)
+          convertAttachment(attachment, combined.signal),
         ),
       );
     } finally {
@@ -185,10 +186,7 @@ type MutableMailtrapEmail = {
   -readonly [Key in keyof MailtrapEmail]: MailtrapEmail[Key];
 };
 
-function resolveCategory(
-  tags: readonly string[],
-  fallback: string,
-): string {
+function resolveCategory(tags: readonly string[], fallback: string): string {
   return tags[0] ?? fallback;
 }
 
@@ -223,10 +221,7 @@ async function convertAttachment(
   signal?: AbortSignal,
 ): Promise<MailtrapAttachment> {
   signal?.throwIfAborted();
-  const contentBytes = await readAttachmentContent(
-    attachment.content,
-    signal,
-  );
+  const contentBytes = await readAttachmentContent(attachment.content, signal);
   signal?.throwIfAborted();
   const converted: {
     content: string;
@@ -293,9 +288,7 @@ function uint8ArrayToBase64(bytes: Uint8Array): string {
   return btoa(chunks.join(""));
 }
 
-function getNativeToBase64(
-  bytes: Uint8Array,
-): (() => string) | undefined {
+function getNativeToBase64(bytes: Uint8Array): (() => string) | undefined {
   const candidate: Uint8Array & NativeBase64Converter = bytes;
   const toBase64 = candidate.toBase64;
   if (typeof toBase64 !== "function") return undefined;
@@ -303,9 +296,11 @@ function getNativeToBase64(
 }
 
 function getBufferBase64(bytes: Uint8Array): string | undefined {
-  const candidate = (globalThis as typeof globalThis & {
-    readonly Buffer?: BufferConstructorLike;
-  }).Buffer;
+  const candidate = (
+    globalThis as typeof globalThis & {
+      readonly Buffer?: BufferConstructorLike;
+    }
+  ).Buffer;
   if (typeof candidate?.from !== "function") return undefined;
 
   try {
@@ -320,8 +315,9 @@ function getBufferBase64(bytes: Uint8Array): string | undefined {
     ) {
       return undefined;
     }
-    const base64 = (buffer as { toString: (encoding: "base64") => unknown })
-      .toString("base64");
+    const base64 = (
+      buffer as { toString: (encoding: "base64") => unknown }
+    ).toString("base64");
     return typeof base64 === "string" ? base64 : undefined;
   } catch {
     return undefined;

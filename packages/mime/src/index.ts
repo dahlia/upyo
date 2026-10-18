@@ -63,8 +63,7 @@ export async function composeMessage(
         ...message.recipients,
         ...message.ccRecipients,
         ...message.bccRecipients,
-      ]
-        .map((recipient) => recipient.address),
+      ].map((recipient) => recipient.address),
     },
     content: new Uint8Array(),
   });

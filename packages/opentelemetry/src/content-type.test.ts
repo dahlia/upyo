@@ -9,14 +9,15 @@ import {
   MockTracerProvider,
 } from "./test-utils/mock-otel-providers.ts";
 
-const CALENDAR_ICS = [
-  "BEGIN:VCALENDAR",
-  "METHOD:REQUEST",
-  "BEGIN:VEVENT",
-  "UID:1@example.com",
-  "END:VEVENT",
-  "END:VCALENDAR",
-].join("\r\n") + "\r\n";
+const CALENDAR_ICS =
+  [
+    "BEGIN:VCALENDAR",
+    "METHOD:REQUEST",
+    "BEGIN:VEVENT",
+    "UID:1@example.com",
+    "END:VEVENT",
+    "END:VCALENDAR",
+  ].join("\r\n") + "\r\n";
 
 const base = {
   from: "organizer@example.com",

@@ -69,7 +69,8 @@ import { estimateMessageSize } from "./message-size.ts";
  * @since 0.2.0
  */
 export class OpenTelemetryTransport<TProviderId extends string = string>
-  implements Transport<TProviderId>, AsyncDisposable {
+  implements Transport<TProviderId>, AsyncDisposable
+{
   readonly id: TProviderId;
 
   /**
@@ -248,9 +249,10 @@ export class OpenTelemetryTransport<TProviderId extends string = string>
       }
 
       // Delegate to wrapped transport
-      for await (
-        const receipt of this.wrappedTransport.sendMany(messageArray, options)
-      ) {
+      for await (const receipt of this.wrappedTransport.sendMany(
+        messageArray,
+        options,
+      )) {
         receipts.push(receipt);
 
         if (receipt.successful) {
@@ -318,8 +320,9 @@ export class OpenTelemetryTransport<TProviderId extends string = string>
         Symbol.asyncDispose
       ] === "function"
     ) {
-      await (this.wrappedTransport as unknown as AsyncDisposable)
-        [Symbol.asyncDispose]();
+      await (this.wrappedTransport as unknown as AsyncDisposable)[
+        Symbol.asyncDispose
+      ]();
       return;
     }
 
@@ -346,7 +349,8 @@ export class OpenTelemetryTransport<TProviderId extends string = string>
 
     // Try to extract from config if available
     if (
-      "config" in transport && transport.config &&
+      "config" in transport &&
+      transport.config &&
       typeof transport.config === "object"
     ) {
       // Check for common config properties that might indicate transport type
@@ -366,7 +370,8 @@ export class OpenTelemetryTransport<TProviderId extends string = string>
   ): string | undefined {
     // Try to extract version from config or transport properties
     if (
-      "config" in transport && transport.config &&
+      "config" in transport &&
+      transport.config &&
       typeof transport.config === "object"
     ) {
       if ("version" in transport.config) {
@@ -382,7 +387,8 @@ export class OpenTelemetryTransport<TProviderId extends string = string>
     const transport = this.wrappedTransport;
 
     if (
-      "config" in transport && transport.config &&
+      "config" in transport &&
+      transport.config &&
       typeof transport.config === "object"
     ) {
       const config = transport.config as Record<string, unknown>;
@@ -398,7 +404,9 @@ export class OpenTelemetryTransport<TProviderId extends string = string>
 
       // HTTP-based transports
       if ("baseUrl" in config || "endpoint" in config || "domain" in config) {
-        const url = config.baseUrl || config.endpoint ||
+        const url =
+          config.baseUrl ||
+          config.endpoint ||
           (config.domain &&
             `https://api.${config.region === "eu" ? "eu." : ""}mailgun.net`);
 
@@ -408,8 +416,9 @@ export class OpenTelemetryTransport<TProviderId extends string = string>
             return {
               "network.protocol.name": parsedUrl.protocol.replace(":", ""),
               "server.address": parsedUrl.hostname,
-              ...(parsedUrl.port &&
-                { "server.port": parseInt(parsedUrl.port) }),
+              ...(parsedUrl.port && {
+                "server.port": parseInt(parsedUrl.port),
+              }),
             };
           } catch {
             // Invalid URL, skip network attributes

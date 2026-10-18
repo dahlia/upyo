@@ -54,8 +54,7 @@ describe(
       const message = createTestMessage({
         subject: "[E2E Test] HTML Email",
         content: {
-          html:
-            "<h1>HTML E2E Test</h1><p>This is an <strong>HTML</strong> email sent via Mailgun API</p>",
+          html: "<h1>HTML E2E Test</h1><p>This is an <strong>HTML</strong> email sent via Mailgun API</p>",
           text: "This is the plain text version of the HTML email",
         },
       });
@@ -84,9 +83,7 @@ describe(
         recipients: [
           { name: "Primary Recipient", address: config.testEmails.to },
         ],
-        ccRecipients: [
-          { name: "CC Recipient", address: config.testEmails.to },
-        ],
+        ccRecipients: [{ name: "CC Recipient", address: config.testEmails.to }],
         content: { text: "This email was sent to multiple recipients" },
       });
 
@@ -255,8 +252,7 @@ describe(
       const message = createTestMessage({
         subject: "[E2E Test] Unicode Test - 한글 테스트 🌍",
         content: {
-          text:
-            "안녕하세요! This email contains Korean characters and emojis 🚀📧",
+          text: "안녕하세요! This email contains Korean characters and emojis 🚀📧",
         },
       });
 

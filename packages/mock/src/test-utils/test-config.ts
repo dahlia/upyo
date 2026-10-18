@@ -18,12 +18,14 @@ export function createTestMockTransport(config?: MockConfig): MockTransport {
  * @param overrides Optional properties to override defaults
  * @returns A test Message object
  */
-export function createTestMessage(overrides: Partial<{
-  from: string;
-  to: string | string[];
-  subject: string;
-  content: { text: string } | { html: string; text?: string };
-}> = {}): Message {
+export function createTestMessage(
+  overrides: Partial<{
+    from: string;
+    to: string | string[];
+    subject: string;
+    content: { text: string } | { html: string; text?: string };
+  }> = {},
+): Message {
   return createMessage({
     from: overrides.from ?? "test-sender@example.com",
     to: overrides.to ?? "test-recipient@example.com",

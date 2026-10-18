@@ -88,17 +88,16 @@ export async function convertMessage(
   signal?: AbortSignal,
 ): Promise<LettermintEmail> {
   if (message.tags.length > 1) {
-    throw new RangeError(
-      "Lettermint supports at most one tag per message.",
-    );
+    throw new RangeError("Lettermint supports at most one tag per message.");
   }
 
   // A transport that cannot compose a `text/calendar` alternative carries the
   // scheduling payload as an *invite.ics* part instead, ahead of the caller's
   // own files so that a client looking for the first calendar part finds it.
-  const attachments = message.calendar == null
-    ? message.attachments
-    : [createCalendarAttachment(message.calendar), ...message.attachments];
+  const attachments =
+    message.calendar == null
+      ? message.attachments
+      : [createCalendarAttachment(message.calendar), ...message.attachments];
 
   const emailData: MutableLettermintEmail = {
     from: formatAddress(message.sender),
@@ -183,7 +182,7 @@ export async function convertMessage(
     try {
       emailData.attachments = await Promise.all(
         attachments.map((attachment) =>
-          convertAttachment(attachment, combined.signal)
+          convertAttachment(attachment, combined.signal),
         ),
       );
     } finally {
@@ -231,10 +230,9 @@ function convertSettings(
 
 function formatAddress(address: Address): string {
   if (address.name) {
-    const escapedName = address.name.replace(/\\/g, "\\\\").replace(
-      /"/g,
-      '\\"',
-    );
+    const escapedName = address.name
+      .replace(/\\/g, "\\\\")
+      .replace(/"/g, '\\"');
     return `"${escapedName}" <${address.address}>`;
   }
   return address.address;
@@ -281,9 +279,7 @@ function uint8ArrayToBase64(bytes: Uint8Array): string {
   return btoa(chunks.join(""));
 }
 
-function getNativeToBase64(
-  bytes: Uint8Array,
-): (() => string) | undefined {
+function getNativeToBase64(bytes: Uint8Array): (() => string) | undefined {
   const candidate: Uint8Array & NativeBase64Converter = bytes;
   const toBase64 = candidate.toBase64;
   if (typeof toBase64 !== "function") return undefined;

@@ -54,10 +54,11 @@ function fixture() {
     path,
     metadata,
     run: (...args: string[]) =>
-      spawnSync(process.execPath, [
-        join(path, "scripts", "check_versions.ts"),
-        ...args,
-      ], { cwd: path, encoding: "utf8" }),
+      spawnSync(
+        process.execPath,
+        [join(path, "scripts", "check_versions.ts"), ...args],
+        { cwd: path, encoding: "utf8" },
+      ),
     close: () => rmSync(path, { recursive: true, force: true }),
   };
 }
@@ -141,9 +142,11 @@ test("version checker resolves workspace globs relative to its repository", () =
   try {
     f.metadata("outside-pattern", "9.0.0", "9.0.0");
     writeFileSync(join(f.path, "deno.json"), '{"workspace":["packages/c*"]}\n');
-    const result = spawnSync(process.execPath, [
-      join(f.path, "scripts", "check_versions.ts"),
-    ], { cwd: root, encoding: "utf8" });
+    const result = spawnSync(
+      process.execPath,
+      [join(f.path, "scripts", "check_versions.ts")],
+      { cwd: root, encoding: "utf8" },
+    );
     assert.equal(result.status, 0, result.stderr);
   } finally {
     f.close();

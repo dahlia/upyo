@@ -35,9 +35,10 @@ export function prepareMessage(
   return {
     ...plan,
     envelope,
-    requiresSmtpUtf8: plan.encoding === "utf8" ||
+    requiresSmtpUtf8:
+      plan.encoding === "utf8" ||
       [envelope.from ?? "", ...envelope.to].some((address) =>
-        /[\u0080-\uffff]/.test(address)
+        /[\u0080-\uffff]/.test(address),
       ),
   };
 }

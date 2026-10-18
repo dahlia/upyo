@@ -78,9 +78,10 @@ async function setup(implicit: boolean, stall = "") {
     };
     socket.on("data", onData);
   };
-  const server = implicit && stall !== "implicit"
-    ? createTlsServer(credentials, handle)
-    : createServer(handle);
+  const server =
+    implicit && stall !== "implicit"
+      ? createTlsServer(credentials, handle)
+      : createServer(handle);
   server.on("tlsClientError", () => {});
   await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
   const address = server.address();
@@ -147,9 +148,8 @@ for (const stage of ["greeting", "implicit", "STARTTLS", "AUTH"]) {
           };
         }
         const pending = f.transport.verify({ signal: controller.signal });
-        const checked = assert.rejects(
-          pending,
-          (e) => cancel ? e === reason : e instanceof Error,
+        const checked = assert.rejects(pending, (e) =>
+          cancel ? e === reason : e instanceof Error,
         );
         await f.reached.promise;
         if (cancel) controller.abort(reason);

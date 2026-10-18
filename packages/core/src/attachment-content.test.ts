@@ -11,7 +11,7 @@ describe("attachment content", () => {
   it("does not return bytes when cancellation wins before the await resumes", async () => {
     const controller = new AbortController();
     let finish!: (value: Uint8Array) => void;
-    const input = new Promise<Uint8Array>((resolve) => finish = resolve);
+    const input = new Promise<Uint8Array>((resolve) => (finish = resolve));
     const pending = readAttachmentContent(input, controller.signal);
     await Promise.resolve();
     finish(new Uint8Array([1]));
@@ -89,7 +89,7 @@ describe("attachment content", () => {
     let resolve!: (value: AsyncIterable<Uint8Array>) => void;
     let returns = 0;
     const pending = readAttachmentContent(
-      () => new Promise((done) => resolve = done),
+      () => new Promise((done) => (resolve = done)),
       controller.signal,
     );
     await Promise.resolve();
@@ -115,8 +115,8 @@ describe("attachment content", () => {
   it("aborts the source and closes it on early consumer exit", async () => {
     let closed = false;
     let sourceSignal: AbortSignal | undefined;
-    for await (
-      const chunk of iterateAttachmentContent(async function* (signal) {
+    for await (const chunk of iterateAttachmentContent(
+      async function* (signal) {
         sourceSignal = signal;
         try {
           yield new Uint8Array([1]);
@@ -124,8 +124,8 @@ describe("attachment content", () => {
         } finally {
           closed = true;
         }
-      })
-    ) {
+      },
+    )) {
       assert.equal(chunk[0], 1);
       break;
     }
@@ -137,9 +137,11 @@ describe("attachment content", () => {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), 10);
     try {
-      await assert.rejects(readAttachmentContent(async function* () {
-        while (true) yield new Uint8Array();
-      }, controller.signal));
+      await assert.rejects(
+        readAttachmentContent(async function* () {
+          while (true) yield new Uint8Array();
+        }, controller.signal),
+      );
     } finally {
       clearTimeout(timer);
     }

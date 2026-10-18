@@ -92,9 +92,10 @@ export async function convertMessage(
   // A transport that cannot compose a `text/calendar` alternative carries the
   // scheduling payload as an *invite.ics* part instead, ahead of the caller's
   // own files so that a client looking for the first calendar part finds it.
-  const attachments = message.calendar == null
-    ? message.attachments
-    : [createCalendarAttachment(message.calendar), ...message.attachments];
+  const attachments =
+    message.calendar == null
+      ? message.attachments
+      : [createCalendarAttachment(message.calendar), ...message.attachments];
 
   const emailData: MutableMailerooEmail = {
     from: convertAddress(message.sender),
@@ -143,10 +144,7 @@ export async function convertMessage(
     try {
       emailData.attachments = await Promise.all(
         attachments.map((attachment) =>
-          convertAttachment(
-            attachment,
-            combined.signal,
-          )
+          convertAttachment(attachment, combined.signal),
         ),
       );
     } finally {
@@ -181,9 +179,7 @@ interface BufferConstructorLike {
   ) => unknown;
 }
 
-function createMailerooReference(
-  idempotencyKey?: string,
-): string {
+function createMailerooReference(idempotencyKey?: string): string {
   if (idempotencyKey == null || idempotencyKey === "") {
     const bytes = new Uint8Array(12);
     crypto.getRandomValues(bytes);
@@ -201,14 +197,16 @@ function hashReference(value: string): string {
   const bytes = new TextEncoder().encode(value);
   const seeds = [0x811c9dc5, 0x9e3779b9, 0x85ebca6b];
 
-  return seeds.map((seed) => {
-    let hash = seed;
-    for (const byte of bytes) {
-      hash ^= byte;
-      hash = Math.imul(hash, 0x01000193);
-    }
-    return (hash >>> 0).toString(16).padStart(8, "0");
-  }).join("");
+  return seeds
+    .map((seed) => {
+      let hash = seed;
+      for (const byte of bytes) {
+        hash ^= byte;
+        hash = Math.imul(hash, 0x01000193);
+      }
+      return (hash >>> 0).toString(16).padStart(8, "0");
+    })
+    .join("");
 }
 
 function convertAddress(address: Address): MailerooEmailAddress {
@@ -292,8 +290,8 @@ async function convertAttachment(
 
 function getAttachmentFileName(attachment: Attachment): string {
   return attachment.inline &&
-      typeof attachment.contentId === "string" &&
-      attachment.contentId !== ""
+    typeof attachment.contentId === "string" &&
+    attachment.contentId !== ""
     ? attachment.contentId
     : attachment.filename;
 }
@@ -321,9 +319,7 @@ function uint8ArrayToBase64(bytes: Uint8Array): string {
   return btoa(chunks.join(""));
 }
 
-function getNativeToBase64(
-  bytes: Uint8Array,
-): (() => string) | undefined {
+function getNativeToBase64(bytes: Uint8Array): (() => string) | undefined {
   const candidate: Uint8Array & NativeBase64Converter = bytes;
   const toBase64 = candidate.toBase64;
   if (typeof toBase64 !== "function") return undefined;
@@ -331,9 +327,11 @@ function getNativeToBase64(
 }
 
 function getBufferBase64(bytes: Uint8Array): string | undefined {
-  const candidate = (globalThis as typeof globalThis & {
-    readonly Buffer?: BufferConstructorLike;
-  }).Buffer;
+  const candidate = (
+    globalThis as typeof globalThis & {
+      readonly Buffer?: BufferConstructorLike;
+    }
+  ).Buffer;
   if (typeof candidate?.from !== "function") return undefined;
 
   try {
@@ -348,8 +346,9 @@ function getBufferBase64(bytes: Uint8Array): string | undefined {
     ) {
       return undefined;
     }
-    const base64 = (buffer as { toString: (encoding: "base64") => unknown })
-      .toString("base64");
+    const base64 = (
+      buffer as { toString: (encoding: "base64") => unknown }
+    ).toString("base64");
     return typeof base64 === "string" ? base64 : undefined;
   } catch {
     return undefined;

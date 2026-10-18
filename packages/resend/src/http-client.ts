@@ -179,17 +179,14 @@ export class ResendHttpClient {
             // Ignore if JSON parsing fails, as the body may be non-JSON
           }
 
-          const parsedErrorMessage = errorMessage === ""
-            ? undefined
-            : errorMessage;
+          const parsedErrorMessage =
+            errorMessage === "" ? undefined : errorMessage;
           const responseMessage = truncateErrorBody(text);
-          const fallbackMessage = responseMessage === ""
-            ? undefined
-            : responseMessage;
+          const fallbackMessage =
+            responseMessage === "" ? undefined : responseMessage;
 
           throw new ResendApiError(
-            parsedErrorMessage ?? fallbackMessage ??
-              `HTTP ${response.status}`,
+            parsedErrorMessage ?? fallbackMessage ?? `HTTP ${response.status}`,
             response.status,
             parseRetryAfter(response.headers.get("Retry-After")),
             attempt + 1,
@@ -306,12 +303,10 @@ function isAbortError(error: unknown): boolean {
   return error instanceof Error && error.name === "AbortError";
 }
 
-function isCallerAbort(
-  error: unknown,
-  signal?: AbortSignal | null,
-): boolean {
-  return signal?.aborted === true &&
-    (isAbortError(error) || error === signal.reason);
+function isCallerAbort(error: unknown, signal?: AbortSignal | null): boolean {
+  return (
+    signal?.aborted === true && (isAbortError(error) || error === signal.reason)
+  );
 }
 
 function truncateErrorBody(text: string): string {

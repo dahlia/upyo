@@ -49,10 +49,12 @@ describeE2E("MailerooTransport E2E", { concurrency: false }, () => {
       await waitForRateLimit();
 
       const transport = new MailerooTransport(getTestConfig().maileroo);
-      const receipt = await transport.send(createTestMessage({
-        subject: "[E2E] Maileroo text email",
-        content: { text: "This is a Maileroo E2E test email." },
-      }));
+      const receipt = await transport.send(
+        createTestMessage({
+          subject: "[E2E] Maileroo text email",
+          content: { text: "This is a Maileroo E2E test email." },
+        }),
+      );
 
       assertSuccessfulReceipt(receipt);
       console.log(`Sent Maileroo text email with ID: ${receipt.messageId}`);
@@ -64,13 +66,15 @@ describeE2E("MailerooTransport E2E", { concurrency: false }, () => {
       await waitForRateLimit();
 
       const transport = new MailerooTransport(getTestConfig().maileroo);
-      const receipt = await transport.send(createTestMessage({
-        subject: "[E2E] Maileroo HTML email",
-        content: {
-          html: "<h1>Hello from Upyo</h1><p>This is a Maileroo test.</p>",
-          text: "Hello from Upyo\n\nThis is a Maileroo test.",
-        },
-      }));
+      const receipt = await transport.send(
+        createTestMessage({
+          subject: "[E2E] Maileroo HTML email",
+          content: {
+            html: "<h1>Hello from Upyo</h1><p>This is a Maileroo test.</p>",
+            text: "Hello from Upyo\n\nThis is a Maileroo test.",
+          },
+        }),
+      );
 
       assertSuccessfulReceipt(receipt);
       console.log(`Sent Maileroo HTML email with ID: ${receipt.messageId}`);
@@ -82,21 +86,23 @@ describeE2E("MailerooTransport E2E", { concurrency: false }, () => {
       await waitForRateLimit();
 
       const transport = new MailerooTransport(getTestConfig().maileroo);
-      const receipt = await transport.send(createTestMessage({
-        subject: "[E2E] Maileroo attachment email",
-        content: { text: "This Maileroo E2E test email has an attachment." },
-        attachments: [
-          {
-            filename: "maileroo-e2e.txt",
-            contentType: "text/plain",
-            content: new TextEncoder().encode(
-              "This attachment was sent by the Upyo Maileroo E2E test.",
-            ),
-            inline: false,
-            contentId: "",
-          },
-        ],
-      }));
+      const receipt = await transport.send(
+        createTestMessage({
+          subject: "[E2E] Maileroo attachment email",
+          content: { text: "This Maileroo E2E test email has an attachment." },
+          attachments: [
+            {
+              filename: "maileroo-e2e.txt",
+              contentType: "text/plain",
+              content: new TextEncoder().encode(
+                "This attachment was sent by the Upyo Maileroo E2E test.",
+              ),
+              inline: false,
+              contentId: "",
+            },
+          ],
+        }),
+      );
 
       assertSuccessfulReceipt(receipt);
       console.log(
@@ -117,12 +123,14 @@ describeE2E("MailerooTransport E2E", { concurrency: false }, () => {
         tracking: true,
         tags: { source: "upyo-e2e" },
       });
-      const receipt = await transport.send(createTestMessage({
-        subject: "[E2E] Maileroo metadata email",
-        content: { text: "This Maileroo E2E test email has metadata." },
-        headers,
-        tags: ["metadata"],
-      }));
+      const receipt = await transport.send(
+        createTestMessage({
+          subject: "[E2E] Maileroo metadata email",
+          content: { text: "This Maileroo E2E test email has metadata." },
+          headers,
+          tags: ["metadata"],
+        }),
+      );
 
       assertSuccessfulReceipt(receipt);
       console.log(`Sent Maileroo metadata email with ID: ${receipt.messageId}`);
@@ -136,16 +144,14 @@ describeE2E("MailerooTransport E2E", { concurrency: false }, () => {
       const transport = new MailerooTransport(getTestConfig().maileroo);
       const receipts: Receipt[] = [];
 
-      for await (
-        const receipt of transport.sendMany([
-          createTestMessage({
-            subject: "[E2E] Maileroo sendMany email 1",
-          }),
-          createTestMessage({
-            subject: "[E2E] Maileroo sendMany email 2",
-          }),
-        ])
-      ) {
+      for await (const receipt of transport.sendMany([
+        createTestMessage({
+          subject: "[E2E] Maileroo sendMany email 1",
+        }),
+        createTestMessage({
+          subject: "[E2E] Maileroo sendMany email 2",
+        }),
+      ])) {
         receipts.push(receipt);
         await waitForRateLimit();
       }
@@ -155,11 +161,9 @@ describeE2E("MailerooTransport E2E", { concurrency: false }, () => {
         assertSuccessfulReceipt(receipt);
       }
       console.log(
-        `Sent Maileroo sendMany emails with IDs: ${
-          receipts.map((receipt) =>
-            receipt.successful ? receipt.messageId : "failed"
-          ).join(", ")
-        }`,
+        `Sent Maileroo sendMany emails with IDs: ${receipts
+          .map((receipt) => (receipt.successful ? receipt.messageId : "failed"))
+          .join(", ")}`,
       );
     });
   });

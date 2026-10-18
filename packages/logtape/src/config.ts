@@ -103,9 +103,7 @@ export interface ResolvedLogTapeTransportOptions<
  * @returns Fully resolved transport options.
  * @since 0.6.0
  */
-export function resolveLogTapeTransportOptions<
-  TProviderId extends string,
->(
+export function resolveLogTapeTransportOptions<TProviderId extends string>(
   options: LogTapeTransportOptions<TProviderId>,
 ): ResolvedLogTapeTransportOptions<TProviderId> {
   const category = options.category ?? ["upyo"];

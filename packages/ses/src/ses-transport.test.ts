@@ -55,11 +55,15 @@ test("SesTransport rejects caller aborts during fetch", async () => {
   try {
     globalThis.fetch = (_url, options) =>
       new Promise((_resolve, reject) => {
-        options?.signal?.addEventListener("abort", () => {
-          reject(
-            new DOMException("The operation was aborted.", "AbortError"),
-          );
-        }, { once: true });
+        options?.signal?.addEventListener(
+          "abort",
+          () => {
+            reject(
+              new DOMException("The operation was aborted.", "AbortError"),
+            );
+          },
+          { once: true },
+        );
         setTimeout(() => controller.abort(), 0);
       });
 
@@ -96,9 +100,13 @@ test("SesTransport preserves custom caller abort reasons during fetch", async ()
   try {
     globalThis.fetch = (_url, options) =>
       new Promise((_resolve, reject) => {
-        options?.signal?.addEventListener("abort", () => {
-          reject(options.signal?.reason);
-        }, { once: true });
+        options?.signal?.addEventListener(
+          "abort",
+          () => {
+            reject(options.signal?.reason);
+          },
+          { once: true },
+        );
         setTimeout(() => controller.abort(reason), 0);
       });
 
@@ -247,11 +255,9 @@ test("SesTransport sendMany handles async iterables", async () => {
   const receipts: unknown[] = [];
 
   try {
-    for await (
-      const receipt of transport.sendMany(messageGenerator(), {
-        signal: controller.signal,
-      })
-    ) {
+    for await (const receipt of transport.sendMany(messageGenerator(), {
+      signal: controller.signal,
+    })) {
       receipts.push(receipt);
     }
     assert.fail("Should have thrown AbortError");
@@ -294,11 +300,9 @@ test("SesTransport sendMany handles sync iterables", async () => {
   const receipts: unknown[] = [];
 
   try {
-    for await (
-      const receipt of transport.sendMany(messages, {
-        signal: controller.signal,
-      })
-    ) {
+    for await (const receipt of transport.sendMany(messages, {
+      signal: controller.signal,
+    })) {
       receipts.push(receipt);
     }
     assert.fail("Should have thrown AbortError");
@@ -387,13 +391,10 @@ test("SesTransport returns structured API failures", async () => {
   try {
     globalThis.fetch = () =>
       Promise.resolve(
-        new Response(
-          JSON.stringify({ message: "Too Many Requests" }),
-          {
-            status: 429,
-            headers: { "Retry-After": "60" },
-          },
-        ),
+        new Response(JSON.stringify({ message: "Too Many Requests" }), {
+          status: 429,
+          headers: { "Retry-After": "60" },
+        }),
       );
 
     const transport = new SesTransport({
@@ -405,12 +406,14 @@ test("SesTransport returns structured API failures", async () => {
       retries: 0,
     });
 
-    const receipt = await transport.send(createMessage({
-      from: "sender@example.com",
-      to: "recipient@example.com",
-      subject: "Test Subject",
-      content: { text: "Hello World!" },
-    }));
+    const receipt = await transport.send(
+      createMessage({
+        from: "sender@example.com",
+        to: "recipient@example.com",
+        subject: "Test Subject",
+        content: { text: "Hello World!" },
+      }),
+    );
 
     assert.ok(!receipt.successful);
     if (!receipt.successful) {
@@ -428,11 +431,13 @@ test("SesTransport returns structured API failures", async () => {
 
 test("SesTransport preserves provider error details", async () => {
   const originalFetch = globalThis.fetch;
-  const providerErrors = [{
-    message: "Email address is not verified",
-    field: "Destination.ToAddresses.member.1",
-    code: "MessageRejected",
-  }];
+  const providerErrors = [
+    {
+      message: "Email address is not verified",
+      field: "Destination.ToAddresses.member.1",
+      code: "MessageRejected",
+    },
+  ];
 
   try {
     globalThis.fetch = () =>
@@ -455,12 +460,14 @@ test("SesTransport preserves provider error details", async () => {
       retries: 0,
     });
 
-    const receipt = await transport.send(createMessage({
-      from: "sender@example.com",
-      to: "recipient@example.com",
-      subject: "Test Subject",
-      content: { text: "Hello World!" },
-    }));
+    const receipt = await transport.send(
+      createMessage({
+        from: "sender@example.com",
+        to: "recipient@example.com",
+        subject: "Test Subject",
+        content: { text: "Hello World!" },
+      }),
+    );
 
     assert.ok(!receipt.successful);
     if (!receipt.successful) {

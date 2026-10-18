@@ -34,12 +34,12 @@ describe("Message Converter Integration Tests", () => {
       const lines = result.raw.split("\r\n");
       assert.ok(
         lines.some((line) =>
-          line.startsWith("From: John Doe <john@example.com>")
+          line.startsWith("From: John Doe <john@example.com>"),
         ),
       );
       assert.ok(
         lines.some((line) =>
-          line.startsWith("To: Jane Doe <jane@example.com>")
+          line.startsWith("To: Jane Doe <jane@example.com>"),
         ),
       );
       assert.ok(lines.some((line) => line.startsWith("Subject: Test Subject")));
@@ -103,7 +103,9 @@ describe("Message Converter Integration Tests", () => {
     test("should preserve whitespace when folding headers", async () => {
       const subject = `${"word  ".repeat(20)}word`;
       const result = await convertMessage(createTestMessage({ subject }));
-      const subjectHeader = result.raw.split("\r\n\r\n", 1)[0].split("\r\n")
+      const subjectHeader = result.raw
+        .split("\r\n\r\n", 1)[0]
+        .split("\r\n")
         .filter((line) => line.startsWith("Subject: ") || /^[ \t]/.test(line))
         .join("\r\n");
 
@@ -204,7 +206,7 @@ describe("Message Converter Integration Tests", () => {
     });
 
     test("should handle inline attachments with Content-ID", async () => {
-      const imageContent = new Uint8Array([0x89, 0x50, 0x4E, 0x47]); // PNG signature
+      const imageContent = new Uint8Array([0x89, 0x50, 0x4e, 0x47]); // PNG signature
       const message = createTestMessage({
         attachments: [
           {
@@ -268,15 +270,19 @@ describe("Message Converter Integration Tests", () => {
 
     test("should fold MIME parameters for long filenames", async () => {
       const filename = `${"long-file-name-".repeat(90)}.txt`;
-      const result = await convertMessage(createTestMessage({
-        attachments: [{
-          filename,
-          content: new Uint8Array([1, 2, 3]),
-          contentType: "application/octet-stream",
-          contentId: "long-filename",
-          inline: false,
-        }],
-      }));
+      const result = await convertMessage(
+        createTestMessage({
+          attachments: [
+            {
+              filename,
+              content: new Uint8Array([1, 2, 3]),
+              contentType: "application/octet-stream",
+              contentId: "long-filename",
+              inline: false,
+            },
+          ],
+        }),
+      );
 
       for (const line of result.raw.split("\r\n")) {
         assert.ok(
@@ -291,15 +297,21 @@ describe("Message Converter Integration Tests", () => {
 
   describe("Header Encoding", () => {
     test("should detect internationalized mailbox addresses", async () => {
-      const sender = await convertMessage(createTestMessage({
-        sender: { address: "josé@example.com" },
-      }));
-      const recipient = await convertMessage(createTestMessage({
-        bccRecipients: [{ address: "用户@example.com" }],
-      }));
-      const replyTo = await convertMessage(createTestMessage({
-        replyRecipients: [{ address: "support@例え.テスト" }],
-      }));
+      const sender = await convertMessage(
+        createTestMessage({
+          sender: { address: "josé@example.com" },
+        }),
+      );
+      const recipient = await convertMessage(
+        createTestMessage({
+          bccRecipients: [{ address: "用户@example.com" }],
+        }),
+      );
+      const replyTo = await convertMessage(
+        createTestMessage({
+          replyRecipients: [{ address: "support@例え.テスト" }],
+        }),
+      );
 
       assert.equal(sender.requiresSmtpUtf8, true);
       assert.equal(recipient.requiresSmtpUtf8, true);
@@ -308,12 +320,16 @@ describe("Message Converter Integration Tests", () => {
     });
 
     test("should detect a Unicode value in a verbatim header", async () => {
-      const messageId = await convertMessage(createTestMessage({
-        headers: new Headers({ "Message-ID": "<ünicode@example.com>" }),
-      }));
-      const references = await convertMessage(createTestMessage({
-        headers: new Headers({ "References": "<ünicode@example.com>" }),
-      }));
+      const messageId = await convertMessage(
+        createTestMessage({
+          headers: new Headers({ "Message-ID": "<ünicode@example.com>" }),
+        }),
+      );
+      const references = await convertMessage(
+        createTestMessage({
+          headers: new Headers({ "References": "<ünicode@example.com>" }),
+        }),
+      );
 
       assert.ok(messageId.requiresSmtpUtf8);
       assert.ok(references.requiresSmtpUtf8);
@@ -321,24 +337,30 @@ describe("Message Converter Integration Tests", () => {
     });
 
     test("should not require SMTPUTF8 for a Unicode attachment filename", async () => {
-      const result = await convertMessage(createTestMessage({
-        attachments: [{
-          inline: false,
-          filename: "보고서.txt",
-          content: new TextEncoder().encode("hi"),
-          contentType: "text/plain",
-          contentId: "report@example.com",
-        }],
-      }));
+      const result = await convertMessage(
+        createTestMessage({
+          attachments: [
+            {
+              inline: false,
+              filename: "보고서.txt",
+              content: new TextEncoder().encode("hi"),
+              contentType: "text/plain",
+              contentId: "report@example.com",
+            },
+          ],
+        }),
+      );
 
       assert.ok(!result.requiresSmtpUtf8);
     });
 
     test("should not require SMTPUTF8 for Unicode display names", async () => {
-      const result = await convertMessage(createTestMessage({
-        sender: { name: "José", address: "jose@example.com" },
-        recipients: [{ name: "用户", address: "user@example.com" }],
-      }));
+      const result = await convertMessage(
+        createTestMessage({
+          sender: { name: "José", address: "jose@example.com" },
+          recipients: [{ name: "用户", address: "user@example.com" }],
+        }),
+      );
 
       assert.equal(result.requiresSmtpUtf8, false);
       assert.ok(result.raw.includes("From: =?UTF-8?B?"));
@@ -372,8 +394,8 @@ describe("Message Converter Integration Tests", () => {
     });
 
     test("should handle very long Korean subject lines", async () => {
-      const longSubject = "이것은 매우 긴 한국어 제목입니다. ".repeat(5) +
-        "테스트 메시지입니다.";
+      const longSubject =
+        "이것은 매우 긴 한국어 제목입니다. ".repeat(5) + "테스트 메시지입니다.";
       const message = createTestMessage({
         subject: longSubject,
       });
@@ -384,32 +406,31 @@ describe("Message Converter Integration Tests", () => {
       assert.ok(result.raw.includes("Subject: =?UTF-8?B?"));
 
       // Should not exceed recommended line length
-      const subjectLines = result.raw.split("\r\n").filter((line) =>
-        line.startsWith("Subject:")
-      );
+      const subjectLines = result.raw
+        .split("\r\n")
+        .filter((line) => line.startsWith("Subject:"));
       assert.ok(subjectLines.length >= 1);
     });
 
     test("should keep UTF-8 characters within one encoded word", async () => {
       const subject = "😀".repeat(40);
       const result = await convertMessage(createTestMessage({ subject }));
-      const unfoldedHeaders = result.raw.split("\r\n\r\n", 1)[0].replace(
-        /\r\n[ \t]+/g,
-        " ",
-      );
-      const subjectLine = unfoldedHeaders.split("\r\n").find((line) =>
-        line.startsWith("Subject: ")
-      );
+      const unfoldedHeaders = result.raw
+        .split("\r\n\r\n", 1)[0]
+        .replace(/\r\n[ \t]+/g, " ");
+      const subjectLine = unfoldedHeaders
+        .split("\r\n")
+        .find((line) => line.startsWith("Subject: "));
 
       assert.ok(subjectLine);
-      const encodedWords = [...subjectLine.matchAll(
-        /=\?UTF-8\?B\?([^?]+)\?=/g,
-      )];
+      const encodedWords = [
+        ...subjectLine.matchAll(/=\?UTF-8\?B\?([^?]+)\?=/g),
+      ];
       assert.ok(encodedWords.length > 1);
 
       const decoder = new TextDecoder("utf-8", { fatal: true });
       const decodedWords = encodedWords.map((match) =>
-        decoder.decode(Buffer.from(match[1], "base64"))
+        decoder.decode(Buffer.from(match[1], "base64")),
       );
 
       assert.strictEqual(decodedWords.join(""), subject);
@@ -508,10 +529,12 @@ describe("Message Converter Integration Tests", () => {
         sender: { name: "German ÄÖÜ", address: "info@example.com" },
         recipients: [{ name: "Müller Ümlauts", address: "user@example.com" }],
         ccRecipients: [{ name: "Größer", address: "cc@example.com" }],
-        replyRecipients: [{
-          name: "Straße Info",
-          address: "reply@example.com",
-        }],
+        replyRecipients: [
+          {
+            name: "Straße Info",
+            address: "reply@example.com",
+          },
+        ],
       });
 
       const result = await convertMessage(message);
@@ -753,7 +776,7 @@ describe("Message Converter Integration Tests", () => {
     const occurrences = (raw: string, name: string): string[] =>
       headerLines(raw)
         .filter((line) =>
-          line.toLowerCase().startsWith(`${name.toLowerCase()}:`)
+          line.toLowerCase().startsWith(`${name.toLowerCase()}:`),
         )
         .map((line) => line.slice(line.indexOf(":") + 1).trim());
 
@@ -761,10 +784,9 @@ describe("Message Converter Integration Tests", () => {
       const headers = new Headers({ "Message-ID": "<123@example.com>" });
       const result = await convertMessage(createTestMessage({ headers }));
 
-      assert.deepStrictEqual(
-        occurrences(result.raw, "Message-ID"),
-        ["<123@example.com>"],
-      );
+      assert.deepStrictEqual(occurrences(result.raw, "Message-ID"), [
+        "<123@example.com>",
+      ]);
       assert.ok(!result.raw.includes("@upyo.local"));
     });
 
@@ -783,14 +805,12 @@ describe("Message Converter Integration Tests", () => {
       });
       const result = await convertMessage(createTestMessage({ headers }));
 
-      assert.deepStrictEqual(
-        occurrences(result.raw, "Message-ID"),
-        ["<456@example.com>"],
-      );
-      assert.deepStrictEqual(
-        occurrences(result.raw, "Date"),
-        ["Wed, 02 Sep 2026 11:00:00 +0000"],
-      );
+      assert.deepStrictEqual(occurrences(result.raw, "Message-ID"), [
+        "<456@example.com>",
+      ]);
+      assert.deepStrictEqual(occurrences(result.raw, "Date"), [
+        "Wed, 02 Sep 2026 11:00:00 +0000",
+      ]);
     });
 
     test("should still generate defaults when neither is supplied", async () => {
@@ -811,10 +831,9 @@ describe("Message Converter Integration Tests", () => {
       const headers = new Headers({ "Message-ID": messageId });
       const result = await convertMessage(createTestMessage({ headers }));
 
-      assert.deepStrictEqual(
-        occurrences(result.raw, "Message-ID"),
-        [messageId],
-      );
+      assert.deepStrictEqual(occurrences(result.raw, "Message-ID"), [
+        messageId,
+      ]);
       assert.ok(!result.raw.includes("=?UTF-8?B?"));
     });
 
@@ -828,14 +847,12 @@ describe("Message Converter Integration Tests", () => {
       });
       const result = await convertMessage(createTestMessage({ headers }));
 
-      assert.deepStrictEqual(
-        occurrences(result.raw, "From"),
-        ["John Doe <john@example.com>"],
-      );
-      assert.deepStrictEqual(
-        occurrences(result.raw, "To"),
-        ["Jane Doe <jane@example.com>"],
-      );
+      assert.deepStrictEqual(occurrences(result.raw, "From"), [
+        "John Doe <john@example.com>",
+      ]);
+      assert.deepStrictEqual(occurrences(result.raw, "To"), [
+        "Jane Doe <jane@example.com>",
+      ]);
       assert.deepStrictEqual(occurrences(result.raw, "Subject"), [
         "Test Subject",
       ]);
@@ -852,10 +869,9 @@ describe("Message Converter Integration Tests", () => {
       const result = await convertMessage(createTestMessage({ headers }));
 
       assert.deepStrictEqual(occurrences(result.raw, "MIME-Version"), ["1.0"]);
-      assert.deepStrictEqual(
-        occurrences(result.raw, "Content-Type"),
-        ["text/plain; charset=utf-8"],
-      );
+      assert.deepStrictEqual(occurrences(result.raw, "Content-Type"), [
+        "text/plain; charset=utf-8",
+      ]);
       assert.deepStrictEqual(
         occurrences(result.raw, "Content-Transfer-Encoding"),
         ["quoted-printable"],
@@ -921,12 +937,10 @@ describe("Message Converter Integration Tests", () => {
       assert.ok(result.envelope.to.includes("hidden@example.com"));
     });
 
-    for (
-      const { priority, expected } of [
-        { priority: "high", expected: ["1", "High"] },
-        { priority: "low", expected: ["5", "Low"] },
-      ] as const
-    ) {
+    for (const { priority, expected } of [
+      { priority: "high", expected: ["1", "High"] },
+      { priority: "low", expected: ["5", "Low"] },
+    ] as const) {
       test(`should keep ${priority} priority headers authoritative`, async () => {
         const headers = new Headers({
           "X-Priority": "3",
@@ -953,10 +967,9 @@ describe("Message Converter Integration Tests", () => {
       const result = await convertMessage(message);
 
       assert.deepStrictEqual(occurrences(result.raw, "X-Priority"), ["3"]);
-      assert.deepStrictEqual(
-        occurrences(result.raw, "X-MSMail-Priority"),
-        ["Normal"],
-      );
+      assert.deepStrictEqual(occurrences(result.raw, "X-MSMail-Priority"), [
+        "Normal",
+      ]);
     });
 
     test("should still emit unrelated custom headers", async () => {
@@ -996,95 +1009,99 @@ describe("Message Converter Integration Tests", () => {
     };
 
     test("should prefer the typed Message-ID over a custom header", async () => {
-      const result = await convertMessage(createTestMessage({
-        messageId: "typed@example.com",
-        headers: new Headers({ "Message-ID": "<custom@example.com>" }),
-      }));
-
-      assert.deepStrictEqual(
-        occurrences(result.raw, "Message-ID"),
-        ["<typed@example.com>"],
+      const result = await convertMessage(
+        createTestMessage({
+          messageId: "typed@example.com",
+          headers: new Headers({ "Message-ID": "<custom@example.com>" }),
+        }),
       );
+
+      assert.deepStrictEqual(occurrences(result.raw, "Message-ID"), [
+        "<typed@example.com>",
+      ]);
     });
 
     test("should prefer the typed date over a custom header", async () => {
-      const result = await convertMessage(createTestMessage({
-        date: new Date("2026-09-01T10:00:00Z"),
-        headers: new Headers({ "Date": "Thu, 01 Jan 1970 00:00:00 +0000" }),
-      }));
-
-      assert.deepStrictEqual(
-        occurrences(result.raw, "Date"),
-        ["Tue, 01 Sep 2026 10:00:00 +0000"],
+      const result = await convertMessage(
+        createTestMessage({
+          date: new Date("2026-09-01T10:00:00Z"),
+          headers: new Headers({ "Date": "Thu, 01 Jan 1970 00:00:00 +0000" }),
+        }),
       );
+
+      assert.deepStrictEqual(occurrences(result.raw, "Date"), [
+        "Tue, 01 Sep 2026 10:00:00 +0000",
+      ]);
     });
 
     test("should write the typed threading fields", async () => {
-      const result = await convertMessage(createTestMessage({
-        inReplyTo: ["122@example.com"],
-        references: ["120@example.com", "121@example.com"],
-      }));
+      const result = await convertMessage(
+        createTestMessage({
+          inReplyTo: ["122@example.com"],
+          references: ["120@example.com", "121@example.com"],
+        }),
+      );
 
-      assert.deepStrictEqual(
-        occurrences(result.raw, "In-Reply-To"),
-        ["<122@example.com>"],
-      );
-      assert.deepStrictEqual(
-        occurrences(result.raw, "References"),
-        ["<120@example.com> <121@example.com>"],
-      );
+      assert.deepStrictEqual(occurrences(result.raw, "In-Reply-To"), [
+        "<122@example.com>",
+      ]);
+      assert.deepStrictEqual(occurrences(result.raw, "References"), [
+        "<120@example.com> <121@example.com>",
+      ]);
     });
 
     test("should prefer the typed threading fields over custom headers", async () => {
-      const result = await convertMessage(createTestMessage({
-        inReplyTo: ["typed@example.com"],
-        references: ["typed@example.com"],
-        headers: new Headers({
-          "In-Reply-To": "<custom@example.com>",
-          "References": "<custom@example.com>",
+      const result = await convertMessage(
+        createTestMessage({
+          inReplyTo: ["typed@example.com"],
+          references: ["typed@example.com"],
+          headers: new Headers({
+            "In-Reply-To": "<custom@example.com>",
+            "References": "<custom@example.com>",
+          }),
         }),
-      }));
+      );
 
-      assert.deepStrictEqual(
-        occurrences(result.raw, "In-Reply-To"),
-        ["<typed@example.com>"],
-      );
-      assert.deepStrictEqual(
-        occurrences(result.raw, "References"),
-        ["<typed@example.com>"],
-      );
+      assert.deepStrictEqual(occurrences(result.raw, "In-Reply-To"), [
+        "<typed@example.com>",
+      ]);
+      assert.deepStrictEqual(occurrences(result.raw, "References"), [
+        "<typed@example.com>",
+      ]);
     });
 
     test("should let an empty list suppress a custom header", async () => {
-      const result = await convertMessage(createTestMessage({
-        inReplyTo: [],
-        references: [],
-        headers: new Headers({
-          "In-Reply-To": "<custom@example.com>",
-          "References": "<custom@example.com>",
+      const result = await convertMessage(
+        createTestMessage({
+          inReplyTo: [],
+          references: [],
+          headers: new Headers({
+            "In-Reply-To": "<custom@example.com>",
+            "References": "<custom@example.com>",
+          }),
         }),
-      }));
+      );
 
       assert.deepStrictEqual(occurrences(result.raw, "In-Reply-To"), []);
       assert.deepStrictEqual(occurrences(result.raw, "References"), []);
     });
 
     test("should let a custom threading header through when unset", async () => {
-      const result = await convertMessage(createTestMessage({
-        headers: new Headers({
-          "In-Reply-To": "<custom@example.com>",
-          "References": "<a@example.com> <b@example.com>",
+      const result = await convertMessage(
+        createTestMessage({
+          headers: new Headers({
+            "In-Reply-To": "<custom@example.com>",
+            "References": "<a@example.com> <b@example.com>",
+          }),
         }),
-      }));
+      );
 
-      assert.deepStrictEqual(
-        occurrences(result.raw, "In-Reply-To"),
-        ["<custom@example.com>"],
-      );
-      assert.deepStrictEqual(
-        occurrences(result.raw, "References"),
-        ["<a@example.com> <b@example.com>"],
-      );
+      assert.deepStrictEqual(occurrences(result.raw, "In-Reply-To"), [
+        "<custom@example.com>",
+      ]);
+      assert.deepStrictEqual(occurrences(result.raw, "References"), [
+        "<a@example.com> <b@example.com>",
+      ]);
     });
 
     test("should omit the threading headers when nothing is supplied", async () => {
@@ -1099,25 +1116,24 @@ describe("Message Converter Integration Tests", () => {
         { length: 40 },
         (_, index) => `message-${index}@example.com`,
       );
-      const result = await convertMessage(
-        createTestMessage({ references }),
-      );
+      const result = await convertMessage(createTestMessage({ references }));
 
       assert.ok(
         headerLines(result.raw).some((line) => line.startsWith(" <")),
         "expected the chain to be folded across lines",
       );
-      assert.deepStrictEqual(
-        occurrences(result.raw, "References"),
-        [references.map((id) => `<${id}>`).join(" ")],
-      );
+      assert.deepStrictEqual(occurrences(result.raw, "References"), [
+        references.map((id) => `<${id}>`).join(" "),
+      ]);
     });
 
     test("should keep a Unicode identifier verbatim and require SMTPUTF8", async () => {
-      const result = await convertMessage(createTestMessage({
-        messageId: "ünicode@example.com",
-        references: ["참조@example.com"],
-      }));
+      const result = await convertMessage(
+        createTestMessage({
+          messageId: "ünicode@example.com",
+          references: ["참조@example.com"],
+        }),
+      );
 
       assert.ok(result.raw.includes("Message-ID: <ünicode@example.com>"));
       assert.ok(result.raw.includes("References: <참조@example.com>"));
@@ -1126,10 +1142,12 @@ describe("Message Converter Integration Tests", () => {
     });
 
     test("should not require SMTPUTF8 for a suppressed Unicode header", async () => {
-      const result = await convertMessage(createTestMessage({
-        references: [],
-        headers: new Headers({ "References": "<ünicode@example.com>" }),
-      }));
+      const result = await convertMessage(
+        createTestMessage({
+          references: [],
+          headers: new Headers({ "References": "<ünicode@example.com>" }),
+        }),
+      );
 
       assert.ok(!result.requiresSmtpUtf8);
     });
@@ -1154,9 +1172,11 @@ describe("Message Converter Integration Tests", () => {
     });
 
     test("should root a generated identifier in the sender's domain", async () => {
-      const result = await convertMessage(createTestMessage({
-        sender: { address: "john@sub.example.org" },
-      }));
+      const result = await convertMessage(
+        createTestMessage({
+          sender: { address: "john@sub.example.org" },
+        }),
+      );
 
       assert.match(
         occurrences(result.raw, "Message-ID")[0],
@@ -1166,9 +1186,11 @@ describe("Message Converter Integration Tests", () => {
 
     test("should read the domain past a quoted local part", async () => {
       // The at sign inside the quotes is not the separator.
-      const result = await convertMessage(createTestMessage({
-        sender: { address: '"a@b"@example.com' },
-      }));
+      const result = await convertMessage(
+        createTestMessage({
+          sender: { address: '"a@b"@example.com' },
+        }),
+      );
 
       assert.match(
         occurrences(result.raw, "Message-ID")[0],
@@ -1179,12 +1201,16 @@ describe("Message Converter Integration Tests", () => {
     test("should still generate an identifier for an unusual sender domain", async () => {
       // `parseAddress()` validates domains with `URL`, which accepts spellings
       // the identifier grammar does not.  Neither may fail the send.
-      const trailingDot = await convertMessage(createTestMessage({
-        sender: { address: "john@example.com." },
-      }));
-      const withPort = await convertMessage(createTestMessage({
-        sender: { address: "john@example.com:8080" },
-      }));
+      const trailingDot = await convertMessage(
+        createTestMessage({
+          sender: { address: "john@example.com." },
+        }),
+      );
+      const withPort = await convertMessage(
+        createTestMessage({
+          sender: { address: "john@example.com:8080" },
+        }),
+      );
 
       assert.match(
         occurrences(trailingDot.raw, "Message-ID")[0],
@@ -1202,10 +1228,9 @@ describe("Message Converter Integration Tests", () => {
       date.setUTCHours(0, 0, 0, 0);
       const result = await convertMessage(createTestMessage({ date }));
 
-      assert.deepStrictEqual(
-        occurrences(result.raw, "Date"),
-        ["Sat, 01 Jan 10000 00:00:00 +0000"],
-      );
+      assert.deepStrictEqual(occurrences(result.raw, "Date"), [
+        "Sat, 01 Jan 10000 00:00:00 +0000",
+      ]);
     });
   });
 
@@ -1255,7 +1280,7 @@ describe("Message Converter Integration Tests", () => {
       // Create a test binary file (ZIP signature + some data)
       const binaryContent = new Uint8Array([
         0x50,
-        0x4B,
+        0x4b,
         0x03,
         0x04, // ZIP signature
         0x14,
@@ -1287,9 +1312,9 @@ describe("Message Converter Integration Tests", () => {
       assert.ok(result.raw.includes(expectedBase64));
 
       // Should have proper line breaks (76 chars max per line)
-      const base64Lines = result.raw.split("\r\n").filter((line) =>
-        /^[A-Za-z0-9+/]+=*$/.test(line) && line.length > 50
-      );
+      const base64Lines = result.raw
+        .split("\r\n")
+        .filter((line) => /^[A-Za-z0-9+/]+=*$/.test(line) && line.length > 50);
 
       if (base64Lines.length > 0) {
         base64Lines.forEach((line) => {
@@ -1334,9 +1359,9 @@ describe("Message Converter Integration Tests", () => {
       assert.ok(result.raw.includes("Content-Transfer-Encoding: base64"));
 
       // Should have proper line breaks in base64 content (76 chars max per line)
-      const base64Lines = result.raw.split("\r\n").filter((line) =>
-        /^[A-Za-z0-9+/]+=*$/.test(line)
-      );
+      const base64Lines = result.raw
+        .split("\r\n")
+        .filter((line) => /^[A-Za-z0-9+/]+=*$/.test(line));
 
       // Large file should result in many base64 lines
       assert.ok(
@@ -1550,13 +1575,15 @@ describe("Message Converter Integration Tests", () => {
       const message = createTestMessage({
         content: { text: "Lunch on Wednesday." },
         calendar: { method: "REQUEST", content: request },
-        attachments: [{
-          inline: false,
-          filename: "agenda.txt",
-          content: new TextEncoder().encode("agenda"),
-          contentType: "text/plain",
-          contentId: "",
-        }],
+        attachments: [
+          {
+            inline: false,
+            filename: "agenda.txt",
+            content: new TextEncoder().encode("agenda"),
+            contentType: "text/plain",
+            contentId: "",
+          },
+        ],
       });
 
       const result = await convertMessage(message);

@@ -44,14 +44,17 @@ export class TracingCollector {
     }
 
     const spanName = `${this.config.spanPrefix} send`;
-    const span = this.tracer.startSpan(spanName, {
-      kind: OTelSpanKind.CLIENT,
-    }, context.active());
+    const span = this.tracer.startSpan(
+      spanName,
+      {
+        kind: OTelSpanKind.CLIENT,
+      },
+      context.active(),
+    );
 
     // Set message attributes
-    const messageAttributes = this.attributeExtractor.extractMessageAttributes(
-      message,
-    );
+    const messageAttributes =
+      this.attributeExtractor.extractMessageAttributes(message);
     span.setAttributes(messageAttributes);
 
     // Set network attributes if provided
@@ -75,9 +78,13 @@ export class TracingCollector {
     }
 
     const spanName = `${this.config.spanPrefix} send_batch`;
-    const span = this.tracer.startSpan(spanName, {
-      kind: OTelSpanKind.CLIENT,
-    }, context.active());
+    const span = this.tracer.startSpan(
+      spanName,
+      {
+        kind: OTelSpanKind.CLIENT,
+      },
+      context.active(),
+    );
 
     // Set batch attributes
     const batchAttributes = this.attributeExtractor.extractBatchAttributes(
@@ -178,12 +185,10 @@ class LiveEmailSpan implements EmailSpan {
 
     // Add error event
     this.span.addEvent("exception", {
-      "exception.type": error instanceof Error
-        ? error.constructor.name
-        : "unknown",
-      "exception.message": error instanceof Error
-        ? error.message
-        : String(error),
+      "exception.type":
+        error instanceof Error ? error.constructor.name : "unknown",
+      "exception.message":
+        error instanceof Error ? error.message : String(error),
     });
   }
 

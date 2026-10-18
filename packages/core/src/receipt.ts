@@ -75,63 +75,63 @@ export interface ReceiptError<TProviderId extends string = string> {
  */
 export type Receipt<TProviderId extends string = string> =
   | {
-    /**
-     * Indicates that the email was sent successfully.
-     */
-    readonly successful: true;
-    /**
-     * The delivery handle the transport or the provider reports back, such as
-     * an SMTP queue identifier, a provider-assigned UUID, or a JMAP submission
-     * id.  Its shape differs between transports.
-     *
-     * This is not the RFC 5322 `Message-ID` of the message; that one is chosen
-     * by the sender and lives on {@link Message.messageId}.  Use this to look a
-     * delivery up with the provider, and that one to correlate a reply.
-     */
-    readonly messageId: string;
-    /**
-     * Provider or transport that produced this receipt.
-     */
-    readonly provider?: TProviderId;
-    /**
-     * Number of attempts made before this receipt was produced.
-     */
-    readonly attempts?: number;
-    /**
-     * ISO 8601 timestamp for when this receipt was produced.
-     */
-    readonly timestamp?: string;
-  }
+      /**
+       * Indicates that the email was sent successfully.
+       */
+      readonly successful: true;
+      /**
+       * The delivery handle the transport or the provider reports back, such as
+       * an SMTP queue identifier, a provider-assigned UUID, or a JMAP submission
+       * id.  Its shape differs between transports.
+       *
+       * This is not the RFC 5322 `Message-ID` of the message; that one is chosen
+       * by the sender and lives on {@link Message.messageId}.  Use this to look a
+       * delivery up with the provider, and that one to correlate a reply.
+       */
+      readonly messageId: string;
+      /**
+       * Provider or transport that produced this receipt.
+       */
+      readonly provider?: TProviderId;
+      /**
+       * Number of attempts made before this receipt was produced.
+       */
+      readonly attempts?: number;
+      /**
+       * ISO 8601 timestamp for when this receipt was produced.
+       */
+      readonly timestamp?: string;
+    }
   | {
-    /**
-     * Indicates that the email failed to send.
-     */
-    readonly successful: false;
-    /**
-     * An array of error messages that occurred during the sending process.
-     */
-    readonly errorMessages: readonly string[];
-    /**
-     * Structured errors for programmatic handling.
-     */
-    readonly errors?: readonly ReceiptError<TProviderId>[];
-    /**
-     * Whether retrying the same message may succeed.
-     */
-    readonly retryable?: boolean;
-    /**
-     * Provider or transport that produced this receipt.
-     */
-    readonly provider?: TProviderId;
-    /**
-     * Number of attempts made before this receipt was produced.
-     */
-    readonly attempts?: number;
-    /**
-     * ISO 8601 timestamp for when this receipt was produced.
-     */
-    readonly timestamp?: string;
-  };
+      /**
+       * Indicates that the email failed to send.
+       */
+      readonly successful: false;
+      /**
+       * An array of error messages that occurred during the sending process.
+       */
+      readonly errorMessages: readonly string[];
+      /**
+       * Structured errors for programmatic handling.
+       */
+      readonly errors?: readonly ReceiptError<TProviderId>[];
+      /**
+       * Whether retrying the same message may succeed.
+       */
+      readonly retryable?: boolean;
+      /**
+       * Provider or transport that produced this receipt.
+       */
+      readonly provider?: TProviderId;
+      /**
+       * Number of attempts made before this receipt was produced.
+       */
+      readonly attempts?: number;
+      /**
+       * ISO 8601 timestamp for when this receipt was produced.
+       */
+      readonly timestamp?: string;
+    };
 
 /**
  * Result of classifying a delivery failure.
@@ -223,28 +223,39 @@ export function classifyReceiptError(
     return { category: "timeout", retryable: true, code: "timeout" };
   }
   if (
-    text.includes("network") || text.includes("connect") ||
+    text.includes("network") ||
+    text.includes("connect") ||
     text.includes("fetch failed") ||
-    text.includes("dns") || text.includes("econnreset") ||
-    text.includes("econnrefused") || text.includes("enotfound") ||
+    text.includes("dns") ||
+    text.includes("econnreset") ||
+    text.includes("econnrefused") ||
+    text.includes("enotfound") ||
     name === "NetworkError"
   ) {
     return { category: "network", retryable: true, code: "network" };
   }
   if (
-    text.includes("authentication") || text.includes("authenticate") ||
-    text.includes("authorization") || text.includes("authorize") ||
-    /\bauth\b/.test(text) || text.includes("unauthorized") ||
-    text.includes("not authorized") || text.includes("forbidden") ||
-    text.includes("invalid api key") || text.includes("invalid token") ||
-    text.includes("401") || text.includes("403")
+    text.includes("authentication") ||
+    text.includes("authenticate") ||
+    text.includes("authorization") ||
+    text.includes("authorize") ||
+    /\bauth\b/.test(text) ||
+    text.includes("unauthorized") ||
+    text.includes("not authorized") ||
+    text.includes("forbidden") ||
+    text.includes("invalid api key") ||
+    text.includes("invalid token") ||
+    text.includes("401") ||
+    text.includes("403")
   ) {
     return { category: "auth", retryable: false, code: "auth" };
   }
   if (
-    text.includes("rate limit") || text.includes("rate-limit") ||
+    text.includes("rate limit") ||
+    text.includes("rate-limit") ||
     text.includes("too many requests") ||
-    text.includes("quota") || text.includes("throttle") ||
+    text.includes("quota") ||
+    text.includes("throttle") ||
     text.includes("429")
   ) {
     return {
@@ -254,22 +265,28 @@ export function classifyReceiptError(
     };
   }
   if (
-    text.includes("invalid") || text.includes("malformed") ||
-    text.includes("validation") || text.includes("bad request") ||
-    text.includes("400") || text.includes("422")
+    text.includes("invalid") ||
+    text.includes("malformed") ||
+    text.includes("validation") ||
+    text.includes("bad request") ||
+    text.includes("400") ||
+    text.includes("422")
   ) {
     return { category: "validation", retryable: false, code: "validation" };
   }
   if (
-    text.includes("rejected") || text.includes("bounce") ||
-    text.includes("complaint") || text.includes("suppressed") ||
+    text.includes("rejected") ||
+    text.includes("bounce") ||
+    text.includes("complaint") ||
+    text.includes("suppressed") ||
     text.includes("unsubscribed")
   ) {
     return { category: "rejected", retryable: false, code: "rejected" };
   }
   if (
     text.includes("service unavailable") ||
-    text.includes("temporarily unavailable") || text.includes("503")
+    text.includes("temporarily unavailable") ||
+    text.includes("503")
   ) {
     return {
       category: "service-unavailable",
@@ -279,7 +296,8 @@ export function classifyReceiptError(
   }
   if (
     text.includes("internal server error") ||
-    text.includes("bad gateway") || text.includes("500") ||
+    text.includes("bad gateway") ||
+    text.includes("500") ||
     text.includes("502")
   ) {
     return {
@@ -310,16 +328,19 @@ export function createReceiptError<TProviderId extends string = string>(
   message: string,
   options: CreateReceiptErrorOptions<TProviderId> = {},
 ): ReceiptError<TProviderId> {
-  const classification = options.statusCode == null
-    ? classifyReceiptError(message)
-    : classifyHttpStatus(options.statusCode);
+  const classification =
+    options.statusCode == null
+      ? classifyReceiptError(message)
+      : classifyHttpStatus(options.statusCode);
   const category = options.category ?? classification.category;
   const retryable = options.retryable ?? classification.retryable;
-  const code = options.code ?? (
-    options.statusCode == null
-      ? options.category != null ? category : classification.code ?? category
-      : `http.${options.statusCode}`
-  );
+  const code =
+    options.code ??
+    (options.statusCode == null
+      ? options.category != null
+        ? category
+        : (classification.code ?? category)
+      : `http.${options.statusCode}`);
 
   return omitUndefined({
     message,
@@ -348,22 +369,23 @@ export function createFailedReceipt<TProviderId extends string = string>(
     | ReceiptError<TProviderId>,
   options: CreateFailedReceiptOptions<TProviderId> = {},
 ): Receipt<TProviderId> & { readonly successful: false } {
-  const errors = options.errors ?? (
-    typeof error === "string"
+  const errors =
+    options.errors ??
+    (typeof error === "string"
       ? [createReceiptError(error, options)]
       : Array.isArray(error)
-      ? error.map((item) =>
-        typeof item === "string" ? createReceiptError(item, options) : item
-      )
-      : [error]
-  );
-  const errorMessages = typeof error === "string"
-    ? [error]
-    : Array.isArray(error)
-    ? error.map((item) => typeof item === "string" ? item : item.message)
-    : errors.map((receiptError) => receiptError.message);
-  const retryable = options.retryable ??
-    errors.some((receiptError) => receiptError.retryable);
+        ? error.map((item) =>
+            typeof item === "string" ? createReceiptError(item, options) : item,
+          )
+        : [error]);
+  const errorMessages =
+    typeof error === "string"
+      ? [error]
+      : Array.isArray(error)
+        ? error.map((item) => (typeof item === "string" ? item : item.message))
+        : errors.map((receiptError) => receiptError.message);
+  const retryable =
+    options.retryable ?? errors.some((receiptError) => receiptError.retryable);
   const provider = options.provider ?? errors[0]?.provider;
 
   return omitUndefined({

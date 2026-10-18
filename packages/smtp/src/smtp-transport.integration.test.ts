@@ -67,11 +67,9 @@ describe("SmtpTransport Integration Tests", () => {
       const receipts: Receipt[] = [];
       await assert.rejects(
         (async () => {
-          for await (
-            const receipt of transport.sendMany(messages(), {
-              signal: controller.signal,
-            })
-          ) {
+          for await (const receipt of transport.sendMany(messages(), {
+            signal: controller.signal,
+          })) {
             receipts.push(receipt);
             // Cancel once the first message has been delivered.
             controller.abort();
@@ -147,9 +145,7 @@ describe("SmtpTransport Integration Tests", () => {
       });
 
       assert.ok(receipt.successful);
-      assert.ok(
-        server.getReceivedCommands().includes("MAIL FROM:<>"),
-      );
+      assert.ok(server.getReceivedCommands().includes("MAIL FROM:<>"));
     } finally {
       await teardownTest(server, transport);
     }
@@ -186,20 +182,18 @@ describe("SmtpTransport Integration Tests", () => {
       assert.ok(receipt.successful);
 
       const receipts: SmtpReceipt[] = [];
-      for await (
-        const each of transport.sendMany([
-          createTestMessage({ messageId: "first@example.com", date }),
-          createTestMessage({ messageId: "second@example.com", date }),
-        ])
-      ) {
+      for await (const each of transport.sendMany([
+        createTestMessage({ messageId: "first@example.com", date }),
+        createTestMessage({ messageId: "second@example.com", date }),
+      ])) {
         receipts.push(each);
       }
       assert.equal(receipts.length, 2);
       assert.ok(receipts.every((each) => each.successful));
 
-      const delivered = server.getReceivedMessages().map((message) =>
-        message.data
-      );
+      const delivered = server
+        .getReceivedMessages()
+        .map((message) => message.data);
       assert.equal(delivered.length, 3);
       for (const [index, id] of ["single", "first", "second"].entries()) {
         assert.ok(
@@ -227,13 +221,16 @@ describe("SmtpTransport Integration Tests", () => {
       assert.ok((await transport.send(message)).successful);
       assert.ok((await transport.send(message)).successful);
 
-      const delivered = server.getReceivedMessages().map((message) =>
-        message.data
-      );
+      const delivered = server
+        .getReceivedMessages()
+        .map((message) => message.data);
       const identity = delivered.map((data) =>
-        data.split("\r\n").filter((line) =>
-          line.startsWith("Message-ID:") || line.startsWith("Date:")
-        )
+        data
+          .split("\r\n")
+          .filter(
+            (line) =>
+              line.startsWith("Message-ID:") || line.startsWith("Date:"),
+          ),
       );
       assert.deepEqual(identity[0], identity[1]);
       assert.deepEqual(identity[0], [
@@ -254,15 +251,15 @@ describe("SmtpTransport Integration Tests", () => {
         createTestMessage(),
       ];
       const receipts: SmtpReceipt[] = [];
-      for await (
-        const receipt of transport.sendMany(messages, {
-          envelope: (_message, index) =>
-            index === 1 ? { to: [] } : {
-              from: `bounce+${index}@example.net`,
-              to: [`recipient+${index}@example.net`],
-            },
-        })
-      ) {
+      for await (const receipt of transport.sendMany(messages, {
+        envelope: (_message, index) =>
+          index === 1
+            ? { to: [] }
+            : {
+                from: `bounce+${index}@example.net`,
+                to: [`recipient+${index}@example.net`],
+              },
+      })) {
         receipts.push(receipt);
       }
 
@@ -275,9 +272,13 @@ describe("SmtpTransport Integration Tests", () => {
       assert.ok(receipts[2].successful);
       assert.equal(server.getConnectionCount(), 1);
       assert.deepEqual(
-        server.getReceivedCommands().filter((command) =>
-          command.startsWith("MAIL FROM:") || command.startsWith("RCPT TO:")
-        ),
+        server
+          .getReceivedCommands()
+          .filter(
+            (command) =>
+              command.startsWith("MAIL FROM:") ||
+              command.startsWith("RCPT TO:"),
+          ),
         [
           "MAIL FROM:<bounce+0@example.net>",
           "RCPT TO:<recipient+0@example.net>",
@@ -299,16 +300,14 @@ describe("SmtpTransport Integration Tests", () => {
         createTestMessage(),
       ];
       const receipts: SmtpReceipt[] = [];
-      for await (
-        const receipt of transport.sendMany(messages, {
-          envelope: (_message, index) => {
-            if (index === 1) {
-              throw new TypeError("Cannot derive the SMTP envelope.");
-            }
-            return { from: `bounce+${index}@example.net` };
-          },
-        })
-      ) {
+      for await (const receipt of transport.sendMany(messages, {
+        envelope: (_message, index) => {
+          if (index === 1) {
+            throw new TypeError("Cannot derive the SMTP envelope.");
+          }
+          return { from: `bounce+${index}@example.net` };
+        },
+      })) {
         receipts.push(receipt);
       }
 
@@ -321,9 +320,9 @@ describe("SmtpTransport Integration Tests", () => {
       assert.ok(receipts[2].successful);
       assert.equal(server.getConnectionCount(), 1);
       assert.deepEqual(
-        server.getReceivedCommands().filter((command) =>
-          command.startsWith("MAIL FROM:")
-        ),
+        server
+          .getReceivedCommands()
+          .filter((command) => command.startsWith("MAIL FROM:")),
         [
           "MAIL FROM:<bounce+0@example.net>",
           "MAIL FROM:<bounce+2@example.net>",
@@ -343,20 +342,18 @@ describe("SmtpTransport Integration Tests", () => {
       };
 
       const receipts: SmtpReceipt[] = [];
-      for await (
-        const receipt of transport.sendMany(messages(), {
-          envelope: (_message, index) =>
-            index === 0 ? { from: "async-bounce+0@example.net" } : undefined,
-        })
-      ) {
+      for await (const receipt of transport.sendMany(messages(), {
+        envelope: (_message, index) =>
+          index === 0 ? { from: "async-bounce+0@example.net" } : undefined,
+      })) {
         receipts.push(receipt);
       }
 
       assert.ok(receipts.every((receipt) => receipt.successful));
       assert.deepEqual(
-        server.getReceivedCommands().filter((command) =>
-          command.startsWith("MAIL FROM:")
-        ),
+        server
+          .getReceivedCommands()
+          .filter((command) => command.startsWith("MAIL FROM:")),
         [
           "MAIL FROM:<async-bounce+0@example.net>",
           "MAIL FROM:<john@example.com>",
@@ -378,9 +375,9 @@ describe("SmtpTransport Integration Tests", () => {
 
       assert.ok(receipt.successful);
       assert.ok(
-        server.getReceivedCommands().includes(
-          "MAIL FROM:<반송@example.com> BODY=8BITMIME SMTPUTF8",
-        ),
+        server
+          .getReceivedCommands()
+          .includes("MAIL FROM:<반송@example.com> BODY=8BITMIME SMTPUTF8"),
       );
     } finally {
       await teardownTest(server, transport);
@@ -424,9 +421,9 @@ describe("SmtpTransport Integration Tests", () => {
 
       assert.ok(receipt.successful);
       assert.ok(
-        server.getReceivedCommands().includes(
-          "MAIL FROM:<bounce@example.net> BODY=8BITMIME SMTPUTF8",
-        ),
+        server
+          .getReceivedCommands()
+          .includes("MAIL FROM:<bounce@example.net> BODY=8BITMIME SMTPUTF8"),
       );
     } finally {
       await teardownTest(server, transport);
@@ -579,18 +576,22 @@ describe("SmtpTransport Integration Tests", () => {
 
       assert.ok(receipt.successful);
       assert.deepEqual(
-        server.getReceivedCommands().filter((command) =>
-          command.startsWith("MAIL FROM:") || command.startsWith("RCPT TO:")
-        ),
+        server
+          .getReceivedCommands()
+          .filter(
+            (command) =>
+              command.startsWith("MAIL FROM:") ||
+              command.startsWith("RCPT TO:"),
+          ),
         [
           "MAIL FROM:<john@example.com> RET=HDRS " +
-          "ENVID=campaign+2B42+3Dalpha+20beta",
+            "ENVID=campaign+2B42+3Dalpha+20beta",
           "RCPT TO:<jane+archive=2026@example.com> " +
-          "NOTIFY=SUCCESS,FAILURE,DELAY " +
-          "ORCPT=rfc822;jane+2Barchive+3D2026@example.com",
+            "NOTIFY=SUCCESS,FAILURE,DELAY " +
+            "ORCPT=rfc822;jane+2Barchive+3D2026@example.com",
           "RCPT TO:<johnny@example.com> NOTIFY=NEVER",
           "RCPT TO:<hidden@example.com> NOTIFY=FAILURE " +
-          "ORCPT=rfc822;hidden@example.com",
+            "ORCPT=rfc822;hidden@example.com",
         ],
       );
       const delivered = server.getReceivedMessages()[0];
@@ -621,10 +622,12 @@ describe("SmtpTransport Integration Tests", () => {
 
       assert.ok(receipt.successful);
       assert.ok(
-        server.getReceivedCommands().includes(
-          "RCPT TO:<forward@example.net> NOTIFY=FAILURE " +
-            "ORCPT=rfc822;forward@example.net",
-        ),
+        server
+          .getReceivedCommands()
+          .includes(
+            "RCPT TO:<forward@example.net> NOTIFY=FAILURE " +
+              "ORCPT=rfc822;forward@example.net",
+          ),
       );
     } finally {
       await teardownTest(server, transport);
@@ -670,21 +673,15 @@ describe("SmtpTransport Integration Tests", () => {
       assert.ok(!unsupported.successful);
       if (!unsupported.successful) {
         assert.equal(unsupported.retryable, false);
-        assert.equal(
-          unsupported.errors?.[0]?.code,
-          "smtp.dsn-unsupported",
-        );
-        assert.equal(
-          unsupported.errors?.[0]?.category,
-          "configuration",
-        );
+        assert.equal(unsupported.errors?.[0]?.code, "smtp.dsn-unsupported");
+        assert.equal(unsupported.errors?.[0]?.category, "configuration");
       }
       assert.ok(ordinary.successful);
       assert.equal(server.getConnectionCount(), 1);
       assert.deepEqual(
-        server.getReceivedCommands().filter((command) =>
-          command.startsWith("MAIL FROM:")
-        ),
+        server
+          .getReceivedCommands()
+          .filter((command) => command.startsWith("MAIL FROM:")),
         ["MAIL FROM:<john@example.com>"],
       );
     } finally {
@@ -713,9 +710,9 @@ describe("SmtpTransport Integration Tests", () => {
         assert.equal(receipt.errors?.[0]?.category, "validation");
       }
       assert.ok(
-        !server.getReceivedCommands().some((command) =>
-          command.startsWith("MAIL FROM:")
-        ),
+        !server
+          .getReceivedCommands()
+          .some((command) => command.startsWith("MAIL FROM:")),
       );
     } finally {
       await teardownTest(server, transport);
@@ -775,15 +772,13 @@ describe("SmtpTransport Integration Tests", () => {
       ];
       const receipts: SmtpReceipt[] = [];
 
-      for await (
-        const receipt of transport.sendMany(messages, {
-          dsn: {
-            recipients: {
-              "jane@example.com": { notify: ["failure"] },
-            },
+      for await (const receipt of transport.sendMany(messages, {
+        dsn: {
+          recipients: {
+            "jane@example.com": { notify: ["failure"] },
           },
-        })
-      ) {
+        },
+      })) {
         receipts.push(receipt);
       }
 
@@ -797,9 +792,9 @@ describe("SmtpTransport Integration Tests", () => {
       assert.ok(receipts[2].successful);
       assert.equal(server.getConnectionCount(), 1);
       assert.deepEqual(
-        server.getReceivedCommands().filter((command) =>
-          command.startsWith("RCPT TO:")
-        ),
+        server
+          .getReceivedCommands()
+          .filter((command) => command.startsWith("RCPT TO:")),
         [
           "RCPT TO:<jane@example.com> NOTIFY=FAILURE",
           "RCPT TO:<jane@example.com> NOTIFY=FAILURE",
@@ -815,18 +810,17 @@ describe("SmtpTransport Integration Tests", () => {
     try {
       server.setCapabilities(["SIZE 500"]);
 
-      const receipt = await transport.send(createTestMessage({
-        content: { text: "x".repeat(1000) },
-      }));
+      const receipt = await transport.send(
+        createTestMessage({
+          content: { text: "x".repeat(1000) },
+        }),
+      );
 
       assert.ok(!receipt.successful);
       if (!receipt.successful) {
         assert.match(receipt.errorMessages[0], /Message size \d+ octets/);
         assert.equal(receipt.retryable, false);
-        assert.equal(
-          receipt.errors?.[0]?.code,
-          "smtp.message-size-exceeded",
-        );
+        assert.equal(receipt.errors?.[0]?.code, "smtp.message-size-exceeded");
         assert.equal(receipt.errors?.[0]?.category, "rejected");
         const providerDetails = receipt.errors?.[0]?.providerDetails;
         if (providerDetails == null || typeof providerDetails !== "object") {
@@ -838,9 +832,9 @@ describe("SmtpTransport Integration Tests", () => {
         assert.equal(typeof providerDetails.actualSize, "number");
       }
       assert.ok(
-        !server.getReceivedCommands().some((command) =>
-          command.startsWith("MAIL FROM:")
-        ),
+        !server
+          .getReceivedCommands()
+          .some((command) => command.startsWith("MAIL FROM:")),
       );
     } finally {
       await teardownTest(server, transport);
@@ -852,9 +846,11 @@ describe("SmtpTransport Integration Tests", () => {
     try {
       server.setCapabilities(["8BITMIME"]);
 
-      const unsupported = await transport.send(createTestMessage({
-        sender: { address: "josé@example.com" },
-      }));
+      const unsupported = await transport.send(
+        createTestMessage({
+          sender: { address: "josé@example.com" },
+        }),
+      );
       const accepted = await transport.send(createTestMessage());
 
       assert.ok(!unsupported.successful);
@@ -869,9 +865,9 @@ describe("SmtpTransport Integration Tests", () => {
       assert.ok(accepted.successful);
       assert.equal(server.getConnectionCount(), 1);
       assert.deepEqual(
-        server.getReceivedCommands().filter((command) =>
-          command.startsWith("MAIL FROM:")
-        ),
+        server
+          .getReceivedCommands()
+          .filter((command) => command.startsWith("MAIL FROM:")),
         ["MAIL FROM:<john@example.com>"],
       );
     } finally {
@@ -898,9 +894,9 @@ describe("SmtpTransport Integration Tests", () => {
       assert.ok(receipts[1].successful);
       assert.equal(server.getReceivedMessages().length, 1);
       assert.equal(
-        server.getReceivedCommands().filter((command) =>
-          command.startsWith("MAIL FROM:")
-        ).length,
+        server
+          .getReceivedCommands()
+          .filter((command) => command.startsWith("MAIL FROM:")).length,
         1,
       );
     } finally {
@@ -913,12 +909,16 @@ describe("SmtpTransport Integration Tests", () => {
     try {
       server.setCapabilities(["SIZE 1000"]);
 
-      const oversized = await transport.send(createTestMessage({
-        content: { text: "x".repeat(2000) },
-      }));
-      const accepted = await transport.send(createTestMessage({
-        content: { text: "small message" },
-      }));
+      const oversized = await transport.send(
+        createTestMessage({
+          content: { text: "x".repeat(2000) },
+        }),
+      );
+      const accepted = await transport.send(
+        createTestMessage({
+          content: { text: "small message" },
+        }),
+      );
 
       assert.ok(!oversized.successful);
       assert.ok(accepted.successful);
@@ -1005,12 +1005,14 @@ describe("SmtpTransport Integration Tests", () => {
         { code: 550, message: "No such user here" },
       ]);
 
-      const receipt = await transport.send(createTestMessage({
-        recipients: [
-          { address: "accepted@example.com" },
-          { address: "rejected@example.com" },
-        ],
-      }));
+      const receipt = await transport.send(
+        createTestMessage({
+          recipients: [
+            { address: "accepted@example.com" },
+            { address: "rejected@example.com" },
+          ],
+        }),
+      );
 
       assert.ok(receipt.successful, JSON.stringify(receipt));
       if (receipt.successful) {
@@ -1039,12 +1041,14 @@ describe("SmtpTransport Integration Tests", () => {
         { code: 451, message: "Try again later" },
       ]);
 
-      const receipt = await transport.send(createTestMessage({
-        recipients: [
-          { address: "accepted@example.com" },
-          { address: "deferred@example.com" },
-        ],
-      }));
+      const receipt = await transport.send(
+        createTestMessage({
+          recipients: [
+            { address: "accepted@example.com" },
+            { address: "deferred@example.com" },
+          ],
+        }),
+      );
 
       assert.ok(receipt.successful, JSON.stringify(receipt));
       if (receipt.successful) {
@@ -1076,13 +1080,15 @@ describe("SmtpTransport Integration Tests", () => {
         { code: 250, message: "OK" },
       ]);
 
-      const receipt = await transport.send(createTestMessage({
-        recipients: [
-          { address: "accepted@example.com" },
-          { address: "rejected@example.com" },
-          { address: "unanswered@example.com" },
-        ],
-      }));
+      const receipt = await transport.send(
+        createTestMessage({
+          recipients: [
+            { address: "accepted@example.com" },
+            { address: "rejected@example.com" },
+            { address: "unanswered@example.com" },
+          ],
+        }),
+      );
 
       assert.ok(!receipt.successful);
       if (!receipt.successful) {
@@ -1107,12 +1113,14 @@ describe("SmtpTransport Integration Tests", () => {
         { code: 451, message: "Try again later" },
       ]);
 
-      const receipt = await transport.send(createTestMessage({
-        recipients: [
-          { address: "invalid@example.com" },
-          { address: "deferred@example.com" },
-        ],
-      }));
+      const receipt = await transport.send(
+        createTestMessage({
+          recipients: [
+            { address: "invalid@example.com" },
+            { address: "deferred@example.com" },
+          ],
+        }),
+      );
 
       assert.ok(!receipt.successful);
       if (!receipt.successful) {
@@ -1441,12 +1449,10 @@ describe("SmtpTransport Integration Tests", () => {
     }
   });
 
-  for (
-    const [code, message, category, retryable] of [
-      [451, "4.4.1 No answer from host", "network", true],
-      [550, "5.6.1 Media not supported", "validation", false],
-    ] as const
-  ) {
+  for (const [code, message, category, retryable] of [
+    [451, "4.4.1 No answer from host", "network", true],
+    [550, "5.6.1 Media not supported", "validation", false],
+  ] as const) {
     test(`should classify ${message} failures`, async () => {
       const { server, transport } = await setupTest();
       try {
@@ -1465,17 +1471,15 @@ describe("SmtpTransport Integration Tests", () => {
     });
   }
 
-  for (
-    const [name, message] of [
-      ["traditional reply", "User unknown"],
-      ["leading zero", "5.01.1 User unknown"],
-      ["missing separator", "5.1.1User unknown"],
-      ["tab separator", "5.1.1\tUser unknown"],
-      ["incomplete code", "5.1 User unknown"],
-      ["overlong detail", "5.1.1000 User unknown"],
-      ["inconsistent class", "4.1.1 User unknown"],
-    ] as const
-  ) {
+  for (const [name, message] of [
+    ["traditional reply", "User unknown"],
+    ["leading zero", "5.01.1 User unknown"],
+    ["missing separator", "5.1.1User unknown"],
+    ["tab separator", "5.1.1\tUser unknown"],
+    ["incomplete code", "5.1 User unknown"],
+    ["overlong detail", "5.1.1000 User unknown"],
+    ["inconsistent class", "4.1.1 User unknown"],
+  ] as const) {
     test(`should ignore enhanced status in ${name}`, async () => {
       const { server, transport } = await setupTest();
       try {

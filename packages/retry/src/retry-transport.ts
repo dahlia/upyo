@@ -22,7 +22,8 @@ import {
  * @since 0.5.0
  */
 export class RetryTransport<TProviderId extends string = string>
-  implements Transport<TProviderId>, AsyncDisposable {
+  implements Transport<TProviderId>, AsyncDisposable
+{
   readonly id: TProviderId;
 
   /**
@@ -82,17 +83,20 @@ export class RetryTransport<TProviderId extends string = string>
           return this.createThrownFailure(error, attempt);
         }
 
-        await this.waitBeforeRetry({
-          attempt,
-          nextAttempt: attempt + 1,
-          maxAttempts: this.config.maxAttempts,
-          delayMilliseconds: this.calculateDelay(
+        await this.waitBeforeRetry(
+          {
             attempt,
-            toReceiptError<TProviderId>(error),
-          ),
-          error,
-          reason: "retry",
-        }, options?.signal);
+            nextAttempt: attempt + 1,
+            maxAttempts: this.config.maxAttempts,
+            delayMilliseconds: this.calculateDelay(
+              attempt,
+              toReceiptError<TProviderId>(error),
+            ),
+            error,
+            reason: "retry",
+          },
+          options?.signal,
+        );
         continue;
       }
 
@@ -110,14 +114,17 @@ export class RetryTransport<TProviderId extends string = string>
         return failedReceipt;
       }
 
-      await this.waitBeforeRetry({
-        attempt,
-        nextAttempt: attempt + 1,
-        maxAttempts: this.config.maxAttempts,
-        delayMilliseconds: this.calculateDelay(attempt, failedReceipt),
-        receipt: failedReceipt,
-        reason: "retry",
-      }, options?.signal);
+      await this.waitBeforeRetry(
+        {
+          attempt,
+          nextAttempt: attempt + 1,
+          maxAttempts: this.config.maxAttempts,
+          delayMilliseconds: this.calculateDelay(attempt, failedReceipt),
+          receipt: failedReceipt,
+          reason: "retry",
+        },
+        options?.signal,
+      );
     }
 
     return this.createThrownFailure(lastThrownError, this.config.maxAttempts);
@@ -203,7 +210,8 @@ export class RetryTransport<TProviderId extends string = string>
         hasLaunchError ||
         hasQueuedFailure ||
         inFlight.size >= this.config.sendMany.maxConcurrent
-      ) return;
+      )
+        return;
 
       launchPromise = launchNext()
         .catch((error) => {
@@ -267,7 +275,7 @@ export class RetryTransport<TProviderId extends string = string>
       try {
         const closeIterator = ():
           | Promise<IteratorResult<Message>>
-          | undefined => inputDone ? undefined : iterator.return?.();
+          | undefined => (inputDone ? undefined : iterator.return?.());
         const closePromise = closeIterator();
         if (pullingInput) {
           closePromise?.catch(() => {});
@@ -369,14 +377,15 @@ export class RetryTransport<TProviderId extends string = string>
       | ReceiptError<TProviderId>,
   ): number {
     const retryAfterMilliseconds = getRetryAfterMilliseconds(failure);
-    const cappedRetryAfter = retryAfterMilliseconds == null ||
-        !Number.isFinite(retryAfterMilliseconds) ||
-        retryAfterMilliseconds < 0
-      ? undefined
-      : Math.min(
-        retryAfterMilliseconds,
-        this.config.backoff.maxDelayMilliseconds,
-      );
+    const cappedRetryAfter =
+      retryAfterMilliseconds == null ||
+      !Number.isFinite(retryAfterMilliseconds) ||
+      retryAfterMilliseconds < 0
+        ? undefined
+        : Math.min(
+            retryAfterMilliseconds,
+            this.config.backoff.maxDelayMilliseconds,
+          );
 
     if (cappedRetryAfter != null) return cappedRetryAfter;
 
@@ -406,13 +415,16 @@ export class RetryTransport<TProviderId extends string = string>
     const delayMilliseconds = this.config.sendMany.intervalMilliseconds;
     if (delayMilliseconds <= 0) return Promise.resolve();
     const wait = this.config.wait;
-    return wait({
-      attempt: 0,
-      nextAttempt: 0,
-      maxAttempts: this.config.maxAttempts,
-      delayMilliseconds,
-      reason: "sendMany-throttle",
-    }, signal);
+    return wait(
+      {
+        attempt: 0,
+        nextAttempt: 0,
+        maxAttempts: this.config.maxAttempts,
+        delayMilliseconds,
+        reason: "sendMany-throttle",
+      },
+      signal,
+    );
   }
 
   private createThrownFailure(
@@ -428,13 +440,14 @@ export class RetryTransport<TProviderId extends string = string>
     }
 
     const message = error instanceof Error ? error.message : String(error);
-    const classification = error instanceof Error && error.name === "AbortError"
-      ? {
-        category: "timeout" as const,
-        code: "timeout",
-        retryable: true,
-      }
-      : classifyReceiptError(error);
+    const classification =
+      error instanceof Error && error.name === "AbortError"
+        ? {
+            category: "timeout" as const,
+            code: "timeout",
+            retryable: true,
+          }
+        : classifyReceiptError(error);
     return createFailedReceipt(
       createReceiptError(message, {
         provider: this.id,
@@ -452,15 +465,15 @@ export class RetryTransport<TProviderId extends string = string>
 
 type SendManyResult<TProviderId extends string> =
   | {
-    readonly index: number;
-    readonly successful: true;
-    readonly receipt: Receipt<TProviderId>;
-  }
+      readonly index: number;
+      readonly successful: true;
+      readonly receipt: Receipt<TProviderId>;
+    }
   | {
-    readonly index: number;
-    readonly successful: false;
-    readonly error: unknown;
-  };
+      readonly index: number;
+      readonly successful: false;
+      readonly error: unknown;
+    };
 
 interface LaunchResult {
   readonly launched: true;
@@ -497,10 +510,9 @@ function getRetryAfterMilliseconds<TProviderId extends string>(
 function toAsyncIterator<T>(
   values: Iterable<T> | AsyncIterable<T>,
 ): AsyncIterator<T> {
-  const asyncIterator =
-    (values as { readonly [Symbol.asyncIterator]?: unknown })[
-      Symbol.asyncIterator
-    ];
+  const asyncIterator = (
+    values as { readonly [Symbol.asyncIterator]?: unknown }
+  )[Symbol.asyncIterator];
   if (typeof asyncIterator === "function") return asyncIterator.call(values);
 
   const iterator = (values as Iterable<T>)[Symbol.iterator]();
@@ -548,8 +560,10 @@ function raceWithAbort<T>(
 }
 
 function getAbortReason(signal: AbortSignal): unknown {
-  return signal.reason ??
-    new DOMException("The operation was aborted.", "AbortError");
+  return (
+    signal.reason ??
+    new DOMException("The operation was aborted.", "AbortError")
+  );
 }
 
 function toReceiptError<TProviderId extends string>(
@@ -561,10 +575,12 @@ function toReceiptError<TProviderId extends string>(
 function isReceiptError<TProviderId extends string>(
   value: unknown,
 ): value is ReceiptError<TProviderId> {
-  return typeof value === "object" && value != null &&
+  return (
+    typeof value === "object" &&
+    value != null &&
     typeof (value as { readonly message?: unknown }).message === "string" &&
     typeof (value as { readonly code?: unknown }).code === "string" &&
     typeof (value as { readonly category?: unknown }).category === "string" &&
-    typeof (value as { readonly retryable?: unknown }).retryable ===
-      "boolean";
+    typeof (value as { readonly retryable?: unknown }).retryable === "boolean"
+  );
 }

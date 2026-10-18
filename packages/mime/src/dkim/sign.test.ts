@@ -13,7 +13,8 @@ import {
 import { signMessage } from "./sign.ts";
 
 describe("DKIM Signing", () => {
-  const simpleMessage = "From: sender@example.com\r\n" +
+  const simpleMessage =
+    "From: sender@example.com\r\n" +
     "To: recipient@example.com\r\n" +
     "Subject: Test Email\r\n" +
     "Date: Thu, 01 Jan 2025 00:00:00 +0000\r\n" +
@@ -34,9 +35,10 @@ describe("DKIM Signing", () => {
             {
               signingDomain: TEST_DKIM_DOMAIN,
               selector: TEST_DKIM_SELECTOR,
-              privateKey: algorithm === "rsa-sha256"
-                ? TEST_DKIM_PRIVATE_KEY
-                : TEST_DKIM_ED25519_PRIVATE_KEY,
+              privateKey:
+                algorithm === "rsa-sha256"
+                  ? TEST_DKIM_PRIVATE_KEY
+                  : TEST_DKIM_ED25519_PRIVATE_KEY,
               algorithm,
               canonicalization: `${headerMode}/simple`,
               headerFields: ["from", "SUBJECT"],
@@ -44,31 +46,37 @@ describe("DKIM Signing", () => {
           );
           const signature = /(?:^|;\s*)b=([^;]+)$/.exec(result.signature);
           assert.ok(signature);
-          assert.ok(result.signature.includes(
-            `bh=${createHash("sha256").update(body).digest("base64")};`,
-          ));
-          const unsignedHeader = "DKIM-Signature: " +
+          assert.ok(
+            result.signature.includes(
+              `bh=${createHash("sha256").update(body).digest("base64")};`,
+            ),
+          );
+          const unsignedHeader =
+            "DKIM-Signature: " +
             result.signature.slice(0, -signature[1].length);
           // Construct verification input from the actual wire headers,
           // independently of the signer's parser and canonicalizers.
-          const headers = headerMode === "simple"
-            ? [from, subject, unsignedHeader]
-            : [
-              "from:sender@example.com",
-              "subject:A folded subject",
-              "dkim-signature:" + unsignedHeader.slice(16).trim(),
-            ];
+          const headers =
+            headerMode === "simple"
+              ? [from, subject, unsignedHeader]
+              : [
+                  "from:sender@example.com",
+                  "subject:A folded subject",
+                  "dkim-signature:" + unsignedHeader.slice(16).trim(),
+                ];
           const input = new TextEncoder().encode(headers.join("\r\n"));
-          assert.ok(verify(
-            algorithm === "rsa-sha256" ? "RSA-SHA256" : null,
-            algorithm === "rsa-sha256"
-              ? input
-              : createHash("sha256").update(input).digest(),
-            algorithm === "rsa-sha256"
-              ? TEST_DKIM_PUBLIC_KEY
-              : TEST_DKIM_ED25519_PUBLIC_KEY,
-            Uint8Array.from(atob(signature[1]), (c) => c.charCodeAt(0)),
-          ));
+          assert.ok(
+            verify(
+              algorithm === "rsa-sha256" ? "RSA-SHA256" : null,
+              algorithm === "rsa-sha256"
+                ? input
+                : createHash("sha256").update(input).digest(),
+              algorithm === "rsa-sha256"
+                ? TEST_DKIM_PUBLIC_KEY
+                : TEST_DKIM_ED25519_PUBLIC_KEY,
+              Uint8Array.from(atob(signature[1]), (c) => c.charCodeAt(0)),
+            ),
+          );
         });
       }
     }
@@ -134,14 +142,16 @@ describe("DKIM Signing", () => {
     });
 
     it("should generate different signatures for different messages", async () => {
-      const message1 = "From: sender@example.com\r\n" +
+      const message1 =
+        "From: sender@example.com\r\n" +
         "To: recipient@example.com\r\n" +
         "Subject: Test 1\r\n" +
         "Date: Thu, 01 Jan 2025 00:00:00 +0000\r\n" +
         "\r\n" +
         "Body 1\r\n";
 
-      const message2 = "From: sender@example.com\r\n" +
+      const message2 =
+        "From: sender@example.com\r\n" +
         "To: recipient@example.com\r\n" +
         "Subject: Test 2\r\n" +
         "Date: Thu, 01 Jan 2025 00:00:00 +0000\r\n" +
@@ -171,7 +181,8 @@ describe("DKIM Signing", () => {
     });
 
     it("should handle messages with empty body", async () => {
-      const emptyBodyMessage = "From: sender@example.com\r\n" +
+      const emptyBodyMessage =
+        "From: sender@example.com\r\n" +
         "To: recipient@example.com\r\n" +
         "Subject: Empty Body Test\r\n" +
         "Date: Thu, 01 Jan 2025 00:00:00 +0000\r\n" +
@@ -188,7 +199,8 @@ describe("DKIM Signing", () => {
     });
 
     it("should handle messages with multipart content", async () => {
-      const multipartMessage = "From: sender@example.com\r\n" +
+      const multipartMessage =
+        "From: sender@example.com\r\n" +
         "To: recipient@example.com\r\n" +
         "Subject: Multipart Test\r\n" +
         "Date: Thu, 01 Jan 2025 00:00:00 +0000\r\n" +
@@ -235,16 +247,13 @@ describe("DKIM Signing", () => {
     });
 
     it("should throw error for invalid private key", async () => {
-      await assert.rejects(
-        async () => {
-          await signMessage(simpleMessage, {
-            signingDomain: TEST_DKIM_DOMAIN,
-            selector: TEST_DKIM_SELECTOR,
-            privateKey: "invalid-key",
-          });
-        },
-        /Failed to import private key|invalid/i,
-      );
+      await assert.rejects(async () => {
+        await signMessage(simpleMessage, {
+          signingDomain: TEST_DKIM_DOMAIN,
+          selector: TEST_DKIM_SELECTOR,
+          privateKey: "invalid-key",
+        });
+      }, /Failed to import private key|invalid/i);
     });
 
     it("should sign with Ed25519 algorithm", async () => {
@@ -266,8 +275,10 @@ describe("DKIM Signing", () => {
 
     it("should accept CryptoKey for RSA signing", async () => {
       // Import the private key first
-      const pemContents = TEST_DKIM_PRIVATE_KEY
-        .replace(/-----BEGIN (?:RSA )?PRIVATE KEY-----/, "")
+      const pemContents = TEST_DKIM_PRIVATE_KEY.replace(
+        /-----BEGIN (?:RSA )?PRIVATE KEY-----/,
+        "",
+      )
         .replace(/-----END (?:RSA )?PRIVATE KEY-----/, "")
         .replace(/\s/g, "");
       const binaryString = atob(pemContents);
@@ -296,8 +307,10 @@ describe("DKIM Signing", () => {
 
     it("should accept CryptoKey for Ed25519 signing", async () => {
       // Import the Ed25519 private key first
-      const pemContents = TEST_DKIM_ED25519_PRIVATE_KEY
-        .replace(/-----BEGIN PRIVATE KEY-----/, "")
+      const pemContents = TEST_DKIM_ED25519_PRIVATE_KEY.replace(
+        /-----BEGIN PRIVATE KEY-----/,
+        "",
+      )
         .replace(/-----END PRIVATE KEY-----/, "")
         .replace(/\s/g, "");
       const binaryString = atob(pemContents);

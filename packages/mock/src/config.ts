@@ -83,9 +83,7 @@ export type ResolvedMockConfig = Required<MockConfig>;
  * // resolved.generateUniqueMessageIds will be true (default)
  * ```
  */
-export function createMockConfig(
-  config: MockConfig = {},
-): ResolvedMockConfig {
+export function createMockConfig(config: MockConfig = {}): ResolvedMockConfig {
   return {
     defaultResponse: config.defaultResponse ?? {
       successful: true,

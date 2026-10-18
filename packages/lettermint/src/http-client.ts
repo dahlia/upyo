@@ -259,9 +259,10 @@ export class LettermintHttpClient {
     }
 
     const timeoutController = new AbortController();
-    const timeoutId = this.config.timeout > 0
-      ? setTimeout(() => timeoutController.abort(), this.config.timeout)
-      : undefined;
+    const timeoutId =
+      this.config.timeout > 0
+        ? setTimeout(() => timeoutController.abort(), this.config.timeout)
+        : undefined;
     const requestSignal = combineSignals(timeoutController.signal, signal);
 
     try {
@@ -301,8 +302,11 @@ function withAttempts(error: Error, attempts: number): Error {
 }
 
 function isRetryable(error: LettermintApiError): boolean {
-  return error.statusCode === 408 || error.statusCode === 429 ||
-    error.statusCode >= 500;
+  return (
+    error.statusCode === 408 ||
+    error.statusCode === 429 ||
+    error.statusCode >= 500
+  );
 }
 
 function calculateRetryDelay(attempt: number): number {

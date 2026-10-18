@@ -24,10 +24,10 @@ export function comparePriority(a: Priority, b: Priority): number {
   return a === b
     ? 0
     : a === "high"
-    ? -1
-    : b === "high"
-    ? 1
-    : a === "low"
-    ? 1
-    : -1;
+      ? -1
+      : b === "high"
+        ? 1
+        : a === "low"
+          ? 1
+          : -1;
 }

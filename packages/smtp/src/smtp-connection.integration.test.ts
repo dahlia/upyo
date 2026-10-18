@@ -252,13 +252,16 @@ describe("SMTP Connection Integration Tests", () => {
         await connection.connect();
         await connection.greeting();
 
-        await assert.rejects(() => connection.ehlo(), (error) => {
-          assert.ok(error instanceof SmtpResponseError);
-          assert.equal(error.code, 550);
-          assert.equal(error.command, "HELO");
-          assert.equal(error.response, "Greeting rejected");
-          return true;
-        });
+        await assert.rejects(
+          () => connection.ehlo(),
+          (error) => {
+            assert.ok(error instanceof SmtpResponseError);
+            assert.equal(error.code, 550);
+            assert.equal(error.command, "HELO");
+            assert.equal(error.response, "Greeting rejected");
+            return true;
+          },
+        );
         assert.deepStrictEqual(server.getReceivedCommands().slice(0, 2), [
           "EHLO test.local",
           "HELO test.local",
@@ -278,17 +281,20 @@ describe("SMTP Connection Integration Tests", () => {
         await connection.connect();
         await connection.greeting();
 
-        await assert.rejects(() => connection.ehlo(), (error) => {
-          assert.ok(error instanceof SmtpResponseError);
-          assert.equal(error.code, 421);
-          assert.equal(error.command, "EHLO");
-          assert.equal(error.response, "Service not available");
-          return true;
-        });
+        await assert.rejects(
+          () => connection.ehlo(),
+          (error) => {
+            assert.ok(error instanceof SmtpResponseError);
+            assert.equal(error.code, 421);
+            assert.equal(error.command, "EHLO");
+            assert.equal(error.response, "Service not available");
+            return true;
+          },
+        );
         assert.ok(
-          !server.getReceivedCommands().some((command) =>
-            command.startsWith("HELO ")
-          ),
+          !server
+            .getReceivedCommands()
+            .some((command) => command.startsWith("HELO ")),
         );
       } finally {
         await teardownTest(server, connection);
@@ -454,19 +460,17 @@ describe("SMTP Connection Integration Tests", () => {
       });
     }
 
-    for (
-      const host of [
-        "LOCALHOST",
-        "localhost.",
-        "smtp.localhost",
-        "127.0.0.2",
-        "0::1",
-        "0:0:0:0:0:0::1",
-        "0:0:0:0:0:0:0:1",
-        "[::1]",
-        "[::0001]",
-      ]
-    ) {
+    for (const host of [
+      "LOCALHOST",
+      "localhost.",
+      "smtp.localhost",
+      "127.0.0.2",
+      "0::1",
+      "0:0:0:0:0:0::1",
+      "0:0:0:0:0:0:0:1",
+      "[::1]",
+      "[::0001]",
+    ]) {
       test(`should recognize configured loopback host ${host}`, async () => {
         const { connection, socket } = setupSimulatedAuthentication(host);
         try {
@@ -478,17 +482,15 @@ describe("SMTP Connection Integration Tests", () => {
       });
     }
 
-    for (
-      const remoteAddress of [
-        "127.0.0.2",
-        "::1",
-        "0:0::1",
-        "0:0:0:0:0:0:0:1",
-        "::ffff:127.0.0.2",
-        "::ffff:7f00:2",
-        "0:0::ffff:127.0.0.2",
-      ]
-    ) {
+    for (const remoteAddress of [
+      "127.0.0.2",
+      "::1",
+      "0:0::1",
+      "0:0:0:0:0:0:0:1",
+      "::ffff:127.0.0.2",
+      "::ffff:7f00:2",
+      "0:0::ffff:127.0.0.2",
+    ]) {
       test(`should recognize connected loopback address ${remoteAddress}`, async () => {
         const { connection, socket } = setupSimulatedAuthentication(
           "smtp.example.com",
@@ -646,9 +648,9 @@ describe("SMTP Connection Integration Tests", () => {
         });
 
         assert.ok(
-          server.getReceivedCommands().includes(
-            "MAIL FROM:<josé@example.com> BODY=8BITMIME SMTPUTF8",
-          ),
+          server
+            .getReceivedCommands()
+            .includes("MAIL FROM:<josé@example.com> BODY=8BITMIME SMTPUTF8"),
         );
       } finally {
         await teardownTest(server, connection);
@@ -675,9 +677,9 @@ describe("SMTP Connection Integration Tests", () => {
           SmtpUtf8UnsupportedError,
         );
         assert.ok(
-          !server.getReceivedCommands().some((command) =>
-            command.startsWith("MAIL FROM:")
-          ),
+          !server
+            .getReceivedCommands()
+            .some((command) => command.startsWith("MAIL FROM:")),
         );
       } finally {
         await teardownTest(server, connection);
@@ -704,9 +706,9 @@ describe("SMTP Connection Integration Tests", () => {
           /8BITMIME/,
         );
         assert.ok(
-          !server.getReceivedCommands().some((command) =>
-            command.startsWith("MAIL FROM:")
-          ),
+          !server
+            .getReceivedCommands()
+            .some((command) => command.startsWith("MAIL FROM:")),
         );
       } finally {
         await teardownTest(server, connection);
@@ -732,9 +734,9 @@ describe("SMTP Connection Integration Tests", () => {
         });
 
         assert.ok(
-          server.getReceivedCommands().includes(
-            `MAIL FROM:<sender@example.com> SIZE=${messageSize}`,
-          ),
+          server
+            .getReceivedCommands()
+            .includes(`MAIL FROM:<sender@example.com> SIZE=${messageSize}`),
         );
       } finally {
         await teardownTest(server, connection);
@@ -762,9 +764,9 @@ describe("SMTP Connection Integration Tests", () => {
           new SmtpMessageSizeError(messageSize, BigInt(messageSize - 1)),
         );
         assert.ok(
-          !server.getReceivedCommands().some((command) =>
-            command.startsWith("MAIL FROM:")
-          ),
+          !server
+            .getReceivedCommands()
+            .some((command) => command.startsWith("MAIL FROM:")),
         );
       } finally {
         await teardownTest(server, connection);
@@ -790,9 +792,9 @@ describe("SMTP Connection Integration Tests", () => {
         });
 
         assert.ok(
-          server.getReceivedCommands().includes(
-            `MAIL FROM:<sender@example.com> SIZE=${messageSize}`,
-          ),
+          server
+            .getReceivedCommands()
+            .includes(`MAIL FROM:<sender@example.com> SIZE=${messageSize}`),
         );
       } finally {
         await teardownTest(server, connection);
@@ -818,9 +820,9 @@ describe("SMTP Connection Integration Tests", () => {
         });
 
         assert.ok(
-          server.getReceivedCommands().includes(
-            `MAIL FROM:<sender@example.com> SIZE=${messageSize}`,
-          ),
+          server
+            .getReceivedCommands()
+            .includes(`MAIL FROM:<sender@example.com> SIZE=${messageSize}`),
         );
       } finally {
         await teardownTest(server, connection);
@@ -844,9 +846,9 @@ describe("SMTP Connection Integration Tests", () => {
         });
 
         assert.ok(
-          server.getReceivedCommands().includes(
-            "MAIL FROM:<sender@example.com>",
-          ),
+          server
+            .getReceivedCommands()
+            .includes("MAIL FROM:<sender@example.com>"),
         );
       } finally {
         await teardownTest(server, connection);
@@ -947,18 +949,20 @@ describe("SMTP Connection Integration Tests", () => {
           raw: "Mixed recipient message",
         });
 
-        assert.deepStrictEqual(result.rejectedRecipients, [{
-          recipient: "rejected@example.com",
-          code: 550,
-          response: "5.1.1 No such user",
-          retryable: false,
-          enhancedStatusCode: {
-            code: "5.1.1",
-            class: 5,
-            subject: 1,
-            detail: 1,
+        assert.deepStrictEqual(result.rejectedRecipients, [
+          {
+            recipient: "rejected@example.com",
+            code: 550,
+            response: "5.1.1 No such user",
+            retryable: false,
+            enhancedStatusCode: {
+              code: "5.1.1",
+              class: 5,
+              subject: 1,
+              detail: 1,
+            },
           },
-        }]);
+        ]);
         assert.deepStrictEqual(server.getReceivedMessages()[0]?.to, [
           "first@example.com",
           "forwarded@example.com",
@@ -1158,8 +1162,7 @@ describe("SMTP Connection Integration Tests", () => {
             from: "sender@example.com",
             to: ["recipient@example.com"],
           },
-          raw:
-            "From: sender@example.com\r\nTo: recipient@example.com\r\nSubject: Test\r\n\r\nHello World!",
+          raw: "From: sender@example.com\r\nTo: recipient@example.com\r\nSubject: Test\r\n\r\nHello World!",
         };
 
         const result = await connection.sendMessage(testMessage);
@@ -1196,8 +1199,7 @@ describe("SMTP Connection Integration Tests", () => {
             from: "sender@example.com",
             to: ["forwarded@example.com"],
           },
-          raw:
-            "From: sender@example.com\r\nTo: forwarded@example.com\r\nSubject: Forwarded\r\n\r\nTest message",
+          raw: "From: sender@example.com\r\nTo: forwarded@example.com\r\nSubject: Forwarded\r\n\r\nTest message",
         };
 
         const result = await connection.sendMessage(testMessage);
@@ -1225,8 +1227,7 @@ describe("SMTP Connection Integration Tests", () => {
               "recipient3@example.com",
             ],
           },
-          raw:
-            "From: sender@example.com\r\nTo: recipient1@example.com\r\nSubject: Multi-recipient\r\n\r\nMultiple recipients test",
+          raw: "From: sender@example.com\r\nTo: recipient1@example.com\r\nSubject: Multi-recipient\r\n\r\nMultiple recipients test",
         };
 
         const result = await connection.sendMessage(testMessage);
@@ -1257,8 +1258,7 @@ describe("SMTP Connection Integration Tests", () => {
             from: "blocked@example.com",
             to: ["recipient@example.com"],
           },
-          raw:
-            "From: blocked@example.com\r\nTo: recipient@example.com\r\nSubject: Test\r\n\r\nTest message",
+          raw: "From: blocked@example.com\r\nTo: recipient@example.com\r\nSubject: Test\r\n\r\nTest message",
         };
 
         await assert.rejects(
@@ -1287,8 +1287,7 @@ describe("SMTP Connection Integration Tests", () => {
             from: "sender@example.com",
             to: ["invalid@example.com"],
           },
-          raw:
-            "From: sender@example.com\r\nTo: invalid@example.com\r\nSubject: Test\r\n\r\nTest message",
+          raw: "From: sender@example.com\r\nTo: invalid@example.com\r\nSubject: Test\r\n\r\nTest message",
         };
 
         await assert.rejects(
@@ -1314,8 +1313,7 @@ describe("SMTP Connection Integration Tests", () => {
             from: "sender@example.com",
             to: ["recipient@example.com"],
           },
-          raw:
-            "From: sender@example.com\r\nTo: recipient@example.com\r\nSubject: Rejected\r\n\r\nThis will be rejected",
+          raw: "From: sender@example.com\r\nTo: recipient@example.com\r\nSubject: Rejected\r\n\r\nThis will be rejected",
         };
 
         await assert.rejects(
@@ -1346,15 +1344,11 @@ describe("SMTP Connection Integration Tests", () => {
             from: "sender@example.com",
             to: ["recipient@example.com"],
           },
-          raw:
-            "From: sender@example.com\r\nTo: recipient@example.com\r\nSubject: Test\r\n\r\nTest message",
+          raw: "From: sender@example.com\r\nTo: recipient@example.com\r\nSubject: Test\r\n\r\nTest message",
         };
 
         const result = await connection.sendMessage(testMessage);
-        assert.strictEqual(
-          result.messageId,
-          "abc123def456@mail.example.com",
-        );
+        assert.strictEqual(result.messageId, "abc123def456@mail.example.com");
       } finally {
         await teardownTest(server, connection);
       }
@@ -1519,8 +1513,7 @@ describe("SMTP Connection Integration Tests", () => {
             from: "sender@example.com",
             to: ["recipient@example.com"],
           },
-          raw:
-            "From: sender@example.com\r\nTo: recipient@example.com\r\nSubject: Dot Test\r\n\r\nLine 1\r\n.Hidden line\r\nLine 3",
+          raw: "From: sender@example.com\r\nTo: recipient@example.com\r\nSubject: Dot Test\r\n\r\nLine 1\r\n.Hidden line\r\nLine 3",
         };
 
         await connection.sendMessage(testMessage);

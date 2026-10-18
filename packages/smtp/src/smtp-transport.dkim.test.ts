@@ -410,10 +410,7 @@ describe("DKIM Integration Tests", () => {
       // Check all required tags are present
       const requiredTags = ["v=", "a=", "c=", "d=", "s=", "h=", "bh=", "b="];
       for (const tag of requiredTags) {
-        assert.ok(
-          result.raw.includes(tag),
-          `Should contain ${tag} tag`,
-        );
+        assert.ok(result.raw.includes(tag), `Should contain ${tag} tag`);
       }
     });
 

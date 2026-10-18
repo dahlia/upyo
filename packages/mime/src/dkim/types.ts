@@ -127,7 +127,8 @@ export interface DkimConfig {
  */
 export function validateDkimBodyMode(config?: DkimConfig): void {
   if (
-    config?.bodyMode !== undefined && config.bodyMode !== "buffered" &&
+    config?.bodyMode !== undefined &&
+    config.bodyMode !== "buffered" &&
     config.bodyMode !== "streaming"
   ) {
     throw new TypeError("Expected DKIM bodyMode to be buffered or streaming.");

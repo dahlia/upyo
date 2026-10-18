@@ -81,9 +81,7 @@ export type ResolvedPlunkConfig = Required<PlunkConfig>;
  * @returns A resolved configuration with all defaults applied
  * @internal
  */
-export function createPlunkConfig(
-  config: PlunkConfig,
-): ResolvedPlunkConfig {
+export function createPlunkConfig(config: PlunkConfig): ResolvedPlunkConfig {
   return {
     apiKey: config.apiKey,
     baseUrl: config.baseUrl ?? "https://next-api.useplunk.com",

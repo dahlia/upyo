@@ -237,10 +237,7 @@ test("parseAddress() - edge cases with valid email patterns", () => {
   // The local-part limit is 64 octets.
   const maxLocal = "a".repeat(64) + "@example.com";
   assert.deepStrictEqual(parseAddress(maxLocal), { address: maxLocal });
-  assert.strictEqual(
-    parseAddress("a".repeat(65) + "@example.com"),
-    undefined,
-  );
+  assert.strictEqual(parseAddress("a".repeat(65) + "@example.com"), undefined);
 
   // Test very long domain name (close to 253 char limit)
   const longDomain = "user@" + "a".repeat(60) + ".com";

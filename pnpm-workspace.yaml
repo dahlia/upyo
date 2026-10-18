@@ -7,6 +7,7 @@ allowBuilds:
   workerd: true
 
 catalog:
+  oxfmt: 0.73.0
   '@types/node': 24.19.2
   oxlint: 1.88.0
   '@noble/hashes': ^1.8.0

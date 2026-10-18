@@ -70,9 +70,7 @@ export type AttributeExtractor = (
  * Custom error classifier function type.
  * @since 0.2.0
  */
-export type ErrorClassifier = (
-  error: unknown,
-) => string;
+export type ErrorClassifier = (error: unknown) => string;
 
 /**
  * Configuration options for auto-setup scenarios.
@@ -177,15 +175,7 @@ const DEFAULT_CONFIG = {
     samplingRate: 1.0,
     prefix: "upyo",
     durationBuckets: [
-      0.001,
-      0.005,
-      0.01,
-      0.05,
-      0.1,
-      0.5,
-      1.0,
-      5.0,
-      10.0,
+      0.001, 0.005, 0.01, 0.05, 0.1, 0.5, 1.0, 5.0, 10.0,
     ] as const,
   },
   tracing: {
@@ -262,41 +252,47 @@ export function createOpenTelemetryConfig(
  *          `"unknown"`.
  * @since 0.2.0
  */
-export function defaultErrorClassifier(
-  error: unknown,
-): string {
+export function defaultErrorClassifier(error: unknown): string {
   if (error instanceof Error) {
     const message = error.message.toLowerCase();
     const name = error.name.toLowerCase();
 
     // Authentication errors
     if (
-      message.includes("auth") || message.includes("unauthorized") ||
-      message.includes("invalid api key") || message.includes("403")
+      message.includes("auth") ||
+      message.includes("unauthorized") ||
+      message.includes("invalid api key") ||
+      message.includes("403")
     ) {
       return "auth";
     }
 
     // Rate limiting
     if (
-      message.includes("rate limit") || message.includes("429") ||
-      message.includes("quota exceeded") || message.includes("throttle")
+      message.includes("rate limit") ||
+      message.includes("429") ||
+      message.includes("quota exceeded") ||
+      message.includes("throttle")
     ) {
       return "rate-limit";
     }
 
     // Server errors (check before network errors to catch "504 Gateway Timeout")
     if (
-      message.includes("500") || message.includes("502") ||
-      message.includes("504") || message.includes("internal server error")
+      message.includes("500") ||
+      message.includes("502") ||
+      message.includes("504") ||
+      message.includes("internal server error")
     ) {
       return "server-error";
     }
 
     // Network errors
     if (
-      name.includes("network") || message.includes("connect") ||
-      message.includes("timeout") || message.includes("dns") ||
+      name.includes("network") ||
+      message.includes("connect") ||
+      message.includes("timeout") ||
+      message.includes("dns") ||
       name === "aborterror"
     ) {
       return "network";
@@ -304,15 +300,18 @@ export function defaultErrorClassifier(
 
     // Validation errors
     if (
-      message.includes("invalid") || message.includes("malformed") ||
-      message.includes("validation") || message.includes("400")
+      message.includes("invalid") ||
+      message.includes("malformed") ||
+      message.includes("validation") ||
+      message.includes("400")
     ) {
       return "validation";
     }
 
     // Service unavailable
     if (
-      message.includes("503") || message.includes("service unavailable") ||
+      message.includes("503") ||
+      message.includes("service unavailable") ||
       message.includes("temporarily unavailable")
     ) {
       return "service-unavailable";

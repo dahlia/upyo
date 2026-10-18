@@ -93,14 +93,16 @@ test("SesTransport sendMany respects batchSize", async () => {
       batchSize: 2,
     });
 
-    const messages = Array(5).fill(null).map((_, i) =>
-      createMessage({
-        from: "sender@example.com",
-        to: `recipient${i}@example.com`,
-        subject: `Test Subject ${i}`,
-        content: { text: `Hello World ${i}!` },
-      })
-    );
+    const messages = Array(5)
+      .fill(null)
+      .map((_, i) =>
+        createMessage({
+          from: "sender@example.com",
+          to: `recipient${i}@example.com`,
+          subject: `Test Subject ${i}`,
+          content: { text: `Hello World ${i}!` },
+        }),
+      );
 
     const receipts = [];
     for await (const receipt of transport.sendMany(messages)) {

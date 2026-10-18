@@ -37,9 +37,7 @@ function createRealTestSetup() {
   });
 
   // Add span processor to capture spans
-  tracerProvider.addSpanProcessor(
-    new SimpleSpanProcessor(spanExporter),
-  );
+  tracerProvider.addSpanProcessor(new SimpleSpanProcessor(spanExporter));
 
   const meterProvider = new MeterProvider({
     resource: new Resource({
@@ -123,8 +121,8 @@ describe("OpenTelemetryTransport Integration Tests", () => {
         assert.equal(span.status.code, 2); // ERROR status
 
         // Check for exception event
-        const exceptionEvents = span.events.filter((e) =>
-          e.name === "exception"
+        const exceptionEvents = span.events.filter(
+          (e) => e.name === "exception",
         );
         assert.equal(exceptionEvents.length, 1);
         assert.equal(
@@ -225,8 +223,8 @@ describe("OpenTelemetryTransport Integration Tests", () => {
         // All spans should be for email send operations
         assert.ok(spans.every((span) => span.name === "email send"));
         assert.ok(
-          spans.every((span) =>
-            span.attributes["operation.name"] === "email.send"
+          spans.every(
+            (span) => span.attributes["operation.name"] === "email.send",
           ),
         );
       } finally {

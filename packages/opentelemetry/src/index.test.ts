@@ -171,10 +171,7 @@ describe("index", () => {
       });
 
       // Should fall back to default classifier for rate limit
-      assert.equal(
-        classifier(new Error("Rate limit exceeded")),
-        "rate-limit",
-      );
+      assert.equal(classifier(new Error("Rate limit exceeded")), "rate-limit");
 
       // Should use default fallback for unmatched errors
       assert.equal(classifier(new Error("Something else")), "unknown");
@@ -199,18 +196,9 @@ describe("index", () => {
         },
       });
 
-      assert.equal(
-        classifier(new Error("SPAM detected")),
-        "spam_error",
-      );
-      assert.equal(
-        classifier(new Error("Spam detected")),
-        "spam_error",
-      );
-      assert.equal(
-        classifier(new Error("spam detected")),
-        "spam_error",
-      );
+      assert.equal(classifier(new Error("SPAM detected")), "spam_error");
+      assert.equal(classifier(new Error("Spam detected")), "spam_error");
+      assert.equal(classifier(new Error("spam detected")), "spam_error");
     });
 
     it("should handle non-Error objects", () => {
@@ -246,9 +234,7 @@ describe("index", () => {
       });
 
       // Should match the first pattern that matches
-      const category = classifier(
-        new Error("Error authentication failed"),
-      );
+      const category = classifier(new Error("Error authentication failed"));
       assert.equal(category, "first_pattern");
     });
   });

@@ -27,27 +27,28 @@ async function collect(
 }
 
 for (const algorithm of ["rsa-sha256", "ed25519-sha256"] as const) {
-  for (
-    const canonicalization of [
-      "simple/simple",
-      "relaxed/simple",
-      "simple/relaxed",
-      "relaxed/relaxed",
-    ] as const
-  ) {
+  for (const canonicalization of [
+    "simple/simple",
+    "relaxed/simple",
+    "simple/relaxed",
+    "relaxed/relaxed",
+  ] as const) {
     test(`streamed ${algorithm} ${canonicalization} equals the shared buffered signer`, async () => {
       let reads = 0;
       const dkim: DkimConfig = {
         bodyMode: "streaming",
-        signatures: [{
-          algorithm,
-          canonicalization,
-          selector: "test",
-          signingDomain: "example.com",
-          privateKey: algorithm === "rsa-sha256"
-            ? TEST_DKIM_PRIVATE_KEY
-            : TEST_DKIM_ED25519_PRIVATE_KEY,
-        }],
+        signatures: [
+          {
+            algorithm,
+            canonicalization,
+            selector: "test",
+            signingDomain: "example.com",
+            privateKey:
+              algorithm === "rsa-sha256"
+                ? TEST_DKIM_PRIVATE_KEY
+                : TEST_DKIM_ED25519_PRIVATE_KEY,
+          },
+        ],
       };
       const plan = prepareMessage(
         createMessage({
@@ -69,7 +70,11 @@ for (const algorithm of ["rsa-sha256", "ed25519-sha256"] as const) {
         }),
         dkim,
       );
-      const prepared = await prepareMessageStream(plan, () => {}, () => {});
+      const prepared = await prepareMessageStream(
+        plan,
+        () => {},
+        () => {},
+      );
       assert.equal(reads, 1);
       const raw = await collect(prepared.read());
       assert.equal(reads, 2);
@@ -113,14 +118,20 @@ test("rejects different replay bytes even after unsigned signing fallback", asyn
     {
       bodyMode: "streaming",
       onSigningFailure: "send-unsigned",
-      signatures: [{
-        selector: "test",
-        signingDomain: "example.com",
-        privateKey: "invalid",
-      }],
+      signatures: [
+        {
+          selector: "test",
+          signingDomain: "example.com",
+          privateKey: "invalid",
+        },
+      ],
     },
   );
-  const prepared = await prepareMessageStream(plan, () => {}, () => {});
+  const prepared = await prepareMessageStream(
+    plan,
+    () => {},
+    () => {},
+  );
   await assert.rejects(collect(prepared.read()), SmtpAttachmentReplayError);
 });
 
@@ -151,41 +162,52 @@ test("multiple signatures share two source reads and preserve prior signatures o
     {
       bodyMode: "streaming",
       onSigningFailure: "send-unsigned",
-      signatures: [signature, {
-        ...signature,
-        canonicalization: "simple/simple",
-        headerFields: ["from", "dkim-signature"],
-      }, { ...signature, privateKey: "invalid" }],
+      signatures: [
+        signature,
+        {
+          ...signature,
+          canonicalization: "simple/simple",
+          headerFields: ["from", "dkim-signature"],
+        },
+        { ...signature, privateKey: "invalid" },
+      ],
     },
   );
-  const prepared = await prepareMessageStream(plan, () => {}, () => {});
+  const prepared = await prepareMessageStream(
+    plan,
+    () => {},
+    () => {},
+  );
   const raw = await collect(prepared.read());
   assert.equal(raw.match(/^DKIM-Signature:/gm)?.length, 2);
   assert.equal(reads, 2);
 });
 
-const CALENDAR_REQUEST = [
-  "BEGIN:VCALENDAR",
-  "VERSION:2.0",
-  "METHOD:REQUEST",
-  "BEGIN:VEVENT",
-  "UID:1@example.com",
-  "SUMMARY:점심 식사",
-  "END:VEVENT",
-  "END:VCALENDAR",
-].join("\r\n") + "\r\n";
+const CALENDAR_REQUEST =
+  [
+    "BEGIN:VCALENDAR",
+    "VERSION:2.0",
+    "METHOD:REQUEST",
+    "BEGIN:VEVENT",
+    "UID:1@example.com",
+    "SUMMARY:점심 식사",
+    "END:VEVENT",
+    "END:VCALENDAR",
+  ].join("\r\n") + "\r\n";
 
 for (const bodyMode of ["buffered", "streaming"] as const) {
   test(`a calendar body replays identically under ${bodyMode} DKIM`, async () => {
     const dkim: DkimConfig = {
       bodyMode,
-      signatures: [{
-        algorithm: "rsa-sha256",
-        canonicalization: "relaxed/relaxed",
-        selector: "test",
-        signingDomain: "example.com",
-        privateKey: TEST_DKIM_PRIVATE_KEY,
-      }],
+      signatures: [
+        {
+          algorithm: "rsa-sha256",
+          canonicalization: "relaxed/relaxed",
+          selector: "test",
+          signingDomain: "example.com",
+          privateKey: TEST_DKIM_PRIVATE_KEY,
+        },
+      ],
     };
     const plan = prepareMessage(
       createMessage({
@@ -205,16 +227,21 @@ for (const bodyMode of ["buffered", "streaming"] as const) {
     assert.ok(first.includes("method=REQUEST"));
     assert.equal(
       Buffer.from(
-        first.slice(
-          first.indexOf("\r\n\r\n", first.indexOf("text/calendar")) + 4,
-        ).split("\r\n\r\n")[0].replace(/\r\n/g, ""),
+        first
+          .slice(first.indexOf("\r\n\r\n", first.indexOf("text/calendar")) + 4)
+          .split("\r\n\r\n")[0]
+          .replace(/\r\n/g, ""),
         "base64",
       ).toString("utf8"),
       CALENDAR_REQUEST,
     );
 
     // The signed stream is produced from the very same bytes.
-    const prepared = await prepareMessageStream(plan, () => {}, () => {});
+    const prepared = await prepareMessageStream(
+      plan,
+      () => {},
+      () => {},
+    );
     const signed = await collect(prepared.read());
     assert.ok(signed.includes("method=REQUEST"));
     assert.ok(signed.includes("DKIM-Signature:"));
@@ -233,7 +260,8 @@ test("size() counts the encoded calendar body", async () => {
   );
 
   const size = await plan.size();
-  const emitted = Buffer.byteLength(plan.headers) +
+  const emitted =
+    Buffer.byteLength(plan.headers) +
     Buffer.byteLength(await collect(plan.body()));
 
   assert.equal(size, emitted);

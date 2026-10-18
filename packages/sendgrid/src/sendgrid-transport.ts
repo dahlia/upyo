@@ -121,9 +121,8 @@ export class SendGridTransport implements Transport<"sendgrid"> {
         throw error;
       }
 
-      const errorMessage = error instanceof Error
-        ? error.message
-        : String(error);
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
 
       return createSendGridFailure(errorMessage, error);
     }
@@ -211,12 +210,13 @@ export class SendGridTransport implements Transport<"sendgrid"> {
    * @param response The SendGrid API response.
    * @returns A message ID string.
    */
-  private extractMessageId(
-    response: { statusCode?: number; headers?: Record<string, string> },
-  ): string {
+  private extractMessageId(response: {
+    statusCode?: number;
+    headers?: Record<string, string>;
+  }): string {
     // Check if there's an X-Message-Id header (SendGrid sometimes provides this)
-    const messageIdHeader = response.headers?.["x-message-id"] ||
-      response.headers?.["X-Message-Id"];
+    const messageIdHeader =
+      response.headers?.["x-message-id"] || response.headers?.["X-Message-Id"];
 
     if (messageIdHeader) {
       return messageIdHeader;
@@ -251,8 +251,9 @@ function createSendGridFailure(
 }
 
 function isCallerAbort(error: unknown, signal?: AbortSignal): boolean {
-  return signal?.aborted === true &&
-    (isAbortError(error) || error === signal.reason);
+  return (
+    signal?.aborted === true && (isAbortError(error) || error === signal.reason)
+  );
 }
 
 function isAbortError(error: unknown): boolean {

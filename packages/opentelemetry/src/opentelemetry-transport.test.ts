@@ -124,10 +124,7 @@ describe("OpenTelemetryTransport", () => {
       const error = new Error("Network timeout");
       setup.mockTransport.setThrowError(error);
 
-      await assert.rejects(
-        () => transport.send(message),
-        /Network timeout/,
-      );
+      await assert.rejects(() => transport.send(message), /Network timeout/);
 
       // Verify error was recorded in span
       const spans = extractSpans(setup.tracerProvider);
@@ -137,9 +134,10 @@ describe("OpenTelemetryTransport", () => {
 
       // Verify error metrics
       const metrics = extractMetrics(setup.meterProvider);
-      const attemptRecords = metrics
-        .find((m) => m.records.some((r) => r.attributes?.status === "failure"))
-        ?.records || [];
+      const attemptRecords =
+        metrics.find((m) =>
+          m.records.some((r) => r.attributes?.status === "failure"),
+        )?.records || [];
       assert.ok(attemptRecords.length > 0);
     });
 
@@ -171,13 +169,10 @@ describe("OpenTelemetryTransport", () => {
 
     it("should prefer structured receipt categories for metrics", async () => {
       const setup = createTestSetup();
-      const transport = new OpenTelemetryTransport(
-        setup.mockTransport,
-        {
-          ...setup.config,
-          errorClassifier: () => "validation",
-        },
-      );
+      const transport = new OpenTelemetryTransport(setup.mockTransport, {
+        ...setup.config,
+        errorClassifier: () => "validation",
+      });
       const message = createTestMessage();
       setup.mockTransport.setNextReceipt(
         createFailedReceipt("Provider throttled the request", {
@@ -218,10 +213,7 @@ describe("OpenTelemetryTransport", () => {
 
     it("should infer transport names when wrapped transports have no id", async () => {
       class LegacyTransport {
-        send(
-          _message: Message,
-          _options?: TransportOptions,
-        ): Promise<Receipt> {
+        send(_message: Message, _options?: TransportOptions): Promise<Receipt> {
           return Promise.resolve({
             successful: true,
             messageId: "legacy-message-id",

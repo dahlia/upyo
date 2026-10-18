@@ -14,20 +14,27 @@ const message = (content?: AttachmentContent) =>
     to: "to@example.com",
     subject: "Test",
     content: { text: "x".repeat(200000) },
-    attachments: content == null ? [] : [{
-      filename: "a",
-      contentType: "application/octet-stream",
-      contentId: "a",
-      inline: false,
-      content,
-    }],
+    attachments:
+      content == null
+        ? []
+        : [
+            {
+              filename: "a",
+              contentType: "application/octet-stream",
+              contentId: "a",
+              inline: false,
+              content,
+            },
+          ],
   });
 const dkim = {
-  signatures: [{
-    signingDomain: "example.com",
-    selector: "test",
-    privateKey: TEST_DKIM_PRIVATE_KEY,
-  }],
+  signatures: [
+    {
+      signingDomain: "example.com",
+      selector: "test",
+      privateKey: TEST_DKIM_PRIVATE_KEY,
+    },
+  ],
 };
 
 for (const signing of [false, true]) {
@@ -142,13 +149,13 @@ for (const phase of ["unsigned", "prehash", "replay"] as const) {
     };
     const composition = composeMessage(message(content), {
       signal: controller.signal,
-      dkim: phase === "unsigned"
-        ? undefined
-        : { ...dkim, bodyMode: "streaming" },
+      dkim:
+        phase === "unsigned" ? undefined : { ...dkim, bodyMode: "streaming" },
     });
-    const work = phase === "prehash"
-      ? composition
-      : composition.then((raw) => readAttachmentContent(raw.content));
+    const work =
+      phase === "prehash"
+        ? composition
+        : composition.then((raw) => readAttachmentContent(raw.content));
     await opening;
     controller.abort(reason);
     await assert.rejects(work, (actual) => actual === reason);

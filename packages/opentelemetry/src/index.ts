@@ -90,8 +90,10 @@ export {
  *
  * @since 0.2.0
  */
-export interface CreateOpenTelemetryTransportConfig
-  extends Omit<OpenTelemetryConfig, "auto"> {
+export interface CreateOpenTelemetryTransportConfig extends Omit<
+  OpenTelemetryConfig,
+  "auto"
+> {
   /**
    * Service name for OpenTelemetry resource attributes.
    * This identifies your service in distributed traces and metrics.
@@ -305,9 +307,8 @@ export function createEmailAttributeExtractor(
   return (operation, transport, messageCount, totalSize) => {
     // Use the EmailAttributeExtractor for base attributes
     const baseAttributes: Record<string, string | number | boolean> = {
-      "operation.name": operation === "send"
-        ? "email.send"
-        : "email.send_batch",
+      "operation.name":
+        operation === "send" ? "email.send" : "email.send_batch",
       "operation.type": "email",
       "upyo.transport.name": transport,
     };
@@ -325,12 +326,13 @@ export function createEmailAttributeExtractor(
       }
     }
 
-    const customAttributes = options.customAttributes?.(
-      operation,
-      transport,
-      messageCount,
-      totalSize,
-    ) || {};
+    const customAttributes =
+      options.customAttributes?.(
+        operation,
+        transport,
+        messageCount,
+        totalSize,
+      ) || {};
 
     return {
       ...baseAttributes,
@@ -401,10 +403,12 @@ export function createEmailAttributeExtractor(
  *
  * @since 0.2.0
  */
-export function createErrorClassifier(options: {
-  readonly patterns?: Record<string, RegExp>;
-  readonly fallback?: string;
-} = {}): ErrorClassifier {
+export function createErrorClassifier(
+  options: {
+    readonly patterns?: Record<string, RegExp>;
+    readonly fallback?: string;
+  } = {},
+): ErrorClassifier {
   const { patterns = {}, fallback = "unknown" } = options;
 
   return (error: unknown): string => {

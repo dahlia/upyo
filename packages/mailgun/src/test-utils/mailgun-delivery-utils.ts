@@ -43,17 +43,17 @@ export function validateBatchReceipts(
   const failedReceipts = receipts.filter((r) => !r.successful);
   if (failedReceipts.length > 0) {
     const errors = failedReceipts.map((r) =>
-      !r.successful ? r.errorMessages.join(", ") : "Unknown error"
+      !r.successful ? r.errorMessages.join(", ") : "Unknown error",
     );
     throw new Error(
-      `${failedReceipts.length} out of ${receipts.length} emails failed: ${
-        errors.join("; ")
-      }`,
+      `${failedReceipts.length} out of ${receipts.length} emails failed: ${errors.join(
+        "; ",
+      )}`,
     );
   }
 
-  const receiptsWithoutIds = receipts.filter((r) =>
-    r.successful && !r.messageId
+  const receiptsWithoutIds = receipts.filter(
+    (r) => r.successful && !r.messageId,
   );
   if (receiptsWithoutIds.length > 0) {
     throw new Error(

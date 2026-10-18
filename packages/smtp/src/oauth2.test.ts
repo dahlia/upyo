@@ -182,10 +182,10 @@ describe("OAuth2TokenManager", () => {
     function recordingFetch(this: unknown): Promise<Response> {
       receivers.push(this);
       return Promise.resolve(
-        new Response(
-          JSON.stringify({ access_token: "t", expires_in: 3600 }),
-          { status: 200, headers: { "content-type": "application/json" } },
-        ),
+        new Response(JSON.stringify({ access_token: "t", expires_in: 3600 }), {
+          status: 200,
+          headers: { "content-type": "application/json" },
+        }),
       );
     }
     const auth: SmtpOAuth2RefreshAuth = {
@@ -246,7 +246,7 @@ describe("OAuth2TokenManager", () => {
               ),
             ),
           10,
-        )
+        ),
       );
     };
     const auth: SmtpOAuth2RefreshAuth = {
@@ -344,9 +344,9 @@ describe("OAuth2TokenManager", () => {
       assert.equal(
         calls,
         1,
-        `expires_in=${
-          JSON.stringify(expiresIn)
-        } should use the default lifetime`,
+        `expires_in=${JSON.stringify(
+          expiresIn,
+        )} should use the default lifetime`,
       );
     }
   });
@@ -446,14 +446,12 @@ describe("OAuth2TokenManager", () => {
   });
 
   test("allows HTTPS and loopback HTTP token endpoints", () => {
-    for (
-      const tokenEndpoint of [
-        "https://oauth2.example.com/token",
-        "http://localhost:8080/token",
-        "http://127.0.0.1:8080/token",
-        "http://[::1]:8080/token",
-      ]
-    ) {
+    for (const tokenEndpoint of [
+      "https://oauth2.example.com/token",
+      "http://localhost:8080/token",
+      "http://127.0.0.1:8080/token",
+      "http://[::1]:8080/token",
+    ]) {
       const manager = new OAuth2TokenManager({
         user: "u@e.com",
         clientId: "client-id",

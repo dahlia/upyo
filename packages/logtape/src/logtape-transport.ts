@@ -14,11 +14,11 @@ interface PendingMessage {
   readonly startedAt: number;
 }
 
-type LogTapeTransportConstructorArguments<TProviderId extends string> =
-  [TProviderId] extends ["logtape"] ? [
-      options?: LogTapeTransportOptions<TProviderId>,
-    ]
-    : [
+type LogTapeTransportConstructorArguments<TProviderId extends string> = [
+  TProviderId,
+] extends ["logtape"]
+  ? [options?: LogTapeTransportOptions<TProviderId>]
+  : [
       options: LogTapeTransportOptions<TProviderId> & {
         readonly transport: Transport<TProviderId>;
       },
@@ -36,7 +36,8 @@ type LogTapeTransportConstructorArguments<TProviderId extends string> =
  * @since 0.6.0
  */
 export class LogTapeTransport<TProviderId extends string = "logtape">
-  implements Transport<TProviderId>, AsyncDisposable {
+  implements Transport<TProviderId>, AsyncDisposable
+{
   /** Provider id used by receipts from this transport. */
   readonly id: TProviderId;
 
@@ -51,9 +52,7 @@ export class LogTapeTransport<TProviderId extends string = "logtape">
    *
    * @param options Logging and optional wrapped transport configuration.
    */
-  constructor(
-    ...[options]: LogTapeTransportConstructorArguments<TProviderId>
-  ) {
+  constructor(...[options]: LogTapeTransportConstructorArguments<TProviderId>) {
     this.config = resolveLogTapeTransportOptions(options ?? {});
     this.wrappedTransport = this.config.transport;
     this.id = (this.wrappedTransport?.id ?? "logtape") as TProviderId;
@@ -117,12 +116,10 @@ export class LogTapeTransport<TProviderId extends string = "logtape">
     );
 
     try {
-      for await (
-        const receipt of this.wrappedTransport.sendMany(
-          observedMessages,
-          options,
-        )
-      ) {
+      for await (const receipt of this.wrappedTransport.sendMany(
+        observedMessages,
+        options,
+      )) {
         const current = pending.dequeue();
         completedCount++;
         this.logReceipt(receipt, current, "sendMany");
@@ -168,9 +165,10 @@ export class LogTapeTransport<TProviderId extends string = "logtape">
     this.logSending(message, operation);
 
     try {
-      const receipt = this.wrappedTransport == null
-        ? this.createSyntheticReceipt()
-        : await this.wrappedTransport.send(message, options);
+      const receipt =
+        this.wrappedTransport == null
+          ? this.createSyntheticReceipt()
+          : await this.wrappedTransport.send(message, options);
       this.logReceipt(receipt, { message, startedAt }, operation);
       return receipt;
     } catch (error) {
@@ -208,10 +206,7 @@ export class LogTapeTransport<TProviderId extends string = "logtape">
   private logSending(message: Message, operation: SendOperation): void {
     this.log(
       this.config.levels.sending,
-      this.getMessageTemplate(
-        "Sending email.",
-        message,
-      ),
+      this.getMessageTemplate("Sending email.", message),
       {
         ...this.getMessageProperties(message),
         event: "email.sending",
@@ -226,20 +221,19 @@ export class LogTapeTransport<TProviderId extends string = "logtape">
     pendingMessage: PendingMessage | undefined,
     operation: SendOperation,
   ): void {
-    const durationMilliseconds = pendingMessage == null
-      ? undefined
-      : performance.now() - pendingMessage.startedAt;
-    const messageProperties = pendingMessage == null
-      ? {}
-      : this.getMessageProperties(pendingMessage.message);
+    const durationMilliseconds =
+      pendingMessage == null
+        ? undefined
+        : performance.now() - pendingMessage.startedAt;
+    const messageProperties =
+      pendingMessage == null
+        ? {}
+        : this.getMessageProperties(pendingMessage.message);
 
     if (receipt.successful) {
       this.log(
         this.config.levels.sent,
-        this.getMessageTemplate(
-          "Email sent.",
-          pendingMessage?.message,
-        ),
+        this.getMessageTemplate("Email sent.", pendingMessage?.message),
         {
           ...messageProperties,
           event: "email.sent",
@@ -256,10 +250,7 @@ export class LogTapeTransport<TProviderId extends string = "logtape">
 
     this.log(
       this.config.levels.failed,
-      this.getMessageTemplate(
-        "Failed to send email.",
-        pendingMessage?.message,
-      ),
+      this.getMessageTemplate("Failed to send email.", pendingMessage?.message),
       {
         ...messageProperties,
         event: "email.failed",
@@ -351,10 +342,10 @@ export class LogTapeTransport<TProviderId extends string = "logtape">
       return lifecycleMessage;
     }
 
-    const contentPlaceholder = "text" in message.content &&
-        message.content.text !== undefined
-      ? "{message.content.text}"
-      : "{message.content.html}";
+    const contentPlaceholder =
+      "text" in message.content && message.content.text !== undefined
+        ? "{message.content.text}"
+        : "{message.content.html}";
     return `${lifecycleMessage}\n\nSubject: {message.subject}\n\n${contentPlaceholder}`;
   }
 
@@ -368,13 +359,17 @@ export class LogTapeTransport<TProviderId extends string = "logtape">
 }
 
 function isAsyncDisposable(value: object): value is object & AsyncDisposable {
-  return typeof Symbol.asyncDispose !== "undefined" &&
+  return (
+    typeof Symbol.asyncDispose !== "undefined" &&
     Symbol.asyncDispose in value &&
-    typeof value[Symbol.asyncDispose] === "function";
+    typeof value[Symbol.asyncDispose] === "function"
+  );
 }
 
 function isDisposable(value: object): value is object & Disposable {
-  return typeof Symbol.dispose !== "undefined" &&
+  return (
+    typeof Symbol.dispose !== "undefined" &&
     Symbol.dispose in value &&
-    typeof value[Symbol.dispose] === "function";
+    typeof value[Symbol.dispose] === "function"
+  );
 }

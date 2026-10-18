@@ -92,13 +92,15 @@ describe("Receipt errors", () => {
     assert.deepEqual(receipt, {
       successful: false,
       errorMessages: ["Network error"],
-      errors: [{
-        message: "Network error",
-        category: "network",
-        code: "network",
-        retryable: true,
-        provider: "mailgun",
-      }],
+      errors: [
+        {
+          message: "Network error",
+          category: "network",
+          code: "network",
+          retryable: true,
+          provider: "mailgun",
+        },
+      ],
       retryable: true,
       provider: "mailgun",
       attempts: 3,
@@ -199,12 +201,15 @@ describe("Receipt errors", () => {
   });
 
   it("normalizes mixed failed receipt error arrays", () => {
-    const receipt = createFailedReceipt([
-      "Rate-limit exceeded",
-      createReceiptError("Unauthorized", { provider: "sendgrid" }),
-    ], {
-      timestamp: "2026-06-30T00:00:00.000Z",
-    });
+    const receipt = createFailedReceipt(
+      [
+        "Rate-limit exceeded",
+        createReceiptError("Unauthorized", { provider: "sendgrid" }),
+      ],
+      {
+        timestamp: "2026-06-30T00:00:00.000Z",
+      },
+    );
 
     assert.deepEqual(receipt.errorMessages, [
       "Rate-limit exceeded",

@@ -24,11 +24,7 @@ describe("resolveSmtpEnvelope", () => {
   test("should derive the envelope when no override is provided", () => {
     assert.deepEqual(resolveSmtpEnvelope(message), {
       from: "sender@example.com",
-      to: [
-        "recipient@example.com",
-        "copy@example.com",
-        "blind@example.com",
-      ],
+      to: ["recipient@example.com", "copy@example.com", "blind@example.com"],
     });
   });
 
@@ -37,11 +33,7 @@ describe("resolveSmtpEnvelope", () => {
       resolveSmtpEnvelope(message, { from: "bounce@example.com" }),
       {
         from: "bounce@example.com",
-        to: [
-          "recipient@example.com",
-          "copy@example.com",
-          "blind@example.com",
-        ],
+        to: ["recipient@example.com", "copy@example.com", "blind@example.com"],
       },
     );
     assert.deepEqual(
@@ -56,11 +48,7 @@ describe("resolveSmtpEnvelope", () => {
   test("should preserve an explicit null reverse-path", () => {
     assert.deepEqual(resolveSmtpEnvelope(message, { from: null }), {
       from: null,
-      to: [
-        "recipient@example.com",
-        "copy@example.com",
-        "blind@example.com",
-      ],
+      to: ["recipient@example.com", "copy@example.com", "blind@example.com"],
     });
   });
 

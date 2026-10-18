@@ -110,9 +110,10 @@ export async function prepareMimeStream(
   checkSize(size);
   return {
     size,
-    encoding: plan.encoding === "utf8" || /[\u0080-\uffff]/.test(headers)
-      ? "utf8"
-      : "7bit",
+    encoding:
+      plan.encoding === "utf8" || /[\u0080-\uffff]/.test(headers)
+        ? "utf8"
+        : "7bit",
     async *read(signal, progress) {
       signal?.throwIfAborted();
       yield utf8(headers);

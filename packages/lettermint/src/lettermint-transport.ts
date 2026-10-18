@@ -143,9 +143,7 @@ export class LettermintTransport implements Transport<"lettermint"> {
       return;
     }
 
-    const idempotencyKey = normalizeIdempotencyKey(
-      messages[0]?.idempotencyKey,
-    );
+    const idempotencyKey = normalizeIdempotencyKey(messages[0]?.idempotencyKey);
     const batchData: LettermintEmail[] = [];
     const receipts: (Receipt<"lettermint"> | undefined)[] = [];
 
@@ -157,10 +155,12 @@ export class LettermintTransport implements Transport<"lettermint"> {
         receipts.push(undefined);
       } catch (error) {
         if (isCallerAbort(error, options?.signal)) throw error;
-        receipts.push(createLettermintFailure(
-          error instanceof Error ? error.message : String(error),
-          error,
-        ));
+        receipts.push(
+          createLettermintFailure(
+            error instanceof Error ? error.message : String(error),
+            error,
+          ),
+        );
       }
     }
 
@@ -193,9 +193,8 @@ export class LettermintTransport implements Transport<"lettermint"> {
       }
     } catch (error) {
       if (isCallerAbort(error, options?.signal)) throw error;
-      const errorMessage = error instanceof Error
-        ? error.message
-        : String(error);
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
       for (const receipt of receipts) {
         if (receipt !== undefined) {
           yield receipt;
@@ -313,6 +312,7 @@ function isAbortError(error: unknown): boolean {
 }
 
 function isCallerAbort(error: unknown, signal?: AbortSignal): boolean {
-  return signal?.aborted === true &&
-    (isAbortError(error) || error === signal.reason);
+  return (
+    signal?.aborted === true && (isAbortError(error) || error === signal.reason)
+  );
 }

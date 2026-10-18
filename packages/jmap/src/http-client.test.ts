@@ -111,9 +111,15 @@ describe("JmapHttpClient", () => {
           return Promise.resolve(
             new Response(
               JSON.stringify({
-                methodResponses: [["Email/set", {
-                  created: { draft: { id: "email-1" } },
-                }, "c0"]],
+                methodResponses: [
+                  [
+                    "Email/set",
+                    {
+                      created: { draft: { id: "email-1" } },
+                    },
+                    "c0",
+                  ],
+                ],
                 sessionState: "state-1",
               }),
               { status: 200 },
@@ -185,10 +191,12 @@ describe("JmapHttpClient", () => {
       await assert.rejects(
         async () => await client.fetchSession(controller.signal),
         (error: unknown) => {
-          return error instanceof Error &&
+          return (
+            error instanceof Error &&
             (error.name === "AbortError" ||
               error.message.includes("aborted") ||
-              error.message.includes("abort"));
+              error.message.includes("abort"))
+          );
         },
       );
     });
@@ -205,9 +213,13 @@ describe("JmapHttpClient", () => {
         ): Promise<Response> =>
           new Promise((_resolve, reject) => {
             assert.ok(init?.signal instanceof AbortSignal);
-            init.signal.addEventListener("abort", () => {
-              reject(init.signal?.reason);
-            }, { once: true });
+            init.signal.addEventListener(
+              "abort",
+              () => {
+                reject(init.signal?.reason);
+              },
+              { once: true },
+            );
             setTimeout(() => controller.abort(abortReason), 0);
           });
 
@@ -265,10 +277,14 @@ test("caller cancellation clears the retry backoff", async () => {
       }),
     );
     await assert.rejects(
-      client.executeRequest("https://example.com/api", {
-        using: [],
-        methodCalls: [],
-      }, controller.signal),
+      client.executeRequest(
+        "https://example.com/api",
+        {
+          using: [],
+          methodCalls: [],
+        },
+        controller.signal,
+      ),
       (e) => e === "stop retry",
     );
     assert.ok(

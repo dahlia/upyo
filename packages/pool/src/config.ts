@@ -136,16 +136,14 @@ export function createPoolConfig<TProviderId extends string = string>(
     throw new Error("Pool must have at least one enabled transport");
   }
 
-  const resolvedTransports: ResolvedTransportEntry<TProviderId>[] = config
-    .transports.map(
-      (entry) => ({
-        transport: entry.transport,
-        weight: entry.weight ?? 1,
-        priority: entry.priority ?? 0,
-        selector: entry.selector,
-        enabled: entry.enabled ?? true,
-      }),
-    );
+  const resolvedTransports: ResolvedTransportEntry<TProviderId>[] =
+    config.transports.map((entry) => ({
+      transport: entry.transport,
+      weight: entry.weight ?? 1,
+      priority: entry.priority ?? 0,
+      selector: entry.selector,
+      enabled: entry.enabled ?? true,
+    }));
 
   // Validate weights for weighted strategy
   if (config.strategy === "weighted") {

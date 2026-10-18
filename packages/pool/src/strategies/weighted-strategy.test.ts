@@ -69,7 +69,7 @@ describe("WeightedStrategy", () => {
     // Allow 10% variance
     assert.ok(count0 > iterations * 0.07 && count0 < iterations * 0.27);
     assert.ok(count1 > iterations * 0.23 && count1 < iterations * 0.43);
-    assert.ok(count2 > iterations * 0.40 && count2 < iterations * 0.60);
+    assert.ok(count2 > iterations * 0.4 && count2 < iterations * 0.6);
     assert.equal(count3, 0); // Disabled transport should never be selected
   });
 

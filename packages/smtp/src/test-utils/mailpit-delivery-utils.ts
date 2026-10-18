@@ -53,15 +53,16 @@ export function validateMailpitEmailContent(
     const toAddresses = message.To.map((addr) => addr.Address);
     if (!toAddresses.includes(expected.to)) {
       errors.push(
-        `To mismatch: expected "${expected.to}", got "${
-          toAddresses.join(", ")
-        }"`,
+        `To mismatch: expected "${expected.to}", got "${toAddresses.join(
+          ", ",
+        )}"`,
       );
     }
   }
 
   if (
-    expected.htmlBody && message.HTML &&
+    expected.htmlBody &&
+    message.HTML &&
     !message.HTML.includes(expected.htmlBody)
   ) {
     errors.push(
@@ -70,7 +71,8 @@ export function validateMailpitEmailContent(
   }
 
   if (
-    expected.textBody && message.Text &&
+    expected.textBody &&
+    message.Text &&
     !message.Text.includes(expected.textBody)
   ) {
     errors.push(
@@ -147,8 +149,8 @@ export function validateMailpitAttachments(
   }
 
   for (const expected of expectedAttachments) {
-    const attachment = message.Attachments.find((a) =>
-      a.FileName === expected.filename
+    const attachment = message.Attachments.find(
+      (a) => a.FileName === expected.filename,
     );
 
     if (!attachment) {
@@ -157,7 +159,8 @@ export function validateMailpitAttachments(
     }
 
     if (
-      expected.contentType && attachment.ContentType !== expected.contentType
+      expected.contentType &&
+      attachment.ContentType !== expected.contentType
     ) {
       errors.push(
         `Content type mismatch for "${expected.filename}": expected "${expected.contentType}", got "${attachment.ContentType}"`,

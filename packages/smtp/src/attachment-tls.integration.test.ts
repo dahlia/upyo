@@ -69,7 +69,7 @@ for (const implicit of [false, true]) {
         ? createTlsServer(credentials, handle)
         : createServer(handle);
       await new Promise<void>((resolve) =>
-        server.listen(0, "127.0.0.1", resolve)
+        server.listen(0, "127.0.0.1", resolve),
       );
       const address = server.address();
       assert.ok(address && typeof address !== "string");

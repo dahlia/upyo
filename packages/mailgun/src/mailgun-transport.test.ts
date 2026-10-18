@@ -40,10 +40,10 @@ async function withHangingServer(
       }
 
       server.close((error) => {
-        const code = typeof error === "object" && error !== null &&
-            "code" in error
-          ? error.code
-          : undefined;
+        const code =
+          typeof error === "object" && error !== null && "code" in error
+            ? error.code
+            : undefined;
         if (error != null && code !== "ERR_SERVER_NOT_RUNNING") {
           reject(error);
           return;
@@ -448,9 +448,7 @@ describe("MailgunTransport - Abort Signal", () => {
 
           options?.signal?.addEventListener("abort", () => {
             clearTimeout(timeout);
-            reject(
-              new DOMException("The operation was aborted", "AbortError"),
-            );
+            reject(new DOMException("The operation was aborted", "AbortError"));
           });
         });
       };
@@ -774,11 +772,15 @@ describe("MailgunTransport - Connection Timeouts", () => {
     try {
       globalThis.fetch = (_url, options) =>
         new Promise<Response>((_resolve, reject) => {
-          options?.signal?.addEventListener("abort", () => {
-            reject(
-              new DOMException("The operation was aborted.", "AbortError"),
-            );
-          }, { once: true });
+          options?.signal?.addEventListener(
+            "abort",
+            () => {
+              reject(
+                new DOMException("The operation was aborted.", "AbortError"),
+              );
+            },
+            { once: true },
+          );
         });
 
       const transport = new MailgunTransport({
@@ -888,9 +890,7 @@ describe("MailgunTransport - Concurrent Error Handling", () => {
 
       // If the mocking works as expected, we should have some failures
       // But the exact distribution might vary based on implementation
-      console.log(
-        `Successful: ${successful.length}, Failed: ${failed.length}`,
-      );
+      console.log(`Successful: ${successful.length}, Failed: ${failed.length}`);
 
       // At minimum, we should have processed all messages
       assert.ok(receipts.length === 4);

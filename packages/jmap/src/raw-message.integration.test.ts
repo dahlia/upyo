@@ -138,10 +138,13 @@ async function setup(options: ServerOptions = {}) {
     if (name === "Mailbox/get") {
       result.list = [{ id: "drafts", role: "drafts" }];
     } else if (name === "Identity/get") {
-      result.list = [{ id: "first", email: "other@example.com" }, {
-        id: "matching",
-        email: "sender@example.com",
-      }];
+      result.list = [
+        { id: "first", email: "other@example.com" },
+        {
+          id: "matching",
+          email: "sender@example.com",
+        },
+      ];
     } else if (name === "Email/import") {
       uploadsAtImport.push(uploads.length);
       if (httpError("import")) return;
@@ -168,10 +171,12 @@ async function setup(options: ServerOptions = {}) {
         };
       } else result.created = { raw: { id: "email", blobId: "blob" } };
     } else if (name === "Email/get") {
-      result.list = [{
-        id: "existing",
-        blobId: options.importing === "different-blob" ? "old-blob" : "blob",
-      }];
+      result.list = [
+        {
+          id: "existing",
+          blobId: options.importing === "different-blob" ? "old-blob" : "blob",
+        },
+      ];
     } else if (name === "EmailSubmission/set") {
       if (httpError("submission")) return;
       if (
@@ -179,11 +184,18 @@ async function setup(options: ServerOptions = {}) {
         options.submitting === "method-error"
       ) {
         reply({
-          methodResponses: [["error", {
-            type: options.submitting === "partial"
-              ? "serverPartialFail"
-              : "forbidden",
-          }, id]],
+          methodResponses: [
+            [
+              "error",
+              {
+                type:
+                  options.submitting === "partial"
+                    ? "serverPartialFail"
+                    : "forbidden",
+              },
+              id,
+            ],
+          ],
         });
         return;
       }
@@ -214,7 +226,8 @@ async function setup(options: ServerOptions = {}) {
       if (
         options.submitting === "reject" ||
         options.submitting === "contradictory"
-      ) result.notCreated = { raw: { type: "forbidden" } };
+      )
+        result.notCreated = { raw: { type: "forbidden" } };
     }
     if (options.discovery?.method === name) {
       if (options.discovery.fault === "account") result.accountId = "wrong";
@@ -223,13 +236,19 @@ async function setup(options: ServerOptions = {}) {
         return;
       }
       if (options.discovery.fault === "duplicate") {
-        reply({ methodResponses: [[name, result, id], [name, result, id]] });
+        reply({
+          methodResponses: [
+            [name, result, id],
+            [name, result, id],
+          ],
+        });
         return;
       }
       if (options.discovery.fault === "identifier") {
-        result.list = name === "Mailbox/get"
-          ? [{ role: "drafts", id: 42 }]
-          : [{ id: 42, email: "sender@example.com" }];
+        result.list =
+          name === "Mailbox/get"
+            ? [{ role: "drafts", id: 42 }]
+            : [{ id: 42, email: "sender@example.com" }];
       }
     }
     reply({ methodResponses: [[name, result, id]] });
@@ -307,18 +326,16 @@ for (const encoding of ["7bit", undefined] as const) {
   });
 }
 
-for (
-  const mode of [
-    "lost",
-    "missing",
-    "reject",
-    "contradictory",
-    "request-error",
-    "stall-response",
-    "partial",
-    "method-error",
-  ] as const
-) {
+for (const mode of [
+  "lost",
+  "missing",
+  "reject",
+  "contradictory",
+  "request-error",
+  "stall-response",
+  "partial",
+  "method-error",
+] as const) {
   test(`JMAP raw submission ${mode} has safe retry classification`, async () => {
     const context = await setup({ submitting: mode, timeout: 200 });
     try {
@@ -341,15 +358,13 @@ for (
   });
 }
 
-for (
-  const mode of [
-    "lost",
-    "reject",
-    "duplicate",
-    "different-blob",
-    "partial",
-  ] as const
-) {
+for (const mode of [
+  "lost",
+  "reject",
+  "duplicate",
+  "different-blob",
+  "partial",
+] as const) {
   test(`JMAP raw import ${mode} never reuses a different blob`, async () => {
     const context = await setup({ importing: mode });
     try {
@@ -395,14 +410,15 @@ test("JMAP raw null sender uses a default identity without changing the envelope
   const context = await setup();
   try {
     assert.ok(
-      (await context.transport.sendRaw({
-        ...raw,
-        envelope: { ...raw.envelope, from: null },
-      })).successful,
+      (
+        await context.transport.sendRaw({
+          ...raw,
+          envelope: { ...raw.envelope, from: null },
+        })
+      ).successful,
     );
-    const sent = context.calls.find((c) =>
-      c.name === "EmailSubmission/set"
-    )!.args.create;
+    const sent = context.calls.find((c) => c.name === "EmailSubmission/set")!
+      .args.create;
     assert.deepEqual(sent, {
       raw: {
         emailId: "email",
@@ -444,23 +460,26 @@ test("JMAP raw abort stops a large source without buffering or draining it", asy
   let produced = 0;
   let closed = 0;
   let started!: () => void;
-  const ready = new Promise<void>((resolve) => started = resolve);
+  const ready = new Promise<void>((resolve) => (started = resolve));
   try {
-    const pending = context.transport.sendRaw({
-      ...raw,
-      content: async function* () {
-        try {
-          yield Buffer.from("X: y\r\n\r\n");
-          started();
-          for (let i = 0; i < 2048; i++) {
-            produced += block.length;
-            yield block;
+    const pending = context.transport.sendRaw(
+      {
+        ...raw,
+        content: async function* () {
+          try {
+            yield Buffer.from("X: y\r\n\r\n");
+            started();
+            for (let i = 0; i < 2048; i++) {
+              produced += block.length;
+              yield block;
+            }
+          } finally {
+            closed++;
           }
-        } finally {
-          closed++;
-        }
+        },
       },
-    }, { signal: controller.signal });
+      { signal: controller.signal },
+    );
     const rejected = assert.rejects(
       pending,
       (error: unknown) => error === reason,
@@ -551,12 +570,10 @@ test("JMAP raw rejects invalid second-pass bytes before import", async () => {
   }
 });
 
-for (
-  const source of [
-    new Blob([content]),
-    Promise.resolve(new Uint8Array(content)),
-  ]
-) {
+for (const source of [
+  new Blob([content]),
+  Promise.resolve(new Uint8Array(content)),
+]) {
   test(`JMAP raw accepts ${source instanceof Blob ? "Blob" : "promised bytes"}`, async () => {
     const context = await setup();
     try {
@@ -615,10 +632,10 @@ for (const stage of ["upload", "import", "submission"] as const) {
             unknown
               ? "unknown"
               : auth
-              ? "auth"
-              : status === 429
-              ? "rate-limit"
-              : "server-error",
+                ? "auth"
+                : status === 429
+                  ? "rate-limit"
+                  : "server-error",
           );
           assert.equal(context.uploads.length, 1);
           assert.equal(
@@ -698,8 +715,8 @@ test("JMAP uploads composed MIME unchanged", async () => {
     const bytes = await readAttachmentContent(composed.content);
     assert.ok((await context.transport.sendRaw(composed)).successful);
     assert.deepEqual(context.uploads, [Buffer.from(bytes)]);
-    const submission = context.calls.find((call) =>
-      call.name === "EmailSubmission/set"
+    const submission = context.calls.find(
+      (call) => call.name === "EmailSubmission/set",
     );
     assert.ok(JSON.stringify(submission).includes("blind@example.com"));
     assert.ok(!Buffer.from(bytes).toString().includes("Bcc:"));
@@ -733,11 +750,13 @@ test("JMAP classifies composed replay failures without retrying upload", async (
       {
         dkim: {
           bodyMode: "streaming",
-          signatures: [{
-            signingDomain: "example.com",
-            selector: "test",
-            privateKey: TEST_DKIM_PRIVATE_KEY,
-          }],
+          signatures: [
+            {
+              signingDomain: "example.com",
+              selector: "test",
+              privateKey: TEST_DKIM_PRIVATE_KEY,
+            },
+          ],
         },
       },
     );

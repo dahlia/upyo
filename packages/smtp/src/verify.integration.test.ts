@@ -26,12 +26,14 @@ const message = () =>
     content: { text: "Test" },
   });
 
-for (
-  const auth of [undefined, { user: "u", pass: "p" }, {
+for (const auth of [
+  undefined,
+  { user: "u", pass: "p" },
+  {
     user: "u",
     accessToken: "token",
-  }] as const
-) {
+  },
+] as const) {
   test(`verify performs fresh setup without delivery, auth=${auth == null ? "none" : "pass" in auth ? "password" : "oauth"}`, async () => {
     const server = new MockSmtpServer();
     const port = await server.start();
@@ -48,9 +50,9 @@ for (
       assert.equal(server.getConnectionCount(), 2);
       assert.equal(server.getReceivedMessages().length, 0);
       assert.ok(
-        server.getReceivedCommands().every((c) =>
-          /^(EHLO|HELO|AUTH|QUIT)\b/.test(c)
-        ),
+        server
+          .getReceivedCommands()
+          .every((c) => /^(EHLO|HELO|AUTH|QUIT)\b/.test(c)),
       );
       if (auth) {
         server.setResponse("AUTH", {

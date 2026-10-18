@@ -41,8 +41,7 @@ describe(
     test("should deliver original raw MIME through Mailpit", async () => {
       const { transport, mailpitClient } = await setupTest();
       const subject = "Raw MIME Mailpit delivery";
-      const raw =
-        `From: sender@example.com\r\nTo: recipient@example.com\r\nSubject: ${subject}\r\nMessage-ID: <raw-mailpit@example.com>\r\nX-Preserved: first\r\n second\r\n\r\n.leading dot\r\n`;
+      const raw = `From: sender@example.com\r\nTo: recipient@example.com\r\nSubject: ${subject}\r\nMessage-ID: <raw-mailpit@example.com>\r\nX-Preserved: first\r\n second\r\n\r\n.leading dot\r\n`;
       try {
         const receipt = await transport.sendRaw({
           envelope: {
@@ -79,10 +78,9 @@ describe(
         const receipt = await transport.send(message);
         assert.ok(receipt.successful);
 
-        const delivered = await waitForMailpitDelivery(
-          mailpitClient,
-          { subject },
-        );
+        const delivered = await waitForMailpitDelivery(mailpitClient, {
+          subject,
+        });
         const source = await mailpitClient.getMessageSource(delivered.ID);
 
         assert.strictEqual(delivered.MessageID, "ticket-4821@example.com");
@@ -93,9 +91,7 @@ describe(
         assert.ok(source.includes("Date: Tue, 01 Sep 2026 10:00:00 +0000"));
         assert.ok(source.includes("In-Reply-To: <122@example.com>"));
         assert.ok(
-          source.includes(
-            "References: <120@example.com> <121@example.com>",
-          ),
+          source.includes("References: <120@example.com> <121@example.com>"),
         );
       } finally {
         await teardownTest(transport);
@@ -106,31 +102,33 @@ describe(
       const { transport, mailpitClient } = await setupTest();
       try {
         const subject = "Test Email Mailpit - Calendar";
-        const ics = [
-          "BEGIN:VCALENDAR",
-          "VERSION:2.0",
-          "PRODID:-//Upyo//Mailpit//EN",
-          "METHOD:REQUEST",
-          "BEGIN:VEVENT",
-          "UID:mailpit-calendar@example.com",
-          "DTSTAMP:20260901T100000Z",
-          "DTSTART:20260902T120000Z",
-          "SUMMARY:점심 식사",
-          "END:VEVENT",
-          "END:VCALENDAR",
-        ].join("\r\n") + "\r\n";
+        const ics =
+          [
+            "BEGIN:VCALENDAR",
+            "VERSION:2.0",
+            "PRODID:-//Upyo//Mailpit//EN",
+            "METHOD:REQUEST",
+            "BEGIN:VEVENT",
+            "UID:mailpit-calendar@example.com",
+            "DTSTAMP:20260901T100000Z",
+            "DTSTART:20260902T120000Z",
+            "SUMMARY:점심 식사",
+            "END:VEVENT",
+            "END:VCALENDAR",
+          ].join("\r\n") + "\r\n";
 
-        const receipt = await transport.send(createTestMessage({
-          subject,
-          content: { text: "Lunch on Wednesday." },
-          calendar: { method: "REQUEST", content: ics },
-        }));
+        const receipt = await transport.send(
+          createTestMessage({
+            subject,
+            content: { text: "Lunch on Wednesday." },
+            calendar: { method: "REQUEST", content: ics },
+          }),
+        );
         assert.ok(receipt.successful);
 
-        const delivered = await waitForMailpitDelivery(
-          mailpitClient,
-          { subject },
-        );
+        const delivered = await waitForMailpitDelivery(mailpitClient, {
+          subject,
+        });
         const source = await mailpitClient.getMessageSource(delivered.ID);
 
         assert.ok(
@@ -147,10 +145,7 @@ describe(
         const bodyStart = source.indexOf("\r\n\r\n", marker) + 4;
         const bodyEnd = source.indexOf("\r\n--", bodyStart);
         const payload = source.slice(bodyStart, bodyEnd).replace(/\r\n/g, "");
-        assert.equal(
-          Buffer.from(payload, "base64").toString("utf8"),
-          ics,
-        );
+        assert.equal(Buffer.from(payload, "base64").toString("utf8"), ics);
       } finally {
         await teardownTest(transport);
       }
@@ -199,8 +194,7 @@ describe(
           recipientEmail: "jane@example.com",
           subject: "Test Email Mailpit - HTML",
           content: {
-            html:
-              "<h1>HTML Email</h1><p>This is an <strong>HTML</strong> email sent to Mailpit</p>",
+            html: "<h1>HTML Email</h1><p>This is an <strong>HTML</strong> email sent to Mailpit</p>",
           },
         });
 
@@ -317,8 +311,7 @@ describe(
         const message = createTestMessage({
           subject: "Test Email Mailpit - 한글 테스트 🌍",
           content: {
-            text:
-              "안녕하세요! This email contains Korean characters and emojis 🚀",
+            text: "안녕하세요! This email contains Korean characters and emojis 🚀",
           },
         });
 
@@ -395,8 +388,7 @@ describe(
         const message = createTestMessage({
           subject: "Test Email Mailpit - STARTTLS",
           content: {
-            text:
-              "This email was sent using STARTTLS for secure connection upgrade",
+            text: "This email was sent using STARTTLS for secure connection upgrade",
           },
         });
 
@@ -553,8 +545,9 @@ describe(
           "Korean sender name should be correctly decoded and present in From field",
         );
         assert.ok(
-          mailpitMessage.To?.some((to) =>
-            to.Name?.includes("田中太郎") || to.Address?.includes("田中太郎")
+          mailpitMessage.To?.some(
+            (to) =>
+              to.Name?.includes("田中太郎") || to.Address?.includes("田中太郎"),
           ) || mailpitMessage.To?.length === 0, // Mailpit might not populate To array correctly
           "Japanese recipient name should be correctly decoded or To field handling may vary",
         );

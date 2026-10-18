@@ -66,12 +66,12 @@ export interface MailerooConfig {
  *
  * @since 0.6.0
  */
-export type ResolvedMailerooConfig =
-  & Required<Omit<MailerooConfig, "tracking" | "tags">>
-  & {
-    readonly tracking?: boolean;
-    readonly tags?: Record<string, string>;
-  };
+export type ResolvedMailerooConfig = Required<
+  Omit<MailerooConfig, "tracking" | "tags">
+> & {
+  readonly tracking?: boolean;
+  readonly tags?: Record<string, string>;
+};
 
 /**
  * Creates a resolved Maileroo configuration by applying default values.

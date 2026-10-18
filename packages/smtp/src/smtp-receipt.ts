@@ -75,9 +75,14 @@ export interface SmtpResponseProviderDetails {
 export function isSmtpResponseProviderDetails(
   value: unknown,
 ): value is SmtpResponseProviderDetails {
-  return value != null && typeof value === "object" &&
-    "command" in value && typeof value.command === "string" &&
-    "response" in value && typeof value.response === "string";
+  return (
+    value != null &&
+    typeof value === "object" &&
+    "command" in value &&
+    typeof value.command === "string" &&
+    "response" in value &&
+    typeof value.response === "string"
+  );
 }
 
 /**
@@ -124,7 +129,7 @@ export type SmtpProviderDetails =
  */
 export type SmtpReceipt =
   | (Extract<Receipt<"smtp">, { readonly successful: true }> & {
-    /** Recipients excluded from an otherwise successful delivery. */
-    readonly rejectedRecipients: readonly SmtpRejectedRecipient[];
-  })
+      /** Recipients excluded from an otherwise successful delivery. */
+      readonly rejectedRecipients: readonly SmtpRejectedRecipient[];
+    })
   | Extract<Receipt<"smtp">, { readonly successful: false }>;

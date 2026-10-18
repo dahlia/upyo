@@ -23,16 +23,10 @@
       ]
     },
     "JSON": {
-      "language_servers": [
-        "json-language-server",
-        "..."
-      ]
+      "language_servers": ["json-language-server", "..."]
     },
     "JSONC": {
-      "language_servers": [
-        "json-language-server",
-        "..."
-      ]
+      "language_servers": ["json-language-server", "..."]
     },
     "TypeScript": {
       "language_servers": [
@@ -55,16 +49,9 @@
       ]
     },
     "YAML": {
-      "language_servers": [
-        "!yaml-language-server",
-        "!eslint",
-        "!biome",
-        "..."
-      ]
+      "language_servers": ["!yaml-language-server", "!eslint", "!biome", "..."]
     }
   },
   "show_wrap_guides": true,
-  "wrap_guides": [
-    80
-  ]
+  "wrap_guides": [80]
 }

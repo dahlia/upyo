@@ -33,23 +33,23 @@
  */
 export type SesAuthentication =
   | {
-    /** Authentication type identifier. */
-    readonly type: "credentials";
-    /** AWS access key ID. */
-    readonly accessKeyId: string;
-    /** AWS secret access key. */
-    readonly secretAccessKey: string;
-  }
+      /** Authentication type identifier. */
+      readonly type: "credentials";
+      /** AWS access key ID. */
+      readonly accessKeyId: string;
+      /** AWS secret access key. */
+      readonly secretAccessKey: string;
+    }
   | {
-    /** Authentication type identifier. */
-    readonly type: "session";
-    /** AWS access key ID for temporary credentials. */
-    readonly accessKeyId: string;
-    /** AWS secret access key for temporary credentials. */
-    readonly secretAccessKey: string;
-    /** AWS session token for temporary credentials. */
-    readonly sessionToken: string;
-  };
+      /** Authentication type identifier. */
+      readonly type: "session";
+      /** AWS access key ID for temporary credentials. */
+      readonly accessKeyId: string;
+      /** AWS secret access key for temporary credentials. */
+      readonly secretAccessKey: string;
+      /** AWS session token for temporary credentials. */
+      readonly sessionToken: string;
+    };
 
 /**
  * Configuration options for the Amazon SES transport.
@@ -125,18 +125,16 @@ export interface SesConfig {
  * This type is returned by `createSesConfig()` and used internally by `SesTransport`.
  * It ensures all required fields have values, making the transport implementation simpler.
  */
-export type ResolvedSesConfig =
-  & Required<
-    Omit<SesConfig, "configurationSetName" | "defaultTags" | "batchSize">
-  >
-  & {
-    /** SES configuration set name (optional) */
-    readonly configurationSetName?: string;
-    /** Default tags to apply to all emails (always defined, may be empty) */
-    readonly defaultTags: Record<string, string>;
-    /** Maximum concurrent messages in batch operations */
-    readonly batchSize: number;
-  };
+export type ResolvedSesConfig = Required<
+  Omit<SesConfig, "configurationSetName" | "defaultTags" | "batchSize">
+> & {
+  /** SES configuration set name (optional) */
+  readonly configurationSetName?: string;
+  /** Default tags to apply to all emails (always defined, may be empty) */
+  readonly defaultTags: Record<string, string>;
+  /** Maximum concurrent messages in batch operations */
+  readonly batchSize: number;
+};
 
 /**
  * Creates a resolved SES configuration with default values applied.

@@ -18,8 +18,9 @@ import {
 } from "./test-utils/test-config.ts";
 
 describe("PoolTransport", () => {
-  class FixedFailureTransport<TProviderId extends string>
-    implements Transport<TProviderId> {
+  class FixedFailureTransport<
+    TProviderId extends string,
+  > implements Transport<TProviderId> {
     readonly id: TProviderId;
     private readonly receipt: Receipt<TProviderId> & {
       readonly successful: false;
@@ -50,8 +51,9 @@ describe("PoolTransport", () => {
     }
   }
 
-  class ThrowingTransport<TProviderId extends string>
-    implements Transport<TProviderId> {
+  class ThrowingTransport<
+    TProviderId extends string,
+  > implements Transport<TProviderId> {
     readonly id: TProviderId;
     private readonly error: unknown;
 
@@ -316,10 +318,7 @@ describe("PoolTransport", () => {
 
       const pool = new PoolTransport({
         strategy: "round-robin",
-        transports: [
-          { transport: transport1 },
-          { transport: transport2 },
-        ],
+        transports: [{ transport: transport1 }, { transport: transport2 }],
       });
 
       const receipt = await pool.send(createTestMessage());
@@ -343,10 +342,7 @@ describe("PoolTransport", () => {
 
       const pool = new PoolTransport({
         strategy: "round-robin",
-        transports: [
-          { transport: primary },
-          { transport: secondary },
-        ],
+        transports: [{ transport: primary }, { transport: secondary }],
       });
 
       const receipt = await pool.send(createTestMessage());
@@ -427,8 +423,10 @@ describe("PoolTransport", () => {
     });
 
     test("should preserve thrown Error receipt messages", async () => {
-      class ThrownReceiptError extends Error
-        implements ReceiptError<"mailgun"> {
+      class ThrownReceiptError
+        extends Error
+        implements ReceiptError<"mailgun">
+      {
         readonly code = "http.429";
         readonly category = "rate-limit";
         readonly retryable = true;
@@ -486,10 +484,7 @@ describe("PoolTransport", () => {
 
       const pool = new PoolTransport({
         strategy: "round-robin",
-        transports: [
-          { transport: transport1 },
-          { transport: transport2 },
-        ],
+        transports: [{ transport: transport1 }, { transport: transport2 }],
         maxRetries: 0,
       });
 
@@ -584,11 +579,9 @@ describe("PoolTransport", () => {
       await assert.rejects(
         async () => {
           const receipts: Receipt[] = [];
-          for await (
-            const receipt of pool.sendMany(messages, {
-              signal: controller.signal,
-            })
-          ) {
+          for await (const receipt of pool.sendMany(messages, {
+            signal: controller.signal,
+          })) {
             receipts.push(receipt);
           }
         },
@@ -639,9 +632,13 @@ describe("PoolTransport", () => {
         id: "delayed",
         send(_message, options) {
           return new Promise((_resolve, reject) => {
-            options?.signal?.addEventListener("abort", () => {
-              reject(options.signal?.reason);
-            }, { once: true });
+            options?.signal?.addEventListener(
+              "abort",
+              () => {
+                reject(options.signal?.reason);
+              },
+              { once: true },
+            );
             setTimeout(() => controller.abort(abortReason), 0);
           });
         },
@@ -669,16 +666,20 @@ describe("PoolTransport", () => {
         id: "slow",
         send(_message, options) {
           return new Promise((_, reject) => {
-            options?.signal?.addEventListener("abort", () => {
-              setTimeout(() => {
-                reject(
-                  new DOMException(
-                    "The operation was aborted.",
-                    "AbortError",
-                  ),
-                );
-              }, 20);
-            }, { once: true });
+            options?.signal?.addEventListener(
+              "abort",
+              () => {
+                setTimeout(() => {
+                  reject(
+                    new DOMException(
+                      "The operation was aborted.",
+                      "AbortError",
+                    ),
+                  );
+                }, 20);
+              },
+              { once: true },
+            );
           });
         },
         async *sendMany(messages, options) {
@@ -782,10 +783,7 @@ describe("PoolTransport", () => {
 
       const pool = new PoolTransport({
         strategy: customStrategy,
-        transports: [
-          { transport: transport1 },
-          { transport: transport2 },
-        ],
+        transports: [{ transport: transport1 }, { transport: transport2 }],
       });
 
       await pool.send(createTestMessage());

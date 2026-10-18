@@ -38,10 +38,11 @@ export async function signMessage(
 ): Promise<DkimSignResult> {
   signal?.throwIfAborted();
   const { body } = parseMessage(rawMessage);
-  const bodyCanon =
-    (config.canonicalization ?? DEFAULT_CANONICALIZATION).endsWith("/simple")
-      ? "simple"
-      : "relaxed";
+  const bodyCanon = (
+    config.canonicalization ?? DEFAULT_CANONICALIZATION
+  ).endsWith("/simple")
+    ? "simple"
+    : "relaxed";
   const bodyHash = await computeBodyHash(body, bodyCanon);
   return await signWithBodyHash(rawMessage, config, bodyHash, signal);
 }
@@ -218,17 +219,14 @@ async function importPrivateKey(
     }
 
     // Determine the algorithm parameters based on DKIM algorithm
-    const keyAlgorithm = algorithm === "ed25519-sha256"
-      ? { name: "Ed25519" }
-      : { name: "RSASSA-PKCS1-v1_5", hash: "SHA-256" };
+    const keyAlgorithm =
+      algorithm === "ed25519-sha256"
+        ? { name: "Ed25519" }
+        : { name: "RSASSA-PKCS1-v1_5", hash: "SHA-256" };
 
-    return await crypto.subtle.importKey(
-      "pkcs8",
-      bytes,
-      keyAlgorithm,
-      false,
-      ["sign"],
-    );
+    return await crypto.subtle.importKey("pkcs8", bytes, keyAlgorithm, false, [
+      "sign",
+    ]);
   } catch (error) {
     throw new Error(
       `Failed to import private key: ${
@@ -246,9 +244,10 @@ async function computeBodyHash(
   canonMethod: "relaxed" | "simple",
 ): Promise<string> {
   // Canonicalize the body
-  const canonicalBody = canonMethod === "relaxed"
-    ? canonicalizeBodyRelaxed(body)
-    : canonicalizeBodySimple(body);
+  const canonicalBody =
+    canonMethod === "relaxed"
+      ? canonicalizeBodyRelaxed(body)
+      : canonicalizeBodySimple(body);
 
   // Hash with SHA-256
   const encoder = new TextEncoder();
@@ -298,18 +297,26 @@ function buildSignatureData(
   for (const field of headerFields) {
     const header = headers.get(field.toLowerCase());
     if (header !== undefined) {
-      const canonicalized = canonMethod === "relaxed"
-        ? canonicalizeHeaderRelaxed(header.name, header.value)
-        : canonicalizeHeaderSimple(header.name, header.value);
+      const canonicalized =
+        canonMethod === "relaxed"
+          ? canonicalizeHeaderRelaxed(header.name, header.value)
+          : canonicalizeHeaderSimple(header.name, header.value);
       lines.push(canonicalized);
     }
   }
 
   // Add the DKIM-Signature header itself (without trailing CRLF)
   // The b= tag should be empty for signing
-  const dkimHeader = canonMethod === "relaxed"
-    ? canonicalizeHeaderRelaxed("DKIM-Signature", " " + dkimHeaderValue + " b=")
-    : canonicalizeHeaderSimple("DKIM-Signature", " " + dkimHeaderValue + " b=");
+  const dkimHeader =
+    canonMethod === "relaxed"
+      ? canonicalizeHeaderRelaxed(
+          "DKIM-Signature",
+          " " + dkimHeaderValue + " b=",
+        )
+      : canonicalizeHeaderSimple(
+          "DKIM-Signature",
+          " " + dkimHeaderValue + " b=",
+        );
 
   lines.push(dkimHeader);
 
@@ -329,15 +336,15 @@ async function signData(
   const dataBuffer = encoder.encode(data);
 
   // Determine the signing algorithm based on DKIM algorithm
-  const signAlgorithm = algorithm === "ed25519-sha256"
-    ? "Ed25519"
-    : "RSASSA-PKCS1-v1_5";
+  const signAlgorithm =
+    algorithm === "ed25519-sha256" ? "Ed25519" : "RSASSA-PKCS1-v1_5";
 
   // RFC 8463 uses PureEd25519 over the SHA-256 header hash. RSA hashes
   // internally through its imported key algorithm.
-  const signingInput = algorithm === "ed25519-sha256"
-    ? await crypto.subtle.digest("SHA-256", dataBuffer)
-    : dataBuffer;
+  const signingInput =
+    algorithm === "ed25519-sha256"
+      ? await crypto.subtle.digest("SHA-256", dataBuffer)
+      : dataBuffer;
 
   const signature = await crypto.subtle.sign(
     signAlgorithm,

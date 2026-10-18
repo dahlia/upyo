@@ -11,8 +11,9 @@ import type { Strategy, TransportSelection } from "./strategy.ts";
  * one is selected randomly.
  * @since 0.3.0
  */
-export class SelectorStrategy<TProviderId extends string = string>
-  implements Strategy<TProviderId> {
+export class SelectorStrategy<
+  TProviderId extends string = string,
+> implements Strategy<TProviderId> {
   /**
    * Selects a transport based on selector function matching.
    *
@@ -57,9 +58,8 @@ export class SelectorStrategy<TProviderId extends string = string>
     }
 
     // Prefer transports with matching selectors
-    const candidates = withSelectors.length > 0
-      ? withSelectors
-      : withoutSelectors;
+    const candidates =
+      withSelectors.length > 0 ? withSelectors : withoutSelectors;
 
     if (candidates.length < 1) return undefined;
 

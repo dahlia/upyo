@@ -140,19 +140,17 @@ export class MailtrapTransport implements Transport<"mailtrap"> {
     for (const message of messages) {
       try {
         batchData.push(
-          await convertMessage(
-            message,
-            this.config,
-            options?.signal,
-          ),
+          await convertMessage(message, this.config, options?.signal),
         );
         receipts.push(undefined);
       } catch (error) {
         if (isCallerAbort(error, options?.signal)) throw error;
-        receipts.push(createMailtrapFailure(
-          error instanceof Error ? error.message : String(error),
-          error,
-        ));
+        receipts.push(
+          createMailtrapFailure(
+            error instanceof Error ? error.message : String(error),
+            error,
+          ),
+        );
       }
     }
 
@@ -172,8 +170,8 @@ export class MailtrapTransport implements Transport<"mailtrap"> {
       );
 
       if (response.success === false) {
-        const errorMessage = formatErrors(response.errors) ??
-          "Mailtrap batch request failed.";
+        const errorMessage =
+          formatErrors(response.errors) ?? "Mailtrap batch request failed.";
         for (const receipt of receipts) {
           if (receipt !== undefined) {
             yield receipt;
@@ -204,9 +202,8 @@ export class MailtrapTransport implements Transport<"mailtrap"> {
       }
     } catch (error) {
       if (isCallerAbort(error, options?.signal)) throw error;
-      const errorMessage = error instanceof Error
-        ? error.message
-        : String(error);
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
       for (const receipt of receipts) {
         if (receipt !== undefined) {
           yield receipt;
@@ -285,7 +282,7 @@ function createMailtrapFailure(
     return createFailedReceipt(message, {
       provider: "mailtrap",
       ...(error.cause instanceof MailtrapTimeoutError
-        ? { category: "timeout", code: "timeout" } as const
+        ? ({ category: "timeout", code: "timeout" } as const)
         : {}),
       retryable: false,
       attempts: error.attempts,
@@ -337,6 +334,7 @@ function isAbortError(error: unknown): boolean {
 }
 
 function isCallerAbort(error: unknown, signal?: AbortSignal): boolean {
-  return signal?.aborted === true &&
-    (isAbortError(error) || error === signal.reason);
+  return (
+    signal?.aborted === true && (isAbortError(error) || error === signal.reason)
+  );
 }

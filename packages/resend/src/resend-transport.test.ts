@@ -245,10 +245,9 @@ describe("ResendHttpClient - Abort Signal", () => {
         const controller = new AbortController();
         controller.abort();
 
-        await assert.rejects(
-          () => client.sendMessage({}, controller.signal),
-          { name: "AbortError" },
-        );
+        await assert.rejects(() => client.sendMessage({}, controller.signal), {
+          name: "AbortError",
+        });
       },
     );
   });
@@ -328,9 +327,13 @@ describe("ResendHttpClient - Abort Signal", () => {
       (_url, init) =>
         new Promise((_resolve, reject) => {
           assert.ok(init?.signal instanceof AbortSignal);
-          init.signal.addEventListener("abort", () => {
-            reject(init.signal?.reason);
-          }, { once: true });
+          init.signal.addEventListener(
+            "abort",
+            () => {
+              reject(init.signal?.reason);
+            },
+            { once: true },
+          );
           setTimeout(() => controller.abort(abortReason), 0);
         }),
       async () => {
@@ -415,10 +418,7 @@ describe("ResendTransport - Abort Signal", () => {
         return new Promise((resolve) => {
           setTimeout(() => {
             resolve(
-              new Response(
-                JSON.stringify({ id: "test-id" }),
-                { status: 200 },
-              ),
+              new Response(JSON.stringify({ id: "test-id" }), { status: 200 }),
             );
           }, 1000);
         });
@@ -483,10 +483,7 @@ describe("ResendTransport - Batch Sending Small", () => {
         if (typeof url === "string" && url.includes("/emails/batch")) {
           return new Response(
             JSON.stringify({
-              data: [
-                { id: "message-1" },
-                { id: "message-2" },
-              ],
+              data: [{ id: "message-1" }, { id: "message-2" }],
             }),
             {
               status: 200,
@@ -562,16 +559,14 @@ describe("ResendTransport - Individual Sending", () => {
         callCount++;
         // Should call individual endpoint, not batch
         if (
-          typeof url === "string" && url.includes("/emails") &&
+          typeof url === "string" &&
+          url.includes("/emails") &&
           !url.includes("/batch")
         ) {
-          return new Response(
-            JSON.stringify({ id: `message-${callCount}` }),
-            {
-              status: 200,
-              headers: { "Content-Type": "application/json" },
-            },
-          );
+          return new Response(JSON.stringify({ id: `message-${callCount}` }), {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          });
         }
 
         throw new Error("Unexpected URL called");
@@ -590,13 +585,15 @@ describe("ResendTransport - Individual Sending", () => {
           replyRecipients: [],
           subject: "Test Subject 1",
           content: { text: "Test content 1" },
-          attachments: [{
-            filename: "test.txt",
-            content: new Uint8Array(10),
-            contentType: "text/plain",
-            inline: false,
-            contentId: "",
-          }],
+          attachments: [
+            {
+              filename: "test.txt",
+              content: new Uint8Array(10),
+              contentType: "text/plain",
+              inline: false,
+              contentId: "",
+            },
+          ],
           priority: "normal",
           tags: [],
           headers: new Headers(),
@@ -687,10 +684,10 @@ describe("ResendTransport - Idempotency Key Provided", () => {
       globalThis.fetch = (_url, init) => {
         captured.headers = new Headers(init?.headers);
         return Promise.resolve(
-          new Response(
-            JSON.stringify({ id: "test-message-id" }),
-            { status: 200, headers: { "Content-Type": "application/json" } },
-          ),
+          new Response(JSON.stringify({ id: "test-message-id" }), {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          }),
         );
       };
 
@@ -731,10 +728,10 @@ describe("ResendTransport - Idempotency Key Auto-generated", () => {
       globalThis.fetch = (_url, init) => {
         captured.headers = new Headers(init?.headers);
         return Promise.resolve(
-          new Response(
-            JSON.stringify({ id: "test-message-id" }),
-            { status: 200, headers: { "Content-Type": "application/json" } },
-          ),
+          new Response(JSON.stringify({ id: "test-message-id" }), {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          }),
         );
       };
 
@@ -785,18 +782,18 @@ describe("ResendTransport - Idempotency Key Retry", () => {
         if (callCount === 1) {
           // First call fails
           return Promise.resolve(
-            new Response(
-              JSON.stringify({ message: "Server error" }),
-              { status: 500, headers: { "Content-Type": "application/json" } },
-            ),
+            new Response(JSON.stringify({ message: "Server error" }), {
+              status: 500,
+              headers: { "Content-Type": "application/json" },
+            }),
           );
         }
         // Second call succeeds
         return Promise.resolve(
-          new Response(
-            JSON.stringify({ id: "test-message-id" }),
-            { status: 200, headers: { "Content-Type": "application/json" } },
-          ),
+          new Response(JSON.stringify({ id: "test-message-id" }), {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          }),
         );
       };
 

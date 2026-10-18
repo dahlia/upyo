@@ -40,13 +40,15 @@ describe("convertMessage", () => {
       (_, i) => i % 256,
     );
     const message = createBaseMessage({
-      attachments: [{
-        filename: "bytes.bin",
-        contentType: "application/octet-stream",
-        contentId: "bytes",
-        content: bytes,
-        inline: false,
-      }],
+      attachments: [
+        {
+          filename: "bytes.bin",
+          contentType: "application/octet-stream",
+          contentId: "bytes",
+          content: bytes,
+          inline: false,
+        },
+      ],
     });
     let largestCall = 0;
 
@@ -110,10 +112,12 @@ describe("convertMessage", () => {
     const result = await convertMessage(
       createBaseMessage({
         sender: { address: "sender@example.com", name: "Sender Name" },
-        recipients: [{
-          address: "recipient@example.com",
-          name: "Recipient Name",
-        }],
+        recipients: [
+          {
+            address: "recipient@example.com",
+            name: "Recipient Name",
+          },
+        ],
       }),
       baseConfig,
     );
@@ -122,10 +126,12 @@ describe("convertMessage", () => {
       email: "sender@example.com",
       name: "Sender Name",
     });
-    assert.deepEqual(result.to, [{
-      email: "recipient@example.com",
-      name: "Recipient Name",
-    }]);
+    assert.deepEqual(result.to, [
+      {
+        email: "recipient@example.com",
+        name: "Recipient Name",
+      },
+    ]);
   });
 
   it("converts HTML content with text alternative", async () => {
@@ -205,13 +211,15 @@ describe("convertMessage", () => {
   it("converts attachments", async () => {
     const result = await convertMessage(
       createBaseMessage({
-        attachments: [{
-          inline: false,
-          filename: "test.txt",
-          content: Promise.resolve(new TextEncoder().encode("hello")),
-          contentType: "text/plain",
-          contentId: "cid@example.com",
-        }],
+        attachments: [
+          {
+            inline: false,
+            filename: "test.txt",
+            content: Promise.resolve(new TextEncoder().encode("hello")),
+            contentType: "text/plain",
+            contentId: "cid@example.com",
+          },
+        ],
       }),
       baseConfig,
     );
@@ -229,13 +237,15 @@ describe("convertMessage", () => {
     const content = new Promise<Uint8Array>(() => {});
     const conversion = convertMessage(
       createBaseMessage({
-        attachments: [{
-          inline: false,
-          filename: "slow.txt",
-          content,
-          contentType: "text/plain",
-          contentId: "",
-        }],
+        attachments: [
+          {
+            inline: false,
+            filename: "slow.txt",
+            content,
+            contentType: "text/plain",
+            contentId: "",
+          },
+        ],
       }),
       baseConfig,
       controller.signal,
@@ -290,8 +300,8 @@ describe("convertMessage() reply threading", () => {
       inReplyTo: "122@example.com",
       references: ["120@example.com", "121@example.com"],
     });
-    const result = (await convertMessage(message, threadingConfig)).headers ??
-      {};
+    const result =
+      (await convertMessage(message, threadingConfig)).headers ?? {};
 
     assert.deepEqual(headerOf(result, "In-Reply-To"), ["<122@example.com>"]);
     assert.deepEqual(headerOf(result, "References"), [
@@ -305,8 +315,8 @@ describe("convertMessage() reply threading", () => {
       inReplyTo: ["typed@example.com"],
       headers: { "In-Reply-To": "<custom@example.com>" },
     });
-    const result = (await convertMessage(message, threadingConfig)).headers ??
-      {};
+    const result =
+      (await convertMessage(message, threadingConfig)).headers ?? {};
 
     assert.deepEqual(headerOf(result, "In-Reply-To"), ["<typed@example.com>"]);
   });
@@ -321,8 +331,8 @@ describe("convertMessage() reply threading", () => {
         "References": "<custom@example.com>",
       },
     });
-    const result = (await convertMessage(message, threadingConfig)).headers ??
-      {};
+    const result =
+      (await convertMessage(message, threadingConfig)).headers ?? {};
 
     assert.deepEqual(headerOf(result, "In-Reply-To"), []);
     assert.deepEqual(headerOf(result, "References"), []);
@@ -333,23 +343,24 @@ describe("convertMessage() reply threading", () => {
       ...base,
       headers: { "In-Reply-To": "<custom@example.com>" },
     });
-    const result = (await convertMessage(message, threadingConfig)).headers ??
-      {};
+    const result =
+      (await convertMessage(message, threadingConfig)).headers ?? {};
 
     assert.deepEqual(headerOf(result, "In-Reply-To"), ["<custom@example.com>"]);
   });
 });
 
-const CALENDAR_ICS = [
-  "BEGIN:VCALENDAR",
-  "VERSION:2.0",
-  "METHOD:REQUEST",
-  "BEGIN:VEVENT",
-  "UID:1@example.com",
-  "SUMMARY:Lunch",
-  "END:VEVENT",
-  "END:VCALENDAR",
-].join("\r\n") + "\r\n";
+const CALENDAR_ICS =
+  [
+    "BEGIN:VCALENDAR",
+    "VERSION:2.0",
+    "METHOD:REQUEST",
+    "BEGIN:VEVENT",
+    "UID:1@example.com",
+    "SUMMARY:Lunch",
+    "END:VEVENT",
+    "END:VCALENDAR",
+  ].join("\r\n") + "\r\n";
 
 /** The invitation content as the providers below carry it: Base64. */
 const CALENDAR_BASE64 = btoa(CALENDAR_ICS);

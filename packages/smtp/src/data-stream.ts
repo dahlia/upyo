@@ -53,9 +53,9 @@ function abortable<T>(promise: Promise<T>, signal: AbortSignal): Promise<T> {
   return new Promise((resolve, reject) => {
     const abort = () => reject(signal.reason);
     signal.addEventListener("abort", abort, { once: true });
-    promise.then(resolve, reject).finally(() =>
-      signal.removeEventListener("abort", abort)
-    );
+    promise
+      .then(resolve, reject)
+      .finally(() => signal.removeEventListener("abort", abort));
     if (signal.aborted) abort();
   });
 }
@@ -80,7 +80,9 @@ export async function writeMessageData(
   let buffer = "";
   const lines: string[] = [];
   let resolveReply!: (reply: SmtpResponse) => void;
-  const reply = new Promise<SmtpResponse>((resolve) => resolveReply = resolve);
+  const reply = new Promise<SmtpResponse>(
+    (resolve) => (resolveReply = resolve),
+  );
   const fail = (error: unknown) => {
     if (!owned.aborted) controller.abort(error);
     socket.destroy();
@@ -213,7 +215,9 @@ export async function writeMessageData(
     if (!complete) {
       try {
         Promise.resolve(iterator?.return?.()).catch(() => {});
-      } catch { /* Preserve the send failure. */ }
+      } catch {
+        /* Preserve the send failure. */
+      }
     }
     clearTimeout(timer!);
     socket.off("error", fail);

@@ -95,16 +95,14 @@ export interface LettermintConfig {
  *
  * @since 0.5.0
  */
-export type ResolvedLettermintConfig =
-  & Required<
-    Omit<LettermintConfig, "route" | "tag" | "metadata" | "settings">
-  >
-  & {
-    readonly route?: string;
-    readonly tag?: string | null;
-    readonly metadata?: Record<string, string>;
-    readonly settings?: LettermintSettings;
-  };
+export type ResolvedLettermintConfig = Required<
+  Omit<LettermintConfig, "route" | "tag" | "metadata" | "settings">
+> & {
+  readonly route?: string;
+  readonly tag?: string | null;
+  readonly metadata?: Record<string, string>;
+  readonly settings?: LettermintSettings;
+};
 
 /**
  * Creates a resolved Lettermint configuration by applying default values.

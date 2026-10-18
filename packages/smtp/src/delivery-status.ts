@@ -13,11 +13,7 @@ import type {
  *
  * @since 0.6.0
  */
-export type SmtpDsnNotification =
-  | "never"
-  | "success"
-  | "failure"
-  | "delay";
+export type SmtpDsnNotification = "never" | "success" | "failure" | "delay";
 
 /**
  * Delivery status notification settings for one SMTP envelope recipient.
@@ -168,9 +164,7 @@ export function resolveSmtpDsn(
 
   if (dsn.envelopeId != null) {
     if (dsn.envelopeId === "") {
-      throw new SmtpDsnValidationError(
-        "DSN envelope ID must not be empty.",
-      );
+      throw new SmtpDsnValidationError("DSN envelope ID must not be empty.");
     }
     const encoded = encodeXtext(dsn.envelopeId, "DSN envelope ID");
     const parameter = `ENVID=${encoded}`;
@@ -179,9 +173,7 @@ export function resolveSmtpDsn(
   }
 
   const envelopeRecipients = envelope.to;
-  const envelopeRecipientSet: ReadonlySet<string> = new Set(
-    envelopeRecipients,
-  );
+  const envelopeRecipientSet: ReadonlySet<string> = new Set(envelopeRecipients);
   const configuredRecipients = dsn.recipients;
   if (
     configuredRecipients != null &&
@@ -201,7 +193,9 @@ export function resolveSmtpDsn(
       );
     }
     if (
-      options == null || typeof options !== "object" || Array.isArray(options)
+      options == null ||
+      typeof options !== "object" ||
+      Array.isArray(options)
     ) {
       throw new SmtpDsnValidationError(
         `DSN options for ${address} must be an object.`,
@@ -232,9 +226,9 @@ export function resolveSmtpDsn(
         );
       }
       parameters.push(
-        `NOTIFY=${
-          notify.map((condition) => condition.toUpperCase()).join(",")
-        }`,
+        `NOTIFY=${notify
+          .map((condition) => condition.toUpperCase())
+          .join(",")}`,
       );
     }
 
@@ -256,10 +250,11 @@ export function resolveSmtpDsn(
     serializedByAddress.set(address, parameters);
   }
 
-  const recipientParameters = envelopeRecipients.map((address) =>
-    serializedByAddress.get(address) ?? []
+  const recipientParameters = envelopeRecipients.map(
+    (address) => serializedByAddress.get(address) ?? [],
   );
-  const requested = mailParameters.length > 0 ||
+  const requested =
+    mailParameters.length > 0 ||
     recipientParameters.some((parameters) => parameters.length > 0);
   return requested ? { mailParameters, recipientParameters } : undefined;
 }

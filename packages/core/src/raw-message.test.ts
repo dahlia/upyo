@@ -56,17 +56,15 @@ test("raw analysis accepts headers-only and preserves every chunk boundary", asy
 });
 
 test("raw validation rejects invalid lines with locations", async () => {
-  for (
-    const input of [
-      "",
-      "\r\n",
-      "X: y\n",
-      "X: y\r",
-      "X: y",
-      "X: \0\r\n",
-      "X:" + "x".repeat(997) + "\r\n",
-    ]
-  ) {
+  for (const input of [
+    "",
+    "\r\n",
+    "X: y\n",
+    "X: y\r",
+    "X: y",
+    "X: \0\r\n",
+    "X:" + "x".repeat(997) + "\r\n",
+  ]) {
     await assert.rejects(
       collect(createRawMessagePlan(message(input))),
       (error: unknown) => {
@@ -115,9 +113,11 @@ test("raw plans copy envelopes and observe rejected content before validation", 
 
 test("raw sources support all replayable kinds and one or two traversals", async () => {
   const content = bytes("X: y\r\n");
-  for (
-    const source of [content, Promise.resolve(content), new Blob([content])]
-  ) {
+  for (const source of [
+    content,
+    Promise.resolve(content),
+    new Blob([content]),
+  ]) {
     const plan = createRawMessagePlan({ envelope, content: source });
     assert.deepEqual(await collect(plan), content);
     assert.deepEqual(await collect(plan), content);
@@ -148,23 +148,28 @@ test("second traversal revalidates structure and known length", async () => {
   });
   const info = await analyzeRawMessage(plan);
   await assert.rejects(async () => {
-    for await (
-      const _ of iterateRawMessage(plan, { expectedSize: info.size })
-    ) { /* consume */ }
+    for await (const _ of iterateRawMessage(plan, {
+      expectedSize: info.size,
+    })) {
+      /* consume */
+    }
   }, RawMessageValidationError);
   await assert.rejects(async () => {
-    for await (
-      const _ of iterateRawMessage(createRawMessagePlan(message("X: y\r\n")), {
+    for await (const _ of iterateRawMessage(
+      createRawMessagePlan(message("X: y\r\n")),
+      {
         expectedSize: 99,
-      })
-    ) { /* consume */ }
+      },
+    )) {
+      /* consume */
+    }
   }, RawMessageValidationError);
 });
 
 test("raw cancellation closes a pending producer once and preserves its reason", async () => {
   let closed = 0;
   let started!: () => void;
-  const ready = new Promise<void>((resolve) => started = resolve);
+  const ready = new Promise<void>((resolve) => (started = resolve));
   const controller = new AbortController();
   const reason = new TypeError("stop");
   const plan = createRawMessagePlan({

@@ -34,11 +34,9 @@ describe("estimateMessageSize()", () => {
   });
 
   it("should count the calendar payload", () => {
-    const ics = [
-      "BEGIN:VCALENDAR",
-      "METHOD:REQUEST",
-      "END:VCALENDAR",
-    ].join("\r\n") + "\r\n";
+    const ics =
+      ["BEGIN:VCALENDAR", "METHOD:REQUEST", "END:VCALENDAR"].join("\r\n") +
+      "\r\n";
     const without = estimateMessageSize(
       createMessage({ ...base, subject: "s", content: { text: "t" } }),
     );
