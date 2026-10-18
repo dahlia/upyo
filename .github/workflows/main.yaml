@@ -5,6 +5,9 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}
   cancel-in-progress: true
 
+env:
+  MISE_DISABLE_TOOLS: deno
+
 jobs:
   test-edge:
     runs-on: ubuntu-latest
@@ -70,6 +73,7 @@ jobs:
   test-deno:
     runs-on: ubuntu-latest
     env:
+      MISE_DISABLE_TOOLS: ""
       MAILPIT_SMTP_HOST: localhost
       MAILPIT_SMTP_PORT: 1025
       MAILPIT_SMTP_SECURE: "false"
@@ -181,11 +185,48 @@ jobs:
         experimental: true
         cache: true
         cache_key_prefix: mise-v4
-    - run: mise run check
+    - name: Guard ordinary development against Deno usage
+      run: |
+        mkdir -p "$RUNNER_TEMP/no-deno"
+        cat > "$RUNNER_TEMP/no-deno/deno" <<'EOF'
+        #!/bin/sh
+        echo "$*" >> "$DENO_CALL_LOG"
+        echo "Deno is unavailable in the Node.js development job." >&2
+        exit 97
+        EOF
+        chmod +x "$RUNNER_TEMP/no-deno/deno"
+        echo "$RUNNER_TEMP/no-deno" >> "$GITHUB_PATH"
+        echo "DENO_CALL_LOG=$RUNNER_TEMP/deno-calls.log" >> "$GITHUB_ENV"
+    - name: Check Node.js development without Deno
+      run: |
+        test "$(command -v deno)" = "$RUNNER_TEMP/no-deno/deno"
+        mise run check
+        mise run fmt
+        git diff --exit-code
+        mise run build
+        mise run docs:build
+        mise run check:pack
+        test ! -s "$DENO_CALL_LOG"
+
+  check-deno:
+    runs-on: ubuntu-latest
+    env:
+      MISE_DISABLE_TOOLS: ""
+    steps:
+    - uses: actions/checkout@v4
+    - uses: jdx/mise-action@v4
+      with:
+        experimental: true
+        cache: true
+        cache_key_prefix: mise-v4
+    - run: mise run check:deno
+    - run: mise run check:jsr
 
   publish:
+    env:
+      MISE_DISABLE_TOOLS: ""
     if: github.event_name == 'push'
-    needs: [test-node, test-deno, test-bun, test-edge, check]
+    needs: [test-node, test-deno, test-bun, test-edge, check, check-deno]
     runs-on: ubuntu-latest
     permissions:
       contents: read

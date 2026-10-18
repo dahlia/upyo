@@ -1,52 +1,93 @@
 {
-  "lsp": {
-    "deno": {
-      "settings": {
-        "deno": {
-          "enable": true
-        }
-      }
-    }
-  },
   "ensure_final_newline_on_save": true,
   "format_on_save": "on",
   "formatter": "language_server",
   "languages": {
     "JavaScript": {
       "language_servers": [
-        "deno",
+        "vtsls",
+        "oxlint",
+        "oxfmt",
+        "!deno",
         "!typescript-language-server",
-        "!vtsls",
         "!eslint",
         "!biome",
         "..."
-      ]
+      ],
+      "formatter": [
+        {
+          "language_server": {
+            "name": "oxfmt"
+          }
+        }
+      ],
+      "prettier": {
+        "allowed": false
+      }
     },
     "JSON": {
-      "language_servers": ["json-language-server", "..."]
+      "language_servers": ["json-language-server", "oxfmt", "..."],
+      "formatter": [
+        {
+          "language_server": {
+            "name": "oxfmt"
+          }
+        }
+      ]
     },
     "JSONC": {
-      "language_servers": ["json-language-server", "..."]
+      "language_servers": ["json-language-server", "oxfmt", "..."],
+      "formatter": [
+        {
+          "language_server": {
+            "name": "oxfmt"
+          }
+        }
+      ]
     },
     "TypeScript": {
       "language_servers": [
-        "deno",
+        "vtsls",
+        "oxlint",
+        "oxfmt",
+        "!deno",
         "!typescript-language-server",
-        "!vtsls",
         "!eslint",
         "!biome",
         "..."
-      ]
+      ],
+      "formatter": [
+        {
+          "language_server": {
+            "name": "oxfmt"
+          }
+        }
+      ],
+      "prettier": {
+        "allowed": false
+      }
     },
     "TSX": {
       "language_servers": [
-        "deno",
+        "vtsls",
+        "oxlint",
+        "oxfmt",
+        "!deno",
         "!typescript-language-server",
-        "!vtsls",
         "!eslint",
         "!biome",
         "..."
-      ]
+      ],
+      "formatter": [
+        {
+          "language_server": {
+            "name": "oxfmt"
+          }
+        }
+      ],
+      "prettier": {
+        "allowed": false
+      }
     },
     "YAML": {
       "language_servers": ["!yaml-language-server", "!eslint", "!biome", "..."]
