@@ -7,6 +7,8 @@ allowBuilds:
   workerd: true
 
 catalog:
+  '@types/node': 24.19.2
+  oxlint: 1.88.0
   '@noble/hashes': ^1.8.0
   postal-mime: ^3.0.0
   esbuild: ^0.28.2
@@ -26,3 +28,7 @@ engineStrict: true
 verifyDepsBeforeRun: false
 
 shellEmulator: true
+
+catalogs:
+  checker:
+    typescript: 6.0.3

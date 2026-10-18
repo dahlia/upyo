@@ -66,11 +66,11 @@ test("parseAddress()", () => {
   assert.strictEqual(parseAddress("test@[999.999.999.999]"), undefined);
 
   // Test edge cases
-  // deno-lint-ignore no-explicit-any
+  // oxlint-disable-next-line typescript/no-explicit-any
   assert.strictEqual(parseAddress(null as any), undefined);
-  // deno-lint-ignore no-explicit-any
+  // oxlint-disable-next-line typescript/no-explicit-any
   assert.strictEqual(parseAddress(undefined as any), undefined);
-  // deno-lint-ignore no-explicit-any
+  // oxlint-disable-next-line typescript/no-explicit-any
   assert.strictEqual(parseAddress(123 as any), undefined);
 });
 

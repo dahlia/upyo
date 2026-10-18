@@ -55,7 +55,7 @@ describe("ResendTransport - Send Message", () => {
     const originalFetch = globalThis.fetch;
     try {
       // Mock successful response
-      // deno-lint-ignore require-await
+      // oxlint-disable-next-line eslint/require-await
       globalThis.fetch = async () => {
         return new Response(
           JSON.stringify({
@@ -365,7 +365,7 @@ describe("ResendTransport - Network Errors", () => {
     const originalFetch = globalThis.fetch;
     try {
       // Mock network error
-      // deno-lint-ignore require-await
+      // oxlint-disable-next-line eslint/require-await
       globalThis.fetch = async () => {
         throw new Error("Network error");
       };
@@ -410,7 +410,7 @@ describe("ResendTransport - Abort Signal", () => {
     const originalFetch = globalThis.fetch;
     try {
       // Mock slow response
-      // deno-lint-ignore require-await
+      // oxlint-disable-next-line eslint/require-await
       globalThis.fetch = async () => {
         return new Promise((resolve) => {
           setTimeout(() => {
@@ -477,7 +477,7 @@ describe("ResendTransport - Batch Sending Small", () => {
     const originalFetch = globalThis.fetch;
     try {
       // Mock batch API response
-      // deno-lint-ignore require-await
+      // oxlint-disable-next-line eslint/require-await
       globalThis.fetch = async (url) => {
         // Check that batch endpoint is called
         if (typeof url === "string" && url.includes("/emails/batch")) {
@@ -557,7 +557,7 @@ describe("ResendTransport - Individual Sending", () => {
 
     try {
       // Mock individual API responses
-      // deno-lint-ignore require-await
+      // oxlint-disable-next-line eslint/require-await
       globalThis.fetch = async (url) => {
         callCount++;
         // Should call individual endpoint, not batch

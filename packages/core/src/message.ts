@@ -8,6 +8,13 @@ import {
 import { parseMessageId } from "./message-id.ts";
 import type { Priority } from "./priority.ts";
 
+// Fetch's sequence input accepts iterables, including read-only Headers views.
+// https://fetch.spec.whatwg.org/#headers-class
+// lib.dom omits generic iterables from the constructor's sequence input.
+declare const Headers: typeof globalThis.Headers & {
+  new (init?: HeadersInit | Iterable<[string, string]>): globalThis.Headers;
+};
+
 /**
  * Represents an email message with various properties such as
  * sender, recipients, subject, content, and attachments.

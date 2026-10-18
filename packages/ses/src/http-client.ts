@@ -179,7 +179,7 @@ export class SesHttpClient {
     }
   }
 
-  // deno-lint-ignore require-await
+  // oxlint-disable-next-line eslint/require-await
   private async getCredentials(): Promise<{
     accessKeyId: string;
     secretAccessKey: string;
@@ -203,7 +203,7 @@ export class SesHttpClient {
 
       default:
         throw new Error(
-          // deno-lint-ignore no-explicit-any
+          // oxlint-disable-next-line typescript/no-explicit-any
           `Unsupported authentication type: ${(auth as any).type}`,
         );
     }

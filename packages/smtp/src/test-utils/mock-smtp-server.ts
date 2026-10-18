@@ -228,15 +228,15 @@ export class MockSmtpServer extends EventEmitter {
               break;
             }
 
-            // deno-lint-ignore no-case-declarations
             case "MAIL":
               currentMessage.from = this.extractEmail(line);
+              // oxlint-disable-next-line eslint/no-case-declarations
               const mailResponse = this.responses.get("MAIL")!;
               if (this.writeEnvelopeResponse(socket, mailResponse)) return;
               break;
 
-            // deno-lint-ignore no-case-declarations
             case "RCPT":
+              // oxlint-disable-next-line eslint/no-case-declarations
               const rcptResponse = this.responseQueues.get("RCPT")?.shift() ??
                 this.responses.get("RCPT")!;
               if (rcptResponse.code >= 200 && rcptResponse.code < 300) {
@@ -246,16 +246,16 @@ export class MockSmtpServer extends EventEmitter {
               if (this.writeEnvelopeResponse(socket, rcptResponse)) return;
               break;
 
-              // deno-lint-ignore no-case-declarations
             case "DATA":
               inDataMode = true;
+              // oxlint-disable-next-line eslint/no-case-declarations
               const dataResponse = this.responses.get("DATA")!;
               socket.write(`${dataResponse.code} ${dataResponse.message}\r\n`);
               break;
 
-              // deno-lint-ignore no-case-declarations
             case "RSET":
               currentMessage = {};
+              // oxlint-disable-next-line eslint/no-case-declarations
               const rsetResponse = this.responses.get("RSET")!;
               this.writeResponse(
                 socket,
@@ -381,7 +381,7 @@ export class MockSmtpServer extends EventEmitter {
 
     // Clear all timeouts immediately
     for (const timeout of this.timeouts) {
-      // deno-lint-ignore no-explicit-any
+      // oxlint-disable-next-line typescript/no-explicit-any
       clearTimeout(timeout as any);
     }
     this.timeouts.clear();

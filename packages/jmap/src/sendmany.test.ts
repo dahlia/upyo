@@ -169,7 +169,7 @@ describe("sendMany batch - success", () => {
 
       // Verify the batch request has all 3 emails
       const batchRequest = requests[3];
-      // deno-lint-ignore no-explicit-any
+      // oxlint-disable-next-line typescript/no-explicit-any
       const batchBody = batchRequest.body as any;
       const emailCreates = batchBody?.methodCalls?.[0]?.[1]?.create;
       assert.equal(

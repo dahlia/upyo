@@ -1,5 +1,10 @@
 {
   "name": "upyo-workspace",
   "private": true,
-  "type": "module"
+  "type": "module",
+  "devDependencies": {
+    "@types/node": "catalog:",
+    "oxlint": "catalog:",
+    "typescript": "catalog:checker"
+  }
 }

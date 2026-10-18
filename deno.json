@@ -15,7 +15,8 @@
     "coverage",
     "docs",
     "junit.xml",
-    "node_modules"
+    "node_modules",
+    "tmp"
   ],
   "fmt": {
     "exclude": [
@@ -25,6 +26,19 @@
       "**/*.yaml",
       "*.yml",
       "**/*.yml"
+    ]
+  },
+  "compilerOptions": {
+    "lib": [
+      "deno.window",
+      "deno.unstable"
+    ],
+    "strict": true,
+    "noImplicitOverride": true
+  },
+  "publish": {
+    "exclude": [
+      "**/tsconfig.json"
     ]
   }
 }

@@ -1,7 +1,11 @@
 import { describe, it } from "node:test";
 import { readAttachmentContent } from "./attachment.ts";
 import assert from "node:assert/strict";
-import { createMessage, type MessageConstructor } from "./message.ts";
+import {
+  createMessage,
+  type ImmutableHeaders,
+  type MessageConstructor,
+} from "./message.ts";
 
 describe("createMessage", () => {
   it("should create a message with required fields only", () => {
@@ -218,6 +222,34 @@ describe("createMessage", () => {
     assert.equal(message.priority, "high");
     assert.deepEqual(message.tags, ["important", "urgent"]);
     assert.equal(message.headers.get("X-Custom"), "value");
+  });
+
+  it("should clone native headers and read-only iterable views", () => {
+    const source = new Headers({ "X-Custom": "value" });
+    source.append("Set-Cookie", "first=1");
+    source.append("Set-Cookie", "second=2");
+    const view: ImmutableHeaders = {
+      entries: source.entries.bind(source),
+      keys: source.keys.bind(source),
+      values: source.values.bind(source),
+      forEach: source.forEach.bind(source),
+      get: source.get.bind(source),
+      has: source.has.bind(source),
+      getSetCookie: source.getSetCookie.bind(source),
+      [Symbol.iterator]: source[Symbol.iterator].bind(source),
+    };
+    for (const headers of [source, view]) {
+      const message = createMessage({
+        from: "sender@example.com",
+        to: "recipient@example.com",
+        subject: "Test",
+        content: { text: "Test" },
+        headers,
+      });
+      assert.notEqual(message.headers, headers);
+      assert.equal(message.headers.get("X-Custom"), "value");
+      assert.deepEqual(message.headers.getSetCookie(), source.getSetCookie());
+    }
   });
 
   it("should handle HTML content", () => {

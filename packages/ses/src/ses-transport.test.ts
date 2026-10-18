@@ -134,7 +134,7 @@ test("SesTransport rejects caller aborts during retry backoff", async () => {
   let attempts = 0;
 
   try {
-    // deno-lint-ignore require-await
+    // oxlint-disable-next-line eslint/require-await
     globalThis.fetch = async () => {
       attempts++;
       setTimeout(() => controller.abort(reason), 0);
@@ -181,7 +181,7 @@ test("SesTransport falls back when AbortSignal.any is unavailable", async () => 
       value: undefined,
     });
 
-    // deno-lint-ignore require-await
+    // oxlint-disable-next-line eslint/require-await
     globalThis.fetch = async (_url, options) => {
       assert.ok(options?.signal instanceof AbortSignal);
       return new Response('{"MessageId":"test-message-id"}', {
@@ -320,7 +320,7 @@ test("SesTransport extractMessageId handles JSON response", () => {
 
   const transport = new SesTransport(config);
 
-  // deno-lint-ignore no-explicit-any
+  // oxlint-disable-next-line typescript/no-explicit-any
   const extractMessageId = (transport as any).extractMessageId.bind(transport);
 
   const response = {
@@ -344,7 +344,7 @@ test("SesTransport extractMessageId handles header fallback", () => {
 
   const transport = new SesTransport(config);
 
-  // deno-lint-ignore no-explicit-any
+  // oxlint-disable-next-line typescript/no-explicit-any
   const extractMessageId = (transport as any).extractMessageId.bind(transport);
 
   const response = {
@@ -368,7 +368,7 @@ test("SesTransport extractMessageId generates synthetic ID", () => {
 
   const transport = new SesTransport(config);
 
-  // deno-lint-ignore no-explicit-any
+  // oxlint-disable-next-line typescript/no-explicit-any
   const extractMessageId = (transport as any).extractMessageId.bind(transport);
 
   const response = {

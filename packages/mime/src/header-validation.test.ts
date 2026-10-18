@@ -32,7 +32,11 @@ class DirectHeaders extends Headers {
   constructor(private readonly field: string) {
     super();
   }
-  override *[Symbol.iterator](): Generator<[string, string], void, unknown> {
+  override *[Symbol.iterator](): Generator<
+    [string, string],
+    undefined,
+    unknown
+  > {
     yield [this.field, "value"];
   }
 }

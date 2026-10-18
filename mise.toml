@@ -92,10 +92,15 @@ run = ["deno fmt --check", "hongdown --check", "mise fmt --check"]
 
 [tasks.check]
 description = "Run full repository validation"
-depends = ["check:versions", "check:fmt", "test:scripts"]
+depends = [
+  "check:versions",
+  "check:fmt",
+  "test:scripts",
+  "check:types",
+  "check:lint",
+]
 run = [
   "deno check",
-  "deno lint",
   "deno publish --dry-run --allow-dirty",
   { task = "check:workflow" },
 ]
@@ -290,3 +295,15 @@ run = "mise run //packages/mime:test:edge"
 [tasks."test:scripts"]
 description = "Test repository maintenance scripts with Node.js"
 run = "node --test scripts/*.test.ts"
+
+[tasks."check:types"]
+description = "Type-check package source, tests, scripts, and build configuration"
+dir = "."
+run = [
+  "pnpm exec tsc -p tsconfig.check.json",
+  "pnpm exec tsc -p tsconfig.tools.json",
+]
+
+[tasks."check:lint"]
+description = "Lint source, tests, and development scripts"
+run = "pnpm exec oxlint"

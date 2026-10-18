@@ -125,6 +125,7 @@ describe("SMTP Connection Integration Tests", () => {
       let stopCalls = 0;
 
       MockSmtpServer.prototype.start = async function (): Promise<number> {
+        // oxlint-disable-next-line typescript/no-this-alias -- Capture for cleanup.
         startedServer = this;
         const port = await originalStart.call(this);
         controller.abort(reason);

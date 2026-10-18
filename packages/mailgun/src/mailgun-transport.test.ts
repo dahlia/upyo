@@ -60,7 +60,7 @@ describe("MailgunTransport - Send Message", () => {
     const originalFetch = globalThis.fetch;
     try {
       // Mock successful response
-      // deno-lint-ignore require-await
+      // oxlint-disable-next-line eslint/require-await
       globalThis.fetch = async () => {
         return new Response(
           JSON.stringify({
@@ -111,7 +111,7 @@ describe("MailgunTransport - API Errors", () => {
     const originalFetch = globalThis.fetch;
     try {
       // Mock error response
-      // deno-lint-ignore require-await
+      // oxlint-disable-next-line eslint/require-await
       globalThis.fetch = async () => {
         return new Response(
           JSON.stringify({
@@ -167,7 +167,7 @@ describe("MailgunTransport - Long Error Bodies", () => {
     const originalFetch = globalThis.fetch;
     try {
       const longBody = "x".repeat(600);
-      // deno-lint-ignore require-await
+      // oxlint-disable-next-line eslint/require-await
       globalThis.fetch = async () => new Response(longBody, { status: 500 });
 
       const transport = new MailgunTransport({
@@ -204,7 +204,7 @@ describe("MailgunTransport - Structured Rate Limit Errors", () => {
   it("should expose rate limit retry metadata", async () => {
     const originalFetch = globalThis.fetch;
     try {
-      // deno-lint-ignore require-await
+      // oxlint-disable-next-line eslint/require-await
       globalThis.fetch = async () => {
         return new Response(
           JSON.stringify({
@@ -260,7 +260,7 @@ describe("MailgunTransport - Network Errors", () => {
     const originalFetch = globalThis.fetch;
     try {
       // Mock network error
-      // deno-lint-ignore require-await
+      // oxlint-disable-next-line eslint/require-await
       globalThis.fetch = async () => {
         throw new Error("Network error");
       };
@@ -310,7 +310,7 @@ describe("MailgunTransport - Retry Backoff Abort Signal", () => {
     let attempts = 0;
 
     try {
-      // deno-lint-ignore require-await
+      // oxlint-disable-next-line eslint/require-await
       globalThis.fetch = async () => {
         attempts++;
         setTimeout(() => controller.abort(reason), 0);
@@ -356,7 +356,7 @@ describe("MailgunTransport - Multiple Messages", () => {
     const originalFetch = globalThis.fetch;
     try {
       // Mock successful responses
-      // deno-lint-ignore require-await
+      // oxlint-disable-next-line eslint/require-await
       globalThis.fetch = async () => {
         return new Response(
           JSON.stringify({
@@ -424,7 +424,7 @@ describe("MailgunTransport - Abort Signal", () => {
     const originalFetch = globalThis.fetch;
     try {
       // Mock a slow response to allow abort to happen
-      // deno-lint-ignore require-await
+      // oxlint-disable-next-line eslint/require-await
       globalThis.fetch = async (_url, options) => {
         if (options?.signal?.aborted) {
           throw new DOMException("The operation was aborted", "AbortError");
@@ -574,7 +574,7 @@ describe("MailgunTransport - Rate Limiting", () => {
     const originalFetch = globalThis.fetch;
     try {
       // Mock rate limit response
-      // deno-lint-ignore require-await
+      // oxlint-disable-next-line eslint/require-await
       globalThis.fetch = async () => {
         return new Response(
           JSON.stringify({
@@ -627,7 +627,7 @@ describe("MailgunTransport - Authentication Errors", () => {
     const originalFetch = globalThis.fetch;
     try {
       // Mock unauthorized response
-      // deno-lint-ignore require-await
+      // oxlint-disable-next-line eslint/require-await
       globalThis.fetch = async () => {
         return new Response(
           JSON.stringify({
@@ -677,7 +677,7 @@ describe("MailgunTransport - Malformed Responses", () => {
     const originalFetch = globalThis.fetch;
     try {
       // Mock malformed response
-      // deno-lint-ignore require-await
+      // oxlint-disable-next-line eslint/require-await
       globalThis.fetch = async () => {
         return new Response("Internal Server Error", {
           status: 500,
@@ -727,7 +727,7 @@ describe("MailgunTransport - Malformed Responses", () => {
     const originalFetch = globalThis.fetch;
     try {
       // Mock empty response
-      // deno-lint-ignore require-await
+      // oxlint-disable-next-line eslint/require-await
       globalThis.fetch = async () => {
         return new Response("", {
           status: 500,
@@ -823,7 +823,7 @@ describe("MailgunTransport - Concurrent Error Handling", () => {
     try {
       let requestCount = 0;
       // Mock mixed responses
-      // deno-lint-ignore require-await
+      // oxlint-disable-next-line eslint/require-await
       globalThis.fetch = async () => {
         requestCount++;
         if (requestCount % 2 === 0) {
@@ -905,7 +905,7 @@ describe("MailgunTransport - Large Payload Handling", () => {
     const originalFetch = globalThis.fetch;
     try {
       // Mock success for large payload
-      // deno-lint-ignore require-await
+      // oxlint-disable-next-line eslint/require-await
       globalThis.fetch = async () => {
         return new Response(
           JSON.stringify({

@@ -1,0 +1,9 @@
+{
+  "extends": "./tsconfig.check.json",
+  "compilerOptions": {
+    "skipLibCheck": true
+  },
+  "include": [
+    "packages/*/tsdown.config.ts"
+  ]
+}

@@ -1,0 +1,118 @@
+{
+  "compilerOptions": {
+    "target": "ESNext",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "lib": [
+      "ESNext",
+      "DOM",
+      "DOM.Iterable"
+    ],
+    "types": [
+      "node"
+    ],
+    "strict": true,
+    "noImplicitOverride": true,
+    "isolatedModules": true,
+    "verbatimModuleSyntax": true,
+    "allowImportingTsExtensions": true,
+    "resolveJsonModule": true,
+    "moduleDetection": "force",
+    "noEmit": true,
+    "skipLibCheck": false,
+    "paths": {
+      "@upyo/core": [
+        "./packages/core/src/index.ts"
+      ],
+      "@upyo/core/abort-signal": [
+        "./packages/core/src/abort-signal.ts"
+      ],
+      "@upyo/core/address": [
+        "./packages/core/src/address.ts"
+      ],
+      "@upyo/core/attachment": [
+        "./packages/core/src/attachment.ts"
+      ],
+      "@upyo/core/calendar": [
+        "./packages/core/src/calendar.ts"
+      ],
+      "@upyo/core/message": [
+        "./packages/core/src/message.ts"
+      ],
+      "@upyo/core/message-id": [
+        "./packages/core/src/message-id.ts"
+      ],
+      "@upyo/core/priority": [
+        "./packages/core/src/priority.ts"
+      ],
+      "@upyo/core/receipt": [
+        "./packages/core/src/receipt.ts"
+      ],
+      "@upyo/core/transport": [
+        "./packages/core/src/transport.ts"
+      ],
+      "@upyo/core/raw-message": [
+        "./packages/core/src/raw-message.ts"
+      ],
+      "@upyo/jmap": [
+        "./packages/jmap/src/index.ts"
+      ],
+      "@upyo/lettermint": [
+        "./packages/lettermint/src/index.ts"
+      ],
+      "@upyo/logtape": [
+        "./packages/logtape/src/index.ts"
+      ],
+      "@upyo/maileroo": [
+        "./packages/maileroo/src/index.ts"
+      ],
+      "@upyo/mailgun": [
+        "./packages/mailgun/src/index.ts"
+      ],
+      "@upyo/mailtrap": [
+        "./packages/mailtrap/src/index.ts"
+      ],
+      "@upyo/mime": [
+        "./packages/mime/src/index.ts"
+      ],
+      "@upyo/mime/internal": [
+        "./packages/mime/src/internal.ts"
+      ],
+      "@upyo/mock": [
+        "./packages/mock/src/index.ts"
+      ],
+      "@upyo/opentelemetry": [
+        "./packages/opentelemetry/src/index.ts"
+      ],
+      "@upyo/plunk": [
+        "./packages/plunk/src/index.ts"
+      ],
+      "@upyo/pool": [
+        "./packages/pool/src/index.ts"
+      ],
+      "@upyo/resend": [
+        "./packages/resend/src/index.ts"
+      ],
+      "@upyo/retry": [
+        "./packages/retry/src/index.ts"
+      ],
+      "@upyo/sendgrid": [
+        "./packages/sendgrid/src/index.ts"
+      ],
+      "@upyo/ses": [
+        "./packages/ses/src/index.ts"
+      ],
+      "@upyo/smtp": [
+        "./packages/smtp/src/index.ts"
+      ]
+    }
+  },
+  "include": [
+    "packages/*/src/**/*.ts",
+    "scripts/**/*.ts"
+  ],
+  "exclude": [
+    "**/dist",
+    "**/node_modules"
+  ]
+}
