@@ -223,6 +223,7 @@ run = "mise run --jobs 1 '//packages/...:test:bun'"
 
 [tasks.test]
 description = "Run repository script and package tests with Node.js"
+depends = ["build"]
 run = ["mise run test:scripts", "mise run test:node"]
 
 [tasks."test:all"]
