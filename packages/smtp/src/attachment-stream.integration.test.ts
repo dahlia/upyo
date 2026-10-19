@@ -37,22 +37,26 @@ for (const streaming of [false, true]) {
       socketTimeout: 180,
       dkim: streaming
         ? {
-          bodyMode: "streaming",
-          signatures: [{
-            signingDomain: "example.com",
-            selector: "test",
-            privateKey: TEST_DKIM_PRIVATE_KEY,
-          }],
-        }
+            bodyMode: "streaming",
+            signatures: [
+              {
+                signingDomain: "example.com",
+                selector: "test",
+                privateKey: TEST_DKIM_PRIVATE_KEY,
+              },
+            ],
+          }
         : undefined,
     });
     try {
-      const receipt = await transport.send(message(async function* () {
-        for (let i = 0; i < 4; i++) {
-          await new Promise((resolve) => setTimeout(resolve, 100));
-          yield new Uint8Array([i]);
-        }
-      }));
+      const receipt = await transport.send(
+        message(async function* () {
+          for (let i = 0; i < 4; i++) {
+            await new Promise((resolve) => setTimeout(resolve, 100));
+            yield new Uint8Array([i]);
+          }
+        }),
+      );
       assert.ok(receipt.successful, JSON.stringify(receipt));
     } finally {
       await transport.closeAllConnections();
@@ -95,8 +99,8 @@ for (const asynchronous of [false, true]) {
     try {
       const source = asynchronous
         ? (async function* () {
-          yield* messages;
-        })()
+            yield* messages;
+          })()
         : messages;
       const receipts = [];
       for await (const receipt of transport.sendMany(source)) {
@@ -133,9 +137,10 @@ test("unsigned sources open after DATA and replay on repeated sends", async () =
     assert.ok((await transport.send(mail)).successful);
     assert.equal(reads, 2);
     assert.ok(
-      server.getReceivedCommands().filter((c) => c.startsWith("MAIL ")).every((
-        c,
-      ) => !c.includes("SIZE=")),
+      server
+        .getReceivedCommands()
+        .filter((c) => c.startsWith("MAIL "))
+        .every((c) => !c.includes("SIZE=")),
     );
     assert.ok(server.getReceivedMessages()[0].data.includes("AQID"));
   } finally {
@@ -155,13 +160,15 @@ test("unknown oversized sources poison DATA but not the next pooled send", async
   });
   let closed = false;
   try {
-    const result = await transport.send(message(async function* () {
-      try {
-        while (true) yield new Uint8Array(1024);
-      } finally {
-        closed = true;
-      }
-    }));
+    const result = await transport.send(
+      message(async function* () {
+        try {
+          while (true) yield new Uint8Array(1024);
+        } finally {
+          closed = true;
+        }
+      }),
+    );
     assert.ok(!result.successful);
     if (!result.successful) {
       assert.equal(result.errors?.[0].code, "smtp.message-size-exceeded");
@@ -184,18 +191,22 @@ test("a changed DKIM replay never sends a DATA terminator", async () => {
     pool: false,
     dkim: {
       bodyMode: "streaming",
-      signatures: [{
-        signingDomain: "example.com",
-        selector: "test",
-        privateKey: TEST_DKIM_PRIVATE_KEY,
-      }],
+      signatures: [
+        {
+          signingDomain: "example.com",
+          selector: "test",
+          privateKey: TEST_DKIM_PRIVATE_KEY,
+        },
+      ],
     },
   });
   let reads = 0;
   try {
-    const result = await transport.send(message(async function* () {
-      yield new Uint8Array([++reads]);
-    }));
+    const result = await transport.send(
+      message(async function* () {
+        yield new Uint8Array([++reads]);
+      }),
+    );
     assert.ok(!result.successful);
     if (!result.successful) {
       assert.equal(result.errors?.[0].code, "smtp.attachment-replay-mismatch");
@@ -219,25 +230,29 @@ for (const streaming of [false, true]) {
       socketTimeout: 100,
       dkim: streaming
         ? {
-          bodyMode: "streaming",
-          signatures: [{
-            signingDomain: "example.com",
-            selector: "test",
-            privateKey: TEST_DKIM_PRIVATE_KEY,
-          }],
-        }
+            bodyMode: "streaming",
+            signatures: [
+              {
+                signingDomain: "example.com",
+                selector: "test",
+                privateKey: TEST_DKIM_PRIVATE_KEY,
+              },
+            ],
+          }
         : undefined,
     });
     let sourceSignal: AbortSignal | undefined;
     try {
-      const result = await transport.send(message((signal) => {
-        sourceSignal = signal;
-        return {
-          [Symbol.asyncIterator]() {
-            return { next: () => new Promise(() => {}) };
-          },
-        };
-      }));
+      const result = await transport.send(
+        message((signal) => {
+          sourceSignal = signal;
+          return {
+            [Symbol.asyncIterator]() {
+              return { next: () => new Promise(() => {}) };
+            },
+          };
+        }),
+      );
       assert.ok(!result.successful);
       assert.ok(sourceSignal?.aborted);
       assert.equal(server.getReceivedMessages().length, 0);

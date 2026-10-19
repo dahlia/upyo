@@ -24,8 +24,9 @@ export function isStalwartTestingEnabled(): boolean {
   const bearerToken = process.env.STALWART_BEARER_TOKEN;
   const basicUsername = process.env.STALWART_USERNAME;
   const basicPassword = process.env.STALWART_PASSWORD;
-  return !!sessionUrl &&
-    (!!bearerToken || (!!basicUsername && !!basicPassword));
+  return (
+    !!sessionUrl && (!!bearerToken || (!!basicUsername && !!basicPassword))
+  );
 }
 
 /**
@@ -55,30 +56,30 @@ export function getTestConfig(): TestConfig {
   }
 
   // Extract base URL from session URL for URL rewriting
-  const baseUrl = process.env.STALWART_BASE_URL ||
-    sessionUrl.replace(/\/jmap\/session$/, "").replace(
-      /\/.well-known\/jmap$/,
-      "",
-    );
+  const baseUrl =
+    process.env.STALWART_BASE_URL ||
+    sessionUrl
+      .replace(/\/jmap\/session$/, "")
+      .replace(/\/.well-known\/jmap$/, "");
 
   const jmap: JmapConfig = bearerToken
     ? {
-      sessionUrl,
-      bearerToken,
-      timeout: 30000,
-      retries: 3,
-      baseUrl,
-    }
+        sessionUrl,
+        bearerToken,
+        timeout: 30000,
+        retries: 3,
+        baseUrl,
+      }
     : {
-      sessionUrl,
-      basicAuth: {
-        username: basicUsername!,
-        password: basicPassword!,
-      },
-      timeout: 30000,
-      retries: 3,
-      baseUrl,
-    };
+        sessionUrl,
+        basicAuth: {
+          username: basicUsername!,
+          password: basicPassword!,
+        },
+        timeout: 30000,
+        retries: 3,
+        baseUrl,
+      };
 
   return {
     jmap,

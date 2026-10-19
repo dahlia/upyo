@@ -51,9 +51,11 @@ functions.  It's structured as a monorepo with multiple packages:
 Development commands
 --------------------
 
-This is a polyglot monorepo supporting Deno, Node.js, and Bun.
+This is a cross-runtime monorepo supporting Deno, Node.js, and Bun. Node.js 24
+is the primary development runtime. Deno is activated on demand by Deno and JSR
+tasks; ordinary setup, checks, builds, and tests do not need it.
 
-### Package manager
+### Development tool
 
 This project uses mise as the primary development tool.  Mise installs the
 required runtimes, installs package dependencies, loads environment files, and
@@ -64,20 +66,30 @@ runs development tasks.
 > mise tasks (`mise run ...`) for development workflows.  Use pnpm only when
 > adding or publishing npm workspace dependencies.
 
+If `core.hooksPath` is configured, setup preserves the existing hooks. Integrate
+the project hook commands with that hook manager as described in
+*CONTRIBUTING.md*.
+
 ### Root level commands
 
  -  `mise install` — Install runtimes, project dependencies, and Git hooks
  -  `mise run setup` — Re-run dependency and Git hook setup
  -  `mise run build` — Build all packages for npm distribution
- -  `mise run test` — Run tests across Deno, Node.js, and Bun
+ -  `mise run test` — Run script and package tests with Node.js
+ -  `mise run test:all` — Run Deno, Node.js, Bun, and workerd tests
  -  `mise run test:deno` — Run Deno tests
  -  `mise run test:node` — Run Node.js tests
  -  `mise run test:bun` — Run Bun tests
- -  `mise run check` — Run full validation (version check, type check, lint,
-    format check, workflow lint, dry-run publish)
+ -  `mise run check` — Run Node.js development validation (version check,
+    source type check, Oxlint, formatting, script tests, and workflow lint)
+ -  `mise run check:deno` — Check Deno source compatibility
+ -  `mise run check:jsr` — Validate JSR publication without publishing
+ -  `mise run check:all` — Run development and Deno/JSR checks
+ -  `mise run check:pack` — Build and pack npm packages without publishing
  -  `mise run check:versions` — Verify package version consistency across
     workspace
- -  `mise run fmt` — Format TypeScript and Markdown files
+ -  `mise run fmt` — Format code and JSON with Oxfmt, Markdown with Hongdown,
+    and mise configuration with mise
  -  `mise run check:workflow` — Lint GitHub Actions workflows
  -  `sacho fmt` — Format changelog fragments
  -  `sacho preview` — Preview the unreleased changelog assembled from fragments
@@ -88,7 +100,8 @@ runs development tasks.
 Each package has package-local mise tasks:
 
  -  `mise :build` — Build the current package with tsdown
- -  `mise :test` — Run the current package tests across runtimes
+ -  `mise :test` — Run the current package tests with Node.js
+ -  `mise :test:all` — Run the current package tests across runtimes
  -  `mise :test:deno` — Run current package tests with Deno
  -  `mise :test:node` — Run current package tests with Node.js
  -  `mise :test:bun` — Run current package tests with Bun
@@ -314,7 +327,7 @@ the application.
 ### Build system
 
  -  *tsdown*: Primary build tool that generates npm-compatible packages from
-    Deno code
+    the TypeScript source
  -  *Dual exports*: Each package exports both ESM and CommonJS with proper
     TypeScript declarations
  -  *Pre-publish hooks*: Automatic building before npm publishing via
@@ -322,7 +335,8 @@ the application.
 
 ### Testing strategy
 
- -  *Multi-runtime testing*: Unit tests run on Deno, Node.js, and Bun
+ -  *Multi-runtime testing*: Unit tests run on Deno, Node.js, and Bun; built
+    MIME exports also run in workerd
  -  *Integration tests*: SMTP uses Docker Compose with Mailpit for local
     testing
  -  *E2E tests*: External services like Mailgun, SendGrid, and SES with
@@ -379,12 +393,13 @@ This project follows test-driven development (TDD) practices:
 
 ### Before committing
 
- -  *Run all checks*: Before committing any changes, run `mise run check` to
-    ensure all checks pass (type check, lint, format, dry-run publish).
+ -  *Run all checks*: Before committing any changes, run `mise run check:all` to
+    validate source types, lint, formatting, workflow syntax, Deno
+    compatibility, and JSR dry-run publication.
  -  *Check changelog fragments*: Run `sacho check` to ensure the fragments and
     the materialized changelog agree.
  -  *Test across runtimes*: For significant changes, run tests across Deno,
-    Node.js, and Bun runtimes using `mise run test`.
+    Node.js, Bun, and workerd using `mise run test:all`.
 
 ### Changelog fragments
 
@@ -539,9 +554,9 @@ Writing style
 
 When writing documentation in English:
 
- -  Documentation under *docs/* is not mechanically formatted.
-    `deno fmt` intentionally excludes Markdown and the *docs/* directory, so
-    follow the rules below manually.
+ -  Oxfmt excludes Markdown and the *docs/* directory. Hongdown formats
+    Markdown, including *docs/*; follow the prose and VitePress conventions
+    below and run `mise run docs:build` to validate code examples.
  -  Use sentence case for titles and headings (capitalize only the first word
     and proper nouns), not Title Case.
  -  Use curly quotation marks (“like this”) for quotations in English prose.
@@ -634,7 +649,7 @@ hongdown --check path/to/file.md
 
     ~~~~~ markdown
     ~~~~ bash
-    deno test
+    mise run test
     ~~~~
     ~~~~~
 

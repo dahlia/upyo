@@ -44,9 +44,7 @@ export async function* encodeAttachment(
         45 * 1024,
         Math.floor((chunk.length - offset) / 3) * 3,
       );
-      yield wrap(
-        base64(chunk.subarray(offset, offset + length)),
-      );
+      yield wrap(base64(chunk.subarray(offset, offset + length)));
       offset += length;
       processed += length;
       if (processed >= 1024 * 1024) {

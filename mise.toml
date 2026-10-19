@@ -6,9 +6,11 @@ config_roots = ["packages/*"]
 [settings]
 experimental = true
 
+[vars]
+deno_version = "2.9.5"
+
 [tools]
 bun = "1.4.0"
-deno = "2.9.5"
 node = "24"
 pnpm = "latest"
 "github:dahlia/sacho" = "0.3.2"
@@ -23,10 +25,6 @@ _.file = { path = ".env", redact = true }
 
 [deps.pnpm]
 auto = true
-
-[deps.deno]
-auto = true
-depends = ["pnpm"]
 
 [hooks]
 postinstall = { task = "setup" }
@@ -44,18 +42,25 @@ run = "mise deps install"
 description = "Install the Git pre-commit hook"
 shell = "nu -c"
 run = """
+if (git config --get core.hooksPath | complete).exit_code == 0 {
+  print --stderr "Custom core.hooksPath is configured; leaving Git hooks unchanged."
+  sacho init --no-interactive
+  return
+}
+let hooks_dir = (git rev-parse --git-common-dir | str trim | path expand | path join "hooks")
+mkdir $hooks_dir
 mise generate git-pre-commit --write --task=pre-commit
 '#!/bin/sh
-sacho hook-commit-msg "$1"' | save --force .git/hooks/commit-msg
+sacho hook-commit-msg "$1"' | save --force ($hooks_dir | path join "commit-msg")
 '#!/bin/sh
 if test "$1" = prepared; then
   sacho_state=$(git rev-parse --git-path sacho-commit-state) || exit $?
   if test -f "$sacho_state"; then
     sacho hook-reference-transaction "$1"
   fi
-fi' | save --force .git/hooks/reference-transaction
+fi' | save --force ($hooks_dir | path join "reference-transaction")
 if $nu.os-info.name != 'windows' {
-  chmod +x .git/hooks/commit-msg .git/hooks/reference-transaction
+  chmod +x ($hooks_dir | path join "commit-msg") ($hooks_dir | path join "reference-transaction")
 }
 sacho init --no-interactive
 """
@@ -80,7 +85,7 @@ depends = ["check"]
 [tasks."check:versions"]
 description = "Check workspace package versions"
 usage = 'flag "-f --fix" help="Fix version mismatches"'
-run = "deno run --allow-read --allow-write scripts/check_versions.ts{% if usage.fix %} --fix{% endif %}"
+run = "node scripts/check_versions.ts{% if usage.fix %} --fix{% endif %}"
 
 [tasks."check:workflow"]
 description = "Lint GitHub Actions workflows"
@@ -88,21 +93,30 @@ run = "actionlint"
 
 [tasks."check:fmt"]
 description = "Check formatting"
-run = ["deno fmt --check", "hongdown --check", "mise fmt --check"]
-
-[tasks.check]
-description = "Run full repository validation"
-depends = ["check:versions", "check:fmt"]
 run = [
-  "deno check",
-  "deno lint",
-  "deno publish --dry-run --allow-dirty",
-  { task = "check:workflow" },
+  "pnpm exec oxfmt --check '**/*.{ts,tsx,js,jsx,mts,cts,mjs,cjs,json,jsonc}'",
+  "hongdown --check",
+  "mise fmt --check",
 ]
 
+[tasks.check]
+description = "Run Node.js development checks"
+depends = [
+  "check:versions",
+  "check:fmt",
+  "test:scripts",
+  "check:types",
+  "check:lint",
+]
+run = [{ task = "check:workflow" }]
+
 [tasks.fmt]
-description = "Format TypeScript and Markdown files"
-run = ["deno fmt", "hongdown --write", "mise fmt"]
+description = "Format code, JSON, Markdown, and mise configuration"
+run = [
+  "pnpm exec oxfmt '**/*.{ts,tsx,js,jsx,mts,cts,mjs,cjs,json,jsonc}'",
+  "hongdown --write",
+  "mise fmt",
+]
 
 [tasks.build]
 description = "Build all npm packages"
@@ -110,6 +124,7 @@ depends = ["deps"]
 run = "mise run '//packages/...:build'"
 
 [tasks."test:deno"]
+tools.deno = "{{ vars.deno_version }}"
 description = "Run Deno tests for all packages"
 usage = '''
 flag "--coverage" help="Collect coverage data"
@@ -207,7 +222,12 @@ description = "Run Bun tests for all packages"
 run = "mise run --jobs 1 '//packages/...:test:bun'"
 
 [tasks.test]
-description = "Run tests across Deno, Node.js, and Bun"
+description = "Run repository script and package tests with Node.js"
+depends = ["build"]
+run = ["mise run test:scripts", "mise run test:node"]
+
+[tasks."test:all"]
+description = "Run tests across Deno, Node.js, Bun, and workerd"
 run = [
   "mise run test:deno",
   "mise run test:node",
@@ -264,9 +284,11 @@ let deno_json = (open packages/core/deno.json)
 let version = $"($deno_json.version)-dev.($dev_build)+($short_commit)"
 $deno_json | upsert version $version | save --force packages/core/deno.json
 mise run check:versions --fix
+mise run fmt
 '''
 
 [tasks.publish]
+tools.deno = "{{ vars.deno_version }}"
 description = "Publish packages to JSR and npm"
 depends = ["build"]
 usage = '''
@@ -286,3 +308,43 @@ if ($env.usage_tag? | default "false" | into bool) {
 [tasks."test:edge"]
 description = "Test MIME composition in workerd"
 run = "mise run //packages/mime:test:edge"
+
+[tasks."test:scripts"]
+description = "Test repository maintenance scripts with Node.js"
+run = "node --test scripts/*.test.ts"
+
+[tasks."check:types"]
+description = "Type-check package source, tests, scripts, and build configuration"
+dir = "."
+run = [
+  "pnpm exec tsc -p tsconfig.check.json",
+  "pnpm exec tsc -p tsconfig.tools.json",
+]
+
+[tasks."check:lint"]
+description = "Lint source, tests, and development scripts"
+run = "pnpm exec oxlint"
+
+[tasks."check:deno"]
+description = "Check Deno source compatibility"
+tools.deno = "{{ vars.deno_version }}"
+run = "deno check"
+
+[tasks."check:jsr"]
+description = "Validate JSR publication without publishing"
+tools.deno = "{{ vars.deno_version }}"
+run = "deno publish --dry-run --allow-dirty"
+
+[tasks."check:all"]
+description = "Run development and Deno/JSR compatibility checks"
+depends = ["check", "check:deno", "check:jsr"]
+
+[tasks."check:pack"]
+description = "Build and pack npm packages without publishing"
+depends = ["build"]
+shell = "nu -c"
+run = """
+let destination = ("tmp/npm" | path expand)
+mkdir $destination
+pnpm --recursive --filter "@upyo/*" pack --pack-destination $destination
+"""

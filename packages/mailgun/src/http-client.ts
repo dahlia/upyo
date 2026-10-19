@@ -100,7 +100,8 @@ export class MailgunHttpClient {
           // Using `||` is intentional here to treat empty strings as falsy
           // and ensure a non-empty error message for the tests.
           throw new MailgunApiError(
-            errorMessage || truncateErrorBody(text) ||
+            errorMessage ||
+              truncateErrorBody(text) ||
               `HTTP ${response.status}`,
             response.status,
             parseRetryAfter(response.headers.get("Retry-After")),
@@ -287,8 +288,10 @@ function sleep(
 }
 
 function createAbortError(signal?: AbortSignal | null): unknown {
-  return signal?.reason ??
-    new DOMException("The operation was aborted.", "AbortError");
+  return (
+    signal?.reason ??
+    new DOMException("The operation was aborted.", "AbortError")
+  );
 }
 
 function truncateErrorBody(text: string): string {

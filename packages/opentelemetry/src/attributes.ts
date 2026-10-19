@@ -123,7 +123,9 @@ export class EmailAttributeExtractor {
       "email.batch.size": batchSize,
       "email.batch.total_recipients": messages.reduce(
         (sum, msg) =>
-          sum + msg.recipients.length + msg.ccRecipients.length +
+          sum +
+          msg.recipients.length +
+          msg.ccRecipients.length +
           msg.bccRecipients.length,
         0,
       ),

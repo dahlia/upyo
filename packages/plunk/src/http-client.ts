@@ -211,9 +211,10 @@ export class PlunkHttpClient {
     };
 
     const timeoutController = new AbortController();
-    const timeoutId = this.config.timeout > 0
-      ? setTimeout(() => timeoutController.abort(), this.config.timeout)
-      : undefined;
+    const timeoutId =
+      this.config.timeout > 0
+        ? setTimeout(() => timeoutController.abort(), this.config.timeout)
+        : undefined;
     const combinedSignal = combineSignals(timeoutController.signal, signal);
 
     let response: Response;
@@ -251,9 +252,9 @@ export class PlunkHttpClient {
       }
 
       throw new PlunkApiError(
-        `HTTP ${response.status}: ${response.statusText}. ${
-          truncateErrorBody(errorBody)
-        }`,
+        `HTTP ${response.status}: ${response.statusText}. ${truncateErrorBody(
+          errorBody,
+        )}`,
         response.status,
         parseRetryAfter(response.headers.get("Retry-After")),
       );
@@ -320,12 +321,10 @@ function isAbortError(error: unknown): boolean {
   return error instanceof Error && error.name === "AbortError";
 }
 
-function isCallerAbort(
-  error: unknown,
-  signal?: AbortSignal | null,
-): boolean {
-  return signal?.aborted === true &&
-    (isAbortError(error) || error === signal.reason);
+function isCallerAbort(error: unknown, signal?: AbortSignal | null): boolean {
+  return (
+    signal?.aborted === true && (isAbortError(error) || error === signal.reason)
+  );
 }
 
 function truncateErrorBody(text: string): string {

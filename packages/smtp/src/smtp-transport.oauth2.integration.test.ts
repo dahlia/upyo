@@ -76,13 +76,16 @@ describe("SmtpTransport OAuth 2.0 integration", () => {
       // Pooling disabled so each send uses a fresh connection that
       // authenticates independently; the shared token manager must still
       // refresh only once.
-      ({ server, transport } = await setup({
-        user: "user@example.com",
-        clientId: "client-id",
-        clientSecret: "client-secret",
-        refreshToken: "refresh-token",
-        tokenEndpoint: "https://oauth2.example.com/token",
-      }, { pool: false }));
+      ({ server, transport } = await setup(
+        {
+          user: "user@example.com",
+          clientId: "client-id",
+          clientSecret: "client-secret",
+          refreshToken: "refresh-token",
+          tokenEndpoint: "https://oauth2.example.com/token",
+        },
+        { pool: false },
+      ));
 
       const first = await transport.send(createTestMessage());
       const second = await transport.send(createTestMessage());
@@ -121,10 +124,7 @@ describe("SmtpTransport OAuth 2.0 integration", () => {
         assert.ok(isSmtpResponseProviderDetails(error?.providerDetails));
         if (isSmtpResponseProviderDetails(error?.providerDetails)) {
           assert.equal(error.providerDetails.command, "AUTH XOAUTH2");
-          assert.equal(
-            error.providerDetails.response,
-            "5.7.8 Bad credentials",
-          );
+          assert.equal(error.providerDetails.response, "5.7.8 Bad credentials");
           assert.deepEqual(error.providerDetails.enhancedStatusCode, {
             code: "5.7.8",
             class: 5,

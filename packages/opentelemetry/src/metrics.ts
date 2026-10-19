@@ -88,10 +88,7 @@ export class MetricsCollector {
   /**
    * Records the start of an email send operation.
    */
-  recordSendStart(
-    transport: string,
-    messageCount: number = 1,
-  ): void {
+  recordSendStart(transport: string, messageCount: number = 1): void {
     if (!this.shouldSample()) {
       return;
     }
@@ -134,10 +131,7 @@ export class MetricsCollector {
   /**
    * Records metrics for individual messages.
    */
-  recordMessage(
-    message: Message,
-    transport: string,
-  ): void {
+  recordMessage(message: Message, transport: string): void {
     if (!this.shouldSample()) {
       return;
     }

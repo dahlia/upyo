@@ -4,7 +4,8 @@ import assert from "node:assert/strict";
 import process from "node:process";
 import { test } from "node:test";
 
-const shouldRunE2ETests = process.env.AWS_ACCESS_KEY_ID &&
+const shouldRunE2ETests =
+  process.env.AWS_ACCESS_KEY_ID &&
   process.env.AWS_SECRET_ACCESS_KEY &&
   process.env.SES_FROM_EMAIL;
 
@@ -68,8 +69,7 @@ test(
       to: process.env.SES_TO_EMAIL || process.env.SES_FROM_EMAIL!,
       subject: "Upyo SES E2E Test - HTML Message",
       content: {
-        html:
-          "<h1>HTML Test</h1><p>This is an <strong>HTML</strong> test message.</p>",
+        html: "<h1>HTML Test</h1><p>This is an <strong>HTML</strong> test message.</p>",
         text: "HTML Test\n\nThis is an HTML test message.",
       },
       tags: ["e2e-test", "html"],
@@ -185,9 +185,9 @@ test(
     if (!receipt.successful) {
       assert.ok(receipt.errorMessages.length > 0, "Should have error messages");
       console.log(
-        `✓ Invalid recipient correctly failed: ${
-          receipt.errorMessages.join(", ")
-        }`,
+        `✓ Invalid recipient correctly failed: ${receipt.errorMessages.join(
+          ", ",
+        )}`,
       );
     }
   },
@@ -232,8 +232,7 @@ test(
           <p>This email contains a test attachment.</p>
           <p>The attachment is a simple text file that should be delivered along with this message.</p>
         `,
-        text:
-          "Attachment Test\n\nThis email contains a test attachment.\n\nThe attachment is a simple text file that should be delivered along with this message.",
+        text: "Attachment Test\n\nThis email contains a test attachment.\n\nThe attachment is a simple text file that should be delivered along with this message.",
       },
       attachments: [attachment],
       tags: ["e2e-test", "attachment"],

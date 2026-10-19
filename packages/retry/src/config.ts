@@ -98,14 +98,14 @@ export type WaitFunction<TProviderId extends string = string> = (
  */
 export type RetryFailure<TProviderId extends string = string> =
   | {
-    readonly kind: "receipt";
-    readonly receipt: Receipt<TProviderId> & { readonly successful: false };
-  }
+      readonly kind: "receipt";
+      readonly receipt: Receipt<TProviderId> & { readonly successful: false };
+    }
   | {
-    readonly kind: "error";
-    readonly error: unknown;
-    readonly receiptError?: ReceiptError<TProviderId>;
-  };
+      readonly kind: "error";
+      readonly error: unknown;
+      readonly receiptError?: ReceiptError<TProviderId>;
+    };
 
 /**
  * Function that decides whether a failure should be retried.
@@ -228,18 +228,10 @@ export function createRetryConfig<TProviderId extends string = string>(
     0,
     "backoff.baseDelayMilliseconds",
   );
-  assertFiniteAtLeast(
-    maxDelayMilliseconds,
-    0,
-    "backoff.maxDelayMilliseconds",
-  );
+  assertFiniteAtLeast(maxDelayMilliseconds, 0, "backoff.maxDelayMilliseconds");
   assertFiniteAtLeast(factor, 1, "backoff.factor");
   assertIntegerAtLeast(maxConcurrent, 1, "sendMany.maxConcurrent");
-  assertFiniteAtLeast(
-    intervalMilliseconds,
-    0,
-    "sendMany.intervalMilliseconds",
-  );
+  assertFiniteAtLeast(intervalMilliseconds, 0, "sendMany.intervalMilliseconds");
 
   return {
     maxAttempts,

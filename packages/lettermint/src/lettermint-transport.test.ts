@@ -8,24 +8,29 @@ it("rejects a singleton batch canceled during attachment acquisition", async () 
   const controller = new AbortController();
   const reason = new TypeError("Canceled.");
   const message = createMessage({
-    attachments: [{
-      inline: false,
-      filename: "a",
-      contentType: "application/octet-stream",
-      contentId: "a",
-      content: () => {
-        controller.abort(reason);
-        return new Promise(() => {});
+    attachments: [
+      {
+        inline: false,
+        filename: "a",
+        contentType: "application/octet-stream",
+        contentId: "a",
+        content: () => {
+          controller.abort(reason);
+          return new Promise(() => {});
+        },
       },
-    }],
+    ],
   });
-  await assert.rejects(async () => {
-    for await (
-      const _receipt of transport.sendMany([message], {
+  await assert.rejects(
+    async () => {
+      for await (const _receipt of transport.sendMany([message], {
         signal: controller.signal,
-      })
-    ) { /* Drain the batch. */ }
-  }, (error) => error === reason);
+      })) {
+        /* Drain the batch. */
+      }
+    },
+    (error) => error === reason,
+  );
 });
 
 function createMessage(overrides: Partial<Message> = {}): Message {
@@ -124,9 +129,11 @@ describe("LettermintTransport - send", { concurrency: false }, () => {
           apiToken: "test-token",
           baseUrl: "https://api.example.com",
         });
-        const receipt = await transport.send(createMessage({
-          idempotencyKey: "idem-123",
-        }));
+        const receipt = await transport.send(
+          createMessage({
+            idempotencyKey: "idem-123",
+          }),
+        );
 
         assert.equal(capturedUrl, "https://api.example.com/v1/send");
         assert.equal(capturedHeaders.get("x-lettermint-token"), "test-token");
@@ -149,13 +156,10 @@ describe("LettermintTransport - send", { concurrency: false }, () => {
     await withMockedFetch(
       () =>
         Promise.resolve(
-          new Response(
-            JSON.stringify({ message: "Invalid API token" }),
-            {
-              status: 401,
-              headers: { "Content-Type": "application/json" },
-            },
-          ),
+          new Response(JSON.stringify({ message: "Invalid API token" }), {
+            status: 401,
+            headers: { "Content-Type": "application/json" },
+          }),
         ),
       async () => {
         const transport = new LettermintTransport({
@@ -227,9 +231,13 @@ describe("LettermintTransport - send", { concurrency: false }, () => {
     await withMockedFetch(
       (_url, init) =>
         new Promise((_resolve, reject) => {
-          init?.signal?.addEventListener("abort", () => {
-            reject(init.signal?.reason);
-          }, { once: true });
+          init?.signal?.addEventListener(
+            "abort",
+            () => {
+              reject(init.signal?.reason);
+            },
+            { once: true },
+          );
           setTimeout(() => controller.abort(reason), 0);
         }),
       async () => {
@@ -302,11 +310,15 @@ describe("LettermintTransport - send", { concurrency: false }, () => {
         calls++;
         if (calls === 1) {
           return new Promise<Response>((_resolve, reject) => {
-            init?.signal?.addEventListener("abort", () => {
-              reject(
-                new DOMException("The operation was aborted.", "AbortError"),
-              );
-            }, { once: true });
+            init?.signal?.addEventListener(
+              "abort",
+              () => {
+                reject(
+                  new DOMException("The operation was aborted.", "AbortError"),
+                );
+              },
+              { once: true },
+            );
           });
         }
         return Promise.resolve(
@@ -341,10 +353,10 @@ describe("LettermintTransport - send", { concurrency: false }, () => {
         calls++;
         if (calls === 1) {
           return Promise.resolve(
-            new Response(
-              JSON.stringify({ message: "Too many requests" }),
-              { status: 429, headers: { "Content-Type": "application/json" } },
-            ),
+            new Response(JSON.stringify({ message: "Too many requests" }), {
+              status: 429,
+              headers: { "Content-Type": "application/json" },
+            }),
           );
         }
         return Promise.resolve(
@@ -378,10 +390,10 @@ describe("LettermintTransport - send", { concurrency: false }, () => {
         calls++;
         if (calls === 1) {
           return Promise.resolve(
-            new Response(
-              JSON.stringify({ message: "Request timeout" }),
-              { status: 408, headers: { "Content-Type": "application/json" } },
-            ),
+            new Response(JSON.stringify({ message: "Request timeout" }), {
+              status: 408,
+              headers: { "Content-Type": "application/json" },
+            }),
           );
         }
         return Promise.resolve(
@@ -474,10 +486,10 @@ describe("LettermintTransport - send", { concurrency: false }, () => {
         calls++;
         if (calls === 1) {
           return Promise.resolve(
-            new Response(
-              JSON.stringify({ message: "Too many requests" }),
-              { status: 429, headers: { "Content-Type": "application/json" } },
-            ),
+            new Response(JSON.stringify({ message: "Too many requests" }), {
+              status: 429,
+              headers: { "Content-Type": "application/json" },
+            }),
           );
         }
         return Promise.resolve(
@@ -492,10 +504,9 @@ describe("LettermintTransport - send", { concurrency: false }, () => {
           apiToken: "test-token",
           retries: 1,
         });
-        const receipt = await transport.send(
-          createMessage(),
-          { signal: controller.signal },
-        );
+        const receipt = await transport.send(createMessage(), {
+          signal: controller.signal,
+        });
 
         assert.equal(receipt.successful, true);
         assert.ok(addedAbortListeners > 0);
@@ -555,10 +566,9 @@ describe("LettermintTransport - send", { concurrency: false }, () => {
           const transport = new LettermintTransport({
             apiToken: "test-token",
           });
-          const receipt = await transport.send(
-            createMessage(),
-            { signal: controller.signal },
-          );
+          const receipt = await transport.send(createMessage(), {
+            signal: controller.signal,
+          });
 
           assert.equal(receipt.successful, true);
           assert.ok(addedAbortListeners > 0);
@@ -668,18 +678,16 @@ describe("LettermintTransport - sendMany", { concurrency: false }, () => {
           baseUrl: "https://api.example.com",
         });
         const receipts: Receipt[] = [];
-        for await (
-          const receipt of transport.sendMany([
-            createMessage({
-              recipients: [{ address: "one@example.com" }],
-              idempotencyKey: "key-1",
-            }),
-            createMessage({
-              recipients: [{ address: "two@example.com" }],
-              idempotencyKey: "key-2",
-            }),
-          ])
-        ) {
+        for await (const receipt of transport.sendMany([
+          createMessage({
+            recipients: [{ address: "one@example.com" }],
+            idempotencyKey: "key-1",
+          }),
+          createMessage({
+            recipients: [{ address: "two@example.com" }],
+            idempotencyKey: "key-2",
+          }),
+        ])) {
           receipts.push(receipt);
         }
 
@@ -730,12 +738,10 @@ describe("LettermintTransport - sendMany", { concurrency: false }, () => {
       async () => {
         const transport = new LettermintTransport({ apiToken: "test-token" });
         const receipts: Receipt[] = [];
-        for await (
-          const receipt of transport.sendMany([
-            createMessage({ idempotencyKey: "" }),
-            createMessage(),
-          ])
-        ) {
+        for await (const receipt of transport.sendMany([
+          createMessage({ idempotencyKey: "" }),
+          createMessage(),
+        ])) {
           receipts.push(receipt);
         }
 
@@ -768,12 +774,10 @@ describe("LettermintTransport - sendMany", { concurrency: false }, () => {
       },
       async () => {
         const transport = new LettermintTransport({ apiToken: "test-token" });
-        const messages = Array.from(
-          { length: 501 },
-          (_, index) =>
-            createMessage({
-              recipients: [{ address: `user${index}@example.com` }],
-            }),
+        const messages = Array.from({ length: 501 }, (_, index) =>
+          createMessage({
+            recipients: [{ address: `user${index}@example.com` }],
+          }),
         );
 
         const receipts: Receipt[] = [];
@@ -863,20 +867,18 @@ describe("LettermintTransport - sendMany", { concurrency: false }, () => {
       async () => {
         const transport = new LettermintTransport({ apiToken: "test-token" });
         const receipts: Receipt[] = [];
-        for await (
-          const receipt of transport.sendMany([
-            createMessage({
-              recipients: [{ address: "one@example.com" }],
-            }),
-            createMessage({
-              recipients: [{ address: "bad@example.com" }],
-              tags: ["one", "two"],
-            }),
-            createMessage({
-              recipients: [{ address: "two@example.com" }],
-            }),
-          ])
-        ) {
+        for await (const receipt of transport.sendMany([
+          createMessage({
+            recipients: [{ address: "one@example.com" }],
+          }),
+          createMessage({
+            recipients: [{ address: "bad@example.com" }],
+            tags: ["one", "two"],
+          }),
+          createMessage({
+            recipients: [{ address: "two@example.com" }],
+          }),
+        ])) {
           receipts.push(receipt);
         }
 
@@ -927,13 +929,11 @@ describe("LettermintTransport - sendMany", { concurrency: false }, () => {
       async () => {
         const transport = new LettermintTransport({ apiToken: "test-token" });
         const receipts: Receipt[] = [];
-        for await (
-          const receipt of transport.sendMany([
-            createMessage({ recipients: [{ address: "one@example.com" }] }),
-            createMessage({ recipients: [{ address: "two@example.com" }] }),
-            createMessage({ recipients: [{ address: "three@example.com" }] }),
-          ])
-        ) {
+        for await (const receipt of transport.sendMany([
+          createMessage({ recipients: [{ address: "one@example.com" }] }),
+          createMessage({ recipients: [{ address: "two@example.com" }] }),
+          createMessage({ recipients: [{ address: "three@example.com" }] }),
+        ])) {
           receipts.push(receipt);
         }
 
@@ -960,13 +960,10 @@ describe("LettermintTransport - sendMany", { concurrency: false }, () => {
     await withMockedFetch(
       () =>
         Promise.resolve(
-          new Response(
-            JSON.stringify({ message: "Batch rejected" }),
-            {
-              status: 422,
-              headers: { "Content-Type": "application/json" },
-            },
-          ),
+          new Response(JSON.stringify({ message: "Batch rejected" }), {
+            status: 422,
+            headers: { "Content-Type": "application/json" },
+          }),
         ),
       async () => {
         const transport = new LettermintTransport({
@@ -974,23 +971,22 @@ describe("LettermintTransport - sendMany", { concurrency: false }, () => {
           retries: 0,
         });
         const receipts: Receipt[] = [];
-        for await (
-          const receipt of transport.sendMany([
-            createMessage({ recipients: [{ address: "one@example.com" }] }),
-            createMessage({
-              recipients: [{ address: "bad@example.com" }],
-              tags: ["one", "two"],
-            }),
-            createMessage({ recipients: [{ address: "two@example.com" }] }),
-          ])
-        ) {
+        for await (const receipt of transport.sendMany([
+          createMessage({ recipients: [{ address: "one@example.com" }] }),
+          createMessage({
+            recipients: [{ address: "bad@example.com" }],
+            tags: ["one", "two"],
+          }),
+          createMessage({ recipients: [{ address: "two@example.com" }] }),
+        ])) {
           receipts.push(receipt);
         }
 
         assert.equal(receipts.length, 3);
         assert.ok(receipts.every((receipt) => !receipt.successful));
         if (
-          !receipts[0].successful && !receipts[1].successful &&
+          !receipts[0].successful &&
+          !receipts[1].successful &&
           !receipts[2].successful
         ) {
           assert.deepEqual(receipts[0].errorMessages, ["Batch rejected"]);
@@ -1007,13 +1003,10 @@ describe("LettermintTransport - sendMany", { concurrency: false }, () => {
     await withMockedFetch(
       () =>
         Promise.resolve(
-          new Response(
-            JSON.stringify({ message: "Batch rejected" }),
-            {
-              status: 422,
-              headers: { "Content-Type": "application/json" },
-            },
-          ),
+          new Response(JSON.stringify({ message: "Batch rejected" }), {
+            status: 422,
+            headers: { "Content-Type": "application/json" },
+          }),
         ),
       async () => {
         const transport = new LettermintTransport({
@@ -1021,12 +1014,10 @@ describe("LettermintTransport - sendMany", { concurrency: false }, () => {
           retries: 0,
         });
         const receipts: Receipt[] = [];
-        for await (
-          const receipt of transport.sendMany([
-            createMessage(),
-            createMessage(),
-          ])
-        ) {
+        for await (const receipt of transport.sendMany([
+          createMessage(),
+          createMessage(),
+        ])) {
           receipts.push(receipt);
         }
 

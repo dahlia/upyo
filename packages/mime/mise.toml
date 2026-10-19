@@ -6,6 +6,7 @@ sources = ["deno.json", "package.json", "tsdown.config.ts", "src/**/*.ts", "../.
 outputs = ["dist/**/*"]
 
 [tasks."test:deno"]
+tools.deno = "{{ vars.deno_version }}"
 description = "Run @upyo/mime tests with Deno"
 usage = '''
 flag "--coverage" help="Collect coverage data"
@@ -39,6 +40,10 @@ depends = ["build"]
 run = "bun test"
 
 [tasks.test]
+description = "Run @upyo/mime tests with Node.js"
+depends = ["test:node"]
+
+[tasks."test:all"]
 description = "Run @upyo/mime tests across all runtimes"
 depends = ["test:deno", "test:node", "test:bun"]
 

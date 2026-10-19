@@ -29,8 +29,7 @@ export class SesHttpClient {
     signal?: AbortSignal,
   ): Promise<SesResponse> {
     const region = this.config.region;
-    const url =
-      `https://email.${region}.amazonaws.com/v2/email/outbound-emails`;
+    const url = `https://email.${region}.amazonaws.com/v2/email/outbound-emails`;
 
     return this.makeRequest(url, {
       method: "POST",
@@ -52,10 +51,7 @@ export class SesHttpClient {
    * @throws {SesApiError} If SES returns a client error or all retry attempts
    *                       are exhausted.
    */
-  async makeRequest(
-    url: string,
-    options: RequestInit,
-  ): Promise<SesResponse> {
+  async makeRequest(url: string, options: RequestInit): Promise<SesResponse> {
     let lastError: Error | null = null;
 
     for (let attempt = 0; attempt <= this.config.retries; attempt++) {
@@ -135,17 +131,18 @@ export class SesHttpClient {
    * @throws {Error} If the configured request timeout is reached.
    * @throws {DOMException} If the caller aborts the request.
    */
-  async fetchWithAuth(
-    url: string,
-    options: RequestInit,
-  ): Promise<Response> {
+  async fetchWithAuth(url: string, options: RequestInit): Promise<Response> {
     const credentials = await this.getCredentials();
     const headers = new Headers(options.headers);
 
-    const signedHeaders = await this.signRequest(url, {
-      ...options,
-      headers,
-    }, credentials);
+    const signedHeaders = await this.signRequest(
+      url,
+      {
+        ...options,
+        headers,
+      },
+      credentials,
+    );
 
     for (const [key, value] of Object.entries(this.config.headers)) {
       signedHeaders.set(key, value);
@@ -179,7 +176,7 @@ export class SesHttpClient {
     }
   }
 
-  // deno-lint-ignore require-await
+  // oxlint-disable-next-line eslint/require-await
   private async getCredentials(): Promise<{
     accessKeyId: string;
     secretAccessKey: string;
@@ -203,7 +200,7 @@ export class SesHttpClient {
 
       default:
         throw new Error(
-          // deno-lint-ignore no-explicit-any
+          // oxlint-disable-next-line typescript/no-explicit-any
           `Unsupported authentication type: ${(auth as any).type}`,
         );
     }
@@ -238,23 +235,23 @@ export class SesHttpClient {
       headers.set("X-Amz-Security-Token", credentials.sessionToken);
     }
 
-    const signedHeaders = "host;x-amz-date" +
+    const signedHeaders =
+      "host;x-amz-date" +
       (credentials.sessionToken ? ";x-amz-security-token" : "");
-    const canonicalHeaders = `host:${host}\nx-amz-date:${amzDate}\n` +
+    const canonicalHeaders =
+      `host:${host}\nx-amz-date:${amzDate}\n` +
       (credentials.sessionToken
         ? `x-amz-security-token:${credentials.sessionToken}\n`
         : "");
 
-    const payloadHash = await this.sha256(options.body as string || "");
-    const canonicalRequest =
-      `${method}\n${path}\n\n${canonicalHeaders}\n${signedHeaders}\n${payloadHash}`;
+    const payloadHash = await this.sha256((options.body as string) || "");
+    const canonicalRequest = `${method}\n${path}\n\n${canonicalHeaders}\n${signedHeaders}\n${payloadHash}`;
 
     const algorithm = "AWS4-HMAC-SHA256";
     const credentialScope = `${dateStamp}/${region}/${service}/aws4_request`;
-    const stringToSign =
-      `${algorithm}\n${amzDate}\n${credentialScope}\n${await this.sha256(
-        canonicalRequest,
-      )}`;
+    const stringToSign = `${algorithm}\n${amzDate}\n${credentialScope}\n${await this.sha256(
+      canonicalRequest,
+    )}`;
 
     const signingKey = await this.getSignatureKey(
       credentials.secretAccessKey,
@@ -264,8 +261,7 @@ export class SesHttpClient {
     );
     const signature = await this.hmacSha256(signingKey, stringToSign);
 
-    const authorizationHeader =
-      `${algorithm} Credential=${credentials.accessKeyId}/${credentialScope}, SignedHeaders=${signedHeaders}, Signature=${signature}`;
+    const authorizationHeader = `${algorithm} Credential=${credentials.accessKeyId}/${credentialScope}, SignedHeaders=${signedHeaders}, Signature=${signature}`;
     headers.set("Authorization", authorizationHeader);
 
     return headers;
@@ -368,8 +364,10 @@ function sleep(
 }
 
 function createAbortError(signal?: AbortSignal | null): unknown {
-  return signal?.reason ??
-    new DOMException("The operation was aborted.", "AbortError");
+  return (
+    signal?.reason ??
+    new DOMException("The operation was aborted.", "AbortError")
+  );
 }
 
 export class SesApiError extends Error {

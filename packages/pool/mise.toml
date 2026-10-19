@@ -8,6 +8,7 @@ sources = ["deno.json", "package.json", "tsdown.config.ts", "src/**/*.ts", "../.
 outputs = ["dist/**/*"]
 
 [tasks."test:deno"]
+tools.deno = "{{ vars.deno_version }}"
 description = "Run @upyo/pool tests with Deno"
 usage = '''
 flag "--coverage" help="Collect coverage data"
@@ -32,14 +33,18 @@ deno ...$args
 
 [tasks."test:node"]
 description = "Run @upyo/pool tests with Node.js"
-depends = ["build"]
+depends = ["build", "//packages/core:build", "//packages/mock:build"]
 run = "node --experimental-transform-types --test"
 
 [tasks."test:bun"]
 description = "Run @upyo/pool tests with Bun"
-depends = ["build"]
+depends = ["build", "//packages/core:build", "//packages/mock:build"]
 run = "bun test --timeout=30000"
 
 [tasks.test]
+description = "Run @upyo/pool tests with Node.js"
+depends = ["test:node"]
+
+[tasks."test:all"]
 description = "Run @upyo/pool tests across all runtimes"
 depends = ["test:deno", "test:node", "test:bun"]

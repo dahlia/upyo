@@ -15,7 +15,5 @@
     "./transport": "./src/transport.ts",
     "./raw-message": "./src/raw-message.ts"
   },
-  "exclude": [
-    "dist/"
-  ]
+  "exclude": ["dist/"]
 }

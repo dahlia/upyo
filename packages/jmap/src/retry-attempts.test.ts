@@ -5,9 +5,7 @@ import { JmapTransport } from "./jmap-transport.ts";
 
 const baseMessage: Message = {
   sender: { address: "sender@example.com" as `${string}@${string}` },
-  recipients: [
-    { address: "recipient@example.com" as `${string}@${string}` },
-  ],
+  recipients: [{ address: "recipient@example.com" as `${string}@${string}` }],
   ccRecipients: [],
   bccRecipients: [],
   replyRecipients: [],
@@ -28,14 +26,14 @@ describe("JmapTransport retry attempts", () => {
         input: RequestInfo | URL,
         init?: RequestInit,
       ): Promise<Response> => {
-        const url = typeof input === "string"
-          ? input
-          : input instanceof URL
-          ? input.href
-          : input.url;
-        const body = init?.body == null
-          ? undefined
-          : JSON.parse(init.body as string);
+        const url =
+          typeof input === "string"
+            ? input
+            : input instanceof URL
+              ? input.href
+              : input.url;
+        const body =
+          init?.body == null ? undefined : JSON.parse(init.body as string);
 
         if (url.includes(".well-known/jmap")) {
           return Promise.resolve(
@@ -69,13 +67,19 @@ describe("JmapTransport retry attempts", () => {
             new Response(
               JSON.stringify({
                 methodResponses: [
-                  ["Mailbox/get", {
-                    list: [{
-                      id: "drafts-123",
-                      role: "drafts",
-                      name: "Drafts",
-                    }],
-                  }, "c0"],
+                  [
+                    "Mailbox/get",
+                    {
+                      list: [
+                        {
+                          id: "drafts-123",
+                          role: "drafts",
+                          name: "Drafts",
+                        },
+                      ],
+                    },
+                    "c0",
+                  ],
                 ],
               }),
               { status: 200 },
@@ -88,13 +92,19 @@ describe("JmapTransport retry attempts", () => {
             new Response(
               JSON.stringify({
                 methodResponses: [
-                  ["Identity/get", {
-                    list: [{
-                      id: "identity-123",
-                      email: "sender@example.com",
-                      name: "Sender",
-                    }],
-                  }, "c0"],
+                  [
+                    "Identity/get",
+                    {
+                      list: [
+                        {
+                          id: "identity-123",
+                          email: "sender@example.com",
+                          name: "Sender",
+                        },
+                      ],
+                    },
+                    "c0",
+                  ],
                 ],
               }),
               { status: 200 },

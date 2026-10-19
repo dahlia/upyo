@@ -204,9 +204,10 @@ export class MailerooHttpClient {
     }
 
     const timeoutController = new AbortController();
-    const timeoutId = this.config.timeout > 0
-      ? setTimeout(() => timeoutController.abort(), this.config.timeout)
-      : undefined;
+    const timeoutId =
+      this.config.timeout > 0
+        ? setTimeout(() => timeoutController.abort(), this.config.timeout)
+        : undefined;
     const requestSignal = combineSignals(timeoutController.signal, signal);
 
     try {
@@ -248,8 +249,11 @@ function withAttempts(error: Error, attempts: number): Error {
 }
 
 function isRetryable(error: MailerooApiError): boolean {
-  return error.statusCode === 408 || error.statusCode === 429 ||
-    error.statusCode >= 500;
+  return (
+    error.statusCode === 408 ||
+    error.statusCode === 429 ||
+    error.statusCode >= 500
+  );
 }
 
 function calculateRetryDelay(attempt: number, error?: Error): number {
@@ -317,8 +321,10 @@ function truncateErrorMessage(message: string): string {
 }
 
 function abortReason(signal?: AbortSignal): unknown {
-  return signal?.reason ??
-    new DOMException("The operation was aborted.", "AbortError");
+  return (
+    signal?.reason ??
+    new DOMException("The operation was aborted.", "AbortError")
+  );
 }
 
 function sleep(ms: number, signal?: AbortSignal): Promise<void> {

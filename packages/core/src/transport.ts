@@ -63,8 +63,9 @@ export interface TransportOptions {
  * Wrappers must explicitly preserve this capability to expose it themselves.
  * @since 0.6.0
  */
-export interface RawTransport<TProviderId extends string = string>
-  extends Transport<TProviderId> {
+export interface RawTransport<
+  TProviderId extends string = string,
+> extends Transport<TProviderId> {
   /**
    * Delivers original MIME bytes using an explicit envelope.
    * @param message The serialized message and its delivery envelope.
@@ -97,8 +98,9 @@ export function isRawTransport<TProviderId extends string>(
  * must explicitly preserve this capability to expose it themselves.
  * @since 0.6.0
  */
-export interface VerifiableTransport<TProviderId extends string = string>
-  extends Transport<TProviderId> {
+export interface VerifiableTransport<
+  TProviderId extends string = string,
+> extends Transport<TProviderId> {
   /**
    * Checks connectivity, configured authentication, and transport prerequisites.
    * @param options Optional cancellation signal.

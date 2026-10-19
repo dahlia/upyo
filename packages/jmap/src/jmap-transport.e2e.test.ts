@@ -94,14 +94,16 @@ describe(
 
       const subject = `E2E Test - Identity ${Date.now()}`;
       const messageId = `ticket-${Date.now()}@mail.example.com`;
-      const receipt = await transport.send(createTestMessage({
-        subject,
-        content: { text: "Correlating a reply back to a conversation." },
-        messageId,
-        date: new Date("2026-09-01T10:00:00Z"),
-        inReplyTo: ["122@mail.example.com"],
-        references: ["120@mail.example.com", "121@mail.example.com"],
-      }));
+      const receipt = await transport.send(
+        createTestMessage({
+          subject,
+          content: { text: "Correlating a reply back to a conversation." },
+          messageId,
+          date: new Date("2026-09-01T10:00:00Z"),
+          inReplyTo: ["122@mail.example.com"],
+          references: ["120@mail.example.com", "121@mail.example.com"],
+        }),
+      );
       assert.ok(receipt.successful);
 
       // Read the stored Email back, so what is asserted is what the server
@@ -124,8 +126,7 @@ describe(
       const message = createTestMessage({
         subject: "E2E Test - HTML Content",
         content: {
-          html:
-            "<h1>Test Email</h1><p>This is an <strong>HTML</strong> email.</p>",
+          html: "<h1>Test Email</h1><p>This is an <strong>HTML</strong> email.</p>",
         },
       });
 
@@ -158,25 +159,28 @@ describe(
       const config = getTestConfig();
       const transport = new JmapTransport(config.jmap);
       const subject = `E2E Test - Calendar ${crypto.randomUUID()}`;
-      const ics = [
-        "BEGIN:VCALENDAR",
-        "VERSION:2.0",
-        "PRODID:-//Upyo//E2E//EN",
-        "METHOD:REQUEST",
-        "BEGIN:VEVENT",
-        "UID:e2e-calendar@example.com",
-        "DTSTAMP:20260901T100000Z",
-        "DTSTART:20260902T100000Z",
-        "SUMMARY:점심 식사",
-        "END:VEVENT",
-        "END:VCALENDAR",
-      ].join("\r\n") + "\r\n";
+      const ics =
+        [
+          "BEGIN:VCALENDAR",
+          "VERSION:2.0",
+          "PRODID:-//Upyo//E2E//EN",
+          "METHOD:REQUEST",
+          "BEGIN:VEVENT",
+          "UID:e2e-calendar@example.com",
+          "DTSTAMP:20260901T100000Z",
+          "DTSTART:20260902T100000Z",
+          "SUMMARY:점심 식사",
+          "END:VEVENT",
+          "END:VCALENDAR",
+        ].join("\r\n") + "\r\n";
 
-      const receipt = await transport.send(createTestMessage({
-        subject,
-        content: { text: "Lunch on Wednesday." },
-        calendar: { method: "REQUEST", content: ics },
-      }));
+      const receipt = await transport.send(
+        createTestMessage({
+          subject,
+          content: { text: "Lunch on Wednesday." },
+          calendar: { method: "REQUEST", content: ics },
+        }),
+      );
 
       assert.ok(receipt.successful);
 
@@ -214,14 +218,14 @@ describe(
       const boundary = body.search(/\r\n--/);
       const payload = boundary < 0 ? body : body.slice(0, boundary);
       const encoding =
-        /Content-Transfer-Encoding:\s*(\S+)/i.exec(partHeaders)?.[1]
+        /Content-Transfer-Encoding:\s*(\S+)/i
+          .exec(partHeaders)?.[1]
           ?.toLowerCase() ?? "7bit";
 
       if (encoding === "base64") {
         return new TextDecoder().decode(
-          Uint8Array.from(
-            atob(payload.replace(/\s/g, "")),
-            (character) => character.charCodeAt(0),
+          Uint8Array.from(atob(payload.replace(/\s/g, "")), (character) =>
+            character.charCodeAt(0),
           ),
         );
       }
@@ -276,80 +280,18 @@ describe(
 
       // 1x1 transparent PNG
       const pngBytes = new Uint8Array([
-        0x89,
-        0x50,
-        0x4e,
-        0x47,
-        0x0d,
-        0x0a,
-        0x1a,
-        0x0a,
-        0x00,
-        0x00,
-        0x00,
-        0x0d,
-        0x49,
-        0x48,
-        0x44,
-        0x52,
-        0x00,
-        0x00,
-        0x00,
-        0x01,
-        0x00,
-        0x00,
-        0x00,
-        0x01,
-        0x08,
-        0x06,
-        0x00,
-        0x00,
-        0x00,
-        0x1f,
-        0x15,
-        0xc4,
-        0x89,
-        0x00,
-        0x00,
-        0x00,
-        0x0a,
-        0x49,
-        0x44,
-        0x41,
-        0x54,
-        0x78,
-        0x9c,
-        0x63,
-        0x00,
-        0x01,
-        0x00,
-        0x00,
-        0x05,
-        0x00,
-        0x01,
-        0x0d,
-        0x0a,
-        0x2d,
-        0xb4,
-        0x00,
-        0x00,
-        0x00,
-        0x00,
-        0x49,
-        0x45,
-        0x4e,
-        0x44,
-        0xae,
-        0x42,
-        0x60,
-        0x82,
+        0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00, 0x00, 0x00, 0x0d,
+        0x49, 0x48, 0x44, 0x52, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x01,
+        0x08, 0x06, 0x00, 0x00, 0x00, 0x1f, 0x15, 0xc4, 0x89, 0x00, 0x00, 0x00,
+        0x0a, 0x49, 0x44, 0x41, 0x54, 0x78, 0x9c, 0x63, 0x00, 0x01, 0x00, 0x00,
+        0x05, 0x00, 0x01, 0x0d, 0x0a, 0x2d, 0xb4, 0x00, 0x00, 0x00, 0x00, 0x49,
+        0x45, 0x4e, 0x44, 0xae, 0x42, 0x60, 0x82,
       ]);
 
       const message = createTestMessage({
         subject: "E2E Test - Inline Image",
         content: {
-          html:
-            '<p>This email has an inline image:</p><img src="cid:inline-image">',
+          html: '<p>This email has an inline image:</p><img src="cid:inline-image">',
         },
         attachments: [
           {
@@ -420,7 +362,7 @@ describe(
       // Verify each message has a unique submission ID
       if (receipts.every((r) => r.successful)) {
         const messageIds = receipts.map((r) =>
-          r.successful ? r.messageId : null
+          r.successful ? r.messageId : null,
         );
         const uniqueIds = new Set(messageIds);
         assert.equal(
@@ -514,9 +456,10 @@ describe(
         bearerToken?: string;
         baseUrl?: string;
       };
-      const authorization = bearerToken == null
-        ? `Basic ${btoa(`${basicAuth!.username}:${basicAuth!.password}`)}`
-        : `Bearer ${bearerToken}`;
+      const authorization =
+        bearerToken == null
+          ? `Basic ${btoa(`${basicAuth!.username}:${basicAuth!.password}`)}`
+          : `Bearer ${bearerToken}`;
       const headers = {
         authorization,
         "content-type": "application/json",
@@ -530,33 +473,35 @@ describe(
           : new URL(new URL(url).pathname + new URL(url).search, baseUrl).href;
       const apiUrl = rebase(session.apiUrl);
 
-      const response = await (await fetch(apiUrl, {
-        method: "POST",
-        headers,
-        body: JSON.stringify({
-          using: ["urn:ietf:params:jmap:core", "urn:ietf:params:jmap:mail"],
-          methodCalls: [
-            ["Email/query", { accountId, filter: { subject } }, "query"],
-            [
-              "Email/get",
-              {
-                accountId,
-                "#ids": {
-                  resultOf: "query",
-                  name: "Email/query",
-                  path: "/ids",
+      const response = await (
+        await fetch(apiUrl, {
+          method: "POST",
+          headers,
+          body: JSON.stringify({
+            using: ["urn:ietf:params:jmap:core", "urn:ietf:params:jmap:mail"],
+            methodCalls: [
+              ["Email/query", { accountId, filter: { subject } }, "query"],
+              [
+                "Email/get",
+                {
+                  accountId,
+                  "#ids": {
+                    resultOf: "query",
+                    name: "Email/query",
+                    path: "/ids",
+                  },
+                  properties: ["blobId"],
                 },
-                properties: ["blobId"],
-              },
-              "get",
+                "get",
+              ],
             ],
-          ],
-        }),
-      })).json();
+          }),
+        })
+      ).json();
 
-      const emails = response.methodResponses
-        .find((call: [string, unknown, string]) => call[2] === "get")?.[1]
-        ?.list as readonly { blobId: string }[] | undefined;
+      const emails = response.methodResponses.find(
+        (call: [string, unknown, string]) => call[2] === "get",
+      )?.[1]?.list as readonly { blobId: string }[] | undefined;
       assert.ok(
         emails != null && emails.length > 0,
         `no stored Email found for subject ${JSON.stringify(subject)}`,
@@ -595,9 +540,10 @@ describe(
         bearerToken?: string;
         baseUrl?: string;
       };
-      const authorization = bearerToken == null
-        ? `Basic ${btoa(`${basicAuth!.username}:${basicAuth!.password}`)}`
-        : `Bearer ${bearerToken}`;
+      const authorization =
+        bearerToken == null
+          ? `Basic ${btoa(`${basicAuth!.username}:${basicAuth!.password}`)}`
+          : `Bearer ${bearerToken}`;
       const headers = {
         authorization,
         "content-type": "application/json",
@@ -607,45 +553,44 @@ describe(
       const accountId = session.primaryAccounts["urn:ietf:params:jmap:mail"];
       // The session advertises the server's own hostname, which is not what
       // reaches it from outside its container.
-      const apiUrl = baseUrl == null
-        ? session.apiUrl
-        : new URL(new URL(session.apiUrl).pathname, baseUrl).href;
-      const response = await (await fetch(apiUrl, {
-        method: "POST",
-        headers,
-        body: JSON.stringify({
-          using: ["urn:ietf:params:jmap:core", "urn:ietf:params:jmap:mail"],
-          methodCalls: [
-            [
-              "Email/query",
-              { accountId, filter: { subject } },
-              "query",
-            ],
-            [
-              "Email/get",
-              {
-                accountId,
-                "#ids": {
-                  resultOf: "query",
-                  name: "Email/query",
-                  path: "/ids",
+      const apiUrl =
+        baseUrl == null
+          ? session.apiUrl
+          : new URL(new URL(session.apiUrl).pathname, baseUrl).href;
+      const response = await (
+        await fetch(apiUrl, {
+          method: "POST",
+          headers,
+          body: JSON.stringify({
+            using: ["urn:ietf:params:jmap:core", "urn:ietf:params:jmap:mail"],
+            methodCalls: [
+              ["Email/query", { accountId, filter: { subject } }, "query"],
+              [
+                "Email/get",
+                {
+                  accountId,
+                  "#ids": {
+                    resultOf: "query",
+                    name: "Email/query",
+                    path: "/ids",
+                  },
+                  properties: [
+                    "messageId",
+                    "inReplyTo",
+                    "references",
+                    "sentAt",
+                  ],
                 },
-                properties: [
-                  "messageId",
-                  "inReplyTo",
-                  "references",
-                  "sentAt",
-                ],
-              },
-              "get",
+                "get",
+              ],
             ],
-          ],
-        }),
-      })).json();
+          }),
+        })
+      ).json();
 
-      const emails = response.methodResponses
-        .find((call: [string, unknown, string]) => call[2] === "get")?.[1]
-        ?.list as readonly StoredEmail[] | undefined;
+      const emails = response.methodResponses.find(
+        (call: [string, unknown, string]) => call[2] === "get",
+      )?.[1]?.list as readonly StoredEmail[] | undefined;
       assert.ok(
         emails != null && emails.length > 0,
         `no stored Email found for subject ${JSON.stringify(subject)}`,

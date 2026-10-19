@@ -75,9 +75,7 @@ export type ResolvedResendConfig = Required<ResendConfig>;
  * @returns A resolved configuration with all defaults applied
  * @internal
  */
-export function createResendConfig(
-  config: ResendConfig,
-): ResolvedResendConfig {
+export function createResendConfig(config: ResendConfig): ResolvedResendConfig {
   return {
     apiKey: config.apiKey,
     baseUrl: config.baseUrl ?? "https://api.resend.com",

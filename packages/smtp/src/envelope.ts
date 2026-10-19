@@ -77,7 +77,8 @@ export function resolveSmtpEnvelope(
 ): ResolvedSmtpEnvelope {
   if (
     override !== undefined &&
-    (override === null || typeof override !== "object" ||
+    (override === null ||
+      typeof override !== "object" ||
       Array.isArray(override))
   ) {
     throw new SmtpEnvelopeValidationError(
@@ -85,22 +86,22 @@ export function resolveSmtpEnvelope(
     );
   }
 
-  const from = override?.from === undefined
-    ? message.sender.address
-    : override.from;
+  const from =
+    override?.from === undefined ? message.sender.address : override.from;
   if (from !== null && !isEmailAddress(from)) {
     throw new SmtpEnvelopeValidationError(
       "SMTP envelope sender must be a valid email address or null.",
     );
   }
 
-  const recipients = override?.to === undefined
-    ? [
-      ...message.recipients.map((recipient) => recipient.address),
-      ...message.ccRecipients.map((recipient) => recipient.address),
-      ...message.bccRecipients.map((recipient) => recipient.address),
-    ]
-    : override.to;
+  const recipients =
+    override?.to === undefined
+      ? [
+          ...message.recipients.map((recipient) => recipient.address),
+          ...message.ccRecipients.map((recipient) => recipient.address),
+          ...message.bccRecipients.map((recipient) => recipient.address),
+        ]
+      : override.to;
   if (!Array.isArray(recipients)) {
     throw new SmtpEnvelopeValidationError(
       "SMTP envelope recipients must be an array.",

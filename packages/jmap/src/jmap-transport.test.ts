@@ -5,9 +5,7 @@ import { JmapTransport } from "./jmap-transport.ts";
 
 const baseMessage: Message = {
   sender: { address: "sender@example.com" as `${string}@${string}` },
-  recipients: [
-    { address: "recipient@example.com" as `${string}@${string}` },
-  ],
+  recipients: [{ address: "recipient@example.com" as `${string}@${string}` }],
   ccRecipients: [],
   bccRecipients: [],
   replyRecipients: [],
@@ -77,14 +75,15 @@ describe("JmapTransport", () => {
           init?: RequestInit,
         ): Promise<Response> =>
           new Promise((_resolve, reject) => {
-            init?.signal?.addEventListener("abort", () => {
-              reject(
-                new DOMException(
-                  "The operation was aborted.",
-                  "AbortError",
-                ),
-              );
-            }, { once: true });
+            init?.signal?.addEventListener(
+              "abort",
+              () => {
+                reject(
+                  new DOMException("The operation was aborted.", "AbortError"),
+                );
+              },
+              { once: true },
+            );
             setTimeout(() => controller.abort(), 0);
           });
 
@@ -117,9 +116,13 @@ describe("JmapTransport", () => {
           init?: RequestInit,
         ): Promise<Response> =>
           new Promise((_resolve, reject) => {
-            init?.signal?.addEventListener("abort", () => {
-              reject(undefined);
-            }, { once: true });
+            init?.signal?.addEventListener(
+              "abort",
+              () => {
+                reject(undefined);
+              },
+              { once: true },
+            );
             setTimeout(() => controller.abort(), 0);
           });
 
@@ -152,9 +155,13 @@ describe("JmapTransport", () => {
           init?: RequestInit,
         ): Promise<Response> =>
           new Promise((_resolve, reject) => {
-            init?.signal?.addEventListener("abort", () => {
-              reject(new TypeError("fetch failed"));
-            }, { once: true });
+            init?.signal?.addEventListener(
+              "abort",
+              () => {
+                reject(new TypeError("fetch failed"));
+              },
+              { once: true },
+            );
             setTimeout(() => controller.abort(), 0);
           });
 
@@ -189,11 +196,9 @@ describe("JmapTransport", () => {
 
       await assert.rejects(
         async () => {
-          for await (
-            const _receipt of transport.sendMany([baseMessage], {
-              signal: controller.signal,
-            })
-          ) {
+          for await (const _receipt of transport.sendMany([baseMessage], {
+            signal: controller.signal,
+          })) {
             // Consume the async iterable to trigger sendMany().
           }
         },

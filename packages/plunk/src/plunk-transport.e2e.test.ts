@@ -42,8 +42,7 @@ describeE2E("PlunkTransport E2E", () => {
       subject: "[E2E] HTML email",
       content: {
         text: "This is the plain text version.",
-        html:
-          "<h1>HTML Email</h1><p>This is a <strong>test email</strong> sent via Plunk API.</p>",
+        html: "<h1>HTML Email</h1><p>This is a <strong>test email</strong> sent via Plunk API.</p>",
       },
     });
 
@@ -83,9 +82,9 @@ describeE2E("PlunkTransport E2E", () => {
       console.log(`Sent email with attachment, ID: ${receipt.messageId}`);
     } else {
       console.log(
-        `Attachment test failed (acceptable): ${
-          receipt.errorMessages.join(", ")
-        }`,
+        `Attachment test failed (acceptable): ${receipt.errorMessages.join(
+          ", ",
+        )}`,
       );
       // Still pass the test as attachment restrictions are common
     }
@@ -235,9 +234,7 @@ describe("PlunkTransport E2E quota helpers", () => {
 
     assert.ok(!isQuotaLimitedBatch([success]));
     assert.ok(isQuotaLimitedBatch([success, quotaLimit]));
-    assert.ok(
-      !isQuotaLimitedBatch([success, quotaLimit, authFailure]),
-    );
+    assert.ok(!isQuotaLimitedBatch([success, quotaLimit, authFailure]));
   });
 });
 
@@ -260,9 +257,11 @@ function isQuotaLimitedBatch(receipts: readonly Receipt[]): boolean {
 }
 
 function isQuotaLimitReceipt(receipt: Receipt): boolean {
-  return !receipt.successful &&
+  return (
+    !receipt.successful &&
     receipt.errors?.some((error) => error.statusCode === 402) === true &&
     receipt.errorMessages.some((message) =>
-      message.includes("transactional limit")
-    );
+      message.includes("transactional limit"),
+    )
+  );
 }

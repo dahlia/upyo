@@ -19,9 +19,9 @@ export interface TestConfig {
 export function isE2eTestingEnabled(): boolean {
   return Boolean(
     process.env.MAILTRAP_API_TOKEN &&
-      process.env.MAILTRAP_INBOX_ID &&
-      isEmailAddress(process.env.MAILTRAP_FROM) &&
-      isEmailAddress(process.env.MAILTRAP_TO),
+    process.env.MAILTRAP_INBOX_ID &&
+    isEmailAddress(process.env.MAILTRAP_FROM) &&
+    isEmailAddress(process.env.MAILTRAP_TO),
   );
 }
 

@@ -159,13 +159,10 @@ describe("MailerooTransport - send", { concurrency: false }, () => {
     await withMockedFetch(
       () =>
         Promise.resolve(
-          new Response(
-            JSON.stringify({ message: "Invalid API key" }),
-            {
-              status: 401,
-              headers: { "Content-Type": "application/json" },
-            },
-          ),
+          new Response(JSON.stringify({ message: "Invalid API key" }), {
+            status: 401,
+            headers: { "Content-Type": "application/json" },
+          }),
         ),
       async () => {
         const transport = new MailerooTransport({
@@ -330,10 +327,10 @@ describe("MailerooTransport - send", { concurrency: false }, () => {
     await withMockedFetch(
       () =>
         Promise.resolve(
-          new Response(
-            JSON.stringify({ success: true, data: {} }),
-            { status: 200, headers: { "Content-Type": "application/json" } },
-          ),
+          new Response(JSON.stringify({ success: true, data: {} }), {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          }),
         ),
       async () => {
         const transport = new MailerooTransport({ apiKey: "test-key" });
@@ -372,9 +369,13 @@ describe("MailerooTransport - send", { concurrency: false }, () => {
     await withMockedFetch(
       (_url, init) =>
         new Promise((_resolve, reject) => {
-          init?.signal?.addEventListener("abort", () => {
-            reject(init.signal?.reason);
-          }, { once: true });
+          init?.signal?.addEventListener(
+            "abort",
+            () => {
+              reject(init.signal?.reason);
+            },
+            { once: true },
+          );
           setTimeout(() => controller.abort(reason), 0);
         }),
       async () => {
@@ -401,11 +402,18 @@ describe("MailerooTransport - send", { concurrency: false }, () => {
         Object.defineProperty(response, "text", {
           value: () =>
             new Promise<string>((_resolve, reject) => {
-              init?.signal?.addEventListener("abort", () => {
-                reject(
-                  new DOMException("The operation was aborted.", "AbortError"),
-                );
-              }, { once: true });
+              init?.signal?.addEventListener(
+                "abort",
+                () => {
+                  reject(
+                    new DOMException(
+                      "The operation was aborted.",
+                      "AbortError",
+                    ),
+                  );
+                },
+                { once: true },
+              );
               setTimeout(() => {
                 reject(new Error("Body read was not aborted."));
               }, 50);
@@ -438,11 +446,15 @@ describe("MailerooTransport - send", { concurrency: false }, () => {
         calls++;
         if (calls === 1) {
           return new Promise<Response>((_resolve, reject) => {
-            init?.signal?.addEventListener("abort", () => {
-              reject(
-                new DOMException("The operation was aborted.", "AbortError"),
-              );
-            }, { once: true });
+            init?.signal?.addEventListener(
+              "abort",
+              () => {
+                reject(
+                  new DOMException("The operation was aborted.", "AbortError"),
+                );
+              },
+              { once: true },
+            );
           });
         }
         return Promise.resolve(
@@ -476,10 +488,10 @@ describe("MailerooTransport - send", { concurrency: false }, () => {
     await withMockedFetch(
       () =>
         Promise.resolve(
-          new Response(
-            JSON.stringify({ message: "Too many requests" }),
-            { status: 429, headers: { "Content-Type": "application/json" } },
-          ),
+          new Response(JSON.stringify({ message: "Too many requests" }), {
+            status: 429,
+            headers: { "Content-Type": "application/json" },
+          }),
         ),
       async () => {
         const transport = new MailerooTransport({
@@ -504,10 +516,10 @@ describe("MailerooTransport - send", { concurrency: false }, () => {
         calls++;
         if (calls === 1) {
           return Promise.resolve(
-            new Response(
-              JSON.stringify({ message: "Too many requests" }),
-              { status: 429, headers: { "Content-Type": "application/json" } },
-            ),
+            new Response(JSON.stringify({ message: "Too many requests" }), {
+              status: 429,
+              headers: { "Content-Type": "application/json" },
+            }),
           );
         }
         return Promise.resolve(
@@ -589,16 +601,13 @@ describe("MailerooTransport - send", { concurrency: false }, () => {
         calls++;
         if (calls === 1) {
           return Promise.resolve(
-            new Response(
-              JSON.stringify({ message: "Too many requests" }),
-              {
-                status: 429,
-                headers: {
-                  "Content-Type": "application/json",
-                  "Retry-After": "1",
-                },
+            new Response(JSON.stringify({ message: "Too many requests" }), {
+              status: 429,
+              headers: {
+                "Content-Type": "application/json",
+                "Retry-After": "1",
               },
-            ),
+            }),
           );
         }
         return Promise.resolve(
@@ -635,13 +644,10 @@ describe("MailerooTransport - send", { concurrency: false }, () => {
     await withMockedFetch(
       () =>
         Promise.resolve(
-          new Response(
-            JSON.stringify({ message: "Too many requests" }),
-            {
-              status: 429,
-              headers: { "Retry-After": "20" },
-            },
-          ),
+          new Response(JSON.stringify({ message: "Too many requests" }), {
+            status: 429,
+            headers: { "Retry-After": "20" },
+          }),
         ),
       async () => {
         const transport = new MailerooTransport({
@@ -744,10 +750,9 @@ describe("MailerooTransport - send", { concurrency: false }, () => {
           const transport = new MailerooTransport({
             apiKey: "test-key",
           });
-          const receipt = await transport.send(
-            createMessage(),
-            { signal: controller.signal },
-          );
+          const receipt = await transport.send(createMessage(), {
+            signal: controller.signal,
+          });
 
           assert.ok(receipt.successful);
           assert.ok(addedAbortListeners > 0);
@@ -786,12 +791,10 @@ describe("MailerooTransport - sendMany", { concurrency: false }, () => {
       async () => {
         const transport = new MailerooTransport({ apiKey: "test-key" });
         const receipts: Receipt[] = [];
-        for await (
-          const receipt of transport.sendMany([
-            createMessage({ recipients: [{ address: "one@example.com" }] }),
-            createMessage({ recipients: [{ address: "two@example.com" }] }),
-          ])
-        ) {
+        for await (const receipt of transport.sendMany([
+          createMessage({ recipients: [{ address: "one@example.com" }] }),
+          createMessage({ recipients: [{ address: "two@example.com" }] }),
+        ])) {
           receipts.push(receipt);
         }
 
@@ -882,10 +885,10 @@ describe("MailerooTransport - sendMany", { concurrency: false }, () => {
         calls++;
         if (calls === 2) {
           return Promise.resolve(
-            new Response(
-              JSON.stringify({ message: "Message rejected" }),
-              { status: 422, headers: { "Content-Type": "application/json" } },
-            ),
+            new Response(JSON.stringify({ message: "Message rejected" }), {
+              status: 422,
+              headers: { "Content-Type": "application/json" },
+            }),
           );
         }
         return Promise.resolve(
@@ -906,13 +909,11 @@ describe("MailerooTransport - sendMany", { concurrency: false }, () => {
           retries: 0,
         });
         const receipts: Receipt[] = [];
-        for await (
-          const receipt of transport.sendMany([
-            createMessage({ recipients: [{ address: "one@example.com" }] }),
-            createMessage({ recipients: [{ address: "two@example.com" }] }),
-            createMessage({ recipients: [{ address: "three@example.com" }] }),
-          ])
-        ) {
+        for await (const receipt of transport.sendMany([
+          createMessage({ recipients: [{ address: "one@example.com" }] }),
+          createMessage({ recipients: [{ address: "two@example.com" }] }),
+          createMessage({ recipients: [{ address: "three@example.com" }] }),
+        ])) {
           receipts.push(receipt);
         }
 

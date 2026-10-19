@@ -45,11 +45,13 @@ for (const encoding of ["7bit", undefined] as const) {
       context.transport.config = {
         ...context.transport.config,
         dkim: {
-          signatures: [{
-            signingDomain: "example.com",
-            selector: "x",
-            privateKey: "must not be used",
-          }],
+          signatures: [
+            {
+              signingDomain: "example.com",
+              selector: "x",
+              privateKey: "must not be used",
+            },
+          ],
         },
       };
       const receipt = await context.transport.sendRaw({
@@ -72,9 +74,9 @@ for (const encoding of ["7bit", undefined] as const) {
         received.rawData,
         Buffer.from(content.toString().replace(/^\./gm, "..")),
       );
-      const mail = context.server.getReceivedCommands().find((c) =>
-        c.startsWith("MAIL ")
-      )!;
+      const mail = context.server
+        .getReceivedCommands()
+        .find((c) => c.startsWith("MAIL "))!;
       assert.equal(
         mail.includes(`SIZE=${content.length}`),
         encoding === undefined,
@@ -91,9 +93,9 @@ test("SMTP raw SIZE counts original bytes without an extra CRLF", async () => {
     const receipt = await context.transport.sendRaw(raw);
     assert.ok(receipt.successful, JSON.stringify(receipt));
     assert.ok(
-      context.server.getReceivedCommands().includes(
-        `MAIL FROM:<sender@example.com> SIZE=${content.length}`,
-      ),
+      context.server
+        .getReceivedCommands()
+        .includes(`MAIL FROM:<sender@example.com> SIZE=${content.length}`),
     );
   } finally {
     await context.close();
@@ -122,9 +124,9 @@ for (const encoding of ["8bit", "utf8"] as const) {
       );
       assert.equal(opens, 0);
       assert.ok(
-        !context.server.getReceivedCommands().some((c) =>
-          c.startsWith("MAIL ")
-        ),
+        !context.server
+          .getReceivedCommands()
+          .some((c) => c.startsWith("MAIL ")),
       );
       assert.ok((await context.transport.sendRaw(raw)).successful);
       assert.equal(context.server.getConnectionCount(), 1);
@@ -149,9 +151,9 @@ test("SMTP raw sends 8bit bytes unchanged without requiring SMTPUTF8", async () 
     assert.ok(receipt.successful, JSON.stringify(receipt));
     assert.deepEqual(context.server.getReceivedMessages()[0].rawData, binary);
     assert.ok(
-      context.server.getReceivedCommands().includes(
-        "MAIL FROM:<sender@example.com> BODY=8BITMIME",
-      ),
+      context.server
+        .getReceivedCommands()
+        .includes("MAIL FROM:<sender@example.com> BODY=8BITMIME"),
     );
   } finally {
     await context.close();
@@ -178,29 +180,34 @@ test("SMTP invalid raw DATA poisons its connection without delivering", async ()
 test("SMTP raw envelope supports null sender and rejects option overrides", async () => {
   const context = await setup();
   try {
-    const receipt = await context.transport.sendRaw({
-      ...raw,
-      envelope: { ...envelope, from: null },
-    }, { dsn: { return: "headers" } });
+    const receipt = await context.transport.sendRaw(
+      {
+        ...raw,
+        envelope: { ...envelope, from: null },
+      },
+      { dsn: { return: "headers" } },
+    );
     assert.ok(receipt.successful, JSON.stringify(receipt));
     assert.ok(
-      context.server.getReceivedCommands().some((c) =>
-        c.startsWith("MAIL FROM:<> ") && c.includes("RET=HDRS")
-      ),
+      context.server
+        .getReceivedCommands()
+        .some((c) => c.startsWith("MAIL FROM:<> ") && c.includes("RET=HDRS")),
     );
     // @ts-expect-error Raw envelopes cannot be overridden.
     const failed = await context.transport.sendRaw(raw, { envelope });
     assert.ok(!failed.successful);
     assert.equal(failed.errors?.[0].code, "smtp.envelope-invalid");
     assert.ok(
-      (await context.transport.send(
-        createMessage({
-          from: "a@example.com",
-          to: "b@example.com",
-          subject: "composed",
-          content: { text: "ok" },
-        }),
-      )).successful,
+      (
+        await context.transport.send(
+          createMessage({
+            from: "a@example.com",
+            to: "b@example.com",
+            subject: "composed",
+            content: { text: "ok" },
+          }),
+        )
+      ).successful,
     );
   } finally {
     await context.close();
@@ -265,23 +272,29 @@ test("SMTP raw cancellation preserves the caller's reason during pending DATA", 
   const reason = new TypeError("cancel raw");
   let closed = 0;
   try {
-    const pending = context.transport.sendRaw({
-      ...raw,
-      content: () => ({
-        [Symbol.asyncIterator]() {
-          return {
-            next() {
-              controller.abort(reason);
-              return new Promise<IteratorResult<Uint8Array>>(() => {});
-            },
-            return() {
-              closed++;
-              return Promise.resolve({ done: true as const, value: undefined });
-            },
-          };
-        },
-      }),
-    }, { signal: controller.signal });
+    const pending = context.transport.sendRaw(
+      {
+        ...raw,
+        content: () => ({
+          [Symbol.asyncIterator]() {
+            return {
+              next() {
+                controller.abort(reason);
+                return new Promise<IteratorResult<Uint8Array>>(() => {});
+              },
+              return() {
+                closed++;
+                return Promise.resolve({
+                  done: true as const,
+                  value: undefined,
+                });
+              },
+            };
+          },
+        }),
+      },
+      { signal: controller.signal },
+    );
     await assert.rejects(pending, (error: unknown) => error === reason);
     assert.equal(closed, 1);
     assert.equal(context.server.getReceivedMessages().length, 0);
@@ -294,11 +307,13 @@ test("SMTP raw analysis failure keeps a usable preflight connection", async () =
   const context = await setup();
   try {
     assert.ok(
-      !(await context.transport.sendRaw({
-        ...raw,
-        encoding: undefined,
-        content: Buffer.from("bad\n"),
-      })).successful,
+      !(
+        await context.transport.sendRaw({
+          ...raw,
+          encoding: undefined,
+          content: Buffer.from("bad\n"),
+        })
+      ).successful,
     );
     assert.ok((await context.transport.sendRaw(raw)).successful);
     assert.equal(context.server.getConnectionCount(), 1);
@@ -326,10 +341,13 @@ test("SMTP raw unknown source size is bounded during DATA", async () => {
 
 test("SMTP raw reports partial RCPT rejection", async () => {
   const context = await setup(["PIPELINING"]);
-  context.server.setResponses("RCPT", [{ code: 250, message: "Accepted" }, {
-    code: 550,
-    message: "Rejected",
-  }]);
+  context.server.setResponses("RCPT", [
+    { code: 250, message: "Accepted" },
+    {
+      code: 550,
+      message: "Rejected",
+    },
+  ]);
   try {
     const receipt = await context.transport.sendRaw({
       ...raw,
@@ -374,9 +392,9 @@ test("SMTP delivers composed bytes and the Bcc envelope", async () => {
       Buffer.from(expected),
     );
     assert.ok(
-      context.server.getReceivedCommands().includes(
-        "RCPT TO:<blind@example.com>",
-      ),
+      context.server
+        .getReceivedCommands()
+        .includes("RCPT TO:<blind@example.com>"),
     );
   } finally {
     await context.close();
@@ -387,18 +405,23 @@ test("SMTP raw maps composed replay errors and discards interrupted DATA connect
   const context = await setup();
   try {
     let reads = 0;
-    const composed = await composeMessage({
-      ...composedMessage(),
-      attachments: [{
-        filename: "a",
-        contentId: "a",
-        contentType: "text/plain",
-        inline: false,
-        content: async function* () {
-          yield new Uint8Array([reads++]);
-        },
-      }],
-    }, { dkim: { bodyMode: "streaming", signatures: [signing] } });
+    const composed = await composeMessage(
+      {
+        ...composedMessage(),
+        attachments: [
+          {
+            filename: "a",
+            contentId: "a",
+            contentType: "text/plain",
+            inline: false,
+            content: async function* () {
+              yield new Uint8Array([reads++]);
+            },
+          },
+        ],
+      },
+      { dkim: { bodyMode: "streaming", signatures: [signing] } },
+    );
     const receipt = await context.transport.sendRaw(composed);
     assert.ok(!receipt.successful);
     assert.equal(receipt.errors?.[0].code, "smtp.raw-message-invalid");
@@ -420,24 +443,27 @@ for (const source of ["nested", "signed"] as const) {
           dkim: { signatures: [{ ...signing, signingDomain: "한글.example" }] },
         };
       }
-      const message = source === "nested"
-        ? {
-          ...composedMessage(),
-          attachments: [{
-            filename: "a",
-            contentId: "한글",
-            contentType: "text/plain" as const,
-            inline: true,
-            content: new Uint8Array(),
-          }],
-        }
-        : composedMessage();
+      const message =
+        source === "nested"
+          ? {
+              ...composedMessage(),
+              attachments: [
+                {
+                  filename: "a",
+                  contentId: "한글",
+                  contentType: "text/plain" as const,
+                  inline: true,
+                  content: new Uint8Array(),
+                },
+              ],
+            }
+          : composedMessage();
       const receipt = await context.transport.send(message);
       assert.ok(!receipt.successful);
       assert.ok(
-        !context.server.getReceivedCommands().some((c) =>
-          c.startsWith("MAIL ")
-        ),
+        !context.server
+          .getReceivedCommands()
+          .some((c) => c.startsWith("MAIL ")),
       );
       context.transport.config = {
         ...context.transport.config,
@@ -456,23 +482,26 @@ for (const source of ["nested", "signed"] as const) {
           dkim: { signatures: [{ ...signing, signingDomain: "한글.example" }] },
         };
       }
-      const message = source === "nested"
-        ? {
-          ...composedMessage(),
-          attachments: [{
-            filename: "a",
-            contentId: "한글",
-            contentType: "text/plain" as const,
-            inline: true,
-            content: new Uint8Array(),
-          }],
-        }
-        : composedMessage();
+      const message =
+        source === "nested"
+          ? {
+              ...composedMessage(),
+              attachments: [
+                {
+                  filename: "a",
+                  contentId: "한글",
+                  contentType: "text/plain" as const,
+                  inline: true,
+                  content: new Uint8Array(),
+                },
+              ],
+            }
+          : composedMessage();
       assert.ok((await supported.transport.send(message)).successful);
       assert.ok(
-        supported.server.getReceivedCommands().some((c) =>
-          c.startsWith("MAIL ") && c.includes("SMTPUTF8")
-        ),
+        supported.server
+          .getReceivedCommands()
+          .some((c) => c.startsWith("MAIL ") && c.includes("SMTPUTF8")),
       );
     } finally {
       await supported.close();

@@ -15,9 +15,11 @@ import type {
  * Mock implementation of OpenTelemetry Span for testing.
  */
 export class MockSpan implements Span {
-  public readonly events: Array<
-    { name: string; attributes?: Record<string, unknown>; timestamp?: number }
-  > = [];
+  public readonly events: Array<{
+    name: string;
+    attributes?: Record<string, unknown>;
+    timestamp?: number;
+  }> = [];
   public readonly attributes: Record<string, unknown> = {};
   public status?: SpanStatus;
   public ended = false;
@@ -48,13 +50,15 @@ export class MockSpan implements Span {
   ): this {
     this.events.push({
       name,
-      attributes: typeof attributesOrStartTime === "object" &&
-          attributesOrStartTime !== null
-        ? attributesOrStartTime as Record<string, unknown>
-        : undefined,
-      timestamp: typeof attributesOrStartTime === "number"
-        ? attributesOrStartTime
-        : startTime,
+      attributes:
+        typeof attributesOrStartTime === "object" &&
+        attributesOrStartTime !== null
+          ? (attributesOrStartTime as Record<string, unknown>)
+          : undefined,
+      timestamp:
+        typeof attributesOrStartTime === "number"
+          ? attributesOrStartTime
+          : startTime,
     });
     return this;
   }
@@ -85,10 +89,14 @@ export class MockSpan implements Span {
       constructor?: { name?: string };
       message?: string;
     };
-    this.addEvent("exception", {
-      "exception.type": errorLike?.constructor?.name || "unknown",
-      "exception.message": errorLike?.message || String(exception),
-    }, time);
+    this.addEvent(
+      "exception",
+      {
+        "exception.type": errorLike?.constructor?.name || "unknown",
+        "exception.message": errorLike?.message || String(exception),
+      },
+      time,
+    );
   }
 
   addLink(): this {
@@ -138,11 +146,12 @@ export class MockTracer implements Tracer {
     contextOrFn?: unknown | F,
     fn?: F,
   ): ReturnType<F> {
-    const actualFn = typeof optionsOrFn === "function"
-      ? optionsOrFn
-      : typeof contextOrFn === "function"
-      ? contextOrFn
-      : fn!;
+    const actualFn =
+      typeof optionsOrFn === "function"
+        ? optionsOrFn
+        : typeof contextOrFn === "function"
+          ? contextOrFn
+          : fn!;
     const span = this.startSpan(
       name,
       typeof optionsOrFn === "object" ? optionsOrFn : undefined,
@@ -197,9 +206,10 @@ export class MockTracerProvider implements TracerProvider {
  * Base class for mock metric instruments.
  */
 abstract class MockMetricInstrument {
-  public readonly records: Array<
-    { value: number; attributes?: Record<string, unknown> }
-  > = [];
+  public readonly records: Array<{
+    value: number;
+    attributes?: Record<string, unknown>;
+  }> = [];
 
   protected record(value: number, attributes?: Record<string, unknown>): void {
     this.records.push({ value, attributes });
@@ -232,8 +242,10 @@ export class MockCounter extends MockMetricInstrument implements Counter {
 /**
  * Mock implementation of OpenTelemetry UpDownCounter for testing.
  */
-export class MockUpDownCounter extends MockMetricInstrument
-  implements UpDownCounter {
+export class MockUpDownCounter
+  extends MockMetricInstrument
+  implements UpDownCounter
+{
   add(value: number, attributes?: Record<string, unknown>): void {
     this.record(value, attributes);
   }
@@ -329,18 +341,14 @@ export class MockMeterProvider implements MeterProvider {
   /**
    * Test helper to get all metric records from all meters.
    */
-  getAllRecords(): Array<
-    {
+  getAllRecords(): Array<{
+    instrument: string;
+    records: Array<{ value: number; attributes?: Record<string, unknown> }>;
+  }> {
+    const allRecords: Array<{
       instrument: string;
       records: Array<{ value: number; attributes?: Record<string, unknown> }>;
-    }
-  > {
-    const allRecords: Array<
-      {
-        instrument: string;
-        records: Array<{ value: number; attributes?: Record<string, unknown> }>;
-      }
-    > = [];
+    }> = [];
 
     this.meters.forEach((meter) => {
       meter.counters.forEach((counter) => {

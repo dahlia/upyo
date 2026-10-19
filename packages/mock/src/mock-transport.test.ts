@@ -192,18 +192,24 @@ describe("MockTransport", () => {
   test("should support message filtering", async () => {
     const transport = createTestMockTransport();
 
-    await transport.send(createTestMessage({
-      to: "user1@example.com",
-      subject: "Hello User 1",
-    }));
-    await transport.send(createTestMessage({
-      to: "user2@example.com",
-      subject: "Hello User 2",
-    }));
-    await transport.send(createTestMessage({
-      to: "user1@example.com",
-      subject: "Another for User 1",
-    }));
+    await transport.send(
+      createTestMessage({
+        to: "user1@example.com",
+        subject: "Hello User 1",
+      }),
+    );
+    await transport.send(
+      createTestMessage({
+        to: "user2@example.com",
+        subject: "Hello User 2",
+      }),
+    );
+    await transport.send(
+      createTestMessage({
+        to: "user1@example.com",
+        subject: "Another for User 1",
+      }),
+    );
 
     const user1Messages = transport.getMessagesTo("user1@example.com");
     assert.equal(user1Messages.length, 2);
@@ -212,7 +218,7 @@ describe("MockTransport", () => {
     assert.equal(helloMessages.length, 1);
 
     const foundMessage = transport.findMessageBy((m) =>
-      m.subject.includes("Another")
+      m.subject.includes("Another"),
     );
     assert.ok(foundMessage);
     assert.equal(foundMessage.subject, "Another for User 1");
@@ -319,9 +325,6 @@ describe("MockTransport identity inspection", () => {
     assert.equal(sent.messageId, "ticket-4821@example.com");
     assert.equal(sent.date?.toISOString(), "2026-09-01T10:00:00.000Z");
     assert.deepEqual(sent.inReplyTo, ["122@example.com"]);
-    assert.deepEqual(sent.references, [
-      "120@example.com",
-      "121@example.com",
-    ]);
+    assert.deepEqual(sent.references, ["120@example.com", "121@example.com"]);
   });
 });

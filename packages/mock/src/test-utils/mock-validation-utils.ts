@@ -12,9 +12,9 @@ export function validateSuccessfulReceipt(
 ): asserts receipt is { successful: true; messageId: string } {
   if (!receipt.successful) {
     throw new Error(
-      `Expected successful receipt, but got failure: ${
-        receipt.errorMessages.join(", ")
-      }`,
+      `Expected successful receipt, but got failure: ${receipt.errorMessages.join(
+        ", ",
+      )}`,
     );
   }
 
@@ -53,12 +53,12 @@ export function validateAllSuccessful(receipts: Receipt[]): void {
   const failedReceipts = receipts.filter((r) => !r.successful);
   if (failedReceipts.length > 0) {
     const errorMessages = failedReceipts.flatMap((r) =>
-      r.successful ? [] : r.errorMessages
+      r.successful ? [] : r.errorMessages,
     );
     throw new Error(
-      `Expected all receipts to be successful, but ${failedReceipts.length} failed: ${
-        errorMessages.join(", ")
-      }`,
+      `Expected all receipts to be successful, but ${failedReceipts.length} failed: ${errorMessages.join(
+        ", ",
+      )}`,
     );
   }
 }
@@ -96,9 +96,9 @@ export function validateMessageContent(
       }
       if (!actualTo.includes(expectedAddr)) {
         throw new Error(
-          `Expected recipient ${expectedAddr}, but not found in [${
-            actualTo.join(", ")
-          }]`,
+          `Expected recipient ${expectedAddr}, but not found in [${actualTo.join(
+            ", ",
+          )}]`,
         );
       }
     }
@@ -111,9 +111,8 @@ export function validateMessageContent(
   }
 
   if (expected.textContent) {
-    const textContent = "text" in message.content
-      ? message.content.text
-      : message.content.text;
+    const textContent =
+      "text" in message.content ? message.content.text : message.content.text;
     if (!textContent || !textContent.includes(expected.textContent)) {
       throw new Error(
         `Expected text content to include "${expected.textContent}"`,
@@ -122,9 +121,8 @@ export function validateMessageContent(
   }
 
   if (expected.htmlContent) {
-    const htmlContent = "html" in message.content
-      ? message.content.html
-      : undefined;
+    const htmlContent =
+      "html" in message.content ? message.content.html : undefined;
     if (!htmlContent || !htmlContent.includes(expected.htmlContent)) {
       throw new Error(
         `Expected HTML content to include "${expected.htmlContent}"`,

@@ -109,28 +109,26 @@ export interface MailtrapConfig {
  *
  * @since 0.6.0
  */
-export type ResolvedMailtrapConfig =
-  & Required<
-    Omit<
-      MailtrapConfig,
-      | "inboxId"
-      | "sandbox"
-      | "metadata"
-      | "defaultCategory"
-      | "userAgent"
-      | "sendBaseUrl"
-      | "sandboxBaseUrl"
-    >
+export type ResolvedMailtrapConfig = Required<
+  Omit<
+    MailtrapConfig,
+    | "inboxId"
+    | "sandbox"
+    | "metadata"
+    | "defaultCategory"
+    | "userAgent"
+    | "sendBaseUrl"
+    | "sandboxBaseUrl"
   >
-  & {
-    readonly inboxId?: string | number;
-    readonly sandbox: boolean;
-    readonly metadata?: Record<string, string>;
-    readonly defaultCategory: string;
-    readonly userAgent: string;
-    readonly sendBaseUrl: string;
-    readonly sandboxBaseUrl: string;
-  };
+> & {
+  readonly inboxId?: string | number;
+  readonly sandbox: boolean;
+  readonly metadata?: Record<string, string>;
+  readonly defaultCategory: string;
+  readonly userAgent: string;
+  readonly sendBaseUrl: string;
+  readonly sandboxBaseUrl: string;
+};
 
 /**
  * Creates a resolved Mailtrap configuration by applying default values.

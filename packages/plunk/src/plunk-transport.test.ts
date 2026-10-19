@@ -11,13 +11,15 @@ import type { Message } from "@upyo/core";
 const successfulResponse = {
   success: true,
   data: {
-    emails: [{
-      contact: {
-        id: "contact-id",
-        email: "to@example.com",
+    emails: [
+      {
+        contact: {
+          id: "contact-id",
+          email: "to@example.com",
+        },
+        email: "email-record-id",
       },
-      email: "email-record-id",
-    }],
+    ],
     timestamp: "2023-01-01T12:00:00Z",
   },
 };
@@ -55,7 +57,7 @@ async function withPlunkServer(
     await run(`http://127.0.0.1:${address.port}`);
   } finally {
     await new Promise<void>((resolve, reject) => {
-      server.close((error) => error ? reject(error) : resolve());
+      server.close((error) => (error ? reject(error) : resolve()));
     });
   }
 }
@@ -137,9 +139,13 @@ describe("PlunkTransport - AbortSignal (send)", () => {
       globalThis.fetch = (_input, init) =>
         new Promise((_resolve, reject) => {
           assert.ok(init?.signal instanceof AbortSignal);
-          init.signal.addEventListener("abort", () => {
-            reject(init.signal?.reason);
-          }, { once: true });
+          init.signal.addEventListener(
+            "abort",
+            () => {
+              reject(init.signal?.reason);
+            },
+            { once: true },
+          );
           setTimeout(() => controller.abort(abortReason), 0);
         });
 
@@ -215,24 +221,21 @@ describe("PlunkTransport - HTTP 500 error", () => {
 
   it("should truncate long error response bodies", async () => {
     const longBody = "x".repeat(600);
-    await withPlunkServer(
-      { status: 500, body: longBody },
-      async (baseUrl) => {
-        const transport = new PlunkTransport({
-          apiKey: "test-key",
-          baseUrl,
-          retries: 0,
-        });
+    await withPlunkServer({ status: 500, body: longBody }, async (baseUrl) => {
+      const transport = new PlunkTransport({
+        apiKey: "test-key",
+        baseUrl,
+        retries: 0,
+      });
 
-        const receipt = await transport.send(createTestMessage());
+      const receipt = await transport.send(createTestMessage());
 
-        assert.ok(!receipt.successful);
-        assert.equal(
-          receipt.errorMessages[0],
-          `HTTP 500: Internal Server Error. ${"x".repeat(500)}...`,
-        );
-      },
-    );
+      assert.ok(!receipt.successful);
+      assert.equal(
+        receipt.errorMessages[0],
+        `HTTP 500: Internal Server Error. ${"x".repeat(500)}...`,
+      );
+    });
   });
 });
 

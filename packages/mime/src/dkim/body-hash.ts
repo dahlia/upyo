@@ -35,9 +35,11 @@ export class BodyHasher {
         // Only CR and relaxed-mode whitespace need per-byte state changes.
         const start = offset;
         while (
-          offset < bytes.length && bytes[offset] !== 13 &&
+          offset < bytes.length &&
+          bytes[offset] !== 13 &&
           (!relaxed || (bytes[offset] !== 32 && bytes[offset] !== 9))
-        ) offset++;
+        )
+          offset++;
         this.emitSpan(bytes, start, offset);
       }
     }

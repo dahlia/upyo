@@ -10,8 +10,9 @@ import type { Strategy, TransportSelection } from "./strategy.ts";
  * all enabled transports.
  * @since 0.3.0
  */
-export class RoundRobinStrategy<TProviderId extends string = string>
-  implements Strategy<TProviderId> {
+export class RoundRobinStrategy<
+  TProviderId extends string = string,
+> implements Strategy<TProviderId> {
   private currentIndex: number = 0;
 
   /**

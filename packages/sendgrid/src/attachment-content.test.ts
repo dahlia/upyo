@@ -18,23 +18,26 @@ test("closes sibling sources when one attachment conversion fails", async () => 
     to: "to@example.com",
     subject: "Test",
     content: { text: "Test" },
-    attachments: [{
-      ...attachment,
-      content: async function* () {
-        yield new Uint8Array([1]);
-        throw failure;
+    attachments: [
+      {
+        ...attachment,
+        content: async function* () {
+          yield new Uint8Array([1]);
+          throw failure;
+        },
       },
-    }, {
-      ...attachment,
-      content: (signal) => {
-        siblingSignal = signal;
-        return {
-          [Symbol.asyncIterator]() {
-            return { next: () => new Promise(() => {}) };
-          },
-        };
+      {
+        ...attachment,
+        content: (signal) => {
+          siblingSignal = signal;
+          return {
+            [Symbol.asyncIterator]() {
+              return { next: () => new Promise(() => {}) };
+            },
+          };
+        },
       },
-    }],
+    ],
   });
   await assert.rejects(
     convertMessage(mail, createSendGridConfig({ apiKey: "SG.test" })),
@@ -46,11 +49,12 @@ test("closes sibling sources when one attachment conversion fails", async () => 
 test("collects large replayable attachments without argument overflow", async () => {
   const bytes = new Uint8Array(256 * 1024).fill(123);
   const config = createSendGridConfig({ apiKey: "SG.test" });
-  for (
-    const content of [new Blob([bytes]), async function* () {
+  for (const content of [
+    new Blob([bytes]),
+    async function* () {
       yield bytes;
-    }]
-  ) {
+    },
+  ]) {
     const result = await convertMessage(
       createMessage({
         from: "from@example.com",

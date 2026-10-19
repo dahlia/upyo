@@ -8,6 +8,7 @@ sources = ["deno.json", "package.json", "tsdown.config.ts", "src/**/*.ts", "../.
 outputs = ["dist/**/*"]
 
 [tasks."test:deno"]
+tools.deno = "{{ vars.deno_version }}"
 description = "Run @upyo/lettermint tests with Deno"
 usage = '''
 flag "--coverage" help="Collect coverage data"
@@ -41,5 +42,9 @@ depends = ["build"]
 run = "bun test --timeout=90000"
 
 [tasks.test]
+description = "Run @upyo/lettermint tests with Node.js"
+depends = ["test:node"]
+
+[tasks."test:all"]
 description = "Run @upyo/lettermint tests across all runtimes"
 depends = ["test:deno", "test:node", "test:bun"]

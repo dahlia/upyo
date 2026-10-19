@@ -5,9 +5,7 @@ import { JmapTransport } from "./jmap-transport.ts";
 
 const baseMessage: Message = {
   sender: { address: "sender@example.com" as `${string}@${string}` },
-  recipients: [
-    { address: "recipient@example.com" as `${string}@${string}` },
-  ],
+  recipients: [{ address: "recipient@example.com" as `${string}@${string}` }],
   ccRecipients: [],
   bccRecipients: [],
   replyRecipients: [],
@@ -30,11 +28,12 @@ describe("JmapTransport send success", () => {
         _init?: RequestInit,
       ): Promise<Response> => {
         fetchInfo.count++;
-        const url = typeof input === "string"
-          ? input
-          : input instanceof URL
-          ? input.href
-          : input.url;
+        const url =
+          typeof input === "string"
+            ? input
+            : input instanceof URL
+              ? input.href
+              : input.url;
 
         // First call: session fetch
         if (url.includes(".well-known/jmap")) {

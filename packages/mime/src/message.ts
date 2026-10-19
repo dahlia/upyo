@@ -47,15 +47,19 @@ export function prepareMimeMessage(
       attachment.content.catch(() => {});
     }
   }
-  const dkim = dkimConfig == null ? undefined : {
-    ...dkimConfig,
-    signatures: dkimConfig.signatures.map((signature) => ({
-      ...signature,
-      headerFields: signature.headerFields == null
-        ? undefined
-        : [...signature.headerFields],
-    })),
-  };
+  const dkim =
+    dkimConfig == null
+      ? undefined
+      : {
+          ...dkimConfig,
+          signatures: dkimConfig.signatures.map((signature) => ({
+            ...signature,
+            headerFields:
+              signature.headerFields == null
+                ? undefined
+                : [...signature.headerFields],
+          })),
+        };
   if (dkim != null) validateDkimBodyMode(dkim);
   const parts = buildMimeParts(message);
   const first = parts[0];
@@ -64,12 +68,12 @@ export function prepareMimeMessage(
   const headers = first.slice(0, separator);
   parts[0] = first.slice(separator);
 
-  const encoding =
-    [headers, ...parts.filter((part) => typeof part === "string")].some(
-        hasNonAscii,
-      )
-      ? "utf8"
-      : "7bit";
+  const encoding = [
+    headers,
+    ...parts.filter((part) => typeof part === "string"),
+  ].some(hasNonAscii)
+    ? "utf8"
+    : "7bit";
   return {
     encoding,
     dkim,
@@ -99,11 +103,13 @@ export function prepareMimeMessage(
             part.content = await readAttachmentContent(part.content, signal);
           }
           if (typeof part.content === "function") unknown = true;
-          else {size += attachmentEncodedSize(
+          else {
+            size += attachmentEncodedSize(
               part.content instanceof Uint8Array
                 ? part.content.byteLength
                 : part.content.size,
-            );}
+            );
+          }
         }
         if (!Number.isSafeInteger(size)) {
           throw new RangeError("Message size exceeds the safe integer range.");
@@ -132,10 +138,7 @@ function buildMimeParts(message: Message): MimePart[] {
 
   if (message.ccRecipients.length > 0) {
     lines.push(
-      foldHeader(
-        "Cc",
-        message.ccRecipients.map(encodeAddress).join(", "),
-      ),
+      foldHeader("Cc", message.ccRecipients.map(encodeAddress).join(", ")),
     );
   }
 
@@ -242,9 +245,10 @@ function buildMimeParts(message: Message): MimePart[] {
       lines.push(
         foldHeader(
           "Content-Type",
-          `${attachment.contentType}; ${
-            encodeMimeParameter("name", attachment.filename)
-          }`,
+          `${attachment.contentType}; ${encodeMimeParameter(
+            "name",
+            attachment.filename,
+          )}`,
         ),
       );
       lines.push("Content-Transfer-Encoding: base64");
@@ -261,9 +265,10 @@ function buildMimeParts(message: Message): MimePart[] {
         lines.push(
           foldHeader(
             "Content-Disposition",
-            `attachment; ${
-              encodeMimeParameter("filename", attachment.filename)
-            }`,
+            `attachment; ${encodeMimeParameter(
+              "filename",
+              attachment.filename,
+            )}`,
           ),
         );
       }
@@ -455,7 +460,7 @@ function generateBoundary(): string {
  */
 function resolveDate(message: Message): string {
   return message.date === undefined
-    ? overridden(message, "Date") ?? formatDate(new Date())
+    ? (overridden(message, "Date") ?? formatDate(new Date()))
     : formatDate(message.date);
 }
 
@@ -553,10 +558,12 @@ function formatDate(date: Date): string {
     throw new TypeError(`Invalid date: ${JSON.stringify(date)}`);
   }
   const pad = (value: number) => value.toString().padStart(2, "0");
-  return `${dayNames[date.getUTCDay()]}, ${pad(date.getUTCDate())} ` +
+  return (
+    `${dayNames[date.getUTCDay()]}, ${pad(date.getUTCDate())} ` +
     `${monthNames[date.getUTCMonth()]} ${year.toString().padStart(4, "0")} ` +
     `${pad(date.getUTCHours())}:${pad(date.getUTCMinutes())}:` +
-    `${pad(date.getUTCSeconds())} +0000`;
+    `${pad(date.getUTCSeconds())} +0000`
+  );
 }
 
 function encodeAddress(address: Address): string {
@@ -581,10 +588,7 @@ function encodeHeaderValue(
 ): string {
   // RFC 2047 encoding for non-ASCII characters in headers
   const hasLongWord = value.split(/\s+/).some((word) => word.length > 60);
-  if (
-    !/^[\x20-\x7E]*$/.test(value) ||
-    (encodeLongAsciiWords && hasLongWord)
-  ) {
+  if (!/^[\x20-\x7E]*$/.test(value) || (encodeLongAsciiWords && hasLongWord)) {
     const encodeWord = (text: string): string => {
       const utf8Bytes = new TextEncoder().encode(text);
       const encoded = base64(utf8Bytes);
@@ -628,15 +632,12 @@ function encodeMimeParameter(name: string, value: string): string {
     return quotedParameter;
   }
 
-  const encodedBytes = Array.from(
-    new TextEncoder().encode(value),
-    (byte) => {
-      const character = String.fromCharCode(byte);
-      return /^[A-Za-z0-9!#$&+.^_`|~-]$/.test(character)
-        ? character
-        : `%${byte.toString(16).toUpperCase().padStart(2, "0")}`;
-    },
-  );
+  const encodedBytes = Array.from(new TextEncoder().encode(value), (byte) => {
+    const character = String.fromCharCode(byte);
+    return /^[A-Za-z0-9!#$&+.^_`|~-]$/.test(character)
+      ? character
+      : `%${byte.toString(16).toUpperCase().padStart(2, "0")}`;
+  });
   const segments: string[] = [];
   let segment = "";
 
@@ -649,9 +650,12 @@ function encodeMimeParameter(name: string, value: string): string {
   }
   if (segment.length > 0 || segments.length === 0) segments.push(segment);
 
-  return segments.map((part, index) =>
-    `${name}*${index}*=${index === 0 ? "UTF-8''" : ""}${part}`
-  ).join("; ");
+  return segments
+    .map(
+      (part, index) =>
+        `${name}*${index}*=${index === 0 ? "UTF-8''" : ""}${part}`,
+    )
+    .join("; ");
 }
 
 function foldHeader(name: string, value: string): string {
@@ -731,9 +735,13 @@ function encodeQuotedPrintable(text: string): string {
       i++;
       continue;
     }
-    const escaped = byte < 32 || byte > 126 || byte === 61 ||
+    const escaped =
+      byte < 32 ||
+      byte > 126 ||
+      byte === 61 ||
       (byte === 32 &&
-        (i + 1 === bytes.length || bytes[i + 1] === 13 ||
+        (i + 1 === bytes.length ||
+          bytes[i + 1] === 13 ||
           bytes[i + 1] === 10)) ||
       (byte === 46 && column === 0);
     const encoded = escaped

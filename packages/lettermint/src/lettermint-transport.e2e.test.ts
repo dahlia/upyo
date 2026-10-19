@@ -33,10 +33,12 @@ describeE2E("LettermintTransport E2E", { concurrency: false }, () => {
     await waitForRateLimit();
 
     const transport = new LettermintTransport(getTestConfig().lettermint);
-    const receipt = await transport.send(createTestMessage({
-      subject: "[E2E] Lettermint text email",
-      content: { text: "This is a Lettermint E2E test email." },
-    }));
+    const receipt = await transport.send(
+      createTestMessage({
+        subject: "[E2E] Lettermint text email",
+        content: { text: "This is a Lettermint E2E test email." },
+      }),
+    );
 
     assertSuccessfulReceipt(receipt);
     console.log(`Sent Lettermint text email with ID: ${receipt.messageId}`);
@@ -46,13 +48,15 @@ describeE2E("LettermintTransport E2E", { concurrency: false }, () => {
     await waitForRateLimit();
 
     const transport = new LettermintTransport(getTestConfig().lettermint);
-    const receipt = await transport.send(createTestMessage({
-      subject: "[E2E] Lettermint HTML email",
-      content: {
-        html: "<h1>Hello from Upyo</h1><p>This is a Lettermint test.</p>",
-        text: "Hello from Upyo\n\nThis is a Lettermint test.",
-      },
-    }));
+    const receipt = await transport.send(
+      createTestMessage({
+        subject: "[E2E] Lettermint HTML email",
+        content: {
+          html: "<h1>Hello from Upyo</h1><p>This is a Lettermint test.</p>",
+          text: "Hello from Upyo\n\nThis is a Lettermint test.",
+        },
+      }),
+    );
 
     assertSuccessfulReceipt(receipt);
     console.log(`Sent Lettermint HTML email with ID: ${receipt.messageId}`);
@@ -62,21 +66,23 @@ describeE2E("LettermintTransport E2E", { concurrency: false }, () => {
     await waitForRateLimit();
 
     const transport = new LettermintTransport(getTestConfig().lettermint);
-    const receipt = await transport.send(createTestMessage({
-      subject: "[E2E] Lettermint attachment email",
-      content: { text: "This Lettermint E2E test email has an attachment." },
-      attachments: [
-        {
-          filename: "lettermint-e2e.txt",
-          contentType: "text/plain",
-          content: new TextEncoder().encode(
-            "This attachment was sent by the Upyo Lettermint E2E test.",
-          ),
-          inline: false,
-          contentId: "",
-        },
-      ],
-    }));
+    const receipt = await transport.send(
+      createTestMessage({
+        subject: "[E2E] Lettermint attachment email",
+        content: { text: "This Lettermint E2E test email has an attachment." },
+        attachments: [
+          {
+            filename: "lettermint-e2e.txt",
+            contentType: "text/plain",
+            content: new TextEncoder().encode(
+              "This attachment was sent by the Upyo Lettermint E2E test.",
+            ),
+            inline: false,
+            contentId: "",
+          },
+        ],
+      }),
+    );
 
     assertSuccessfulReceipt(receipt);
     console.log(
@@ -90,16 +96,14 @@ describeE2E("LettermintTransport E2E", { concurrency: false }, () => {
     const transport = new LettermintTransport(getTestConfig().lettermint);
     const receipts: Receipt[] = [];
 
-    for await (
-      const receipt of transport.sendMany([
-        createTestMessage({
-          subject: "[E2E] Lettermint batch email 1",
-        }),
-        createTestMessage({
-          subject: "[E2E] Lettermint batch email 2",
-        }),
-      ])
-    ) {
+    for await (const receipt of transport.sendMany([
+      createTestMessage({
+        subject: "[E2E] Lettermint batch email 1",
+      }),
+      createTestMessage({
+        subject: "[E2E] Lettermint batch email 2",
+      }),
+    ])) {
       receipts.push(receipt);
     }
 
@@ -108,11 +112,9 @@ describeE2E("LettermintTransport E2E", { concurrency: false }, () => {
       assertSuccessfulReceipt(receipt);
     }
     console.log(
-      `Sent Lettermint batch emails with IDs: ${
-        receipts.map((receipt) =>
-          receipt.successful ? receipt.messageId : "failed"
-        ).join(", ")
-      }`,
+      `Sent Lettermint batch emails with IDs: ${receipts
+        .map((receipt) => (receipt.successful ? receipt.messageId : "failed"))
+        .join(", ")}`,
     );
   });
 });

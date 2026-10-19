@@ -11,7 +11,5 @@
     "@opentelemetry/sdk-trace-base": "npm:@opentelemetry/sdk-trace-base@^1.25.1",
     "@opentelemetry/semantic-conventions": "npm:@opentelemetry/semantic-conventions@^1.25.1"
   },
-  "exclude": [
-    "dist/"
-  ]
+  "exclude": ["dist/"]
 }

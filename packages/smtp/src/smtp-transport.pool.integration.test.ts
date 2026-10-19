@@ -22,9 +22,10 @@ describe("SmtpTransport connection limit", () => {
     };
   }
 
-  async function setupTest(
-    options: { readonly pool?: boolean; readonly poolSize: number },
-  ) {
+  async function setupTest(options: {
+    readonly pool?: boolean;
+    readonly poolSize: number;
+  }) {
     const server = new MockSmtpServer();
     const serverPort = await server.start();
 
@@ -167,9 +168,9 @@ describe("SmtpTransport connection limit", () => {
       const firstReceipt = await first;
       assert.ok(firstReceipt.successful);
 
-      const subjects = server.getReceivedMessages().map((message) =>
-        /Subject: (.*)/.exec(message.data)?.[1]?.trim()
-      );
+      const subjects = server
+        .getReceivedMessages()
+        .map((message) => /Subject: (.*)/.exec(message.data)?.[1]?.trim());
       assert.ok(!subjects.includes("waiting"));
     } finally {
       await teardownTest(server, transport);
@@ -255,62 +256,55 @@ describe("SmtpTransport connection limit", () => {
   for (const pool of [false, true]) {
     for (const asyncInput of [false, true]) {
       for (const stopEarly of [false, true]) {
-        test(
-          `sendMany cleanup: pool=${pool}, async=${asyncInput}, break=${stopEarly}`,
-          async () => {
-            const { server, transport } = await setupTest({
-              pool,
-              poolSize: 1,
-            });
-            const messages = [createTestMessage(), createTestMessage()];
-            // Exercise both iteration branches without an external SMTP service.
-            async function* source() {
-              yield* messages;
-            }
+        test(`sendMany cleanup: pool=${pool}, async=${asyncInput}, break=${stopEarly}`, async () => {
+          const { server, transport } = await setupTest({
+            pool,
+            poolSize: 1,
+          });
+          const messages = [createTestMessage(), createTestMessage()];
+          // Exercise both iteration branches without an external SMTP service.
+          async function* source() {
+            yield* messages;
+          }
 
-            try {
-              let receipts = 0;
-              for await (
-                const receipt of transport.sendMany(
-                  asyncInput ? source() : messages,
-                )
-              ) {
-                assert.ok(receipt.successful);
-                receipts++;
-                if (stopEarly) break;
-              }
-              assert.strictEqual(receipts, stopEarly ? 1 : 2);
-              assert.strictEqual(server.getReceivedMessages().length, receipts);
-              assert.strictEqual(
-                server.getReceivedCommands().filter((command) =>
-                  command === "RSET"
-                )
-                  .length,
-                pool ? 1 : 0,
-              );
-
-              await transport.closeAllConnections();
-              // QUIT is flushed without waiting for the server's reply.
-              for (
-                let attempt = 0;
-                attempt < 50 && !server.getReceivedCommands().includes("QUIT");
-                attempt++
-              ) {
-                await new Promise((resolve) => setTimeout(resolve, 10));
-              }
-              assert.strictEqual(
-                server.getReceivedCommands().filter((command) =>
-                  command === "QUIT"
-                )
-                  .length,
-                1,
-                "The batch connection must be closed after iteration and cleanup.",
-              );
-            } finally {
-              await teardownTest(server, transport);
+          try {
+            let receipts = 0;
+            for await (const receipt of transport.sendMany(
+              asyncInput ? source() : messages,
+            )) {
+              assert.ok(receipt.successful);
+              receipts++;
+              if (stopEarly) break;
             }
-          },
-        );
+            assert.strictEqual(receipts, stopEarly ? 1 : 2);
+            assert.strictEqual(server.getReceivedMessages().length, receipts);
+            assert.strictEqual(
+              server
+                .getReceivedCommands()
+                .filter((command) => command === "RSET").length,
+              pool ? 1 : 0,
+            );
+
+            await transport.closeAllConnections();
+            // QUIT is flushed without waiting for the server's reply.
+            for (
+              let attempt = 0;
+              attempt < 50 && !server.getReceivedCommands().includes("QUIT");
+              attempt++
+            ) {
+              await new Promise((resolve) => setTimeout(resolve, 10));
+            }
+            assert.strictEqual(
+              server
+                .getReceivedCommands()
+                .filter((command) => command === "QUIT").length,
+              1,
+              "The batch connection must be closed after iteration and cleanup.",
+            );
+          } finally {
+            await teardownTest(server, transport);
+          }
+        });
       }
     }
   }
@@ -400,7 +394,8 @@ describe("SmtpTransport connection limit", () => {
 
   test("new sends wait for shutdown and can cancel that wait", async () => {
     const { server, transport } = await setupTest({ poolSize: 1 });
-    const batch = transport.sendMany([createTestMessage()])
+    const batch = transport
+      .sendMany([createTestMessage()])
       [Symbol.asyncIterator]();
     try {
       assert.ok((await batch.next()).value?.successful);
@@ -430,7 +425,8 @@ describe("SmtpTransport connection limit", () => {
 
   test("shutdown waits for a paused batch to be returned", async () => {
     const { server, transport } = await setupTest({ poolSize: 1 });
-    const batch = transport.sendMany([createTestMessage(), createTestMessage()])
+    const batch = transport
+      .sendMany([createTestMessage(), createTestMessage()])
       [Symbol.asyncIterator]();
     try {
       assert.ok((await batch.next()).value?.successful);

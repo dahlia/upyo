@@ -24,10 +24,12 @@ describe("SmtpTransport", () => {
 
     const message: Message = {
       sender: { name: "Test Sender", address: "sender@example.com" },
-      recipients: [{
-        name: "Test Recipient",
-        address: "recipient@example.com",
-      }],
+      recipients: [
+        {
+          name: "Test Recipient",
+          address: "recipient@example.com",
+        },
+      ],
       ccRecipients: [],
       bccRecipients: [],
       replyRecipients: [],
@@ -159,9 +161,9 @@ describe("SmtpTransport", () => {
     controller.abort();
 
     try {
-      for await (
-        const _ of transport.sendMany(messages, { signal: controller.signal })
-      ) {
+      for await (const _ of transport.sendMany(messages, {
+        signal: controller.signal,
+      })) {
         // Should not reach here
       }
       assert.fail("Expected AbortError to be thrown");
@@ -235,11 +237,12 @@ describe("SmtpTransport", () => {
       assert.ok(!receipt.successful);
       if (!receipt.successful) {
         assert.ok(
-          receipt.errorMessages.some((m) =>
-            m.includes("timeout") ||
-            m.includes("connect") ||
-            m.includes("ECONNREFUSED") ||
-            m.includes("EHOSTUNREACH")
+          receipt.errorMessages.some(
+            (m) =>
+              m.includes("timeout") ||
+              m.includes("connect") ||
+              m.includes("ECONNREFUSED") ||
+              m.includes("EHOSTUNREACH"),
           ),
         );
       }
@@ -273,11 +276,12 @@ describe("SmtpTransport", () => {
       assert.ok(!receipt.successful);
       if (!receipt.successful) {
         assert.ok(
-          receipt.errorMessages.some((m) =>
-            m.includes("ENOTFOUND") ||
-            m.includes("getaddrinfo") ||
-            m.includes("connect") ||
-            m.includes("host")
+          receipt.errorMessages.some(
+            (m) =>
+              m.includes("ENOTFOUND") ||
+              m.includes("getaddrinfo") ||
+              m.includes("connect") ||
+              m.includes("host"),
           ),
         );
       }
@@ -311,10 +315,11 @@ describe("SmtpTransport", () => {
       assert.ok(!receipt.successful);
       if (!receipt.successful) {
         assert.ok(
-          receipt.errorMessages.some((m) =>
-            m.includes("ECONNREFUSED") ||
-            m.includes("connect") ||
-            m.includes("refused")
+          receipt.errorMessages.some(
+            (m) =>
+              m.includes("ECONNREFUSED") ||
+              m.includes("connect") ||
+              m.includes("refused"),
           ),
         );
         assert.equal(receipt.provider, "smtp");
@@ -346,7 +351,8 @@ describe("SmtpTransport", () => {
         const controller = new AbortController();
         controller.abort();
 
-        const promise = transport.send(message, { signal: controller.signal })
+        const promise = transport
+          .send(message, { signal: controller.signal })
           .then(() => {
             assert.fail("Expected AbortError");
           })
@@ -513,10 +519,7 @@ describe("SmtpTransport", () => {
       };
 
       // Try multiple concurrent sends that should all fail
-      const promises = Array.from(
-        { length: 5 },
-        () => transport.send(message),
-      );
+      const promises = Array.from({ length: 5 }, () => transport.send(message));
 
       const results = await Promise.all(promises);
 

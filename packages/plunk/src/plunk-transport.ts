@@ -122,9 +122,8 @@ export class PlunkTransport implements Transport<"plunk"> {
         throw error;
       }
 
-      const errorMessage = error instanceof Error
-        ? error.message
-        : String(error);
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
 
       return createPlunkFailure(errorMessage, error);
     }
@@ -226,9 +225,8 @@ export class PlunkTransport implements Transport<"plunk"> {
 
     // Fallback: generate synthetic message ID
     const timestamp = Date.now();
-    const recipientHash = message.recipients[0]?.address
-      .split("@")[0]
-      .substring(0, 8) ?? "unknown";
+    const recipientHash =
+      message.recipients[0]?.address.split("@")[0].substring(0, 8) ?? "unknown";
     const random = Math.random().toString(36).substring(2, 8);
 
     return `plunk-${timestamp}-${recipientHash}-${random}`;
@@ -258,6 +256,7 @@ function isAbortError(error: unknown): boolean {
 }
 
 function isCallerAbort(error: unknown, signal?: AbortSignal): boolean {
-  return signal?.aborted === true &&
-    (isAbortError(error) || error === signal.reason);
+  return (
+    signal?.aborted === true && (isAbortError(error) || error === signal.reason)
+  );
 }

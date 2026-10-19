@@ -1,6 +1,7 @@
 import { defineConfig } from "tsdown";
 
 export default defineConfig({
+  tsconfig: false,
   entry: [
     "src/index.ts",
     "src/abort-signal.ts",

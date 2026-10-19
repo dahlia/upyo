@@ -26,11 +26,12 @@ describe("uploadBlob", () => {
         input: RequestInfo | URL,
         init?: RequestInit,
       ): Promise<Response> => {
-        const url = typeof input === "string"
-          ? input
-          : input instanceof URL
-          ? input.href
-          : input.url;
+        const url =
+          typeof input === "string"
+            ? input
+            : input instanceof URL
+              ? input.href
+              : input.url;
         capturedRequest.url = url;
         capturedRequest.headers = new Headers(init?.headers);
         capturedRequest.body = init?.body as Blob;
@@ -123,9 +124,7 @@ describe("uploadBlob", () => {
 
     try {
       globalThis.fetch = (): Promise<Response> => {
-        return Promise.resolve(
-          new Response("Unauthorized", { status: 401 }),
-        );
+        return Promise.resolve(new Response("Unauthorized", { status: 401 }));
       };
 
       const blob = new Blob(["test"], { type: "text/plain" });

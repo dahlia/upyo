@@ -69,9 +69,10 @@ export function generateMessageId(domain: string): string {
  */
 export function parseMessageId(value: string): string | undefined {
   if (typeof value !== "string") return undefined;
-  const bare = value.length > 1 && value.startsWith("<") && value.endsWith(">")
-    ? value.slice(1, -1)
-    : value;
+  const bare =
+    value.length > 1 && value.startsWith("<") && value.endsWith(">")
+      ? value.slice(1, -1)
+      : value;
   return isMessageId(bare) ? bare : undefined;
 }
 
@@ -120,8 +121,9 @@ function isMessageId(id: string): boolean {
   if (separator < 0) return false;
   const left = id.slice(0, separator);
   const right = id.slice(separator + 1);
-  return isDotAtomText(left) &&
-    (isDotAtomText(right) || isNoFoldLiteral(right));
+  return (
+    isDotAtomText(left) && (isDotAtomText(right) || isNoFoldLiteral(right))
+  );
 }
 
 /**
@@ -227,8 +229,7 @@ function isAtext(character: string): boolean {
   const codePoint = character.codePointAt(0);
   if (codePoint == null) return false;
   if (codePoint > 0x7f) return isNonAsciiText(codePoint);
-  return /[A-Za-z0-9]/.test(character) ||
-    asciiAtextSymbols.includes(character);
+  return /[A-Za-z0-9]/.test(character) || asciiAtextSymbols.includes(character);
 }
 
 /**
@@ -247,9 +248,12 @@ function isDtext(character: string): boolean {
   const codePoint = character.codePointAt(0);
   if (codePoint == null) return false;
   if (codePoint > 0x7f) return isNonAsciiText(codePoint);
-  return (codePoint >= 0x21 && codePoint <= 0x5a ||
-    codePoint >= 0x5e && codePoint <= 0x7e) &&
-    character !== "<" && character !== ">";
+  return (
+    ((codePoint >= 0x21 && codePoint <= 0x5a) ||
+      (codePoint >= 0x5e && codePoint <= 0x7e)) &&
+    character !== "<" &&
+    character !== ">"
+  );
 }
 
 /**

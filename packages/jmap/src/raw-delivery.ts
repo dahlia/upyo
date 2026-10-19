@@ -29,15 +29,15 @@ function failure(
     category: unknown
       ? "unknown"
       : error?.statusCode !== undefined || retryable
-      ? undefined
-      : "rejected",
+        ? undefined
+        : "rejected",
     statusCode: error?.statusCode,
     retryAfterMilliseconds: error?.retryAfterMilliseconds,
     providerDetails: error
       ? {
-        responseBody: error.responseBody,
-        jmapErrorType: error.jmapErrorType,
-      }
+          responseBody: error.responseBody,
+          jmapErrorType: error.jmapErrorType,
+        }
       : undefined,
     retryable,
     attempts: 1,
@@ -53,8 +53,8 @@ function methodResult(
   if (!isRecord(response) || !Array.isArray(response.methodResponses)) {
     throw new JmapApiError("Invalid raw JMAP method response.");
   }
-  const matches = response.methodResponses.filter((entry: unknown) =>
-    Array.isArray(entry) && entry[2] === id
+  const matches = response.methodResponses.filter(
+    (entry: unknown) => Array.isArray(entry) && entry[2] === id,
   );
   if (matches.length !== 1) {
     throw new JmapApiError(
@@ -63,9 +63,12 @@ function methodResult(
   }
   const result: unknown = matches[0];
   if (
-    !Array.isArray(result) || result.length !== 3 || !isRecord(result[1]) ||
+    !Array.isArray(result) ||
+    result.length !== 3 ||
+    !isRecord(result[1]) ||
     (result[0] !== name && result[0] !== "error")
-  ) throw new JmapApiError("Invalid raw JMAP method result.");
+  )
+    throw new JmapApiError("Invalid raw JMAP method result.");
   if (result[0] === "error") {
     if (typeof result[1].type !== "string" || !result[1].type) {
       throw new JmapApiError("Invalid raw JMAP method error.");
@@ -76,9 +79,10 @@ function methodResult(
   return { name: result[0], args: result[1] };
 }
 
-function creation(
-  args: Record<string, unknown>,
-): { created?: Record<string, unknown>; rejected?: Record<string, unknown> } {
+function creation(args: Record<string, unknown>): {
+  created?: Record<string, unknown>;
+  rejected?: Record<string, unknown>;
+} {
   const created = isRecord(args.created) ? args.created.raw : undefined;
   const rejected = isRecord(args.notCreated) ? args.notCreated.raw : undefined;
   if (created !== undefined && rejected !== undefined) {
@@ -87,9 +91,8 @@ function creation(
   if (isRecord(created) && typeof created.id === "string" && created.id) {
     return { created };
   }
-  if (
-    isRecord(rejected) && typeof rejected.type === "string" && rejected.type
-  ) return { rejected };
+  if (isRecord(rejected) && typeof rejected.type === "string" && rejected.type)
+    return { rejected };
   throw new JmapApiError("Missing raw JMAP creation result.");
 }
 
@@ -105,21 +108,26 @@ function isRequestRejection(error: unknown): boolean {
   if (error.statusCode === 401 || error.statusCode === 403) return true;
   if (
     !error.responseBody ||
-    error.statusCode === undefined || error.statusCode < 400 ||
+    error.statusCode === undefined ||
+    error.statusCode < 400 ||
     error.statusCode > 599
-  ) return false;
+  )
+    return false;
   try {
     const body: unknown = JSON.parse(error.responseBody);
     if (
       !isRecord(body) ||
       (body.status !== undefined && body.status !== error.statusCode)
-    ) return false;
+    )
+      return false;
     if (body.type === JMAP_ERROR_TYPES.limit) {
       return typeof body.limit === "string" && body.limit.length > 0;
     }
-    return body.type === JMAP_ERROR_TYPES.notJSON ||
+    return (
+      body.type === JMAP_ERROR_TYPES.notJSON ||
       body.type === JMAP_ERROR_TYPES.notRequest ||
-      body.type === JMAP_ERROR_TYPES.unknownCapability;
+      body.type === JMAP_ERROR_TYPES.unknownCapability
+    );
   } catch {
     return false;
   }
@@ -157,15 +165,21 @@ export async function deliverRawMessage(
     const imported = methodResult(
       await execute({
         using,
-        methodCalls: [["Email/import", {
-          accountId,
-          emails: {
-            raw: {
-              blobId: uploaded.blobId,
-              mailboxIds: { [draftsMailboxId]: true },
+        methodCalls: [
+          [
+            "Email/import",
+            {
+              accountId,
+              emails: {
+                raw: {
+                  blobId: uploaded.blobId,
+                  mailboxIds: { [draftsMailboxId]: true },
+                },
+              },
             },
-          },
-        }, "raw-import"]],
+            "raw-import",
+          ],
+        ],
       }),
       "Email/import",
       "raw-import",
@@ -183,16 +197,23 @@ export async function deliverRawMessage(
     if (created && typeof created.id === "string") emailId = created.id;
     else if (
       rejected?.type === "alreadyExists" &&
-      typeof rejected.existingId === "string" && rejected.existingId
+      typeof rejected.existingId === "string" &&
+      rejected.existingId
     ) {
       const existing = methodResult(
         await execute({
           using,
-          methodCalls: [["Email/get", {
-            accountId,
-            ids: [rejected.existingId],
-            properties: ["id", "blobId"],
-          }, "raw-existing"]],
+          methodCalls: [
+            [
+              "Email/get",
+              {
+                accountId,
+                ids: [rejected.existingId],
+                properties: ["id", "blobId"],
+              },
+              "raw-existing",
+            ],
+          ],
         }),
         "Email/get",
         "raw-existing",
@@ -200,9 +221,12 @@ export async function deliverRawMessage(
       );
       const list = existing.args.list;
       if (
-        existing.name === "error" || !Array.isArray(list) ||
-        list.length !== 1 || !isRecord(list[0]) ||
-        list[0].id !== rejected.existingId || list[0].blobId !== uploaded.blobId
+        existing.name === "error" ||
+        !Array.isArray(list) ||
+        list.length !== 1 ||
+        !isRecord(list[0]) ||
+        list[0].id !== rejected.existingId ||
+        list[0].blobId !== uploaded.blobId
       ) {
         return failure(
           "Existing Email does not match the uploaded raw blob.",
@@ -211,29 +235,37 @@ export async function deliverRawMessage(
         );
       }
       emailId = rejected.existingId;
-    } else {return failure(
+    } else {
+      return failure(
         errorDescription(rejected ?? { type: "invalidResult" }),
         "import",
         false,
-      );}
+      );
+    }
     signal?.throwIfAborted();
     stage = "submission";
     const submitted = methodResult(
       await execute({
         using,
-        methodCalls: [["EmailSubmission/set", {
-          accountId,
-          create: {
-            raw: {
-              emailId,
-              identityId,
-              envelope: {
-                mailFrom: { email: plan.envelope.from ?? "" },
-                rcptTo: plan.envelope.to.map((email) => ({ email })),
+        methodCalls: [
+          [
+            "EmailSubmission/set",
+            {
+              accountId,
+              create: {
+                raw: {
+                  emailId,
+                  identityId,
+                  envelope: {
+                    mailFrom: { email: plan.envelope.from ?? "" },
+                    rcptTo: plan.envelope.to.map((email) => ({ email })),
+                  },
+                },
               },
             },
-          },
-        }, "raw-submit"]],
+            "raw-submit",
+          ],
+        ],
       }),
       "EmailSubmission/set",
       "raw-submit",

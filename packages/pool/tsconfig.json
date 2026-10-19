@@ -1,0 +1,9 @@
+{
+  "extends": "../../tsconfig.check.json",
+  "compilerOptions": {
+    "paths": {},
+    "skipLibCheck": true
+  },
+  "include": ["src/**/*.ts", "tsdown.config.ts"],
+  "exclude": ["dist", "node_modules"]
+}

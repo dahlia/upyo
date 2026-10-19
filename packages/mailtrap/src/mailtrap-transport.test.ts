@@ -48,10 +48,12 @@ function createDelayedJsonResponse(
   onBodyRead: () => void,
   delay: number,
 ): Response {
-  const body = new TextEncoder().encode(JSON.stringify({
-    success: true,
-    message_ids: ["test-message-id"],
-  }));
+  const body = new TextEncoder().encode(
+    JSON.stringify({
+      success: true,
+      message_ids: ["test-message-id"],
+    }),
+  );
   let started = false;
 
   return new Response(
@@ -90,12 +92,9 @@ describe("MailtrapTransport - Send Message", () => {
   serialIt("should send a message successfully", async () => {
     const originalFetch = globalThis.fetch;
     try {
-      // deno-lint-ignore require-await
+      // oxlint-disable-next-line eslint/require-await
       globalThis.fetch = async (input, init) => {
-        assert.equal(
-          input,
-          "https://send.api.mailtrap.io/api/send",
-        );
+        assert.equal(input, "https://send.api.mailtrap.io/api/send");
         const headers = new Headers(init?.headers);
         assert.equal(headers.get("Api-Token"), "test-token");
         assert.equal(headers.get("User-Agent"), "@upyo/mailtrap");
@@ -138,12 +137,9 @@ describe("MailtrapTransport - Sandbox URL", () => {
   serialIt("should use sandbox endpoint when configured", async () => {
     const originalFetch = globalThis.fetch;
     try {
-      // deno-lint-ignore require-await
+      // oxlint-disable-next-line eslint/require-await
       globalThis.fetch = async (input) => {
-        assert.equal(
-          input,
-          "https://sandbox.api.mailtrap.io/api/send/12345",
-        );
+        assert.equal(input, "https://sandbox.api.mailtrap.io/api/send/12345");
 
         return new Response(
           JSON.stringify({
@@ -176,7 +172,7 @@ describe("MailtrapTransport - API Errors", () => {
   serialIt("should handle API errors", async () => {
     const originalFetch = globalThis.fetch;
     try {
-      // deno-lint-ignore require-await
+      // oxlint-disable-next-line eslint/require-await
       globalThis.fetch = async () => {
         return new Response(
           JSON.stringify({
@@ -212,14 +208,12 @@ describe("MailtrapTransport - API Errors", () => {
     async () => {
       const originalFetch = globalThis.fetch;
       try {
-        // deno-lint-ignore require-await
+        // oxlint-disable-next-line eslint/require-await
         globalThis.fetch = async () => {
           return new Response(
             JSON.stringify({
               success: false,
-              errors: [
-                "Too many emails per second. Please upgrade your plan.",
-              ],
+              errors: ["Too many emails per second. Please upgrade your plan."],
             }),
             {
               status: 429,
@@ -240,10 +234,7 @@ describe("MailtrapTransport - API Errors", () => {
         assert.ok(!receipt.successful);
         if (!receipt.successful) {
           assert.equal(receipt.errors?.[0]?.statusCode, 429);
-          assert.equal(
-            receipt.errors?.[0]?.retryAfterMilliseconds,
-            10_000,
-          );
+          assert.equal(receipt.errors?.[0]?.retryAfterMilliseconds, 10_000);
         }
       } finally {
         globalThis.fetch = originalFetch;
@@ -256,7 +247,7 @@ describe("MailtrapTransport - API Errors", () => {
     async () => {
       const originalFetch = globalThis.fetch;
       try {
-        // deno-lint-ignore require-await
+        // oxlint-disable-next-line eslint/require-await
         globalThis.fetch = async () => {
           return new Response(
             JSON.stringify({
@@ -284,10 +275,7 @@ describe("MailtrapTransport - API Errors", () => {
 
         assert.ok(!receipt.successful);
         if (!receipt.successful) {
-          assert.equal(
-            receipt.errors?.[0]?.retryAfterMilliseconds,
-            12_000,
-          );
+          assert.equal(receipt.errors?.[0]?.retryAfterMilliseconds, 12_000);
         }
       } finally {
         globalThis.fetch = originalFetch;
@@ -300,7 +288,7 @@ describe("MailtrapTransport - API Errors", () => {
     async () => {
       const originalFetch = globalThis.fetch;
       try {
-        // deno-lint-ignore require-await
+        // oxlint-disable-next-line eslint/require-await
         globalThis.fetch = async () => {
           return new Response(
             JSON.stringify({
@@ -325,10 +313,7 @@ describe("MailtrapTransport - API Errors", () => {
 
         assert.ok(!receipt.successful);
         if (!receipt.successful) {
-          assert.equal(
-            receipt.errors?.[0]?.retryAfterMilliseconds,
-            undefined,
-          );
+          assert.equal(receipt.errors?.[0]?.retryAfterMilliseconds, undefined);
         }
       } finally {
         globalThis.fetch = originalFetch;
@@ -341,7 +326,7 @@ describe("MailtrapTransport - API Errors", () => {
     async () => {
       const originalFetch = globalThis.fetch;
       try {
-        // deno-lint-ignore require-await
+        // oxlint-disable-next-line eslint/require-await
         globalThis.fetch = async () => {
           return new Response("x".repeat(600), {
             status: 503,
@@ -369,7 +354,7 @@ describe("MailtrapTransport - API Errors", () => {
   serialIt("should handle provider-reported send failures", async () => {
     const originalFetch = globalThis.fetch;
     try {
-      // deno-lint-ignore require-await
+      // oxlint-disable-next-line eslint/require-await
       globalThis.fetch = async () => {
         return new Response(
           JSON.stringify({
@@ -403,7 +388,7 @@ describe("MailtrapTransport - API Errors", () => {
       const originalFetch = globalThis.fetch;
       let requests = 0;
       try {
-        // deno-lint-ignore require-await
+        // oxlint-disable-next-line eslint/require-await
         globalThis.fetch = async () => {
           requests++;
           return new Response("not json", {
@@ -432,16 +417,20 @@ describe("MailtrapTransport - API Errors", () => {
       const originalFetch = globalThis.fetch;
       let requests = 0;
       try {
-        // deno-lint-ignore require-await
+        // oxlint-disable-next-line eslint/require-await
         globalThis.fetch = async (_input, init) => {
           requests++;
           if (requests === 1) {
             if (failure === "network") throw new TypeError("Failed to fetch.");
             if (failure === "timeout") {
               return new Promise<Response>((_resolve, reject) => {
-                init?.signal?.addEventListener("abort", () => {
-                  reject(init.signal?.reason);
-                }, { once: true });
+                init?.signal?.addEventListener(
+                  "abort",
+                  () => {
+                    reject(init.signal?.reason);
+                  },
+                  { once: true },
+                );
               });
             }
             if (failure === "error body") {
@@ -480,7 +469,7 @@ describe("MailtrapTransport - API Errors", () => {
       const originalFetch = globalThis.fetch;
       const cause = new TypeError("Failed to fetch response body.");
       try {
-        // deno-lint-ignore require-await
+        // oxlint-disable-next-line eslint/require-await
         globalThis.fetch = async () =>
           new Response(
             new ReadableStream<Uint8Array>({
@@ -489,10 +478,12 @@ describe("MailtrapTransport - API Errors", () => {
               },
             }),
           );
-        const client = new MailtrapHttpClient(createMailtrapConfig({
-          apiToken: "test-token",
-          retries: 1,
-        }));
+        const client = new MailtrapHttpClient(
+          createMailtrapConfig({
+            apiToken: "test-token",
+            retries: 1,
+          }),
+        );
         await assert.rejects(client.sendBatch([]), (error: unknown) => {
           assert.ok(error instanceof MailtrapResponseError);
           assert.equal(error.cause, cause);
@@ -514,7 +505,7 @@ describe("MailtrapTransport - API Errors", () => {
         const originalFetch = globalThis.fetch;
         let requests = 0;
         try {
-          // deno-lint-ignore require-await
+          // oxlint-disable-next-line eslint/require-await
           globalThis.fetch = async () => {
             requests++;
             return new Response(
@@ -534,12 +525,11 @@ describe("MailtrapTransport - API Errors", () => {
           });
           const receipts = [];
           if (batch) {
-            for await (
-              const receipt of transport.sendMany([
-                createMessage(),
-                createMessage(),
-              ])
-            ) receipts.push(receipt);
+            for await (const receipt of transport.sendMany([
+              createMessage(),
+              createMessage(),
+            ]))
+              receipts.push(receipt);
           } else {
             receipts.push(await transport.send(createMessage()));
           }
@@ -569,7 +559,7 @@ describe("MailtrapTransport - API Errors", () => {
       const originalFetch = globalThis.fetch;
       let requests = 0;
       try {
-        // deno-lint-ignore require-await
+        // oxlint-disable-next-line eslint/require-await
         globalThis.fetch = async (_input, init) => {
           requests++;
           return createDelayedJsonResponse(init?.signal, () => {}, 100);
@@ -611,7 +601,7 @@ describe("MailtrapTransport - API Errors", () => {
       });
 
       try {
-        // deno-lint-ignore require-await
+        // oxlint-disable-next-line eslint/require-await
         globalThis.fetch = async (_input, init) => {
           return createDelayedJsonResponse(init?.signal, bodyRead, 100);
         };
@@ -640,12 +630,9 @@ describe("MailtrapTransport - Batch Send", () => {
   serialIt("should send a batch successfully", async () => {
     const originalFetch = globalThis.fetch;
     try {
-      // deno-lint-ignore require-await
+      // oxlint-disable-next-line eslint/require-await
       globalThis.fetch = async (input, init) => {
-        assert.equal(
-          input,
-          "https://send.api.mailtrap.io/api/batch",
-        );
+        assert.equal(input, "https://send.api.mailtrap.io/api/batch");
 
         const body = JSON.parse(String(init?.body));
         assert.equal(body.requests.length, 2);
@@ -667,12 +654,10 @@ describe("MailtrapTransport - Batch Send", () => {
       });
 
       const receipts = [];
-      for await (
-        const receipt of transport.sendMany([
-          createMessage({ subject: "One" }),
-          createMessage({ subject: "Two" }),
-        ])
-      ) {
+      for await (const receipt of transport.sendMany([
+        createMessage({ subject: "One" }),
+        createMessage({ subject: "Two" }),
+      ])) {
         receipts.push(receipt);
       }
 
@@ -693,7 +678,7 @@ describe("MailtrapTransport - Batch Send", () => {
   serialIt("should handle per-item batch failures", async () => {
     const originalFetch = globalThis.fetch;
     try {
-      // deno-lint-ignore require-await
+      // oxlint-disable-next-line eslint/require-await
       globalThis.fetch = async () => {
         return new Response(
           JSON.stringify({
@@ -712,12 +697,10 @@ describe("MailtrapTransport - Batch Send", () => {
       });
 
       const receipts = [];
-      for await (
-        const receipt of transport.sendMany([
-          createMessage(),
-          createMessage(),
-        ])
-      ) {
+      for await (const receipt of transport.sendMany([
+        createMessage(),
+        createMessage(),
+      ])) {
         receipts.push(receipt);
       }
 
@@ -735,7 +718,7 @@ describe("MailtrapTransport - Batch Send", () => {
     const originalFetch = globalThis.fetch;
     const requestSizes: number[] = [];
     try {
-      // deno-lint-ignore require-await
+      // oxlint-disable-next-line eslint/require-await
       globalThis.fetch = async (_input, init) => {
         const body: unknown = JSON.parse(String(init?.body));
         assert.ok(
@@ -759,9 +742,8 @@ describe("MailtrapTransport - Batch Send", () => {
       };
 
       const transport = new MailtrapTransport({ apiToken: "test-token" });
-      const messages = Array.from(
-        { length: 501 },
-        (_, index) => createMessage({ subject: `Message ${index}` }),
+      const messages = Array.from({ length: 501 }, (_, index) =>
+        createMessage({ subject: `Message ${index}` }),
       );
       let receipts = 0;
 

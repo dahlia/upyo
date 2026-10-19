@@ -38,6 +38,7 @@ docker run --rm -p 1025:1025 -p 8025:8025 \
 '''
 
 [tasks."test:deno"]
+tools.deno = "{{ vars.deno_version }}"
 description = "Run @upyo/smtp tests with Deno"
 usage = '''
 flag "--coverage" help="Collect coverage data"
@@ -71,5 +72,9 @@ depends = ["build"]
 run = "bun test --timeout=30000"
 
 [tasks.test]
+description = "Run @upyo/smtp tests with Node.js"
+depends = ["test:node"]
+
+[tasks."test:all"]
 description = "Run @upyo/smtp tests across all runtimes"
 depends = ["test:deno", "test:node", "test:bun"]

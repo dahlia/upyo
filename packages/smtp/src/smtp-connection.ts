@@ -98,7 +98,7 @@ export class SmtpUtf8UnsupportedError extends Error {
       missingCapability === "SMTPUTF8"
         ? "The SMTP server does not advertise SMTPUTF8."
         : "The SMTP server advertises SMTPUTF8 without the required " +
-          "8BITMIME capability.",
+            "8BITMIME capability.",
     );
     this.name = "SmtpUtf8UnsupportedError";
     this.missingCapability = missingCapability;
@@ -180,7 +180,7 @@ function parseSizeCapability(
   capabilities: readonly string[],
 ): SmtpSizeCapability | null {
   const capability = capabilities.find((value) =>
-    /^SIZE(?:[ \t]|$)/i.test(value)
+    /^SIZE(?:[ \t]|$)/i.test(value),
   );
   if (capability == null) return null;
 
@@ -208,8 +208,8 @@ function parseIpv4Address(address: string): readonly number[] | null {
   const octets = address.split(".");
   if (
     octets.length !== 4 ||
-    !octets.every((octet) =>
-      /^(?:0|[1-9]\d{0,2})$/.test(octet) && Number(octet) <= 255
+    !octets.every(
+      (octet) => /^(?:0|[1-9]\d{0,2})$/.test(octet) && Number(octet) <= 255,
     )
   ) {
     return null;
@@ -238,10 +238,7 @@ function parseIpv6Address(address: string): readonly number[] | null {
         if (index !== tokens.length - 1) return null;
         const octets = parseIpv4Address(token);
         if (octets == null) return null;
-        groups.push(
-          octets[0] << 8 | octets[1],
-          octets[2] << 8 | octets[3],
-        );
+        groups.push((octets[0] << 8) | octets[1], (octets[2] << 8) | octets[3]);
       } else if (/^[0-9a-f]{1,4}$/.test(token)) {
         groups.push(Number.parseInt(token, 16));
       } else {
@@ -261,11 +258,7 @@ function parseIpv6Address(address: string): readonly number[] | null {
 
   const omittedGroups = 8 - left.length - right.length;
   if (omittedGroups < 1) return null;
-  return [
-    ...left,
-    ...Array.from({ length: omittedGroups }, () => 0),
-    ...right,
-  ];
+  return [...left, ...Array.from({ length: omittedGroups }, () => 0), ...right];
 }
 
 /**
@@ -288,12 +281,11 @@ function isLoopbackAddress(address: string): boolean {
   const ipv6Groups = parseIpv6Address(normalized);
   if (ipv6Groups == null) return false;
   return (
-    ipv6Groups.slice(0, 7).every((group) => group === 0) &&
-    ipv6Groups[7] === 1
-  ) || (
-    ipv6Groups.slice(0, 5).every((group) => group === 0) &&
-    ipv6Groups[5] === 0xffff &&
-    ipv6Groups[6] >> 8 === 127
+    (ipv6Groups.slice(0, 7).every((group) => group === 0) &&
+      ipv6Groups[7] === 1) ||
+    (ipv6Groups.slice(0, 5).every((group) => group === 0) &&
+      ipv6Groups[5] === 0xffff &&
+      ipv6Groups[6] >> 8 === 127)
   );
 }
 
@@ -309,9 +301,11 @@ function isLoopbackAddress(address: string): boolean {
  */
 function isLoopbackHost(host: string): boolean {
   const normalized = host.toLowerCase().replace(/\.$/, "");
-  return normalized === "localhost" ||
+  return (
+    normalized === "localhost" ||
     normalized.endsWith(".localhost") ||
-    isLoopbackAddress(normalized);
+    isLoopbackAddress(normalized)
+  );
 }
 
 /**
@@ -338,8 +332,9 @@ export class SmtpConnection {
   private active = false;
 
   get usable(): boolean {
-    return this.socket != null && !this.socket.destroyed &&
-      this.socket.writable;
+    return (
+      this.socket != null && !this.socket.destroyed && this.socket.writable
+    );
   }
 
   private observeSocket(socket: Socket): void {
@@ -433,8 +428,8 @@ export class SmtpConnection {
   }
 
   sendCommand(command: string, signal?: AbortSignal): Promise<SmtpResponse> {
-    return this.sendCommands([command], signal).then((responses) =>
-      responses[0]
+    return this.sendCommands([command], signal).then(
+      (responses) => responses[0],
     );
   }
 
@@ -509,9 +504,7 @@ export class SmtpConnection {
 
             if (response.code === 421) {
               cleanup();
-              reject(
-                new SmtpPipelineTerminatedError(responseIndex, response),
-              );
+              reject(new SmtpPipelineTerminatedError(responseIndex, response));
               return;
             }
 
@@ -530,8 +523,9 @@ export class SmtpConnection {
 
       const onClose = () => {
         cleanup();
-        const responseIndex = responses.findIndex((response, index) =>
-          response.code === 421 || (index === 0 && response.code >= 400)
+        const responseIndex = responses.findIndex(
+          (response, index) =>
+            response.code === 421 || (index === 0 && response.code >= 400),
         );
         if (responseIndex >= 0) {
           reject(
@@ -545,11 +539,12 @@ export class SmtpConnection {
         const completedFailures = responses.flatMap((response, index) =>
           response.code >= 400
             ? [`${commands[index]}: ${response.code} ${response.message}`]
-            : []
+            : [],
         );
-        const failureDetails = completedFailures.length > 0
-          ? ` Completed failures: ${completedFailures.join("; ")}.`
-          : "";
+        const failureDetails =
+          completedFailures.length > 0
+            ? ` Completed failures: ${completedFailures.join("; ")}.`
+            : "";
         reject(
           new Error(
             `Connection closed before all command responses.${failureDetails}`,
@@ -830,10 +825,7 @@ export class SmtpConnection {
     }
   }
 
-  async authLogin(
-    auth: SmtpUserPassAuth,
-    signal?: AbortSignal,
-  ): Promise<void> {
+  async authLogin(auth: SmtpUserPassAuth, signal?: AbortSignal): Promise<void> {
     const { user, pass } = auth;
 
     let response = await this.sendCommand("AUTH LOGIN", signal);
@@ -974,7 +966,8 @@ export class SmtpConnection {
         // error detail rather than masking it with a socket error.
         signal?.throwIfAborted();
       }
-      const message = `${mechanism} authentication failed: ` +
+      const message =
+        `${mechanism} authentication failed: ` +
         `${decodeOAuth2Challenge(response.message)}${finalMessage}`;
       if (finalResponse != null) {
         throw new SmtpAuthResponseError(
@@ -1018,7 +1011,7 @@ export class SmtpConnection {
     const negotiate = (encoding?: RawMessageEncoding) => {
       const supports = (name: string) =>
         this.capabilities.some((capability) =>
-          new RegExp(`^${name}(?:[ \t]|$)`, "i").test(capability)
+          new RegExp(`^${name}(?:[ \t]|$)`, "i").test(capability),
         );
       if (message.requiresSmtpUtf8 || encoding === "utf8") {
         if (!supports("SMTPUTF8")) {
@@ -1047,9 +1040,10 @@ export class SmtpConnection {
     ) {
       throw new SmtpDsnUnsupportedError();
     }
-    const mailDsnParameters = dsn == null || dsn.mailParameters.length === 0
-      ? ""
-      : ` ${dsn.mailParameters.join(" ")}`;
+    const mailDsnParameters =
+      dsn == null || dsn.mailParameters.length === 0
+        ? ""
+        : ` ${dsn.mailParameters.join(" ")}`;
 
     const checkSize = (
       size: number,
@@ -1059,7 +1053,8 @@ export class SmtpConnection {
         throw new RangeError("Message size exceeds the safe integer range.");
       }
       if (
-        sizeCapability?.maximum != null && BigInt(size) > sizeCapability.maximum
+        sizeCapability?.maximum != null &&
+        BigInt(size) > sizeCapability.maximum
       ) {
         throw new SmtpMessageSizeError(size, sizeCapability.maximum, phase);
       }
@@ -1067,42 +1062,44 @@ export class SmtpConnection {
     if (!this.socket || !this.usable) {
       throw new TypeError("SMTP connection is closed.");
     }
-    const stream: MessageStream = "rawMessage" in message
-      ? await prepareOnSocket(
-        this.socket,
-        this.config.socketTimeout,
-        (signal, progress) =>
-          prepareRawSmtpStream(
-            message.rawMessage,
-            negotiate,
-            checkSize,
-            progress,
+    const stream: MessageStream =
+      "rawMessage" in message
+        ? await prepareOnSocket(
+            this.socket,
+            this.config.socketTimeout,
+            (signal, progress) =>
+              prepareRawSmtpStream(
+                message.rawMessage,
+                negotiate,
+                checkSize,
+                progress,
+                signal,
+              ),
             signal,
-          ),
-        signal,
-      )
-      : "raw" in message
-      ? {
-        size: Buffer.byteLength(message.raw) + 2,
-        async *read(signal) {
-          signal?.throwIfAborted();
-          yield Buffer.from(message.raw + "\r\n");
-        },
-      }
-      : await prepareOnSocket(
-        this.socket,
-        this.config.socketTimeout,
-        (signal, progress) =>
-          prepareMessageStream(message, checkSize, progress, signal),
-        signal,
-      );
+          )
+        : "raw" in message
+          ? {
+              size: Buffer.byteLength(message.raw) + 2,
+              async *read(signal) {
+                signal?.throwIfAborted();
+                yield Buffer.from(message.raw + "\r\n");
+              },
+            }
+          : await prepareOnSocket(
+              this.socket,
+              this.config.socketTimeout,
+              (signal, progress) =>
+                prepareMessageStream(message, checkSize, progress, signal),
+              signal,
+            );
     negotiate(stream.encoding);
     if (stream.size != null) {
       checkSize(stream.size);
       if (sizeCapability != null) sizeParameter = ` SIZE=${stream.size}`;
     }
 
-    const mailCommand = `MAIL FROM:<${message.envelope.from ?? ""}>` +
+    const mailCommand =
+      `MAIL FROM:<${message.envelope.from ?? ""}>` +
       `${sizeParameter}${smtpUtf8Parameters}${mailDsnParameters}`;
     const recipientCommands = message.envelope.to.map((recipient, index) => {
       const parameters = dsn?.recipientParameters[index] ?? [];
@@ -1110,7 +1107,7 @@ export class SmtpConnection {
       return `RCPT TO:<${recipient}>${suffix}`;
     });
     const pipelining = this.capabilities.some((capability) =>
-      /^PIPELINING(?:\s|$)/i.test(capability)
+      /^PIPELINING(?:\s|$)/i.test(capability),
     );
 
     let mailResponse: SmtpResponse;
@@ -1194,11 +1191,12 @@ export class SmtpConnection {
       rejectedRecipients.length > 0 &&
       rejectedRecipients.length === message.envelope.to.length
     ) {
-      const rejection = rejectedRecipients.find((item) => item.retryable) ??
+      const rejection =
+        rejectedRecipients.find((item) => item.retryable) ??
         rejectedRecipients[0];
-      const details = rejectedRecipients.map((item) =>
-        `${item.recipient}: ${item.code} ${item.response}`
-      ).join("; ");
+      const details = rejectedRecipients
+        .map((item) => `${item.recipient}: ${item.code} ${item.response}`)
+        .join("; ");
       throw new SmtpResponseError(
         `RCPT TO failed for every recipient: ${details}`,
         rejection.code,

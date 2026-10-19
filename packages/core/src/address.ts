@@ -187,17 +187,22 @@ function isValidLocalPart(localPart: string): boolean {
       if (codePoint === 0x5c) {
         const escapedCodePoint = quotedContent.codePointAt(i + 1);
         if (
-          escapedCodePoint == null || escapedCodePoint < 0x20 ||
+          escapedCodePoint == null ||
+          escapedCodePoint < 0x20 ||
           escapedCodePoint > 0x7e
-        ) return false;
+        )
+          return false;
         i += 2;
         continue;
       }
 
       if (
-        codePoint < 0x20 || codePoint === 0x22 || codePoint === 0x5c ||
+        codePoint < 0x20 ||
+        codePoint === 0x22 ||
+        codePoint === 0x5c ||
         codePoint > 0x7e
-      ) return false;
+      )
+        return false;
       i++;
     }
     return true;
@@ -206,7 +211,8 @@ function isValidLocalPart(localPart: string): boolean {
   // Check for dot-atom format (RFC 5322)
   // No leading/trailing dots, no consecutive dots
   if (
-    localPart.startsWith(".") || localPart.endsWith(".") ||
+    localPart.startsWith(".") ||
+    localPart.endsWith(".") ||
     localPart.includes("..")
   ) {
     return false;
@@ -214,13 +220,18 @@ function isValidLocalPart(localPart: string): boolean {
 
   // RFC 6531 extends atext with any well-formed non-ASCII UTF-8 character.
   const asciiAtext = /^[a-zA-Z0-9!#$%&'*+/=?^_`{|}~-]$/;
-  return localPart.split(".").every((atom) =>
-    atom.length > 0 && Array.from(atom).every((character) => {
-      if (asciiAtext.test(character)) return true;
-      const codePoint = character.codePointAt(0);
-      return codePoint != null && codePoint > 0x7f &&
-        !(codePoint >= 0xd800 && codePoint <= 0xdfff);
-    })
+  return localPart.split(".").every(
+    (atom) =>
+      atom.length > 0 &&
+      Array.from(atom).every((character) => {
+        if (asciiAtext.test(character)) return true;
+        const codePoint = character.codePointAt(0);
+        return (
+          codePoint != null &&
+          codePoint > 0x7f &&
+          !(codePoint >= 0xd800 && codePoint <= 0xdfff)
+        );
+      }),
   );
 }
 

@@ -49,10 +49,12 @@ describeE2E("MailtrapTransport E2E", { concurrency: false }, () => {
       await waitForRateLimit();
 
       const transport = new MailtrapTransport(getTestConfig().mailtrap);
-      const receipt = await transport.send(createTestMessage({
-        subject: "[E2E] Mailtrap text email",
-        content: { text: "This is a Mailtrap E2E test email." },
-      }));
+      const receipt = await transport.send(
+        createTestMessage({
+          subject: "[E2E] Mailtrap text email",
+          content: { text: "This is a Mailtrap E2E test email." },
+        }),
+      );
 
       assertSuccessfulReceipt(receipt);
       console.log(`Sent Mailtrap text email with ID: ${receipt.messageId}`);
@@ -64,13 +66,15 @@ describeE2E("MailtrapTransport E2E", { concurrency: false }, () => {
       await waitForRateLimit();
 
       const transport = new MailtrapTransport(getTestConfig().mailtrap);
-      const receipt = await transport.send(createTestMessage({
-        subject: "[E2E] Mailtrap HTML email",
-        content: {
-          html: "<h1>Hello from Upyo</h1><p>This is a Mailtrap test.</p>",
-          text: "Hello from Upyo\n\nThis is a Mailtrap test.",
-        },
-      }));
+      const receipt = await transport.send(
+        createTestMessage({
+          subject: "[E2E] Mailtrap HTML email",
+          content: {
+            html: "<h1>Hello from Upyo</h1><p>This is a Mailtrap test.</p>",
+            text: "Hello from Upyo\n\nThis is a Mailtrap test.",
+          },
+        }),
+      );
 
       assertSuccessfulReceipt(receipt);
       console.log(`Sent Mailtrap HTML email with ID: ${receipt.messageId}`);
@@ -84,18 +88,16 @@ describeE2E("MailtrapTransport E2E", { concurrency: false }, () => {
       const transport = new MailtrapTransport(getTestConfig().mailtrap);
       const receipts: Receipt[] = [];
 
-      for await (
-        const receipt of transport.sendMany([
-          createTestMessage({
-            subject: "[E2E] Mailtrap batch 1",
-            content: { text: "Batch message 1" },
-          }),
-          createTestMessage({
-            subject: "[E2E] Mailtrap batch 2",
-            content: { text: "Batch message 2" },
-          }),
-        ])
-      ) {
+      for await (const receipt of transport.sendMany([
+        createTestMessage({
+          subject: "[E2E] Mailtrap batch 1",
+          content: { text: "Batch message 1" },
+        }),
+        createTestMessage({
+          subject: "[E2E] Mailtrap batch 2",
+          content: { text: "Batch message 2" },
+        }),
+      ])) {
         receipts.push(receipt);
       }
 

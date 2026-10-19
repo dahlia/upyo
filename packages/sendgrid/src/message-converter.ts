@@ -134,9 +134,10 @@ export async function convertMessage(
   // A transport that cannot compose a `text/calendar` alternative carries the
   // scheduling payload as an *invite.ics* part instead, ahead of the caller's
   // own files so that a client looking for the first calendar part finds it.
-  const attachments = message.calendar == null
-    ? message.attachments
-    : [createCalendarAttachment(message.calendar), ...message.attachments];
+  const attachments =
+    message.calendar == null
+      ? message.attachments
+      : [createCalendarAttachment(message.calendar), ...message.attachments];
 
   const sendGridMail: SendGridMail = {
     personalizations: [],
@@ -249,7 +250,7 @@ export async function convertMessage(
     try {
       sendGridMail.attachments = await Promise.all(
         attachments.map((attachment) =>
-          convertAttachment(attachment, combined.signal)
+          convertAttachment(attachment, combined.signal),
         ),
       );
     } finally {

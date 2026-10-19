@@ -75,7 +75,8 @@ import { SelectorStrategy } from "./strategies/selector-strategy.ts";
  * @since 0.3.0
  */
 export class PoolTransport<TProviderId extends string = string>
-  implements Transport<TProviderId | "pool">, AsyncDisposable {
+  implements Transport<TProviderId | "pool">, AsyncDisposable
+{
   readonly id = "pool";
 
   /**
@@ -189,14 +190,16 @@ export class PoolTransport<TProviderId extends string = string>
         const errorMessage = abortError
           ? timeoutMessage
           : error instanceof Error
-          ? error.message
-          : String(error);
+            ? error.message
+            : String(error);
         errorMessages.push(errorMessage);
-        errors.push(createReceiptError(errorMessage, {
-          provider: selection.entry.transport.id,
-          category: abortError ? "timeout" : undefined,
-          retryable: abortError ? true : undefined,
-        }));
+        errors.push(
+          createReceiptError(errorMessage, {
+            provider: selection.entry.transport.id,
+            category: abortError ? "timeout" : undefined,
+            retryable: abortError ? true : undefined,
+          }),
+        );
         checkCallerAbortBeforeFailure ||= !abortError;
       }
     }
@@ -260,16 +263,16 @@ export class PoolTransport<TProviderId extends string = string>
       if (
         typeof (transport as unknown as AsyncDisposable)[
           Symbol.asyncDispose
-        ] ===
-          "function"
+        ] === "function"
       ) {
-        const asyncDispose = (transport as unknown as AsyncDisposable)
-          [Symbol.asyncDispose]();
+        const asyncDispose = (transport as unknown as AsyncDisposable)[
+          Symbol.asyncDispose
+        ]();
         disposalPromises.push(Promise.resolve(asyncDispose));
       } // Check for Disposable
       else if (
         typeof (transport as unknown as Disposable)[Symbol.dispose] ===
-          "function"
+        "function"
       ) {
         try {
           (transport as unknown as Disposable)[Symbol.dispose]();
@@ -312,9 +315,7 @@ export class PoolTransport<TProviderId extends string = string>
   /**
    * Creates send options with timeout if configured.
    */
-  private createSendOptions(
-    options?: TransportOptions,
-  ): {
+  private createSendOptions(options?: TransportOptions): {
     readonly options?: TransportOptions;
     abortedByCaller(): boolean;
     cleanup(): void;
@@ -387,8 +388,9 @@ function createAbortError(): DOMException {
 }
 
 function isCallerAbort(error: unknown, signal?: AbortSignal): boolean {
-  return signal?.aborted === true &&
-    (isAbortError(error) || error === signal.reason);
+  return (
+    signal?.aborted === true && (isAbortError(error) || error === signal.reason)
+  );
 }
 
 function getReceiptErrors<TProviderId extends string>(
@@ -397,7 +399,7 @@ function getReceiptErrors<TProviderId extends string>(
 ): readonly ReceiptError<TProviderId>[] {
   if (receipt.errors != null && receipt.errors.length > 0) {
     return receipt.errors.map((error) =>
-      withReceiptErrorProvider(error, provider)
+      withReceiptErrorProvider(error, provider),
     );
   }
 
@@ -405,7 +407,7 @@ function getReceiptErrors<TProviderId extends string>(
     createReceiptError(message, {
       provider: receipt.provider ?? provider,
       retryable: receipt.retryable,
-    })
+    }),
   );
 }
 
@@ -443,23 +445,26 @@ function withReceiptErrorProvider<TProviderId extends string>(
 function isReceiptError<TProviderId extends string>(
   value: unknown,
 ): value is ReceiptError<TProviderId> {
-  return typeof value === "object" && value != null &&
+  return (
+    typeof value === "object" &&
+    value != null &&
     typeof (value as { readonly message?: unknown }).message === "string" &&
     typeof (value as { readonly code?: unknown }).code === "string" &&
     typeof (value as { readonly retryable?: unknown }).retryable ===
       "boolean" &&
-    typeof (value as { readonly category?: unknown }).category === "string";
+    typeof (value as { readonly category?: unknown }).category === "string"
+  );
 }
 
 function isFailedReceipt<TProviderId extends string>(
   value: unknown,
 ): value is Receipt<TProviderId> & { readonly successful: false } {
-  return typeof value === "object" && value != null &&
+  return (
+    typeof value === "object" &&
+    value != null &&
     (value as { readonly successful?: unknown }).successful === false &&
-    Array.isArray(
-      (value as { readonly errorMessages?: unknown })
-        .errorMessages,
-    );
+    Array.isArray((value as { readonly errorMessages?: unknown }).errorMessages)
+  );
 }
 
 function isAbortError(error: unknown): boolean {

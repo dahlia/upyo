@@ -10,10 +10,7 @@ import {
 describe("DKIM Canonicalization", () => {
   describe("canonicalizeHeaderSimple", () => {
     it("should not modify header at all", () => {
-      const result = canonicalizeHeaderSimple(
-        "Subject",
-        "Hello World",
-      );
+      const result = canonicalizeHeaderSimple("Subject", "Hello World");
       assert.strictEqual(result, "Subject:Hello World");
     });
 
@@ -26,76 +23,49 @@ describe("DKIM Canonicalization", () => {
     });
 
     it("should preserve whitespace in value", () => {
-      const result = canonicalizeHeaderSimple(
-        "Subject",
-        "  Hello   World  ",
-      );
+      const result = canonicalizeHeaderSimple("Subject", "  Hello   World  ");
       assert.strictEqual(result, "Subject:  Hello   World  ");
     });
 
     it("should handle folded headers (multi-line)", () => {
-      const result = canonicalizeHeaderSimple(
-        "Subject",
-        "Hello\r\n World",
-      );
+      const result = canonicalizeHeaderSimple("Subject", "Hello\r\n World");
       assert.strictEqual(result, "Subject:Hello\r\n World");
     });
   });
 
   describe("canonicalizeHeaderRelaxed", () => {
     it("should lowercase header name", () => {
-      const result = canonicalizeHeaderRelaxed(
-        "Subject",
-        "Hello World",
-      );
+      const result = canonicalizeHeaderRelaxed("Subject", "Hello World");
       assert.strictEqual(result, "subject:Hello World");
     });
 
     it("should lowercase mixed case header name", () => {
-      const result = canonicalizeHeaderRelaxed(
-        "Content-Type",
-        "text/plain",
-      );
+      const result = canonicalizeHeaderRelaxed("Content-Type", "text/plain");
       assert.strictEqual(result, "content-type:text/plain");
     });
 
     it("should collapse whitespace in value to single space", () => {
-      const result = canonicalizeHeaderRelaxed(
-        "Subject",
-        "Hello    World",
-      );
+      const result = canonicalizeHeaderRelaxed("Subject", "Hello    World");
       assert.strictEqual(result, "subject:Hello World");
     });
 
     it("should remove leading whitespace from value", () => {
-      const result = canonicalizeHeaderRelaxed(
-        "Subject",
-        "   Hello World",
-      );
+      const result = canonicalizeHeaderRelaxed("Subject", "   Hello World");
       assert.strictEqual(result, "subject:Hello World");
     });
 
     it("should remove trailing whitespace from value", () => {
-      const result = canonicalizeHeaderRelaxed(
-        "Subject",
-        "Hello World   ",
-      );
+      const result = canonicalizeHeaderRelaxed("Subject", "Hello World   ");
       assert.strictEqual(result, "subject:Hello World");
     });
 
     it("should unfold multi-line headers", () => {
-      const result = canonicalizeHeaderRelaxed(
-        "Subject",
-        "Hello\r\n World",
-      );
+      const result = canonicalizeHeaderRelaxed("Subject", "Hello\r\n World");
       assert.strictEqual(result, "subject:Hello World");
     });
 
     it("should handle tabs as whitespace", () => {
-      const result = canonicalizeHeaderRelaxed(
-        "Subject",
-        "Hello\t\tWorld",
-      );
+      const result = canonicalizeHeaderRelaxed("Subject", "Hello\t\tWorld");
       assert.strictEqual(result, "subject:Hello World");
     });
 
@@ -177,16 +147,14 @@ describe("DKIM Canonicalization", () => {
     });
 
     it("should handle complex multi-line body", () => {
-      const input = "Line 1   \r\n" +
+      const input =
+        "Line 1   \r\n" +
         "Line   2\r\n" +
         "\r\n" +
         "Line 3\t\t\r\n" +
         "\r\n" +
         "\r\n";
-      const expected = "Line 1\r\n" +
-        "Line 2\r\n" +
-        "\r\n" +
-        "Line 3\r\n";
+      const expected = "Line 1\r\n" + "Line 2\r\n" + "\r\n" + "Line 3\r\n";
       const result = canonicalizeBodyRelaxed(input);
       assert.strictEqual(result, expected);
     });

@@ -155,9 +155,10 @@ async function createSimpleContent(
   // A transport that cannot compose a `text/calendar` alternative carries the
   // scheduling payload as an *invite.ics* part instead, ahead of the caller's
   // own files so that a client looking for the first calendar part finds it.
-  const attachments = message.calendar == null
-    ? message.attachments
-    : [createCalendarAttachment(message.calendar), ...message.attachments];
+  const attachments =
+    message.calendar == null
+      ? message.attachments
+      : [createCalendarAttachment(message.calendar), ...message.attachments];
 
   if (attachments.length > 0) {
     const cancellation = new AbortController();
@@ -256,9 +257,8 @@ export async function convertMessagesToBulk(
   };
 
   if (firstMessage.replyRecipients.length > 0) {
-    bulkMessage.ReplyToAddresses = firstMessage.replyRecipients.map(
-      formatAddress,
-    );
+    bulkMessage.ReplyToAddresses =
+      firstMessage.replyRecipients.map(formatAddress);
   }
 
   if (config.configurationSetName) {
@@ -282,7 +282,8 @@ export async function convertMessagesToBulk(
       Destination: destination,
     };
 
-    const isContentDifferent = message.subject !== firstMessage.subject ||
+    const isContentDifferent =
+      message.subject !== firstMessage.subject ||
       JSON.stringify(message.content) !==
         JSON.stringify(firstMessage.content) ||
       JSON.stringify(message.calendar) !==
@@ -290,13 +291,13 @@ export async function convertMessagesToBulk(
       message.attachments.length !== firstMessage.attachments.length ||
       (message.attachments.length > 0 &&
         JSON.stringify(
-            message.attachments.map((a) => ({
-              filename: a.filename,
-              contentType: a.contentType,
-              contentId: a.contentId,
-              inline: a.inline,
-            })),
-          ) !==
+          message.attachments.map((a) => ({
+            filename: a.filename,
+            contentType: a.contentType,
+            contentId: a.contentId,
+            inline: a.inline,
+          })),
+        ) !==
           JSON.stringify(
             firstMessage.attachments.map((a) => ({
               filename: a.filename,

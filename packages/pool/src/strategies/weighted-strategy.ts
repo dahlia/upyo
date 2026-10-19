@@ -11,8 +11,9 @@ import type { Strategy, TransportSelection } from "./strategy.ts";
  * messages as a transport with weight 1.
  * @since 0.3.0
  */
-export class WeightedStrategy<TProviderId extends string = string>
-  implements Strategy<TProviderId> {
+export class WeightedStrategy<
+  TProviderId extends string = string,
+> implements Strategy<TProviderId> {
   /**
    * Selects a transport based on weighted random distribution.
    *

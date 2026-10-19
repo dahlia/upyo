@@ -56,9 +56,10 @@ export async function convertMessage(
   const senderEmail = message.sender.address;
 
   // Convert reply-to (use first reply recipient)
-  const replyTo = message.replyRecipients.length > 0
-    ? message.replyRecipients[0].address
-    : undefined;
+  const replyTo =
+    message.replyRecipients.length > 0
+      ? message.replyRecipients[0].address
+      : undefined;
 
   // Convert content - HTML takes precedence over text
   let body: string;
@@ -87,7 +88,8 @@ export async function convertMessage(
       if (
         !["to", "from", "reply-to", "subject", "content-type"].includes(
           lowerKey,
-        ) && !ownedHeaders.has(lowerKey)
+        ) &&
+        !ownedHeaders.has(lowerKey)
       ) {
         customHeaders[lowerKey] = value;
       }
@@ -102,9 +104,10 @@ export async function convertMessage(
   // own files so that a client looking for the first calendar part finds it.
   // Built here rather than inside the loop below, whose error handling drops a
   // part it cannot convert: an invitation must not disappear that quietly.
-  const sourceAttachments = message.calendar == null
-    ? message.attachments
-    : [createCalendarAttachment(message.calendar), ...message.attachments];
+  const sourceAttachments =
+    message.calendar == null
+      ? message.attachments
+      : [createCalendarAttachment(message.calendar), ...message.attachments];
 
   // Plunk documents a limit of five attachments, and quietly sending the first
   // five is only acceptable while nothing important is at the end.  Once the
@@ -185,10 +188,7 @@ async function convertAttachment(
   } catch (error) {
     signal?.throwIfAborted();
     // Log error but don't fail the entire send operation
-    console.warn(
-      `Failed to convert attachment ${attachment.filename}:`,
-      error,
-    );
+    console.warn(`Failed to convert attachment ${attachment.filename}:`, error);
     return null;
   }
 }
@@ -202,8 +202,9 @@ async function convertAttachment(
 function arrayBufferToBase64(buffer: Uint8Array): string {
   // Use btoa if available (browser/Node.js with --experimental-fetch)
   if (typeof btoa !== "undefined") {
-    const binaryString = Array.from(buffer, (byte) => String.fromCharCode(byte))
-      .join("");
+    const binaryString = Array.from(buffer, (byte) =>
+      String.fromCharCode(byte),
+    ).join("");
     return btoa(binaryString);
   }
 

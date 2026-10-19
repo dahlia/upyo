@@ -74,74 +74,83 @@ async function waitForRateLimit(): Promise<void> {
   await new Promise((resolve) => setTimeout(resolve, 1000));
 }
 
-describe("ResendTransport E2E Test 1", {
-  skip: !hasApiKey() || !setupTransport() || !hasVerifiedDomain(),
-}, () => {
-  it("should send and deliver email successfully", async () => {
-    await waitForRateLimit();
-    const recipientEmail = getTestRecipient();
+describe(
+  "ResendTransport E2E Test 1",
+  {
+    skip: !hasApiKey() || !setupTransport() || !hasVerifiedDomain(),
+  },
+  () => {
+    it("should send and deliver email successfully", async () => {
+      await waitForRateLimit();
+      const recipientEmail = getTestRecipient();
 
-    const message: Message = {
-      sender: {
-        address: getTestSender(),
-        name: "Upyo Test",
-      },
-      recipients: [{
-        address: recipientEmail,
-        name: "Test Recipient",
-      }],
-      ccRecipients: [],
-      bccRecipients: [],
-      replyRecipients: [],
-      subject: "Test Email from Upyo Resend Transport",
-      content: {
-        html:
-          "<h1>Hello from Upyo!</h1><p>This is a test email sent using the Resend transport.</p>",
-        text:
-          "Hello from Upyo!\n\nThis is a test email sent using the Resend transport.",
-      },
-      attachments: [],
-      priority: "normal",
-      tags: ["test", "upyo"],
-      headers: new Headers(),
-    };
+      const message: Message = {
+        sender: {
+          address: getTestSender(),
+          name: "Upyo Test",
+        },
+        recipients: [
+          {
+            address: recipientEmail,
+            name: "Test Recipient",
+          },
+        ],
+        ccRecipients: [],
+        bccRecipients: [],
+        replyRecipients: [],
+        subject: "Test Email from Upyo Resend Transport",
+        content: {
+          html: "<h1>Hello from Upyo!</h1><p>This is a test email sent using the Resend transport.</p>",
+          text: "Hello from Upyo!\n\nThis is a test email sent using the Resend transport.",
+        },
+        attachments: [],
+        priority: "normal",
+        tags: ["test", "upyo"],
+        headers: new Headers(),
+      };
 
-    const receipt = await transport.send(message);
+      const receipt = await transport.send(message);
 
-    if (acceptDailyQuotaLimit(receipt, "Simple email")) return;
+      if (acceptDailyQuotaLimit(receipt, "Simple email")) return;
 
-    if (!receipt.successful) {
-      console.log("❌ First test failed with errors:", receipt.errorMessages);
-    }
+      if (!receipt.successful) {
+        console.log("❌ First test failed with errors:", receipt.errorMessages);
+      }
 
-    assert.equal(receipt.successful, true);
-    if (receipt.successful) {
-      assert.ok(receipt.messageId);
-      assert.ok(receipt.messageId.length > 0);
-      console.log(`✅ Message sent successfully with ID: ${receipt.messageId}`);
-    }
+      assert.equal(receipt.successful, true);
+      if (receipt.successful) {
+        assert.ok(receipt.messageId);
+        assert.ok(receipt.messageId.length > 0);
+        console.log(
+          `✅ Message sent successfully with ID: ${receipt.messageId}`,
+        );
+      }
 
-    // Additional wait after API call
-    await waitForRateLimit();
-  });
-});
+      // Additional wait after API call
+      await waitForRateLimit();
+    });
+  },
+);
 
-describe("ResendTransport E2E Test 2", {
-  skip: !hasApiKey() || !setupTransport() || !hasVerifiedDomain(),
-}, () => {
-  it("should send HTML email with text alternative", async () => {
-    await waitForRateLimit();
-    const recipientEmail = getTestRecipient();
+describe(
+  "ResendTransport E2E Test 2",
+  {
+    skip: !hasApiKey() || !setupTransport() || !hasVerifiedDomain(),
+  },
+  () => {
+    it("should send HTML email with text alternative", async () => {
+      await waitForRateLimit();
+      const recipientEmail = getTestRecipient();
 
-    const message: Message = {
-      sender: { address: getTestSender() },
-      recipients: [{ address: recipientEmail }],
-      ccRecipients: [],
-      bccRecipients: [],
-      replyRecipients: [],
-      subject: "HTML Email Test",
-      content: {
-        html: `
+      const message: Message = {
+        sender: { address: getTestSender() },
+        recipients: [{ address: recipientEmail }],
+        ccRecipients: [],
+        bccRecipients: [],
+        replyRecipients: [],
+        subject: "HTML Email Test",
+        content: {
+          html: `
           <html>
             <body>
               <h1 style="color: #333;">Welcome to Upyo!</h1>
@@ -154,237 +163,262 @@ describe("ResendTransport E2E Test 2", {
             </body>
           </html>
         `,
-        text:
-          "Welcome to Upyo!\n\nThis is an HTML email with formatting.\n\n- Feature 1\n- Feature 2\n- Feature 3",
-      },
-      attachments: [],
-      priority: "normal",
-      tags: [],
-      headers: new Headers(),
-    };
+          text: "Welcome to Upyo!\n\nThis is an HTML email with formatting.\n\n- Feature 1\n- Feature 2\n- Feature 3",
+        },
+        attachments: [],
+        priority: "normal",
+        tags: [],
+        headers: new Headers(),
+      };
 
-    const receipt = await transport.send(message);
+      const receipt = await transport.send(message);
 
-    if (acceptDailyQuotaLimit(receipt, "HTML email")) return;
+      if (acceptDailyQuotaLimit(receipt, "HTML email")) return;
 
-    assert.equal(receipt.successful, true);
-    if (receipt.successful) {
-      console.log(`✅ HTML email sent with ID: ${receipt.messageId}`);
-    }
-  });
-});
+      assert.equal(receipt.successful, true);
+      if (receipt.successful) {
+        console.log(`✅ HTML email sent with ID: ${receipt.messageId}`);
+      }
+    });
+  },
+);
 
-describe("ResendTransport E2E Test 3", {
-  skip: !hasApiKey() || !setupTransport() || !hasVerifiedDomain(),
-}, () => {
-  it("should send high priority email", async () => {
-    await waitForRateLimit();
-    const recipientEmail = getTestRecipient();
+describe(
+  "ResendTransport E2E Test 3",
+  {
+    skip: !hasApiKey() || !setupTransport() || !hasVerifiedDomain(),
+  },
+  () => {
+    it("should send high priority email", async () => {
+      await waitForRateLimit();
+      const recipientEmail = getTestRecipient();
 
-    const message: Message = {
-      sender: { address: getTestSender() },
-      recipients: [{ address: recipientEmail }],
-      ccRecipients: [],
-      bccRecipients: [],
-      replyRecipients: [],
-      subject: "🚨 High Priority Email",
-      content: {
-        text: "This is a high priority email sent via Upyo Resend transport.",
-      },
-      attachments: [],
-      priority: "high",
-      tags: ["urgent"],
-      headers: new Headers(),
-    };
-
-    const receipt = await transport.send(message);
-
-    if (acceptDailyQuotaLimit(receipt, "High priority email")) return;
-
-    assert.equal(receipt.successful, true);
-    if (receipt.successful) {
-      console.log(`✅ High priority email sent with ID: ${receipt.messageId}`);
-    }
-  });
-});
-
-describe("ResendTransport E2E Test 4", {
-  skip: !hasApiKey() || !setupTransport() || !hasVerifiedDomain(),
-}, () => {
-  it("should send email with attachments", async () => {
-    await waitForRateLimit();
-    const recipientEmail = getTestRecipient();
-
-    // Create a simple text attachment
-    const textContent = "This is a test attachment from Upyo Resend transport.";
-    const textBuffer = new TextEncoder().encode(textContent);
-
-    const message: Message = {
-      sender: { address: getTestSender() },
-      recipients: [{ address: recipientEmail }],
-      ccRecipients: [],
-      bccRecipients: [],
-      replyRecipients: [],
-      subject: "Email with Attachment",
-      content: {
-        text: "This email contains an attachment. Please check!",
-      },
-      attachments: [{
-        filename: "test-document.txt",
-        content: textBuffer,
-        contentType: "text/plain",
-        inline: false,
-        contentId: "",
-      }],
-      priority: "normal",
-      tags: ["attachment-test"],
-      headers: new Headers(),
-    };
-
-    const receipt = await transport.send(message);
-
-    if (acceptDailyQuotaLimit(receipt, "Attachment email")) return;
-
-    assert.equal(receipt.successful, true);
-    if (receipt.successful) {
-      console.log(
-        `✅ Email with attachment sent with ID: ${receipt.messageId}`,
-      );
-    }
-  });
-});
-
-describe("ResendTransport E2E Test 5", {
-  skip: !hasApiKey() || !setupTransport() || !hasVerifiedDomain(),
-}, () => {
-  it("should send multiple emails sequentially", async () => {
-    await waitForRateLimit();
-    const recipientEmail = getTestRecipient();
-
-    const messages: Message[] = [
-      {
+      const message: Message = {
         sender: { address: getTestSender() },
         recipients: [{ address: recipientEmail }],
         ccRecipients: [],
         bccRecipients: [],
         replyRecipients: [],
-        subject: "Batch Test Email 1",
-        content: { text: "This is the first email in the batch." },
+        subject: "🚨 High Priority Email",
+        content: {
+          text: "This is a high priority email sent via Upyo Resend transport.",
+        },
         attachments: [],
-        priority: "normal",
-        tags: [],
+        priority: "high",
+        tags: ["urgent"],
         headers: new Headers(),
-      },
-      {
-        sender: { address: getTestSender() },
-        recipients: [{ address: recipientEmail }],
-        ccRecipients: [],
-        bccRecipients: [],
-        replyRecipients: [],
-        subject: "Batch Test Email 2",
-        content: { text: "This is the second email in the batch." },
-        attachments: [],
-        priority: "normal",
-        tags: [],
-        headers: new Headers(),
-      },
-      {
-        sender: { address: getTestSender() },
-        recipients: [{ address: recipientEmail }],
-        ccRecipients: [],
-        bccRecipients: [],
-        replyRecipients: [],
-        subject: "Batch Test Email 3",
-        content: { text: "This is the third email in the batch." },
-        attachments: [],
-        priority: "normal",
-        tags: [],
-        headers: new Headers(),
-      },
-    ];
+      };
 
-    const receipts = [];
-    for await (const receipt of transport.sendMany(messages)) {
-      receipts.push(receipt);
-    }
+      const receipt = await transport.send(message);
 
-    assert.equal(receipts.length, 3);
-    const dailyQuotaFailures = assertBatchReceipts(receipts);
+      if (acceptDailyQuotaLimit(receipt, "High priority email")) return;
 
-    for (let i = 0; i < receipts.length; i++) {
-      const receipt: Receipt = receipts[i];
+      assert.equal(receipt.successful, true);
       if (receipt.successful) {
         console.log(
-          `✅ Batch email ${i + 1} sent with ID: ${receipt.messageId}`,
+          `✅ High priority email sent with ID: ${receipt.messageId}`,
         );
       }
-    }
+    });
+  },
+);
 
-    if (dailyQuotaFailures > 0) {
-      console.log("Batch email test limited by Resend daily quota.");
-    }
-  });
-});
+describe(
+  "ResendTransport E2E Test 4",
+  {
+    skip: !hasApiKey() || !setupTransport() || !hasVerifiedDomain(),
+  },
+  () => {
+    it("should send email with attachments", async () => {
+      await waitForRateLimit();
+      const recipientEmail = getTestRecipient();
 
-describe("ResendTransport E2E Test 6", {
-  skip: !hasApiKey() || !setupTransport(),
-}, () => {
-  it("should handle invalid sender address gracefully", async () => {
-    const message: Message = {
-      sender: { address: "invalid@invalid-domain-that-does-not-exist.com" },
-      recipients: [{ address: "delivered@resend.dev" }],
-      ccRecipients: [],
-      bccRecipients: [],
-      replyRecipients: [],
-      subject: "Invalid Sender Test",
-      content: { text: "This should fail due to invalid sender." },
-      attachments: [],
-      priority: "normal",
-      tags: [],
-      headers: new Headers(),
-    };
+      // Create a simple text attachment
+      const textContent =
+        "This is a test attachment from Upyo Resend transport.";
+      const textBuffer = new TextEncoder().encode(textContent);
 
-    const receipt = await transport.send(message);
+      const message: Message = {
+        sender: { address: getTestSender() },
+        recipients: [{ address: recipientEmail }],
+        ccRecipients: [],
+        bccRecipients: [],
+        replyRecipients: [],
+        subject: "Email with Attachment",
+        content: {
+          text: "This email contains an attachment. Please check!",
+        },
+        attachments: [
+          {
+            filename: "test-document.txt",
+            content: textBuffer,
+            contentType: "text/plain",
+            inline: false,
+            contentId: "",
+          },
+        ],
+        priority: "normal",
+        tags: ["attachment-test"],
+        headers: new Headers(),
+      };
 
-    assert.equal(receipt.successful, false);
-    if (!receipt.successful) {
-      assert.ok(receipt.errorMessages.length > 0);
-      console.log(
-        `✅ Invalid sender correctly rejected: ${receipt.errorMessages[0]}`,
-      );
-    }
-  });
-});
+      const receipt = await transport.send(message);
 
-describe("ResendTransport E2E Test 7", {
-  skip: !hasApiKey() || !setupTransport(),
-}, () => {
-  it("should handle malformed recipient address gracefully", async () => {
-    const message: Message = {
-      sender: { address: getTestSender() },
-      recipients: [{ address: "invalid@invalid" as EmailAddress }],
-      ccRecipients: [],
-      bccRecipients: [],
-      replyRecipients: [],
-      subject: "Invalid Recipient Test",
-      content: { text: "This should fail due to malformed recipient." },
-      attachments: [],
-      priority: "normal",
-      tags: [],
-      headers: new Headers(),
-    };
+      if (acceptDailyQuotaLimit(receipt, "Attachment email")) return;
 
-    const receipt = await transport.send(message);
+      assert.equal(receipt.successful, true);
+      if (receipt.successful) {
+        console.log(
+          `✅ Email with attachment sent with ID: ${receipt.messageId}`,
+        );
+      }
+    });
+  },
+);
 
-    assert.equal(receipt.successful, false);
-    if (!receipt.successful) {
-      assert.ok(receipt.errorMessages.length > 0);
-      console.log(
-        `✅ Invalid recipient correctly rejected: ${receipt.errorMessages[0]}`,
-      );
-    }
-  });
-});
+describe(
+  "ResendTransport E2E Test 5",
+  {
+    skip: !hasApiKey() || !setupTransport() || !hasVerifiedDomain(),
+  },
+  () => {
+    it("should send multiple emails sequentially", async () => {
+      await waitForRateLimit();
+      const recipientEmail = getTestRecipient();
+
+      const messages: Message[] = [
+        {
+          sender: { address: getTestSender() },
+          recipients: [{ address: recipientEmail }],
+          ccRecipients: [],
+          bccRecipients: [],
+          replyRecipients: [],
+          subject: "Batch Test Email 1",
+          content: { text: "This is the first email in the batch." },
+          attachments: [],
+          priority: "normal",
+          tags: [],
+          headers: new Headers(),
+        },
+        {
+          sender: { address: getTestSender() },
+          recipients: [{ address: recipientEmail }],
+          ccRecipients: [],
+          bccRecipients: [],
+          replyRecipients: [],
+          subject: "Batch Test Email 2",
+          content: { text: "This is the second email in the batch." },
+          attachments: [],
+          priority: "normal",
+          tags: [],
+          headers: new Headers(),
+        },
+        {
+          sender: { address: getTestSender() },
+          recipients: [{ address: recipientEmail }],
+          ccRecipients: [],
+          bccRecipients: [],
+          replyRecipients: [],
+          subject: "Batch Test Email 3",
+          content: { text: "This is the third email in the batch." },
+          attachments: [],
+          priority: "normal",
+          tags: [],
+          headers: new Headers(),
+        },
+      ];
+
+      const receipts = [];
+      for await (const receipt of transport.sendMany(messages)) {
+        receipts.push(receipt);
+      }
+
+      assert.equal(receipts.length, 3);
+      const dailyQuotaFailures = assertBatchReceipts(receipts);
+
+      for (let i = 0; i < receipts.length; i++) {
+        const receipt: Receipt = receipts[i];
+        if (receipt.successful) {
+          console.log(
+            `✅ Batch email ${i + 1} sent with ID: ${receipt.messageId}`,
+          );
+        }
+      }
+
+      if (dailyQuotaFailures > 0) {
+        console.log("Batch email test limited by Resend daily quota.");
+      }
+    });
+  },
+);
+
+describe(
+  "ResendTransport E2E Test 6",
+  {
+    skip: !hasApiKey() || !setupTransport(),
+  },
+  () => {
+    it("should handle invalid sender address gracefully", async () => {
+      const message: Message = {
+        sender: { address: "invalid@invalid-domain-that-does-not-exist.com" },
+        recipients: [{ address: "delivered@resend.dev" }],
+        ccRecipients: [],
+        bccRecipients: [],
+        replyRecipients: [],
+        subject: "Invalid Sender Test",
+        content: { text: "This should fail due to invalid sender." },
+        attachments: [],
+        priority: "normal",
+        tags: [],
+        headers: new Headers(),
+      };
+
+      const receipt = await transport.send(message);
+
+      assert.equal(receipt.successful, false);
+      if (!receipt.successful) {
+        assert.ok(receipt.errorMessages.length > 0);
+        console.log(
+          `✅ Invalid sender correctly rejected: ${receipt.errorMessages[0]}`,
+        );
+      }
+    });
+  },
+);
+
+describe(
+  "ResendTransport E2E Test 7",
+  {
+    skip: !hasApiKey() || !setupTransport(),
+  },
+  () => {
+    it("should handle malformed recipient address gracefully", async () => {
+      const message: Message = {
+        sender: { address: getTestSender() },
+        recipients: [{ address: "invalid@invalid" as EmailAddress }],
+        ccRecipients: [],
+        bccRecipients: [],
+        replyRecipients: [],
+        subject: "Invalid Recipient Test",
+        content: { text: "This should fail due to malformed recipient." },
+        attachments: [],
+        priority: "normal",
+        tags: [],
+        headers: new Headers(),
+      };
+
+      const receipt = await transport.send(message);
+
+      assert.equal(receipt.successful, false);
+      if (!receipt.successful) {
+        assert.ok(receipt.errorMessages.length > 0);
+        console.log(
+          `✅ Invalid recipient correctly rejected: ${receipt.errorMessages[0]}`,
+        );
+      }
+    });
+  },
+);
 
 describe("ResendTransport E2E quota helpers", () => {
   it("only accepts daily sending quota failures", () => {
@@ -411,10 +445,7 @@ describe("ResendTransport E2E quota helpers", () => {
     assert.equal(assertBatchReceipts([dailyQuota, dailyQuota]), 2);
     assert.throws(() => assertBatchReceipts([dailyQuota, rateLimit]));
     assert.equal(assertBatchReceipts([successfulReceipt]), 0);
-    assert.equal(
-      assertBatchReceipts([successfulReceipt, dailyQuota]),
-      1,
-    );
+    assert.equal(assertBatchReceipts([successfulReceipt, dailyQuota]), 1);
   });
 });
 
@@ -437,9 +468,11 @@ function assertBatchReceipts(receipts: readonly Receipt[]): number {
 }
 
 function isDailyQuotaLimitReceipt(receipt: Receipt): boolean {
-  return !receipt.successful &&
+  return (
+    !receipt.successful &&
     receipt.errors?.some((error) => error.statusCode === 429) === true &&
     receipt.errorMessages.some((message) =>
-      message.toLowerCase().includes("daily email sending quota")
-    );
+      message.toLowerCase().includes("daily email sending quota"),
+    )
+  );
 }

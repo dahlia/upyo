@@ -45,9 +45,7 @@ describe("formatAddress", () => {
 describe("convertMessage", () => {
   const baseMessage: Message = {
     sender: { address: "sender@example.com" as `${string}@${string}` },
-    recipients: [
-      { address: "recipient@example.com" as `${string}@${string}` },
-    ],
+    recipients: [{ address: "recipient@example.com" as `${string}@${string}` }],
     ccRecipients: [],
     bccRecipients: [],
     replyRecipients: [],
@@ -96,14 +94,15 @@ describe("convertMessage", () => {
   });
 
   it("should add a calendar part carrying the method parameter", () => {
-    const ics = [
-      "BEGIN:VCALENDAR",
-      "METHOD:REQUEST",
-      "BEGIN:VEVENT",
-      "UID:1@example.com",
-      "END:VEVENT",
-      "END:VCALENDAR",
-    ].join("\r\n") + "\r\n";
+    const ics =
+      [
+        "BEGIN:VCALENDAR",
+        "METHOD:REQUEST",
+        "BEGIN:VEVENT",
+        "UID:1@example.com",
+        "END:VEVENT",
+        "END:VCALENDAR",
+      ].join("\r\n") + "\r\n";
     const message: Message = {
       ...baseMessage,
       content: { text: "Lunch on Wednesday." },
@@ -233,9 +232,7 @@ describe("convertMessage", () => {
       ccRecipients: [
         { address: "cc@example.com" as `${string}@${string}`, name: "CC User" },
       ],
-      bccRecipients: [
-        { address: "bcc@example.com" as `${string}@${string}` },
-      ],
+      bccRecipients: [{ address: "bcc@example.com" as `${string}@${string}` }],
     };
 
     const result = convertMessage(message, "drafts-123", new Map());
@@ -501,10 +498,7 @@ describe("convertMessage() identity and threading", () => {
     assert.deepEqual(result.messageId, ["ticket-4821@example.com"]);
     assert.equal(result.sentAt, "2026-09-01T10:00:00Z");
     assert.deepEqual(result.inReplyTo, ["122@example.com"]);
-    assert.deepEqual(result.references, [
-      "120@example.com",
-      "121@example.com",
-    ]);
+    assert.deepEqual(result.references, ["120@example.com", "121@example.com"]);
   });
 
   it("keeps a non-zero fractional second in the date", () => {
@@ -567,9 +561,13 @@ describe("convertMessage() identity and threading", () => {
       }),
     });
 
-    for (
-      const name of ["from", "bcc", "subject", "content-type", "mime-version"]
-    ) {
+    for (const name of [
+      "from",
+      "bcc",
+      "subject",
+      "content-type",
+      "mime-version",
+    ]) {
       assert.equal(result[`header:${name}`], undefined);
     }
     assert.equal(result["header:x-mailer"], "Test Mailer");
@@ -614,10 +612,9 @@ describe("convertMessage() identity and threading", () => {
     const headers: Message["headers"] = {
       ...new Headers(),
       entries: () =>
-        [["X-Evil", "value\r\nX-Injected: yes"]]
-          [Symbol.iterator]() as ReturnType<
-            Headers["entries"]
-          >,
+        [["X-Evil", "value\r\nX-Injected: yes"]][
+          Symbol.iterator
+        ]() as ReturnType<Headers["entries"]>,
     };
 
     assert.throws(() => convert({ headers }), {

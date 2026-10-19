@@ -33,31 +33,39 @@ for (const length of [0, 1, 2, 3, 56, 57, 58, 114, 65537, 256 * 1024]) {
       Buffer.byteLength(plan.headers) + Buffer.byteLength(body),
       expectedSize,
     );
-    const payload = body.split("Content-Transfer-Encoding: base64\r\n")[1]
-      .split("\r\n\r\n")[1].split("\r\n--")[0];
+    const payload = body
+      .split("Content-Transfer-Encoding: base64\r\n")[1]
+      .split("\r\n\r\n")[1]
+      .split("\r\n--")[0];
     assert.equal(
       payload,
-      Buffer.from(bytes).toString("base64").replace(/(.{76})(?=.)/g, "$1\r\n"),
+      Buffer.from(bytes)
+        .toString("base64")
+        .replace(/(.{76})(?=.)/g, "$1\r\n"),
     );
     const streamed = prepareMimeMessage({
       ...message,
-      attachments: [{
-        ...message.attachments[0],
-        content: async function* () {
-          opened++;
-          for (let i = 0; i < bytes.length; i += 37) {
-            yield bytes.subarray(i, i + 37);
-          }
+      attachments: [
+        {
+          ...message.attachments[0],
+          content: async function* () {
+            opened++;
+            for (let i = 0; i < bytes.length; i += 37) {
+              yield bytes.subarray(i, i + 37);
+            }
+          },
         },
-      }],
+      ],
     });
     assert.equal(await streamed.size(), undefined);
     assert.equal(opened, 0);
     const parts: Uint8Array[] = [];
     for await (const chunk of streamed.body()) parts.push(chunk);
-    const streamedPayload = Buffer.concat(parts).toString()
+    const streamedPayload = Buffer.concat(parts)
+      .toString()
       .split("Content-Transfer-Encoding: base64\r\n")[1]
-      .split("\r\n\r\n")[1].split("\r\n--")[0];
+      .split("\r\n\r\n")[1]
+      .split("\r\n--")[0];
     assert.equal(streamedPayload, payload);
     assert.equal(opened, 1);
   });

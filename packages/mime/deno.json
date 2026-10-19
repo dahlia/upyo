@@ -12,8 +12,5 @@
     "esbuild": "npm:esbuild@^0.28.2",
     "miniflare": "npm:miniflare@4.20260730.0"
   },
-  "exclude": [
-    "dist/",
-    "edge/"
-  ]
+  "exclude": ["dist/", "edge/"]
 }

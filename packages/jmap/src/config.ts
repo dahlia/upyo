@@ -83,9 +83,10 @@ export interface JmapConfig {
 export type ResolvedJmapConfig = {
   readonly sessionUrl: string;
   readonly bearerToken: string | null;
-  readonly basicAuth:
-    | { readonly username: string; readonly password: string }
-    | null;
+  readonly basicAuth: {
+    readonly username: string;
+    readonly password: string;
+  } | null;
   readonly accountId: string | null;
   readonly identityId: string | null;
   readonly timeout: number;

@@ -77,20 +77,25 @@ const collect = async (
 for (const kind of ["bytes", "promise", "blob", "factory"] as const) {
   test(`independent parser decodes Unicode, alternatives and ${kind} attachments`, async () => {
     const bytes = Uint8Array.from({ length: 65539 }, (_, i) => i % 251);
-    const source = kind === "bytes"
-      ? bytes
-      : kind === "promise"
-      ? Promise.resolve(bytes)
-      : kind === "blob"
-      ? new Blob([bytes])
-      : async function* () {
-        const reused = new Uint8Array(13);
-        for (let offset = 0; offset < bytes.length; offset += reused.length) {
-          const slice = bytes.subarray(offset, offset + reused.length);
-          reused.set(slice);
-          yield reused.subarray(0, slice.length);
-        }
-      };
+    const source =
+      kind === "bytes"
+        ? bytes
+        : kind === "promise"
+          ? Promise.resolve(bytes)
+          : kind === "blob"
+            ? new Blob([bytes])
+            : async function* () {
+                const reused = new Uint8Array(13);
+                for (
+                  let offset = 0;
+                  offset < bytes.length;
+                  offset += reused.length
+                ) {
+                  const slice = bytes.subarray(offset, offset + reused.length);
+                  reused.set(slice);
+                  yield reused.subarray(0, slice.length);
+                }
+              };
     const raw = await composeMessage({
       ...message(),
       content: { text: "한글\r\nNext \nend\r", html: "<b>한글</b>" },
@@ -116,8 +121,7 @@ for (const kind of ["bytes", "promise", "blob", "factory"] as const) {
 
 for (const method of ["REQUEST", "REPLY", "CANCEL"] as const) {
   test(`calendar ${method} preserves calendar CRLF`, async () => {
-    const calendar =
-      `BEGIN:VCALENDAR\r\nVERSION:2.0\r\nPRODID:-//Upyo//EN\r\nMETHOD:${method}\r\nEND:VCALENDAR\r\n`;
+    const calendar = `BEGIN:VCALENDAR\r\nVERSION:2.0\r\nPRODID:-//Upyo//EN\r\nMETHOD:${method}\r\nEND:VCALENDAR\r\n`;
     const raw = await composeMessage({
       ...message(),
       calendar: { method, content: calendar },
@@ -130,47 +134,53 @@ for (const method of ["REQUEST", "REPLY", "CANCEL"] as const) {
       new TextDecoder().decode(parsed.attachments[0].content as ArrayBuffer),
       calendar.replace(/\r\n/g, "\n"),
     );
-    const payload = wire.split(
-      `method=${method}\r\nContent-Transfer-Encoding: base64\r\n\r\n`,
-    )[1].split("\r\n--")[0];
+    const payload = wire
+      .split(`method=${method}\r\nContent-Transfer-Encoding: base64\r\n\r\n`)[1]
+      .split("\r\n--")[0];
     assert.equal(atob(payload.replace(/\s/g, "")), calendar);
   });
 }
 
 for (const bodyMode of ["buffered", "streaming"] as const) {
   for (const algorithm of ["rsa-sha256", "ed25519-sha256"] as const) {
-    for (
-      const canonicalization of [
-        "simple/simple",
-        "simple/relaxed",
-        "relaxed/simple",
-        "relaxed/relaxed",
-      ] as const
-    ) {
+    for (const canonicalization of [
+      "simple/simple",
+      "simple/relaxed",
+      "relaxed/simple",
+      "relaxed/relaxed",
+    ] as const) {
       test(`verify composed ${algorithm} ${canonicalization} ${bodyMode}`, async () => {
         let reads = 0;
-        const raw = await composeMessage({
-          ...message(),
-          attachments: [{
-            ...attachment,
-            content: async function* () {
-              reads++;
-              yield new Uint8Array([1, 2, 3]);
-            },
-          }],
-        }, {
-          dkim: {
-            bodyMode,
-            signatures: [{
-              ...signature,
-              algorithm,
-              canonicalization,
-              privateKey: algorithm === "rsa-sha256"
-                ? TEST_DKIM_PRIVATE_KEY
-                : TEST_DKIM_ED25519_PRIVATE_KEY,
-            }],
+        const raw = await composeMessage(
+          {
+            ...message(),
+            attachments: [
+              {
+                ...attachment,
+                content: async function* () {
+                  reads++;
+                  yield new Uint8Array([1, 2, 3]);
+                },
+              },
+            ],
           },
-        });
+          {
+            dkim: {
+              bodyMode,
+              signatures: [
+                {
+                  ...signature,
+                  algorithm,
+                  canonicalization,
+                  privateKey:
+                    algorithm === "rsa-sha256"
+                      ? TEST_DKIM_PRIVATE_KEY
+                      : TEST_DKIM_ED25519_PRIVATE_KEY,
+                },
+              ],
+            },
+          },
+        );
         assert.equal(reads, 1);
         const wire = await collect(raw);
         verifyDkim(
@@ -197,20 +207,26 @@ test("buffered signed readers cannot mutate retained chunks", async () => {
 
 test("streaming replay mismatch is a raw validation error", async () => {
   let reads = 0;
-  const raw = await composeMessage({
-    ...message(),
-    attachments: [{
-      ...attachment,
-      content: async function* () {
-        yield new Uint8Array([reads++]);
-      },
-    }],
-  }, { dkim: { bodyMode: "streaming", signatures: [signature] } });
+  const raw = await composeMessage(
+    {
+      ...message(),
+      attachments: [
+        {
+          ...attachment,
+          content: async function* () {
+            yield new Uint8Array([reads++]);
+          },
+        },
+      ],
+    },
+    { dkim: { bodyMode: "streaming", signatures: [signature] } },
+  );
   await assert.rejects(
     collect(raw),
     (error) =>
       error instanceof MimeAttachmentReplayError &&
-      error instanceof RawMessageValidationError && error.field === "content",
+      error instanceof RawMessageValidationError &&
+      error.field === "content",
   );
 });
 
@@ -235,17 +251,22 @@ test("snapshots metadata and signing configuration before awaiting bytes", async
   const date = new Date("2026-09-01T00:00:00Z");
   const signatures = [{ ...signature, headerFields: ["from", "subject"] }];
   const dkim: DkimConfig = { signatures };
-  const composing = composeMessage({
-    ...message(),
-    headers,
-    date,
-    attachments: [{
-      ...attachment,
-      content: new Promise<Uint8Array>((r) => {
-        resolve = r;
-      }),
-    }],
-  }, { dkim });
+  const composing = composeMessage(
+    {
+      ...message(),
+      headers,
+      date,
+      attachments: [
+        {
+          ...attachment,
+          content: new Promise<Uint8Array>((r) => {
+            resolve = r;
+          }),
+        },
+      ],
+    },
+    { dkim },
+  );
   headers.set("X-Test", "after");
   date.setUTCFullYear(2000);
   signatures[0].selector = "changed";
@@ -260,20 +281,26 @@ test("snapshots metadata and signing configuration before awaiting bytes", async
 
 test("nested and signed Unicode headers determine MIME encoding", async () => {
   assert.equal(
-    (await composeMessage({
-      ...message(),
-      attachments: [{
-        ...attachment,
-        contentId: "한글",
-        content: new Uint8Array(),
-      }],
-    })).encoding,
+    (
+      await composeMessage({
+        ...message(),
+        attachments: [
+          {
+            ...attachment,
+            contentId: "한글",
+            content: new Uint8Array(),
+          },
+        ],
+      })
+    ).encoding,
     "utf8",
   );
   assert.equal(
-    (await composeMessage(message(), {
-      dkim: { signatures: [{ ...signature, signingDomain: "한글.example" }] },
-    })).encoding,
+    (
+      await composeMessage(message(), {
+        dkim: { signatures: [{ ...signature, signingDomain: "한글.example" }] },
+      })
+    ).encoding,
     "utf8",
   );
   await assert.rejects(

@@ -55,11 +55,15 @@ test("SesTransport rejects caller aborts during fetch", async () => {
   try {
     globalThis.fetch = (_url, options) =>
       new Promise((_resolve, reject) => {
-        options?.signal?.addEventListener("abort", () => {
-          reject(
-            new DOMException("The operation was aborted.", "AbortError"),
-          );
-        }, { once: true });
+        options?.signal?.addEventListener(
+          "abort",
+          () => {
+            reject(
+              new DOMException("The operation was aborted.", "AbortError"),
+            );
+          },
+          { once: true },
+        );
         setTimeout(() => controller.abort(), 0);
       });
 
@@ -96,9 +100,13 @@ test("SesTransport preserves custom caller abort reasons during fetch", async ()
   try {
     globalThis.fetch = (_url, options) =>
       new Promise((_resolve, reject) => {
-        options?.signal?.addEventListener("abort", () => {
-          reject(options.signal?.reason);
-        }, { once: true });
+        options?.signal?.addEventListener(
+          "abort",
+          () => {
+            reject(options.signal?.reason);
+          },
+          { once: true },
+        );
         setTimeout(() => controller.abort(reason), 0);
       });
 
@@ -134,7 +142,7 @@ test("SesTransport rejects caller aborts during retry backoff", async () => {
   let attempts = 0;
 
   try {
-    // deno-lint-ignore require-await
+    // oxlint-disable-next-line eslint/require-await
     globalThis.fetch = async () => {
       attempts++;
       setTimeout(() => controller.abort(reason), 0);
@@ -181,7 +189,7 @@ test("SesTransport falls back when AbortSignal.any is unavailable", async () => 
       value: undefined,
     });
 
-    // deno-lint-ignore require-await
+    // oxlint-disable-next-line eslint/require-await
     globalThis.fetch = async (_url, options) => {
       assert.ok(options?.signal instanceof AbortSignal);
       return new Response('{"MessageId":"test-message-id"}', {
@@ -247,11 +255,9 @@ test("SesTransport sendMany handles async iterables", async () => {
   const receipts: unknown[] = [];
 
   try {
-    for await (
-      const receipt of transport.sendMany(messageGenerator(), {
-        signal: controller.signal,
-      })
-    ) {
+    for await (const receipt of transport.sendMany(messageGenerator(), {
+      signal: controller.signal,
+    })) {
       receipts.push(receipt);
     }
     assert.fail("Should have thrown AbortError");
@@ -294,11 +300,9 @@ test("SesTransport sendMany handles sync iterables", async () => {
   const receipts: unknown[] = [];
 
   try {
-    for await (
-      const receipt of transport.sendMany(messages, {
-        signal: controller.signal,
-      })
-    ) {
+    for await (const receipt of transport.sendMany(messages, {
+      signal: controller.signal,
+    })) {
       receipts.push(receipt);
     }
     assert.fail("Should have thrown AbortError");
@@ -320,7 +324,7 @@ test("SesTransport extractMessageId handles JSON response", () => {
 
   const transport = new SesTransport(config);
 
-  // deno-lint-ignore no-explicit-any
+  // oxlint-disable-next-line typescript/no-explicit-any
   const extractMessageId = (transport as any).extractMessageId.bind(transport);
 
   const response = {
@@ -344,7 +348,7 @@ test("SesTransport extractMessageId handles header fallback", () => {
 
   const transport = new SesTransport(config);
 
-  // deno-lint-ignore no-explicit-any
+  // oxlint-disable-next-line typescript/no-explicit-any
   const extractMessageId = (transport as any).extractMessageId.bind(transport);
 
   const response = {
@@ -368,7 +372,7 @@ test("SesTransport extractMessageId generates synthetic ID", () => {
 
   const transport = new SesTransport(config);
 
-  // deno-lint-ignore no-explicit-any
+  // oxlint-disable-next-line typescript/no-explicit-any
   const extractMessageId = (transport as any).extractMessageId.bind(transport);
 
   const response = {
@@ -387,13 +391,10 @@ test("SesTransport returns structured API failures", async () => {
   try {
     globalThis.fetch = () =>
       Promise.resolve(
-        new Response(
-          JSON.stringify({ message: "Too Many Requests" }),
-          {
-            status: 429,
-            headers: { "Retry-After": "60" },
-          },
-        ),
+        new Response(JSON.stringify({ message: "Too Many Requests" }), {
+          status: 429,
+          headers: { "Retry-After": "60" },
+        }),
       );
 
     const transport = new SesTransport({
@@ -405,12 +406,14 @@ test("SesTransport returns structured API failures", async () => {
       retries: 0,
     });
 
-    const receipt = await transport.send(createMessage({
-      from: "sender@example.com",
-      to: "recipient@example.com",
-      subject: "Test Subject",
-      content: { text: "Hello World!" },
-    }));
+    const receipt = await transport.send(
+      createMessage({
+        from: "sender@example.com",
+        to: "recipient@example.com",
+        subject: "Test Subject",
+        content: { text: "Hello World!" },
+      }),
+    );
 
     assert.ok(!receipt.successful);
     if (!receipt.successful) {
@@ -428,11 +431,13 @@ test("SesTransport returns structured API failures", async () => {
 
 test("SesTransport preserves provider error details", async () => {
   const originalFetch = globalThis.fetch;
-  const providerErrors = [{
-    message: "Email address is not verified",
-    field: "Destination.ToAddresses.member.1",
-    code: "MessageRejected",
-  }];
+  const providerErrors = [
+    {
+      message: "Email address is not verified",
+      field: "Destination.ToAddresses.member.1",
+      code: "MessageRejected",
+    },
+  ];
 
   try {
     globalThis.fetch = () =>
@@ -455,12 +460,14 @@ test("SesTransport preserves provider error details", async () => {
       retries: 0,
     });
 
-    const receipt = await transport.send(createMessage({
-      from: "sender@example.com",
-      to: "recipient@example.com",
-      subject: "Test Subject",
-      content: { text: "Hello World!" },
-    }));
+    const receipt = await transport.send(
+      createMessage({
+        from: "sender@example.com",
+        to: "recipient@example.com",
+        subject: "Test Subject",
+        content: { text: "Hello World!" },
+      }),
+    );
 
     assert.ok(!receipt.successful);
     if (!receipt.successful) {

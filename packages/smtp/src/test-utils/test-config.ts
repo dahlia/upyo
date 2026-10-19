@@ -59,12 +59,16 @@ export interface OAuth2TestConfig {
  * `SMTP_OAUTH2_TOKEN_ENDPOINT`).
  */
 export function isOAuth2TestingEnabled(): boolean {
-  const hasTokenSource = !!process.env.SMTP_OAUTH2_ACCESS_TOKEN ||
+  const hasTokenSource =
+    !!process.env.SMTP_OAUTH2_ACCESS_TOKEN ||
     (!!process.env.SMTP_OAUTH2_REFRESH_TOKEN &&
       !!process.env.SMTP_OAUTH2_CLIENT_ID &&
       !!process.env.SMTP_OAUTH2_TOKEN_ENDPOINT);
-  return !!process.env.SMTP_OAUTH2_HOST && !!process.env.SMTP_OAUTH2_USER &&
-    hasTokenSource;
+  return (
+    !!process.env.SMTP_OAUTH2_HOST &&
+    !!process.env.SMTP_OAUTH2_USER &&
+    hasTokenSource
+  );
 }
 
 /**
@@ -84,11 +88,12 @@ export function getOAuth2TestConfig(): OAuth2TestConfig {
 
   const user = process.env.SMTP_OAUTH2_USER!;
   const mechanism = process.env.SMTP_OAUTH2_MECHANISM;
-  const method = mechanism === "oauthbearer"
-    ? "oauthbearer"
-    : mechanism === "xoauth2"
-    ? "xoauth2"
-    : undefined;
+  const method =
+    mechanism === "oauthbearer"
+      ? "oauthbearer"
+      : mechanism === "xoauth2"
+        ? "xoauth2"
+        : undefined;
 
   // An empty SMTP_OAUTH2_ACCESS_TOKEN is treated as "not set" (matching
   // isOAuth2TestingEnabled), so the refresh-token flow is used in that case.
@@ -96,19 +101,19 @@ export function getOAuth2TestConfig(): OAuth2TestConfig {
   const usesRefreshFlow = !accessToken;
   const auth: SmtpAuth = accessToken
     ? {
-      user,
-      accessToken,
-      method,
-    }
+        user,
+        accessToken,
+        method,
+      }
     : {
-      user,
-      clientId: process.env.SMTP_OAUTH2_CLIENT_ID!,
-      clientSecret: process.env.SMTP_OAUTH2_CLIENT_SECRET,
-      refreshToken: process.env.SMTP_OAUTH2_REFRESH_TOKEN!,
-      tokenEndpoint: process.env.SMTP_OAUTH2_TOKEN_ENDPOINT!,
-      scope: process.env.SMTP_OAUTH2_SCOPE,
-      method,
-    };
+        user,
+        clientId: process.env.SMTP_OAUTH2_CLIENT_ID!,
+        clientSecret: process.env.SMTP_OAUTH2_CLIENT_SECRET,
+        refreshToken: process.env.SMTP_OAUTH2_REFRESH_TOKEN!,
+        tokenEndpoint: process.env.SMTP_OAUTH2_TOKEN_ENDPOINT!,
+        scope: process.env.SMTP_OAUTH2_SCOPE,
+        method,
+      };
 
   return {
     smtp: {
@@ -144,10 +149,12 @@ export function createTestMessage(
       name: options.senderName ?? "Test Sender",
       address: senderEmail,
     },
-    recipients: options.recipients ?? [{
-      name: "Test Recipient",
-      address: recipientEmail,
-    }],
+    recipients: options.recipients ?? [
+      {
+        name: "Test Recipient",
+        address: recipientEmail,
+      },
+    ],
     ccRecipients: options.ccRecipients ?? [],
     bccRecipients: options.bccRecipients ?? [],
     replyRecipients: options.replyRecipients ?? [],

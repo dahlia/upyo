@@ -149,8 +149,7 @@ describe(
         const message = createTestMessage({
           subject: "Test Email DKIM - HTML",
           content: {
-            html:
-              "<h1>DKIM-Signed HTML Email</h1><p>This email is signed with DKIM</p>",
+            html: "<h1>DKIM-Signed HTML Email</h1><p>This email is signed with DKIM</p>",
           },
         });
 
@@ -228,8 +227,8 @@ describe(
           "Should have attachments",
         );
         assert.ok(
-          mailpitMessage.Attachments.some((a) =>
-            a.FileName === "dkim-test.txt"
+          mailpitMessage.Attachments.some(
+            (a) => a.FileName === "dkim-test.txt",
           ),
           "Should have the expected attachment",
         );
@@ -244,8 +243,7 @@ describe(
         const message = createTestMessage({
           subject: "Test Email DKIM - 한글 테스트 🌍",
           content: {
-            text:
-              "안녕하세요! This DKIM-signed email contains Korean characters and emojis 🚀",
+            text: "안녕하세요! This DKIM-signed email contains Korean characters and emojis 🚀",
           },
         });
 
@@ -357,8 +355,8 @@ describe(
         );
 
         // Check if DKIM-Signature header exists
-        const dkimHeader = headers["Dkim-Signature"] ||
-          headers["dkim-signature"];
+        const dkimHeader =
+          headers["Dkim-Signature"] || headers["dkim-signature"];
         assert.ok(dkimHeader, "Should have DKIM-Signature header in headers");
         assert.ok(dkimHeader.length > 0, "DKIM-Signature should have value");
 

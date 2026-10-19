@@ -251,8 +251,11 @@ export class MockTransport implements Transport<"mock"> {
    */
   getMessagesTo(email: string): readonly Message[] {
     return this.sentMessages.filter((message) =>
-      [...message.recipients, ...message.ccRecipients, ...message.bccRecipients]
-        .some((addr) => addr.address === email)
+      [
+        ...message.recipients,
+        ...message.ccRecipients,
+        ...message.bccRecipients,
+      ].some((addr) => addr.address === email),
     );
   }
 
@@ -363,7 +366,8 @@ export class MockTransport implements Transport<"mock"> {
   private getResponse(): Receipt<"mock"> {
     // Check for random failure first
     if (
-      this.config.failureRate > 0 && Math.random() < this.config.failureRate
+      this.config.failureRate > 0 &&
+      Math.random() < this.config.failureRate
     ) {
       return createFailedReceipt("Simulated random failure", {
         provider: "mock",

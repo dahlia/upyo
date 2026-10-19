@@ -8,6 +8,13 @@ import {
 import { parseMessageId } from "./message-id.ts";
 import type { Priority } from "./priority.ts";
 
+// Fetch's sequence input accepts iterables, including read-only Headers views.
+// https://fetch.spec.whatwg.org/#headers-class
+// lib.dom omits generic iterables from the constructor's sequence input.
+declare const Headers: typeof globalThis.Headers & {
+  new (init?: HeadersInit | Iterable<[string, string]>): globalThis.Headers;
+};
+
 /**
  * Represents an email message with various properties such as
  * sender, recipients, subject, content, and attachments.
@@ -202,26 +209,26 @@ export interface Message {
  */
 export type MessageContent =
   | {
-    /**
-     * The HTML content of the email message.  This is typically used
-     * for rich formatting and layout.
-     */
-    html: string;
+      /**
+       * The HTML content of the email message.  This is typically used
+       * for rich formatting and layout.
+       */
+      html: string;
 
-    /**
-     * The alternative plain text content of the email message.  This is
-     * optional and may be included for compatibility with email
-     * clients that do not support HTML.
-     */
-    text?: string;
-  }
+      /**
+       * The alternative plain text content of the email message.  This is
+       * optional and may be included for compatibility with email
+       * clients that do not support HTML.
+       */
+      text?: string;
+    }
   | {
-    /**
-     * The plain text content of the email message.  This is typically
-     * used for simple text emails.
-     */
-    text: string;
-  };
+      /**
+       * The plain text content of the email message.  This is typically
+       * used for simple text emails.
+       */
+      text: string;
+    };
 
 /**
  * Represents the headers of an email message.  This type is a supertype of
@@ -414,16 +421,16 @@ export function createMessage(constructor: MessageConstructor): Message {
   return {
     sender,
     recipients: ensureArray(constructor.to).map((to) =>
-      checkAddress("recipient", to)
+      checkAddress("recipient", to),
     ),
     ccRecipients: ensureArray(constructor.cc).map((cc) =>
-      checkAddress("CC", cc)
+      checkAddress("CC", cc),
     ),
     bccRecipients: ensureArray(constructor.bcc).map((bcc) =>
-      checkAddress("BCC", bcc)
+      checkAddress("BCC", bcc),
     ),
     replyRecipients: ensureArray(constructor.replyTo).map((replyTo) =>
-      checkAddress("reply-to", replyTo)
+      checkAddress("reply-to", replyTo),
     ),
     attachments: ensureArray(constructor.attachments).map((attachment) => {
       if (attachment instanceof File) {
@@ -431,12 +438,14 @@ export function createMessage(constructor: MessageConstructor): Message {
           inline: false,
           filename: attachment.name,
           content: attachment,
-          contentType: attachment.type == null || attachment.type === ""
-            ? "application/octet-stream"
-            : attachment.type as `${string}/${string}`,
-          contentId: `${crypto.randomUUID()}@${
-            sender.address.replace(/^[^@]*@/, "")
-          }`,
+          contentType:
+            attachment.type == null || attachment.type === ""
+              ? "application/octet-stream"
+              : (attachment.type as `${string}/${string}`),
+          contentId: `${crypto.randomUUID()}@${sender.address.replace(
+            /^[^@]*@/,
+            "",
+          )}`,
         });
       } else if (isAttachment(attachment)) {
         return checkAttachment(attachment);
@@ -450,15 +459,17 @@ export function createMessage(constructor: MessageConstructor): Message {
     tags: ensureArray(constructor.tags),
     headers: new Headers(constructor.headers ?? {}),
     idempotencyKey: constructor.idempotencyKey,
-    messageId: constructor.messageId == null
-      ? undefined
-      : checkMessageId("", constructor.messageId),
+    messageId:
+      constructor.messageId == null
+        ? undefined
+        : checkMessageId("", constructor.messageId),
     date: checkDate(constructor.date),
     inReplyTo: checkMessageIds("in-reply-to ", constructor.inReplyTo),
     references: checkMessageIds("references ", constructor.references),
-    calendar: constructor.calendar == null
-      ? undefined
-      : resolveCalendarContent(constructor.calendar),
+    calendar:
+      constructor.calendar == null
+        ? undefined
+        : resolveCalendarContent(constructor.calendar),
   };
 }
 
@@ -482,10 +493,11 @@ function throwTypeError(message: string): never {
  * address contains a carriage return or line feed.
  */
 function checkAddress(label: string, address: Address | string): Address {
-  const parsed = typeof address === "string"
-    ? parseAddress(address) ??
-      throwTypeError(`Invalid ${label} address: ${JSON.stringify(address)}`)
-    : address;
+  const parsed =
+    typeof address === "string"
+      ? (parseAddress(address) ??
+        throwTypeError(`Invalid ${label} address: ${JSON.stringify(address)}`))
+      : address;
   if (/[\r\n]/.test(parsed.address)) {
     throwTypeError(
       `Invalid ${label} address: ${JSON.stringify(parsed.address)}`,
@@ -511,9 +523,9 @@ function checkAddress(label: string, address: Address | string): Address {
 function checkAttachment(attachment: Attachment): Attachment {
   if (/[\r\n]/.test(attachment.contentType)) {
     throwTypeError(
-      `Invalid attachment content type: ${
-        JSON.stringify(attachment.contentType)
-      }`,
+      `Invalid attachment content type: ${JSON.stringify(
+        attachment.contentType,
+      )}`,
     );
   }
   if (/[\r\n]/.test(attachment.contentId)) {
@@ -538,8 +550,10 @@ function checkAttachment(attachment: Attachment): Attachment {
  * @throws {TypeError} If the value is not a valid message identifier.
  */
 function checkMessageId(label: string, id: string): string {
-  return parseMessageId(id) ??
-    throwTypeError(`Invalid ${label}message ID: ${JSON.stringify(id)}`);
+  return (
+    parseMessageId(id) ??
+    throwTypeError(`Invalid ${label}message ID: ${JSON.stringify(id)}`)
+  );
 }
 
 /**
@@ -558,8 +572,9 @@ function checkMessageIds(
   ids: string | readonly string[] | undefined,
 ): readonly string[] | undefined {
   if (ids == null) return undefined;
-  return (typeof ids === "string" ? [ids] : ids)
-    .map((id) => checkMessageId(label, id));
+  return (typeof ids === "string" ? [ids] : ids).map((id) =>
+    checkMessageId(label, id),
+  );
 }
 
 /**
@@ -580,8 +595,6 @@ function checkDate(date: Date | undefined): Date | undefined {
   return new Date(time);
 }
 
-function ensureArray<T>(
-  value: T | T[] | null | undefined,
-): T[] {
+function ensureArray<T>(value: T | T[] | null | undefined): T[] {
   return Array.isArray(value) ? value : value == null ? [] : [value];
 }

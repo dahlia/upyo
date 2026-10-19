@@ -125,9 +125,8 @@ export class ResendTransport implements Transport<"resend"> {
         throw error;
       }
 
-      const errorMessage = error instanceof Error
-        ? error.message
-        : String(error);
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
 
       return createResendFailure(errorMessage, error);
     }
@@ -266,8 +265,8 @@ export class ResendTransport implements Transport<"resend"> {
 
     try {
       // Use first message's idempotency key or generate one for reliable delivery
-      const idempotencyKey = messages[0]?.idempotencyKey ??
-        generateIdempotencyKey();
+      const idempotencyKey =
+        messages[0]?.idempotencyKey ?? generateIdempotencyKey();
 
       const batchData = await convertMessagesBatch(messages, this.config);
 
@@ -292,9 +291,8 @@ export class ResendTransport implements Transport<"resend"> {
         throw error;
       }
 
-      const errorMessage = error instanceof Error
-        ? error.message
-        : String(error);
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
 
       // If batch fails, yield error receipt for each message
       for (let i = 0; i < messages.length; i++) {
@@ -315,14 +313,15 @@ export class ResendTransport implements Transport<"resend"> {
    * @returns True if all messages are suitable for batch API
    */
   private canUseBatchApi(messages: Message[]): boolean {
-    return messages.every((message) =>
-      message.attachments.length === 0 &&
-      message.tags.length === 0 &&
-      // A calendar becomes an attachment during conversion, which the batch
-      // API forbids, and `sendBatch()` fails a whole chunk on one conversion
-      // error.  Sending these individually keeps the failure — or the success
-      // — confined to the message it belongs to.
-      message.calendar == null
+    return messages.every(
+      (message) =>
+        message.attachments.length === 0 &&
+        message.tags.length === 0 &&
+        // A calendar becomes an attachment during conversion, which the batch
+        // API forbids, and `sendBatch()` fails a whole chunk on one conversion
+        // error.  Sending these individually keeps the failure — or the success
+        // — confined to the message it belongs to.
+        message.calendar == null,
     );
   }
 
@@ -364,10 +363,8 @@ function isAbortError(error: unknown): boolean {
   return error instanceof Error && error.name === "AbortError";
 }
 
-function isCallerAbort(
-  error: unknown,
-  signal?: AbortSignal | null,
-): boolean {
-  return signal?.aborted === true &&
-    (isAbortError(error) || error === signal.reason);
+function isCallerAbort(error: unknown, signal?: AbortSignal | null): boolean {
+  return (
+    signal?.aborted === true && (isAbortError(error) || error === signal.reason)
+  );
 }

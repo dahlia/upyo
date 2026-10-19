@@ -45,6 +45,8 @@ export const JMAP_ERROR_TYPES = {
  * @since 0.4.0
  */
 export function isCapabilityError(error: unknown): boolean {
-  return error instanceof JmapApiError &&
-    error.jmapErrorType === JMAP_ERROR_TYPES.unknownCapability;
+  return (
+    error instanceof JmapApiError &&
+    error.jmapErrorType === JMAP_ERROR_TYPES.unknownCapability
+  );
 }

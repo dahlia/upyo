@@ -20,6 +20,7 @@ description = "Stop Stalwart"
 run = "docker compose down"
 
 [tasks."test:deno"]
+tools.deno = "{{ vars.deno_version }}"
 description = "Run @upyo/jmap tests with Deno"
 env.DENO_JOBS = "1"
 usage = '''
@@ -54,5 +55,9 @@ depends = ["build", "//packages/mime:build"]
 run = "bun test --timeout=30000"
 
 [tasks.test]
+description = "Run @upyo/jmap tests with Node.js"
+depends = ["test:node"]
+
+[tasks."test:all"]
 description = "Run @upyo/jmap tests across all runtimes"
 depends = ["test:deno", "test:node", "test:bun"]

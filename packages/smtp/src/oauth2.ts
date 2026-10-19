@@ -113,13 +113,14 @@ export function selectOAuth2Mechanism(
   capabilities: readonly string[],
 ): "xoauth2" | "oauthbearer" {
   const authLine = capabilities.find((cap) =>
-    cap.toUpperCase().startsWith("AUTH")
+    cap.toUpperCase().startsWith("AUTH"),
   );
   // Normalize "=" to whitespace so the older `AUTH=XOAUTH2 ...` form (where the
   // first mechanism is glued to the AUTH keyword) is parsed like `AUTH XOAUTH2`.
-  const mechanisms = authLine == null
-    ? []
-    : authLine.toUpperCase().replace(/=/g, " ").split(/\s+/).slice(1);
+  const mechanisms =
+    authLine == null
+      ? []
+      : authLine.toUpperCase().replace(/=/g, " ").split(/\s+/).slice(1);
   if (mechanisms.includes("XOAUTH2")) return "xoauth2";
   if (mechanisms.includes("OAUTHBEARER")) return "oauthbearer";
   return "xoauth2";
@@ -137,12 +138,11 @@ function assertSecureTokenEndpoint(endpoint: string): void {
   try {
     url = new URL(endpoint);
   } catch {
-    throw new TypeError(
-      `Invalid OAuth 2.0 token endpoint URL: ${endpoint}`,
-    );
+    throw new TypeError(`Invalid OAuth 2.0 token endpoint URL: ${endpoint}`);
   }
   if (url.protocol === "https:") return;
-  const isLoopback = url.hostname === "localhost" ||
+  const isLoopback =
+    url.hostname === "localhost" ||
     url.hostname === "127.0.0.1" ||
     url.hostname === "[::1]" ||
     url.hostname === "::1";
@@ -205,7 +205,7 @@ function abortable<T>(promise: Promise<T>, signal?: AbortSignal): Promise<T> {
     // promise never rejects with `undefined`.
     const abortReason = () =>
       signal.reason ??
-        new DOMException("The operation was aborted.", "AbortError");
+      new DOMException("The operation was aborted.", "AbortError");
     const onAbort = () => {
       signal.removeEventListener("abort", onAbort);
       reject(abortReason());
@@ -392,7 +392,8 @@ export class OAuth2TokenManager {
     }
 
     if (
-      typeof json !== "object" || json == null ||
+      typeof json !== "object" ||
+      json == null ||
       typeof (json as Record<string, unknown>).access_token !== "string"
     ) {
       throw new SmtpAuthError(
@@ -414,9 +415,10 @@ export class OAuth2TokenManager {
     } else {
       parsedExpiresIn = NaN;
     }
-    const expiresIn = Number.isFinite(parsedExpiresIn) && parsedExpiresIn >= 0
-      ? parsedExpiresIn
-      : DEFAULT_EXPIRES_IN;
+    const expiresIn =
+      Number.isFinite(parsedExpiresIn) && parsedExpiresIn >= 0
+        ? parsedExpiresIn
+        : DEFAULT_EXPIRES_IN;
     return { accessToken: record.access_token as string, expiresIn };
   }
 }

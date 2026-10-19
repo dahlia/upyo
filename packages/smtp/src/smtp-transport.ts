@@ -76,10 +76,8 @@ import { parseEnhancedSmtpStatusCode } from "./smtp-status-code.ts";
  * ```
  */
 export class SmtpTransport
-  implements
-    RawTransport<"smtp">,
-    VerifiableTransport<"smtp">,
-    AsyncDisposable {
+  implements RawTransport<"smtp">, VerifiableTransport<"smtp">, AsyncDisposable
+{
   readonly id = "smtp";
 
   /**
@@ -142,7 +140,8 @@ export class SmtpTransport
     this.config = config;
     const poolSize = config.poolSize ?? 5;
     if (
-      Number.isNaN(poolSize) || poolSize < 1 ||
+      Number.isNaN(poolSize) ||
+      poolSize < 1 ||
       (Number.isFinite(poolSize) && !Number.isInteger(poolSize))
     ) {
       throw new RangeError(
@@ -244,10 +243,7 @@ export class SmtpTransport
 
       options?.signal?.throwIfAborted();
 
-      const result = await connection.sendMessage(
-        smtpMessage,
-        options?.signal,
-      );
+      const result = await connection.sendMessage(smtpMessage, options?.signal);
 
       await this.returnConnection(connection);
       // Cleared so the catch below cannot hand the same connection back twice.
@@ -377,9 +373,8 @@ export class SmtpTransport
       // Connection setup (including authentication) failed, so no message can
       // be delivered.  Report a failed receipt for each message rather than
       // throwing.
-      const errorMessage = error instanceof Error
-        ? error.message
-        : String(error);
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
       for await (const _ of messages) {
         options?.signal?.throwIfAborted();
         yield createSmtpFailure(errorMessage, error);
@@ -713,7 +708,7 @@ export class SmtpTransport
       connection.config.secure === false &&
       (connection.config.requireTls === true ||
         connection.capabilities.some((cap) =>
-          cap.toUpperCase().startsWith("STARTTLS")
+          cap.toUpperCase().startsWith("STARTTLS"),
         ))
     ) {
       await connection.starttls(signal);
@@ -737,9 +732,7 @@ export class SmtpTransport
    * waiting caller.
    */
   private async returnConnection(connection: SmtpConnection): Promise<void> {
-    if (
-      !connection.usable || !connection.config.pool || this.closing != null
-    ) {
+    if (!connection.usable || !connection.config.pool || this.closing != null) {
       await this.discardConnection(connection);
       return;
     }
@@ -874,9 +867,10 @@ function createSmtpFailure(
       category: "validation",
       retryable: false,
       attempts: 1,
-      code: error.field === "envelope"
-        ? "smtp.envelope-invalid"
-        : "smtp.raw-message-invalid",
+      code:
+        error.field === "envelope"
+          ? "smtp.envelope-invalid"
+          : "smtp.raw-message-invalid",
     });
   }
   if (error instanceof Smtp8BitMimeUnsupportedError) {
@@ -974,9 +968,10 @@ function createSmtpFailure(
       providerDetails: {
         command: error.command,
         response: error.response,
-        rejectedRecipients: error instanceof SmtpResponseError
-          ? error.rejectedRecipients
-          : undefined,
+        rejectedRecipients:
+          error instanceof SmtpResponseError
+            ? error.rejectedRecipients
+            : undefined,
         ...(enhancedStatusCode == null ? {} : { enhancedStatusCode }),
       },
     });
@@ -989,14 +984,15 @@ function createSmtpFailure(
 }
 
 function isReusableLocalFailure(error: unknown): boolean {
-  return (error instanceof SmtpMessageSizeError &&
-    error.phase === "preflight") ||
+  return (
+    (error instanceof SmtpMessageSizeError && error.phase === "preflight") ||
     error instanceof SmtpUtf8UnsupportedError ||
     error instanceof Smtp8BitMimeUnsupportedError ||
     error instanceof RawMessageValidationError ||
     error instanceof SmtpEnvelopeValidationError ||
     error instanceof SmtpDsnValidationError ||
-    error instanceof SmtpDsnUnsupportedError;
+    error instanceof SmtpDsnUnsupportedError
+  );
 }
 
 function resolveEnvelopeOption(
@@ -1035,14 +1031,12 @@ function classifySmtpReply(
     | "unknown";
   readonly retryable: boolean;
 } {
-  const retryable = enhancedStatusCode == null
-    ? code >= 400 && code < 500
-    : enhancedStatusCode.class === 4;
+  const retryable =
+    enhancedStatusCode == null
+      ? code >= 400 && code < 500
+      : enhancedStatusCode.class === 4;
 
-  if (
-    enhancedStatusCode?.subject === 1 ||
-    enhancedStatusCode?.subject === 6
-  ) {
+  if (enhancedStatusCode?.subject === 1 || enhancedStatusCode?.subject === 6) {
     return { category: "validation", retryable };
   }
   if (enhancedStatusCode?.subject === 4) {

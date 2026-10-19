@@ -60,15 +60,14 @@ async function setup() {
     if (name === "Email/set") {
       calls.push("EmailSubmission/set");
       reply({
-        methodResponses: [[
-          "Email/set",
-          { created: { draft: { id: "email" } } },
-          "c0",
-        ], [
-          "EmailSubmission/set",
-          { created: { submission: { id: "sent" } } },
-          "c1",
-        ]],
+        methodResponses: [
+          ["Email/set", { created: { draft: { id: "email" } } }, "c0"],
+          [
+            "EmailSubmission/set",
+            { created: { submission: { id: "sent" } } },
+            "c1",
+          ],
+        ],
       });
       return;
     }
@@ -79,16 +78,23 @@ async function setup() {
       stalled.resolve();
       return;
     }
-    const list = name === "Mailbox/get"
-      ? state.drafts ? [{ id: "drafts", role: "drafts" }] : []
-      : [{ id: state.identity, email: "*@example.com" }];
+    const list =
+      name === "Mailbox/get"
+        ? state.drafts
+          ? [{ id: "drafts", role: "drafts" }]
+          : []
+        : [{ id: state.identity, email: "*@example.com" }];
     const response = state.methodError
       ? ["error", { type: "forbidden", description: "Not allowed." }, id]
-      : [name, {
-        accountId: state.wrongAccount ? "other" : args.accountId,
-        list,
-        notFound: state.contradiction ? [state.identity] : [],
-      }, id];
+      : [
+          name,
+          {
+            accountId: state.wrongAccount ? "other" : args.accountId,
+            list,
+            notFound: state.contradiction ? [state.identity] : [],
+          },
+          id,
+        ];
     reply({
       methodResponses: state.duplicate ? [response, response] : [response],
     });
@@ -153,29 +159,29 @@ test("JMAP verification always performs fresh read-only discovery", async () => 
   }
 });
 
-for (
-  const failure of [
-    "capabilities",
-    "accounts",
-    "apiUrl",
-    "readonly",
-    "mailOnly",
-    "unknownAccount",
-    "identity",
-    "drafts",
-    "methodError",
-    "duplicate",
-    "wrongAccount",
-    "contradiction",
-  ] as const
-) {
+for (const failure of [
+  "capabilities",
+  "accounts",
+  "apiUrl",
+  "readonly",
+  "mailOnly",
+  "unknownAccount",
+  "identity",
+  "drafts",
+  "methodError",
+  "duplicate",
+  "wrongAccount",
+  "contradiction",
+] as const) {
   test(`JMAP verification rejects ${failure}`, async () => {
     const f = await setup();
     try {
       if (
-        failure === "capabilities" || failure === "accounts" ||
+        failure === "capabilities" ||
+        failure === "accounts" ||
         failure === "apiUrl"
-      ) f.state.session[failure] = null;
+      )
+        f.state.session[failure] = null;
       else if (failure === "readonly") {
         f.state.session.accounts = {
           a: {
@@ -205,7 +211,7 @@ for (
       );
       assert.ok(
         f.calls.every((name) =>
-          ["session", "Mailbox/get", "Identity/get"].includes(name)
+          ["session", "Mailbox/get", "Identity/get"].includes(name),
         ),
       );
     } finally {
@@ -229,9 +235,8 @@ for (const stage of ["session", "Mailbox/get", "Identity/get"]) {
           retries: 0,
         });
         const pending = transport.verify({ signal: controller.signal });
-        const checked = assert.rejects(
-          pending,
-          (e) => cancel ? e === reason : e instanceof JmapApiError,
+        const checked = assert.rejects(pending, (e) =>
+          cancel ? e === reason : e instanceof JmapApiError,
         );
         await f.stalled.promise;
         if (cancel) controller.abort(reason);

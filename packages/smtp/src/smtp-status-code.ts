@@ -17,8 +17,10 @@ export function parseEnhancedSmtpStatusCode(
   replyCode: number,
   response: string,
 ): SmtpEnhancedStatusCode | undefined {
-  const match = /^([245])\.((?:0|[1-9][0-9]{0,2}))\.((?:0|[1-9][0-9]{0,2})) +/
-    .exec(response);
+  const match =
+    /^([245])\.((?:0|[1-9][0-9]{0,2}))\.((?:0|[1-9][0-9]{0,2})) +/.exec(
+      response,
+    );
   if (match == null) return undefined;
 
   const statusClass = Number(match[1]) as 2 | 4 | 5;

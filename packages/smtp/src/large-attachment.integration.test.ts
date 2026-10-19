@@ -92,7 +92,7 @@ for (const megabytes of [8, 64]) {
         });
       });
       await new Promise<void>((resolve) =>
-        server.listen(0, "127.0.0.1", resolve)
+        server.listen(0, "127.0.0.1", resolve),
       );
       const address = server.address();
       assert.ok(address && typeof address !== "string");
@@ -103,14 +103,16 @@ for (const megabytes of [8, 64]) {
         socketTimeout: 10000,
         dkim: signed
           ? {
-            bodyMode: "streaming",
-            signatures: [{
-              signingDomain: "example.com",
-              selector: "test",
-              canonicalization: "simple/simple",
-              privateKey: TEST_DKIM_PRIVATE_KEY,
-            }],
-          }
+              bodyMode: "streaming",
+              signatures: [
+                {
+                  signingDomain: "example.com",
+                  selector: "test",
+                  canonicalization: "simple/simple",
+                  privateKey: TEST_DKIM_PRIVATE_KEY,
+                },
+              ],
+            }
           : undefined,
       });
       try {
@@ -146,20 +148,29 @@ for (const megabytes of [8, 64]) {
         );
         if (signed) {
           const signature = headers.find((line) =>
-            line.startsWith("DKIM-Signature:")
+            line.startsWith("DKIM-Signature:"),
           )!;
           const tags = new Map(
-            signature.slice(15).split(";").map((tag) => {
-              const equal = tag.indexOf("=");
-              return [tag.slice(0, equal).trim(), tag.slice(equal + 1).trim()];
-            }),
+            signature
+              .slice(15)
+              .split(";")
+              .map((tag) => {
+                const equal = tag.indexOf("=");
+                return [
+                  tag.slice(0, equal).trim(),
+                  tag.slice(equal + 1).trim(),
+                ];
+              }),
           );
           assert.equal(tags.get("bh"), bodyHash.digest("base64"));
-          const selected = tags.get("h")!.split(":").map((name) =>
-            headers.find((line) =>
-              line.toLowerCase().startsWith(name.toLowerCase() + ":")
-            )!
-          );
+          const selected = tags
+            .get("h")!
+            .split(":")
+            .map((name) =>
+              headers.find((line) =>
+                line.toLowerCase().startsWith(name.toLowerCase() + ":"),
+              )!,
+            );
           selected.push(signature.replace(/b=[^;]*$/, "b="));
           assert.ok(
             verify(
@@ -178,9 +189,13 @@ for (const megabytes of [8, 64]) {
       }
       if (
         serverError &&
-        !(serverError instanceof Error && "code" in serverError &&
-          serverError.code === "ECONNRESET")
-      ) throw serverError;
+        !(
+          serverError instanceof Error &&
+          "code" in serverError &&
+          serverError.code === "ECONNRESET"
+        )
+      )
+        throw serverError;
     });
   }
 }

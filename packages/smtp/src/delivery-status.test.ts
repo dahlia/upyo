@@ -60,14 +60,17 @@ describe("resolveSmtpDsn", () => {
 
   test("should accept the RFC 3461 ORCPT length limit", () => {
     const address = `${"a".repeat(485)}@b` as const;
-    const dsn = resolveSmtpDsn({
-      from: "sender@example.com",
-      to: [address],
-    }, {
-      recipients: {
-        [address]: { originalRecipient: address },
+    const dsn = resolveSmtpDsn(
+      {
+        from: "sender@example.com",
+        to: [address],
       },
-    });
+      {
+        recipients: {
+          [address]: { originalRecipient: address },
+        },
+      },
+    );
     assert.equal(dsn?.recipientParameters[0][0].length, 500);
   });
 
@@ -75,14 +78,17 @@ describe("resolveSmtpDsn", () => {
     const address = `${"a".repeat(486)}@b` as const;
     assert.throws(
       () =>
-        resolveSmtpDsn({
-          from: "sender@example.com",
-          to: [address],
-        }, {
-          recipients: {
-            [address]: { originalRecipient: address },
+        resolveSmtpDsn(
+          {
+            from: "sender@example.com",
+            to: [address],
           },
-        }),
+          {
+            recipients: {
+              [address]: { originalRecipient: address },
+            },
+          },
+        ),
       new SmtpDsnValidationError(
         "ORCPT parameter exceeds the RFC 3461 limit of 500 characters.",
       ),

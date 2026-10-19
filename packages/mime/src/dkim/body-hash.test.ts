@@ -25,9 +25,10 @@ test("incremental body hashes match canonicalization at every split", () => {
   for (const mode of ["simple", "relaxed"] as const) {
     for (const body of bodies) {
       const bytes = new TextEncoder().encode(body);
-      const canonical = mode === "simple"
-        ? canonicalizeBodySimple(body)
-        : canonicalizeBodyRelaxed(body);
+      const canonical =
+        mode === "simple"
+          ? canonicalizeBodySimple(body)
+          : canonicalizeBodyRelaxed(body);
       const expected = createHash("sha256").update(canonical).digest("base64");
       for (const width of [1, 2, 3, 57, 65536, 200000]) {
         const hash = new BodyHasher(mode);
@@ -49,9 +50,10 @@ test("body hash span boundaries preserve pending CR and whitespace", () => {
   for (const mode of ["simple", "relaxed"] as const) {
     for (const body of bodies) {
       const bytes = new TextEncoder().encode(body);
-      const canonical = mode === "simple"
-        ? canonicalizeBodySimple(body)
-        : canonicalizeBodyRelaxed(body);
+      const canonical =
+        mode === "simple"
+          ? canonicalizeBodySimple(body)
+          : canonicalizeBodyRelaxed(body);
       const expected = createHash("sha256").update(canonical).digest("base64");
       for (let first = 0; first <= bytes.length; first++) {
         for (let second = first; second <= bytes.length; second++) {

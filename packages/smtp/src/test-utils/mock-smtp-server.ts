@@ -179,10 +179,12 @@ export class MockSmtpServer extends EventEmitter {
               if (ehloResponse.code === 250) {
                 const lines = [ehloResponse.message, ...this.capabilities];
                 socket.write(
-                  lines.map((capability, index) => {
-                    const separator = index === lines.length - 1 ? " " : "-";
-                    return `${ehloResponse.code}${separator}${capability}\r\n`;
-                  }).join(""),
+                  lines
+                    .map((capability, index) => {
+                      const separator = index === lines.length - 1 ? " " : "-";
+                      return `${ehloResponse.code}${separator}${capability}\r\n`;
+                    })
+                    .join(""),
                 );
               } else {
                 socket.write(
@@ -203,9 +205,8 @@ export class MockSmtpServer extends EventEmitter {
               const parts = line.split(" ");
               const mechanism = parts[1]?.toUpperCase();
               if (mechanism === "XOAUTH2" || mechanism === "OAUTHBEARER") {
-                const mech = mechanism === "XOAUTH2"
-                  ? "xoauth2"
-                  : "oauthbearer";
+                const mech =
+                  mechanism === "XOAUTH2" ? "xoauth2" : "oauthbearer";
                 if (parts.length >= 3) {
                   respondToOAuth(mech);
                 } else {
@@ -228,16 +229,17 @@ export class MockSmtpServer extends EventEmitter {
               break;
             }
 
-            // deno-lint-ignore no-case-declarations
             case "MAIL":
               currentMessage.from = this.extractEmail(line);
+              // oxlint-disable-next-line eslint/no-case-declarations
               const mailResponse = this.responses.get("MAIL")!;
               if (this.writeEnvelopeResponse(socket, mailResponse)) return;
               break;
 
-            // deno-lint-ignore no-case-declarations
             case "RCPT":
-              const rcptResponse = this.responseQueues.get("RCPT")?.shift() ??
+              // oxlint-disable-next-line eslint/no-case-declarations
+              const rcptResponse =
+                this.responseQueues.get("RCPT")?.shift() ??
                 this.responses.get("RCPT")!;
               if (rcptResponse.code >= 200 && rcptResponse.code < 300) {
                 if (!currentMessage.to) currentMessage.to = [];
@@ -246,16 +248,16 @@ export class MockSmtpServer extends EventEmitter {
               if (this.writeEnvelopeResponse(socket, rcptResponse)) return;
               break;
 
-              // deno-lint-ignore no-case-declarations
             case "DATA":
               inDataMode = true;
+              // oxlint-disable-next-line eslint/no-case-declarations
               const dataResponse = this.responses.get("DATA")!;
               socket.write(`${dataResponse.code} ${dataResponse.message}\r\n`);
               break;
 
-              // deno-lint-ignore no-case-declarations
             case "RSET":
               currentMessage = {};
+              // oxlint-disable-next-line eslint/no-case-declarations
               const rsetResponse = this.responses.get("RSET")!;
               this.writeResponse(
                 socket,
@@ -286,9 +288,11 @@ export class MockSmtpServer extends EventEmitter {
 
             default:
               // Handle base64 encoded username/password for AUTH LOGIN
-              if (line.includes("dGVzdHVzZXI=")) { // "testuser" in base64
+              if (line.includes("dGVzdHVzZXI=")) {
+                // "testuser" in base64
                 socket.write("334 UGFzc3dvcmQ6\r\n"); // "Password:" in base64
-              } else if (line.includes("dGVzdHBhc3M=")) { // "testpass" in base64
+              } else if (line.includes("dGVzdHBhc3M=")) {
+                // "testpass" in base64
                 const authResponse = this.responses.get("AUTH")!;
                 socket.write(
                   `${authResponse.code} ${authResponse.message}\r\n`,
@@ -333,7 +337,8 @@ export class MockSmtpServer extends EventEmitter {
 
   private formatResponse(response: SmtpResponse): string {
     const continuationLines =
-      response.continuationLines?.map((line) => `${response.code}-${line}\r\n`)
+      response.continuationLines
+        ?.map((line) => `${response.code}-${line}\r\n`)
         .join("") ?? "";
     return `${continuationLines}${response.code} ${response.message}\r\n`;
   }
@@ -381,7 +386,7 @@ export class MockSmtpServer extends EventEmitter {
 
     // Clear all timeouts immediately
     for (const timeout of this.timeouts) {
-      // deno-lint-ignore no-explicit-any
+      // oxlint-disable-next-line typescript/no-explicit-any
       clearTimeout(timeout as any);
     }
     this.timeouts.clear();

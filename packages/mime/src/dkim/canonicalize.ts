@@ -37,10 +37,7 @@ export function canonicalizeHeaderSimple(name: string, value: string): string {
  * @see RFC 6376 Section 3.4.2
  * @since 0.6.0
  */
-export function canonicalizeHeaderRelaxed(
-  name: string,
-  value: string,
-): string {
+export function canonicalizeHeaderRelaxed(name: string, value: string): string {
   // Convert header field name to lowercase
   const canonicalName = name.toLowerCase();
 

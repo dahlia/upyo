@@ -365,16 +365,14 @@ export interface SmtpTlsOptions {
  * This type represents the final configuration after applying defaults,
  * used internally by the SMTP transport implementation.
  */
-export type ResolvedSmtpConfig =
-  & Omit<
-    Required<SmtpConfig>,
-    "auth" | "tls" | "dkim"
-  >
-  & {
-    readonly auth?: SmtpAuth;
-    readonly tls?: SmtpTlsOptions;
-    readonly dkim?: DkimConfig;
-  };
+export type ResolvedSmtpConfig = Omit<
+  Required<SmtpConfig>,
+  "auth" | "tls" | "dkim"
+> & {
+  readonly auth?: SmtpAuth;
+  readonly tls?: SmtpTlsOptions;
+  readonly dkim?: DkimConfig;
+};
 
 /**
  * Creates a resolved SMTP configuration by applying default values to optional fields.

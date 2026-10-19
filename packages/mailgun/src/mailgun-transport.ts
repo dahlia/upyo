@@ -117,9 +117,8 @@ export class MailgunTransport implements Transport<"mailgun"> {
         throw error;
       }
 
-      const errorMessage = error instanceof Error
-        ? error.message
-        : String(error);
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
 
       return createMailgunFailure(errorMessage, error);
     }
@@ -218,8 +217,9 @@ function createMailgunFailure(
 }
 
 function isCallerAbort(error: unknown, signal?: AbortSignal): boolean {
-  return signal?.aborted === true &&
-    (isAbortError(error) || error === signal.reason);
+  return (
+    signal?.aborted === true && (isAbortError(error) || error === signal.reason)
+  );
 }
 
 function isAbortError(error: unknown): boolean {

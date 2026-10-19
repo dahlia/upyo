@@ -66,9 +66,7 @@ describe("parseCalendarMethod()", () => {
 
   it("should accept bare LF line endings", () => {
     assert.equal(
-      parseCalendarMethod(
-        "BEGIN:VCALENDAR\nMETHOD:CANCEL\nEND:VCALENDAR\n",
-      ),
+      parseCalendarMethod("BEGIN:VCALENDAR\nMETHOD:CANCEL\nEND:VCALENDAR\n"),
       "CANCEL",
     );
   });
@@ -403,7 +401,8 @@ describe("resolveCalendarContent()", () => {
       content: ics("BEGIN:VCALENDAR", "METHOD:reque\u017Ft", "END:VCALENDAR"),
     },
     "two calendar objects": {
-      content: ics("BEGIN:VCALENDAR", "METHOD:REQUEST", "END:VCALENDAR") +
+      content:
+        ics("BEGIN:VCALENDAR", "METHOD:REQUEST", "END:VCALENDAR") +
         ics("BEGIN:VCALENDAR", "METHOD:REQUEST", "END:VCALENDAR"),
     },
     // RFC 5545 has no VCALENDAR inside a VCALENDAR, and the components balance
@@ -547,18 +546,19 @@ describe("calendar content line grammar", () => {
 
   for (let code = 0; code <= 0x7f; code++) {
     if (
-      code === 9 || code === 10 || code === 13 || (code >= 32 && code < 127)
+      code === 9 ||
+      code === 10 ||
+      code === 13 ||
+      (code >= 32 && code < 127)
     ) {
       continue;
     }
     const character = String.fromCharCode(code);
-    for (
-      const line of [
-        `SUMMARY:a${character}b`,
-        `METHOD;X=a${character}b:REQUEST`,
-        `METHOD;X="a${character}b":REQUEST`,
-      ]
-    ) {
+    for (const line of [
+      `SUMMARY:a${character}b`,
+      `METHOD;X=a${character}b:REQUEST`,
+      `METHOD;X="a${character}b":REQUEST`,
+    ]) {
       it(`should reject control U+${code.toString(16)} in ${JSON.stringify(line)}`, () => {
         const content = objectWith([line]);
         assert.equal(parseCalendarMethod(content), undefined);
@@ -627,9 +627,10 @@ describe("calendar content line grammar", () => {
   for (const [description, lines] of Object.entries(validLines)) {
     it(`should preserve ${description}`, () => {
       // A folded property name does not begin with METHOD until unfolded.
-      const content = description === "property name folding"
-        ? ics("BEGIN:VCALENDAR", ...lines, "END:VCALENDAR")
-        : objectWith(lines);
+      const content =
+        description === "property name folding"
+          ? ics("BEGIN:VCALENDAR", ...lines, "END:VCALENDAR")
+          : objectWith(lines);
       assert.equal(parseCalendarMethod(content), "REQUEST");
       assert.deepEqual(resolveCalendarContent({ content }), {
         method: "REQUEST",
@@ -673,9 +674,12 @@ describe("calendar content line grammar", () => {
   });
 
   it("should refuse malformed lines when creating the attachment fallback", () => {
-    assert.throws(() =>
-      createCalendarAttachment({
-        content: objectWith(["SUMMARY;BROKEN:Lunch"]),
-      }), TypeError);
+    assert.throws(
+      () =>
+        createCalendarAttachment({
+          content: objectWith(["SUMMARY;BROKEN:Lunch"]),
+        }),
+      TypeError,
+    );
   });
 });

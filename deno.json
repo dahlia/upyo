@@ -1,10 +1,6 @@
 {
-  "workspace": [
-    "packages/*"
-  ],
+  "workspace": ["packages/*"],
   "imports": {
-    "@std/fs": "jsr:@std/fs@^1.0.19",
-    "@std/path": "jsr:@std/path@^1.1.1",
     "tsdown": "npm:tsdown@^0.12.7"
   },
   "nodeModulesDir": "none",
@@ -17,16 +13,18 @@
     "coverage",
     "docs",
     "junit.xml",
-    "node_modules"
+    "node_modules",
+    "tmp"
   ],
   "fmt": {
-    "exclude": [
-      "*.md",
-      "**/*.md",
-      "*.yaml",
-      "**/*.yaml",
-      "*.yml",
-      "**/*.yml"
-    ]
+    "exclude": ["*.md", "**/*.md", "*.yaml", "**/*.yaml", "*.yml", "**/*.yml"]
+  },
+  "compilerOptions": {
+    "lib": ["deno.window", "deno.unstable"],
+    "strict": true,
+    "noImplicitOverride": true
+  },
+  "publish": {
+    "exclude": ["**/tsconfig.json"]
   }
 }

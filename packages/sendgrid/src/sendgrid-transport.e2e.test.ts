@@ -43,8 +43,7 @@ describeE2E("SendGridTransport E2E", () => {
       subject: "[E2E] HTML email",
       content: {
         text: "This is the plain text version.",
-        html:
-          "<h1>HTML Email</h1><p>This is a <strong>test email</strong> sent via SendGrid API.</p>",
+        html: "<h1>HTML Email</h1><p>This is a <strong>test email</strong> sent via SendGrid API.</p>",
       },
     });
 
@@ -171,9 +170,7 @@ describeE2E("SendGridTransport E2E", () => {
           `Batch email ${i + 1} should have a message ID`,
         );
 
-        console.log(
-          `Sent batch email ${i + 1} with ID: ${receipt.messageId}`,
-        );
+        console.log(`Sent batch email ${i + 1} with ID: ${receipt.messageId}`);
       }
     }
   });

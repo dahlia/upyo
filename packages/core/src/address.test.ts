@@ -66,11 +66,11 @@ test("parseAddress()", () => {
   assert.strictEqual(parseAddress("test@[999.999.999.999]"), undefined);
 
   // Test edge cases
-  // deno-lint-ignore no-explicit-any
+  // oxlint-disable-next-line typescript/no-explicit-any
   assert.strictEqual(parseAddress(null as any), undefined);
-  // deno-lint-ignore no-explicit-any
+  // oxlint-disable-next-line typescript/no-explicit-any
   assert.strictEqual(parseAddress(undefined as any), undefined);
-  // deno-lint-ignore no-explicit-any
+  // oxlint-disable-next-line typescript/no-explicit-any
   assert.strictEqual(parseAddress(123 as any), undefined);
 });
 
@@ -237,10 +237,7 @@ test("parseAddress() - edge cases with valid email patterns", () => {
   // The local-part limit is 64 octets.
   const maxLocal = "a".repeat(64) + "@example.com";
   assert.deepStrictEqual(parseAddress(maxLocal), { address: maxLocal });
-  assert.strictEqual(
-    parseAddress("a".repeat(65) + "@example.com"),
-    undefined,
-  );
+  assert.strictEqual(parseAddress("a".repeat(65) + "@example.com"), undefined);
 
   // Test very long domain name (close to 253 char limit)
   const longDomain = "user@" + "a".repeat(60) + ".com";

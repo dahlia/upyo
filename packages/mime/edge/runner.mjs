@@ -20,6 +20,7 @@ assert.equal(
 );
 assert.equal(typeof require("@upyo/mime").composeMessage, "function");
 const bundle = await build({
+  tsconfigRaw: {},
   entryPoints: [fileURLToPath(new URL("worker.ts", import.meta.url))],
   bundle: true,
   write: false,

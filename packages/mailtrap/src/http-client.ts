@@ -199,9 +199,10 @@ export class MailtrapHttpClient {
     const baseUrl = this.config.sandbox
       ? this.config.sandboxBaseUrl
       : this.config.sendBaseUrl;
-    const suffix = this.config.sandbox && this.config.inboxId != null
-      ? `/${this.config.inboxId}`
-      : "";
+    const suffix =
+      this.config.sandbox && this.config.inboxId != null
+        ? `/${this.config.inboxId}`
+        : "";
     return `${baseUrl}/api/${kind}${suffix}`;
   }
 
@@ -259,10 +260,7 @@ export class MailtrapHttpClient {
           throw withAttempts(lastError, attempt + 1);
         }
 
-        await sleep(
-          calculateRetryDelay(attempt, lastError),
-          signal,
-        );
+        await sleep(calculateRetryDelay(attempt, lastError), signal);
         continue;
       }
 
@@ -296,9 +294,10 @@ export class MailtrapHttpClient {
     }
 
     const timeoutController = new AbortController();
-    const timeoutId = this.config.timeout > 0
-      ? setTimeout(() => timeoutController.abort(), this.config.timeout)
-      : undefined;
+    const timeoutId =
+      this.config.timeout > 0
+        ? setTimeout(() => timeoutController.abort(), this.config.timeout)
+        : undefined;
     const requestSignal = combineSignals(timeoutController.signal, signal);
 
     let response: Response | undefined;
@@ -337,8 +336,11 @@ export class MailtrapHttpClient {
 }
 
 function isRetryable(error: MailtrapApiError): boolean {
-  return error.statusCode === 408 || error.statusCode === 429 ||
-    error.statusCode >= 500;
+  return (
+    error.statusCode === 408 ||
+    error.statusCode === 429 ||
+    error.statusCode >= 500
+  );
 }
 
 function calculateRetryDelay(attempt: number, error: Error): number {
@@ -384,7 +386,8 @@ function inferSandboxRetryAfter(
   sandbox: boolean,
 ): number | undefined {
   if (
-    sandbox && statusCode === 429 &&
+    sandbox &&
+    statusCode === 429 &&
     message.toLowerCase().includes(sandboxRateLimitMessage)
   ) {
     return sandboxRateLimitWindowMilliseconds;
@@ -415,8 +418,10 @@ function truncateErrorMessage(message: string): string {
 }
 
 function abortReason(signal?: AbortSignal): unknown {
-  return signal?.reason ??
-    new DOMException("The operation was aborted.", "AbortError");
+  return (
+    signal?.reason ??
+    new DOMException("The operation was aborted.", "AbortError")
+  );
 }
 
 function sleep(ms: number, signal?: AbortSignal): Promise<void> {

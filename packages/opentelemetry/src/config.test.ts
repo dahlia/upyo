@@ -20,17 +20,10 @@ describe("config", () => {
       assert.equal(config.metrics.enabled, true);
       assert.equal(config.metrics.samplingRate, 1.0);
       assert.equal(config.metrics.prefix, "upyo");
-      assert.deepEqual(config.metrics.durationBuckets, [
-        0.001,
-        0.005,
-        0.01,
-        0.05,
-        0.1,
-        0.5,
-        1.0,
-        5.0,
-        10.0,
-      ]);
+      assert.deepEqual(
+        config.metrics.durationBuckets,
+        [0.001, 0.005, 0.01, 0.05, 0.1, 0.5, 1.0, 5.0, 10.0],
+      );
 
       assert.equal(config.tracing.enabled, true);
       assert.equal(config.tracing.samplingRate, 1.0);
