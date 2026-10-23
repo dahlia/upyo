@@ -102,6 +102,9 @@ importers:
       '@types/node':
         specifier: ^24.0.13
         version: 24.0.13
+      '@upyo/cloudflare':
+        specifier: 'workspace:'
+        version: link:../packages/cloudflare
       '@upyo/core':
         specifier: 'workspace:'
         version: link:../packages/core
@@ -174,6 +177,19 @@ importers:
       vitepress-plugin-llms:
         specifier: ^1.13.2
         version: 1.13.2(supports-color@10.2.2)
+
+  packages/cloudflare:
+    dependencies:
+      '@upyo/core':
+        specifier: workspace:*
+        version: link:../core
+    devDependencies:
+      tsdown:
+        specifier: 'catalog:'
+        version: 0.12.9(supports-color@10.2.2)(typescript@5.8.3)
+      typescript:
+        specifier: 'catalog:'
+        version: 5.8.3
 
   packages/core:
     devDependencies:

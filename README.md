@@ -7,10 +7,11 @@ Upyo
 
 Upyo is a cross-runtime email library that provides a unified, type-safe API
 for sending emails across Node.js, Deno, Bun, and edge functions. Switch
-between SMTP and HTTP-based providers (Lettermint, Maileroo, Mailgun, Mailtrap,
-Resend, SendGrid, Amazon SES) without changing your application code, while
-enjoying full TypeScript support, consistent error handling, and built-in
-testing capabilities with mock transports across all runtimes.
+between SMTP and HTTP-based providers (Cloudflare, Lettermint, Maileroo,
+Mailgun, Mailtrap, Resend, SendGrid, Amazon SES) without changing your
+application code, while enjoying full TypeScript support, consistent error
+handling, and built-in testing capabilities with mock transports across all
+runtimes.
 
 Here's a quick demo of sending an email using the Mailgun transport:
 
@@ -70,6 +71,7 @@ sending messages.  The following is a list of the available packages:
 | [@upyo/mime](/packages/mime/)                   | [JSR][jsr:@upyo/mime]          | [npm][npm:@upyo/mime]          | Portable MIME composition and DKIM signing         |
 | [@upyo/smtp](/packages/smtp/)                   | [JSR][jsr:@upyo/smtp]          | [npm][npm:@upyo/smtp]          | SMTP transport                                     |
 | [@upyo/jmap](/packages/jmap/)                   | [JSR][jsr:@upyo/jmap]          | [npm][npm:@upyo/jmap]          | [JMAP] transport (RFC 8620/8621)                   |
+| [@upyo/cloudflare](/packages/cloudflare/)       | [JSR][jsr:@upyo/cloudflare]    | [npm][npm:@upyo/cloudflare]    | [Cloudflare Email Service] transport               |
 | [@upyo/lettermint](/packages/lettermint/)       | [JSR][jsr:@upyo/lettermint]    | [npm][npm:@upyo/lettermint]    | [Lettermint] transport                             |
 | [@upyo/logtape](/packages/logtape/)             | [JSR][jsr:@upyo/logtape]       | [npm][npm:@upyo/logtape]       | [LogTape] observability transport                  |
 | [@upyo/maileroo](/packages/maileroo/)           | [JSR][jsr:@upyo/maileroo]      | [npm][npm:@upyo/maileroo]      | [Maileroo] transport                               |
@@ -92,6 +94,9 @@ sending messages.  The following is a list of the available packages:
 [jsr:@upyo/jmap]: https://jsr.io/@upyo/jmap
 [npm:@upyo/jmap]: https://www.npmjs.com/package/@upyo/jmap
 [JMAP]: https://jmap.io/
+[jsr:@upyo/cloudflare]: https://jsr.io/@upyo/cloudflare
+[npm:@upyo/cloudflare]: https://www.npmjs.com/package/@upyo/cloudflare
+[Cloudflare Email Service]: https://developers.cloudflare.com/email-service/
 [jsr:@upyo/lettermint]: https://jsr.io/@upyo/lettermint
 [npm:@upyo/lettermint]: https://www.npmjs.com/package/@upyo/lettermint
 [Lettermint]: https://lettermint.co/
