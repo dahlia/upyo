@@ -8,6 +8,7 @@
     "@opentelemetry/semantic-conventions": "catalog:",
     "@shikijs/vitepress-twoslash": "^3.23.0",
     "@types/node": "^24.0.13",
+    "@upyo/cloudflare": "workspace:",
     "@upyo/core": "workspace:",
     "@upyo/jmap": "workspace:",
     "@upyo/lettermint": "workspace:",

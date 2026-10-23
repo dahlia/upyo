@@ -1,0 +1,9 @@
+{
+  "name": "@upyo/cloudflare",
+  "version": "0.7.0",
+  "license": "MIT",
+  "exports": "./src/index.ts",
+  "exclude": [
+    "dist/"
+  ]
+}
