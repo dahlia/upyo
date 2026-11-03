@@ -171,20 +171,24 @@ export class CloudflareHttpClient {
     signal?: AbortSignal,
   ): Promise<CloudflareResponse> {
     const baseUrl = this.config.baseUrl.replace(/\/+$/, "");
-    const url = `${baseUrl}/accounts/${
-      encodeURIComponent(this.config.accountId)
-    }/email/sending/send`;
+    const url = `${baseUrl}/accounts/${encodeURIComponent(
+      this.config.accountId,
+    )}/email/sending/send`;
     const body = JSON.stringify(email);
 
     let attempt = 0;
     while (true) {
       attempt++;
-      const response = await this.fetchWithAuth(url, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body,
-        signal,
-      }, attempt);
+      const response = await this.fetchWithAuth(
+        url,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body,
+          signal,
+        },
+        attempt,
+      );
       const text = await response.text();
 
       if (response.ok) {
@@ -206,9 +210,10 @@ export class CloudflareHttpClient {
       const retryable = response.status === 429 || response.status >= 500;
       if (!retryable || attempt > this.config.retries) throw error;
 
-      const backoffMs = error.retryAfterMilliseconds == null
-        ? backoffMilliseconds(attempt)
-        : Math.min(error.retryAfterMilliseconds, 60000);
+      const backoffMs =
+        error.retryAfterMilliseconds == null
+          ? backoffMilliseconds(attempt)
+          : Math.min(error.retryAfterMilliseconds, 60000);
       await sleep(backoffMs, signal);
     }
   }
@@ -278,7 +283,7 @@ function parseResponse(text: string): CloudflareResponse | undefined {
   try {
     const body: unknown = JSON.parse(text);
     return typeof body === "object" && body != null && !Array.isArray(body)
-      ? body as CloudflareResponse
+      ? (body as CloudflareResponse)
       : undefined;
   } catch {
     return undefined;
@@ -295,7 +300,7 @@ function formatErrors(
 ): string | undefined {
   if (!Array.isArray(errors) || errors.length < 1) return undefined;
   const messages = errors.map((e) =>
-    e.code == null ? e.message : `${e.message} (code ${e.code})`
+    e.code == null ? e.message : `${e.message} (code ${e.code})`,
   );
   return messages.join("; ");
 }

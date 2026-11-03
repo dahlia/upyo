@@ -20,19 +20,19 @@ interface WorkersEmailMessage {
 
 type WorkersEmailAttachment =
   | {
-    disposition: "inline";
-    contentId: string;
-    filename: string;
-    type: string;
-    content: string | ArrayBuffer | ArrayBufferView;
-  }
+      disposition: "inline";
+      contentId: string;
+      filename: string;
+      type: string;
+      content: string | ArrayBuffer | ArrayBufferView;
+    }
   | {
-    disposition: "attachment";
-    contentId?: undefined;
-    filename: string;
-    type: string;
-    content: string | ArrayBuffer | ArrayBufferView;
-  };
+      disposition: "attachment";
+      contentId?: undefined;
+      filename: string;
+      type: string;
+      content: string | ArrayBuffer | ArrayBufferView;
+    };
 
 interface WorkersEmailAddress {
   name: string;
@@ -49,21 +49,18 @@ interface WorkersEmailReplyMessageBuilder {
   attachments?: WorkersEmailAttachment[];
 }
 
-type WorkersEmailDestinations =
-  & {
-    to?: string | WorkersEmailAddress | (string | WorkersEmailAddress)[];
-    cc?: string | WorkersEmailAddress | (string | WorkersEmailAddress)[];
-    bcc?: string | WorkersEmailAddress | (string | WorkersEmailAddress)[];
-  }
-  & (
-    | { to: string | WorkersEmailAddress | (string | WorkersEmailAddress)[] }
-    | { cc: string | WorkersEmailAddress | (string | WorkersEmailAddress)[] }
-    | { bcc: string | WorkersEmailAddress | (string | WorkersEmailAddress)[] }
-  );
+type WorkersEmailDestinations = {
+  to?: string | WorkersEmailAddress | (string | WorkersEmailAddress)[];
+  cc?: string | WorkersEmailAddress | (string | WorkersEmailAddress)[];
+  bcc?: string | WorkersEmailAddress | (string | WorkersEmailAddress)[];
+} & (
+  | { to: string | WorkersEmailAddress | (string | WorkersEmailAddress)[] }
+  | { cc: string | WorkersEmailAddress | (string | WorkersEmailAddress)[] }
+  | { bcc: string | WorkersEmailAddress | (string | WorkersEmailAddress)[] }
+);
 
-type WorkersEmailMessageBuilder =
-  & WorkersEmailReplyMessageBuilder
-  & WorkersEmailDestinations;
+type WorkersEmailMessageBuilder = WorkersEmailReplyMessageBuilder &
+  WorkersEmailDestinations;
 
 interface WorkersSendEmail {
   send(message: WorkersEmailMessage): Promise<WorkersEmailSendResult>;

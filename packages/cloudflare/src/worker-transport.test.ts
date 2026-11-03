@@ -41,8 +41,9 @@ const message = createMessage({
 describe("CloudflareWorkerTransport send", () => {
   it("sends through the binding and returns its message ID", async () => {
     const binding = new FakeBinding();
-    const receipt = await new CloudflareWorkerTransport({ binding })
-      .send(message);
+    const receipt = await new CloudflareWorkerTransport({ binding }).send(
+      message,
+    );
     assert.ok(receipt.successful);
     assert.equal(receipt.messageId, "<id@cf>");
     assert.equal(receipt.provider, "cloudflare");
@@ -54,8 +55,9 @@ describe("CloudflareWorkerTransport send", () => {
 
   it("fails without retrying when the binding returns no message ID", async () => {
     const binding = new FakeBinding(() => Promise.resolve({ messageId: "" }));
-    const receipt = await new CloudflareWorkerTransport({ binding })
-      .send(message);
+    const receipt = await new CloudflareWorkerTransport({ binding }).send(
+      message,
+    );
     assert.ok(!receipt.successful);
     assert.equal(receipt.errors?.[0].code, "cloudflare.missing_message_id");
     assert.ok(!receipt.retryable);
@@ -87,13 +89,15 @@ describe("CloudflareWorkerTransport send", () => {
         to: "to@example.com",
         subject: "Hi",
         content: { text: "x" },
-        attachments: [{
-          inline: false,
-          contentId: "",
-          filename: "remote.pdf",
-          contentType: "application/pdf",
-          content: () => Promise.reject(new TypeError("fetch failed")),
-        }],
+        attachments: [
+          {
+            inline: false,
+            contentId: "",
+            filename: "remote.pdf",
+            contentType: "application/pdf",
+            content: () => Promise.reject(new TypeError("fetch failed")),
+          },
+        ],
       }),
     );
     assert.ok(!receipt.successful);
@@ -114,36 +118,35 @@ describe("CloudflareWorkerTransport send", () => {
 });
 
 describe("CloudflareWorkerTransport binding errors", () => {
-  const cases: ReadonlyArray<
-    readonly [string, ReceiptErrorCategory, boolean]
-  > = [
-    ["E_RATE_LIMIT_EXCEEDED", "rate-limit", true],
-    ["E_DAILY_LIMIT_EXCEEDED", "rate-limit", false],
-    ["E_INTERNAL_SERVER_ERROR", "server-error", true],
-    ["E_DELIVERY_FAILED", "unknown", true],
-    ["E_SENDER_NOT_VERIFIED", "configuration", false],
-    ["E_SENDER_DOMAIN_NOT_AVAILABLE", "configuration", false],
-    ["E_RECIPIENT_NOT_ALLOWED", "configuration", false],
-    ["E_RECIPIENT_SUPPRESSED", "rejected", false],
-    ["E_VALIDATION_ERROR", "validation", false],
-    ["E_FIELD_MISSING", "validation", false],
-    ["E_TOO_MANY_RECIPIENTS", "validation", false],
-    ["E_TOO_MANY_ATTACHMENTS", "validation", false],
-    ["E_ACCOUNT_SUSPENDED", "configuration", false],
-    ["E_CONTENT_TOO_LARGE", "validation", false],
-    ["E_HEADER_NOT_ALLOWED", "validation", false],
-    ["E_HEADER_USE_API_FIELD", "validation", false],
-    ["E_HEADER_VALUE_INVALID", "validation", false],
-    ["E_HEADER_VALUE_TOO_LONG", "validation", false],
-    ["E_HEADER_NAME_INVALID", "validation", false],
-    ["E_HEADERS_TOO_LARGE", "validation", false],
-    ["E_HEADERS_TOO_MANY", "validation", false],
-  ];
+  const cases: ReadonlyArray<readonly [string, ReceiptErrorCategory, boolean]> =
+    [
+      ["E_RATE_LIMIT_EXCEEDED", "rate-limit", true],
+      ["E_DAILY_LIMIT_EXCEEDED", "rate-limit", false],
+      ["E_INTERNAL_SERVER_ERROR", "server-error", true],
+      ["E_DELIVERY_FAILED", "unknown", true],
+      ["E_SENDER_NOT_VERIFIED", "configuration", false],
+      ["E_SENDER_DOMAIN_NOT_AVAILABLE", "configuration", false],
+      ["E_RECIPIENT_NOT_ALLOWED", "configuration", false],
+      ["E_RECIPIENT_SUPPRESSED", "rejected", false],
+      ["E_VALIDATION_ERROR", "validation", false],
+      ["E_FIELD_MISSING", "validation", false],
+      ["E_TOO_MANY_RECIPIENTS", "validation", false],
+      ["E_TOO_MANY_ATTACHMENTS", "validation", false],
+      ["E_ACCOUNT_SUSPENDED", "configuration", false],
+      ["E_CONTENT_TOO_LARGE", "validation", false],
+      ["E_HEADER_NOT_ALLOWED", "validation", false],
+      ["E_HEADER_USE_API_FIELD", "validation", false],
+      ["E_HEADER_VALUE_INVALID", "validation", false],
+      ["E_HEADER_VALUE_TOO_LONG", "validation", false],
+      ["E_HEADER_NAME_INVALID", "validation", false],
+      ["E_HEADERS_TOO_LARGE", "validation", false],
+      ["E_HEADERS_TOO_MANY", "validation", false],
+    ];
 
   for (const [code, category, retryable] of cases) {
     it(`maps ${code} to ${category}, retryable: ${retryable}`, async () => {
       const binding = new FakeBinding(() =>
-        Promise.reject(bindingError(code, "Cloudflare said no."))
+        Promise.reject(bindingError(code, "Cloudflare said no.")),
       );
       const receipt = await new CloudflareWorkerTransport({
         binding,
@@ -166,10 +169,11 @@ describe("CloudflareWorkerTransport binding errors", () => {
 
   it("classifies an unknown code by its message", async () => {
     const binding = new FakeBinding(() =>
-      Promise.reject(bindingError("E_SOMETHING_NEW", "Rate limit reached."))
+      Promise.reject(bindingError("E_SOMETHING_NEW", "Rate limit reached.")),
     );
-    const receipt = await new CloudflareWorkerTransport({ binding })
-      .send(message);
+    const receipt = await new CloudflareWorkerTransport({ binding }).send(
+      message,
+    );
     assert.ok(!receipt.successful);
     assert.equal(receipt.errors?.[0].code, "cloudflare.E_SOMETHING_NEW");
     assert.equal(receipt.errors?.[0].category, "rate-limit");
@@ -203,10 +207,12 @@ describe("CloudflareWorkerTransport retries", () => {
     const binding = new FakeBinding(() =>
       ++n === 1
         ? Promise.reject(bindingError("E_RATE_LIMIT_EXCEEDED"))
-        : Promise.resolve({ messageId: "<id@cf>" })
+        : Promise.resolve({ messageId: "<id@cf>" }),
     );
-    const receipt = await new CloudflareWorkerTransport({ binding, retries: 1 })
-      .send(message);
+    const receipt = await new CloudflareWorkerTransport({
+      binding,
+      retries: 1,
+    }).send(message);
     assert.ok(receipt.successful);
     assert.equal(receipt.messageId, "<id@cf>");
     assert.equal(binding.calls.length, 2);
@@ -214,10 +220,12 @@ describe("CloudflareWorkerTransport retries", () => {
 
   it("retries a server error until its retries run out", async () => {
     const binding = new FakeBinding(() =>
-      Promise.reject(bindingError("E_INTERNAL_SERVER_ERROR"))
+      Promise.reject(bindingError("E_INTERNAL_SERVER_ERROR")),
     );
-    const receipt = await new CloudflareWorkerTransport({ binding, retries: 1 })
-      .send(message);
+    const receipt = await new CloudflareWorkerTransport({
+      binding,
+      retries: 1,
+    }).send(message);
     assert.ok(!receipt.successful);
     assert.equal(
       receipt.errors?.[0].code,
@@ -227,17 +235,16 @@ describe("CloudflareWorkerTransport retries", () => {
     assert.equal(binding.calls.length, 2);
   });
 
-  for (
-    const code of [
-      "E_DELIVERY_FAILED",
-      "E_DAILY_LIMIT_EXCEEDED",
-      "E_VALIDATION_ERROR",
-    ]
-  ) {
+  for (const code of [
+    "E_DELIVERY_FAILED",
+    "E_DAILY_LIMIT_EXCEEDED",
+    "E_VALIDATION_ERROR",
+  ]) {
     it(`does not retry ${code}`, async () => {
       const binding = new FakeBinding(() => Promise.reject(bindingError(code)));
-      const receipt = await new CloudflareWorkerTransport({ binding })
-        .send(message);
+      const receipt = await new CloudflareWorkerTransport({ binding }).send(
+        message,
+      );
       assert.ok(!receipt.successful);
       assert.equal(receipt.attempts, 1);
       assert.equal(binding.calls.length, 1);
@@ -246,8 +253,9 @@ describe("CloudflareWorkerTransport retries", () => {
 
   it("does not retry an error without a code", async () => {
     const binding = new FakeBinding(() => Promise.reject(new Error("Boom.")));
-    const receipt = await new CloudflareWorkerTransport({ binding })
-      .send(message);
+    const receipt = await new CloudflareWorkerTransport({ binding }).send(
+      message,
+    );
     assert.ok(!receipt.successful);
     assert.equal(binding.calls.length, 1);
   });
@@ -292,11 +300,12 @@ describe("CloudflareWorkerTransport cancellation", () => {
     const sendCalled = new Promise<void>((resolve) => {
       called = resolve;
     });
-    const binding = new FakeBinding(() =>
-      new Promise((_, reject) => {
-        settle = reject;
-        called();
-      })
+    const binding = new FakeBinding(
+      () =>
+        new Promise((_, reject) => {
+          settle = reject;
+          called();
+        }),
     );
     const controller = new AbortController();
     const sending = new CloudflareWorkerTransport({ binding }).send(message, {
@@ -318,17 +327,17 @@ describe("CloudflareWorkerTransport sendMany", () => {
     const binding = new FakeBinding(() =>
       ++n === 2
         ? Promise.reject(bindingError("E_VALIDATION_ERROR"))
-        : Promise.resolve({ messageId: `<${n}@cf>` })
+        : Promise.resolve({ messageId: `<${n}@cf>` }),
     );
     const receipts = [];
-    for await (
-      const receipt of new CloudflareWorkerTransport({ binding }).sendMany([
-        message,
-        message,
-        message,
-      ])
-    ) receipts.push(receipt);
-    assert.deepEqual(receipts.map((r) => r.successful), [true, false, true]);
+    for await (const receipt of new CloudflareWorkerTransport({
+      binding,
+    }).sendMany([message, message, message]))
+      receipts.push(receipt);
+    assert.deepEqual(
+      receipts.map((r) => r.successful),
+      [true, false, true],
+    );
     assert.equal(binding.calls.length, 3);
   });
 });

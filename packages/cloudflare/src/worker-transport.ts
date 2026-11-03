@@ -149,9 +149,8 @@ export class CloudflareWorkerTransport implements Transport<"cloudflare"> {
       signal?.throwIfAborted();
 
       const built = buildBindingMessage(message, prepared);
-      const sendable = attachments.length > 0
-        ? { ...built, attachments }
-        : built;
+      const sendable =
+        attachments.length > 0 ? { ...built, attachments } : built;
       while (true) {
         attempts++;
         try {
@@ -281,19 +280,16 @@ function createBindingFailure(
       ...attemptsOption,
     });
   }
-  const classification = BINDING_ERRORS.get(code) ??
-    classifyReceiptError(error);
-  return createFailedReceipt<"cloudflare">(
-    message,
-    {
-      provider: "cloudflare",
-      code: `cloudflare.${code}`,
-      category: classification.category,
-      retryable: classification.retryable,
-      providerDetails: { code, message },
-      ...attemptsOption,
-    },
-  );
+  const classification =
+    BINDING_ERRORS.get(code) ?? classifyReceiptError(error);
+  return createFailedReceipt<"cloudflare">(message, {
+    provider: "cloudflare",
+    code: `cloudflare.${code}`,
+    category: classification.category,
+    retryable: classification.retryable,
+    providerDetails: { code, message },
+    ...attemptsOption,
+  });
 }
 
 function getErrorCode(error: unknown): string | undefined {
@@ -320,8 +316,8 @@ function raceAbort<T>(promise: Promise<T>, signal?: AbortSignal): Promise<T> {
       return;
     }
     signal.addEventListener("abort", onAbort, { once: true });
-    promise.then(resolve, reject).finally(() =>
-      signal.removeEventListener("abort", onAbort)
-    );
+    promise
+      .then(resolve, reject)
+      .finally(() => signal.removeEventListener("abort", onAbort));
   });
 }

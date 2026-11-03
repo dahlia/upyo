@@ -72,12 +72,13 @@ export function buildEmail(
     subject: message.subject,
     ...("html" in message.content
       ? {
-        html: message.content.html,
-        ...(message.content.text ? { text: message.content.text } : {}),
-      }
+          html: message.content.html,
+          ...(message.content.text ? { text: message.content.text } : {}),
+        }
       : { text: message.content.text }),
-    ...(Object.keys(prepared.headers).length > 0 &&
-      { headers: prepared.headers }),
+    ...(Object.keys(prepared.headers).length > 0 && {
+      headers: prepared.headers,
+    }),
   };
 }
 
@@ -161,8 +162,11 @@ function toBase64(bytes: Uint8Array): string {
     const b = i + 1 < bytes.length ? bytes[i + 1] : 0;
     const c = i + 2 < bytes.length ? bytes[i + 2] : 0;
     const bitmap = (a << 16) | (b << 8) | c;
-    result += chars[(bitmap >> 18) & 63] + chars[(bitmap >> 12) & 63] +
-      chars[(bitmap >> 6) & 63] + chars[bitmap & 63];
+    result +=
+      chars[(bitmap >> 18) & 63] +
+      chars[(bitmap >> 12) & 63] +
+      chars[(bitmap >> 6) & 63] +
+      chars[bitmap & 63];
   }
   const remainder = bytes.length % 3;
   return remainder === 0

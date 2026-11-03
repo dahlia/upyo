@@ -50,7 +50,9 @@ export function isCallerAbort(
   error: unknown,
   signal?: AbortSignal | null,
 ): boolean {
-  return signal?.aborted === true &&
+  return (
+    signal?.aborted === true &&
     ((error instanceof Error && error.name === "AbortError") ||
-      error === signal.reason);
+      error === signal.reason)
+  );
 }

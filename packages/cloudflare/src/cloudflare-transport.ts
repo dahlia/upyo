@@ -118,9 +118,8 @@ export class CloudflareTransport implements Transport<"cloudflare"> {
     } catch (error) {
       if (isCallerAbort(error, options?.signal)) throw error;
 
-      const errorMessage = error instanceof Error
-        ? error.message
-        : String(error);
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
       return createCloudflareFailure(errorMessage, error);
     }
   }
@@ -154,8 +153,8 @@ export class CloudflareTransport implements Transport<"cloudflare"> {
  */
 function responseToReceipt(response: CloudflareResponse): CloudflareReceipt {
   const result = response.result;
-  const accepted = (result?.delivered?.length ?? 0) +
-    (result?.queued?.length ?? 0);
+  const accepted =
+    (result?.delivered?.length ?? 0) + (result?.queued?.length ?? 0);
   const bounced = result?.permanent_bounces ?? [];
   const suppressed = result?.suppressed_recipients ?? [];
   if (accepted === 0 && bounced.length + suppressed.length > 0) {
@@ -205,8 +204,8 @@ function createCloudflareFailure(
       ...(apiCode != null
         ? { code: `cloudflare.${apiCode}` }
         : error.statusCode != null
-        ? { code: `cloudflare.${error.statusCode}` }
-        : {}),
+          ? { code: `cloudflare.${error.statusCode}` }
+          : {}),
       ...(error.errors != null && { providerDetails: error.errors }),
       statusCode: error.statusCode,
       retryAfterMilliseconds: error.retryAfterMilliseconds,
