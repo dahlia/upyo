@@ -96,6 +96,10 @@ export async function readAttachments(
   }
 }
 
+/**
+ * Collects the custom headers to send: the message's own, its reply threading,
+ * and `X-Priority` from its priority.
+ */
 function buildHeaders(message: Message): Record<string, string> {
   const headers: Record<string, string> = {};
 

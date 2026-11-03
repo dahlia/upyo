@@ -84,6 +84,10 @@ export async function convertBindingAttachments(
   );
 }
 
+/**
+ * Formats an address for the binding: a `{ name, email }` object when it has a
+ * name, or the bare address.
+ */
 function formatAddress(address: Address): string | CloudflareBindingAddress {
   return address.name
     ? { name: address.name, email: address.address }

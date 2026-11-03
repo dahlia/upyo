@@ -193,6 +193,10 @@ function responseToReceipt(response: CloudflareResponse): CloudflareReceipt {
   return { successful: true, messageId, provider: "cloudflare" };
 }
 
+/**
+ * Turns an error from sending into a failed receipt, carrying Cloudflare's
+ * error code and details when Cloudflare answered.
+ */
 function createCloudflareFailure(
   message: string,
   error: unknown,
