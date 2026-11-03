@@ -15,9 +15,11 @@ To be released.
     address, attachments, inline images, calendar invitations, and custom
     headers, and retry rate limits and server errors with backoff.  Headers
     that Cloudflare controls and messages with more than 50 recipients fail
-    before sending, with a validation receipt that names the problem.  [[#1]]
+    before sending, with a validation receipt that names the problem.
+    [[#1], [#78] by sykezz\]
 
 [#1]: https://github.com/dahlia/upyo/issues/1
+[#78]: https://github.com/dahlia/upyo/issues/78
 
 
 Version 0.6.0
