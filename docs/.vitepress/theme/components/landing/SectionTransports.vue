@@ -19,6 +19,7 @@ await transport.send(message);`;
 const providers = [
   { name: "SMTP", desc: "Any SMTP server, with pooling and TLS.", link: "/transports/smtp" },
   { name: "JMAP", desc: "The modern JSON mail protocol.", link: "/transports/jmap" },
+  { name: "Cloudflare", desc: "REST API or Workers binding.", link: "/transports/cloudflare" },
   { name: "Lettermint", desc: "Transactional API with batching.", link: "/transports/lettermint" },
   { name: "Maileroo", desc: "JSON email API with tags and tracking.", link: "/transports/maileroo" },
   { name: "Mailtrap", desc: "Email API and sandbox test inboxes.", link: "/transports/mailtrap" },

@@ -14,6 +14,7 @@ const packages: readonly string[] = [
   "core",
   "mime",
   "jmap",
+  "cloudflare",
   "lettermint",
   "logtape",
   "maileroo",
@@ -81,6 +82,7 @@ const NAV = [
     items: [
       { text: "SMTP", link: "/transports/smtp" },
       { text: "JMAP", link: "/transports/jmap" },
+      { text: "Cloudflare", link: "/transports/cloudflare" },
       { text: "Lettermint", link: "/transports/lettermint" },
       { text: "Maileroo", link: "/transports/maileroo" },
       { text: "Mailtrap", link: "/transports/mailtrap" },
@@ -104,6 +106,7 @@ const NAV = [
       { text: "@upyo/mime", link: "https://jsr.io/@upyo/mime/doc" },
       { text: "@upyo/smtp", link: "https://jsr.io/@upyo/smtp/doc" },
       { text: "@upyo/jmap", link: "https://jsr.io/@upyo/jmap/doc" },
+      { text: "@upyo/cloudflare", link: "https://jsr.io/@upyo/cloudflare/doc" },
       { text: "@upyo/lettermint", link: "https://jsr.io/@upyo/lettermint/doc" },
       { text: "@upyo/maileroo", link: "https://jsr.io/@upyo/maileroo/doc" },
       { text: "@upyo/mailtrap", link: "https://jsr.io/@upyo/mailtrap/doc" },

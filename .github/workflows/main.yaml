@@ -38,6 +38,10 @@ jobs:
       MAILGUN_TO: ${{ secrets.MAILGUN_TO }}
       MAILGUN_DOMAIN: ${{ secrets.MAILGUN_DOMAIN }}
       MAILGUN_REGION: ${{ secrets.MAILGUN_REGION }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      CLOUDFLARE_API_TOKEN: ${{ github.event_name == 'push' && secrets.CLOUDFLARE_API_TOKEN || '' }}
+      CLOUDFLARE_FROM: ${{ secrets.CLOUDFLARE_FROM }}
+      CLOUDFLARE_TO: ${{ secrets.CLOUDFLARE_TO }}
       RESEND_API_KEY: ${{ github.event_name == 'push' && secrets.RESEND_API_KEY || '' }}
       RESEND_TO: ${{ secrets.RESEND_TO }}
       RESEND_VERIFIED_DOMAIN: ${{ secrets.RESEND_VERIFIED_DOMAIN }}
@@ -87,6 +91,10 @@ jobs:
       MAILGUN_TO: ${{ secrets.MAILGUN_TO }}
       MAILGUN_DOMAIN: ${{ secrets.MAILGUN_DOMAIN }}
       MAILGUN_REGION: ${{ secrets.MAILGUN_REGION }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      CLOUDFLARE_API_TOKEN: ${{ github.event_name == 'push' && secrets.CLOUDFLARE_API_TOKEN || '' }}
+      CLOUDFLARE_FROM: ${{ secrets.CLOUDFLARE_FROM }}
+      CLOUDFLARE_TO: ${{ secrets.CLOUDFLARE_TO }}
       RESEND_API_KEY: ${{ github.event_name == 'push' && secrets.RESEND_API_KEY || '' }}
       RESEND_TO: ${{ secrets.RESEND_TO }}
       RESEND_VERIFIED_DOMAIN: ${{ secrets.RESEND_VERIFIED_DOMAIN }}
@@ -144,6 +152,10 @@ jobs:
       MAILGUN_TO: ${{ secrets.MAILGUN_TO }}
       MAILGUN_DOMAIN: ${{ secrets.MAILGUN_DOMAIN }}
       MAILGUN_REGION: ${{ secrets.MAILGUN_REGION }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      CLOUDFLARE_API_TOKEN: ${{ github.event_name == 'push' && secrets.CLOUDFLARE_API_TOKEN || '' }}
+      CLOUDFLARE_FROM: ${{ secrets.CLOUDFLARE_FROM }}
+      CLOUDFLARE_TO: ${{ secrets.CLOUDFLARE_TO }}
       RESEND_API_KEY: ${{ github.event_name == 'push' && secrets.RESEND_API_KEY || '' }}
       RESEND_TO: ${{ secrets.RESEND_TO }}
       RESEND_VERIFIED_DOMAIN: ${{ secrets.RESEND_VERIFIED_DOMAIN }}
