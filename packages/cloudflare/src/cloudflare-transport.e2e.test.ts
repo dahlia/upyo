@@ -44,10 +44,10 @@ describe("CloudflareTransport E2E", { skip: config == null }, () => {
       content: { html: '<p>Logo: <img src="cid:logo"></p>', text: "Logo" },
       attachments: [{
         filename: "logo.png",
-        // A 1×1 transparent PNG.
+        // A 16×16 red square, so that a working inline image is visible.
         content: Uint8Array.from(
           atob(
-            "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=",
+            "iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAIAAACQkWg2AAAAFklEQVR42mO4o6ZGEmIY1TCqYfhqAAATqigQ9kvG0QAAAABJRU5ErkJggg==",
           ),
           (c) => c.charCodeAt(0),
         ),

@@ -7,17 +7,18 @@ import {
 } from "@upyo/core";
 import type { CloudflareConfig, ResolvedCloudflareConfig } from "./config.ts";
 import { createCloudflareConfig } from "./config.ts";
-import { CloudflareValidationError } from "./errors.ts";
 import {
   CloudflareApiError,
   CloudflareHttpClient,
   type CloudflareResponse,
 } from "./http-client.ts";
+import { buildEmail, convertAttachments } from "./message-converter.ts";
+import { type PreparedMessage, prepareMessage } from "./message-preparation.ts";
 import {
-  convertAttachments,
-  type PreparedMessage,
-  prepareMessage,
-} from "./message-converter.ts";
+  type CloudflareFailure,
+  createValidationFailure,
+  isCallerAbort,
+} from "./receipts.ts";
 
 /**
  * A receipt from {@link CloudflareTransport}.
@@ -25,8 +26,6 @@ import {
  * @since 0.7.0
  */
 export type CloudflareReceipt = Receipt<"cloudflare">;
-
-type CloudflareFailure = CloudflareReceipt & { readonly successful: false };
 
 /**
  * Cloudflare Email Service transport implementation for sending emails via
@@ -110,10 +109,9 @@ export class CloudflareTransport implements Transport<"cloudflare"> {
 
       options?.signal?.throwIfAborted();
 
+      const email = buildEmail(message, prepared);
       const response = await this.httpClient.sendMessage(
-        attachments.length > 0
-          ? { ...prepared.email, attachments }
-          : prepared.email,
+        attachments.length > 0 ? { ...email, attachments } : email,
         options?.signal,
       );
       return responseToReceipt(response);
@@ -196,34 +194,6 @@ function responseToReceipt(response: CloudflareResponse): CloudflareReceipt {
   return { successful: true, messageId, provider: "cloudflare" };
 }
 
-/**
- * Turns an error from checking a message into a non-retryable validation
- * receipt, or returns `undefined` for any other error.
- */
-function createValidationFailure(
-  error: unknown,
-): CloudflareFailure | undefined {
-  if (error instanceof CloudflareValidationError) {
-    return createFailedReceipt<"cloudflare">(
-      error.message,
-      {
-        provider: "cloudflare",
-        category: "validation",
-        retryable: false,
-        code: error.code,
-      },
-    );
-  }
-  // Core throws these for an invalid message identifier or calendar.
-  if (error instanceof TypeError || error instanceof RangeError) {
-    return createFailedReceipt<"cloudflare">(
-      error.message,
-      { provider: "cloudflare", category: "validation", retryable: false },
-    );
-  }
-  return undefined;
-}
-
 function createCloudflareFailure(
   message: string,
   error: unknown,
@@ -246,13 +216,4 @@ function createCloudflareFailure(
   return createFailedReceipt<"cloudflare">(message, {
     provider: "cloudflare",
   });
-}
-
-function isCallerAbort(
-  error: unknown,
-  signal?: AbortSignal | null,
-): boolean {
-  return signal?.aborted === true &&
-    ((error instanceof Error && error.name === "AbortError") ||
-      error === signal.reason);
 }

@@ -77,6 +77,25 @@ describe("convertMessage", () => {
     assert.equal(data.attachments?.[1].content_id, "logo");
   });
 
+  // Cloudflare rejects an inline part without a content ID with error 10001.
+  it("sends an inline part without a content ID as a regular attachment", async () => {
+    const data = await convertMessage(createMessage({
+      from: "sender@example.com",
+      to: "a@example.com",
+      subject: "Hi",
+      content: { text: "x" },
+      attachments: [{
+        inline: true,
+        contentId: "",
+        filename: "logo.png",
+        content: new Uint8Array([1]),
+        contentType: "image/png",
+      }],
+    }));
+    assert.equal(data.attachments?.[0].disposition, "attachment");
+    assert.ok(!("content_id" in (data.attachments?.[0] ?? {})));
+  });
+
   it("maps priority and passes custom headers through", async () => {
     const data = await convertMessage(createMessage({
       from: "sender@example.com",
