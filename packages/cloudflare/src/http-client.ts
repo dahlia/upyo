@@ -179,7 +179,7 @@ export class CloudflareHttpClient {
     let attempt = 0;
     while (true) {
       attempt++;
-      const response = await this.fetchWithAuth(
+      const { response, text } = await this.fetchWithAuth(
         url,
         {
           method: "POST",
@@ -189,7 +189,6 @@ export class CloudflareHttpClient {
         },
         attempt,
       );
-      const text = await response.text();
 
       if (response.ok) {
         return parseSuccess(text, attempt);
@@ -218,11 +217,15 @@ export class CloudflareHttpClient {
     }
   }
 
+  /**
+   * Sends a request and reads its whole reply, so that the timeout and the
+   * caller's signal cover the body as well as the headers.
+   */
   private async fetchWithAuth(
     url: string,
     options: RequestInit,
     attempt: number,
-  ): Promise<Response> {
+  ): Promise<{ readonly response: Response; readonly text: string }> {
     const headers = new Headers(options.headers);
     for (const [key, value] of Object.entries(this.config.headers)) {
       headers.set(key, value);
@@ -234,11 +237,12 @@ export class CloudflareHttpClient {
     const combinedSignal = combineSignals(controller.signal, options.signal);
 
     try {
-      return await fetch(url, {
+      const response = await fetch(url, {
         ...options,
         headers,
         signal: combinedSignal.signal,
       });
+      return { response, text: await response.text() };
     } catch (error) {
       if (
         isAbortError(error) &&
