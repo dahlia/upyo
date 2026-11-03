@@ -64,6 +64,23 @@ const fail =
       { status, headers },
     );
 
+/**
+ * A reply whose headers arrive but whose body never finishes, unless the
+ * request's signal aborts.
+ */
+const stalledBody = (init: RequestInit) =>
+  new Response(
+    new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.enqueue(new TextEncoder().encode("{"));
+        init.signal?.addEventListener("abort", () => {
+          controller.error(init.signal?.reason);
+        });
+      },
+    }),
+    { status: 200 },
+  );
+
 const message = createMessage({
   from: "sender@example.com",
   to: "to@example.com",
@@ -371,6 +388,49 @@ describe("CloudflareTransport failure classification", () => {
       },
     );
   });
+
+  it(
+    "times out while reading a stalled reply body",
+    { timeout: 5000 },
+    async () => {
+      await withFetch([stalledBody], async () => {
+        const receipt = await new CloudflareTransport({
+          ...config,
+          timeout: 20,
+          retries: 0,
+        }).send(message);
+        assert.ok(!receipt.successful);
+        assert.match(receipt.errorMessages[0], /timed out/);
+      });
+    },
+  );
+
+  it(
+    "rethrows a caller abort while reading the reply body",
+    { timeout: 5000 },
+    async () => {
+      // Without AbortSignal.any, core combines signals with listeners that
+      // its cleanup removes, which used to detach the caller before the body
+      // was read.
+      const any = Object.getOwnPropertyDescriptor(AbortSignal, "any");
+      Object.defineProperty(AbortSignal, "any", {
+        configurable: true,
+        value: undefined,
+      });
+      try {
+        await withFetch([stalledBody], async () => {
+          const controller = new AbortController();
+          const sending = new CloudflareTransport(config).send(message, {
+            signal: controller.signal,
+          });
+          setTimeout(() => controller.abort(new Error("stop")), 20);
+          await assert.rejects(sending, /stop/);
+        });
+      } finally {
+        if (any != null) Object.defineProperty(AbortSignal, "any", any);
+      }
+    },
+  );
 
   it("does not report a failing attachment read as a validation error", async () => {
     await withFetch([ok()], async (calls) => {
