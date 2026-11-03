@@ -85,6 +85,22 @@ const stalledBody = (init: RequestInit) =>
     { status: 200 },
   );
 
+/**
+ * A reply whose headers arrive but whose body fails to read, as when the
+ * connection drops partway.
+ */
+const brokenBody =
+  (status: number, headers: Record<string, string> = {}) =>
+  () =>
+    new Response(
+      new ReadableStream<Uint8Array>({
+        start(controller) {
+          controller.error(new TypeError("terminated"));
+        },
+      }),
+      { status, headers },
+    );
+
 const message = createMessage({
   from: "sender@example.com",
   to: "to@example.com",
@@ -435,6 +451,37 @@ describe("CloudflareTransport failure classification", () => {
       }
     },
   );
+
+  it("retries a 503 whose body cannot be read", async () => {
+    await withFetch(
+      [brokenBody(503, { "Retry-After": "0" }), ok()],
+      async (calls) => {
+        const receipt = await new CloudflareTransport(config).send(message);
+        assert.ok(receipt.successful);
+        assert.equal(calls.length, 2);
+      },
+    );
+  });
+
+  it("keeps the status of a 400 whose body cannot be read", async () => {
+    await withFetch([brokenBody(400)], async (calls) => {
+      const receipt = await new CloudflareTransport(config).send(message);
+      assert.ok(!receipt.successful);
+      assert.equal(receipt.errors?.[0].code, "cloudflare.400");
+      assert.equal(receipt.errors?.[0].statusCode, 400);
+      assert.equal(calls.length, 1);
+    });
+  });
+
+  it("does not retry a 200 whose body cannot be read", async () => {
+    // Cloudflare may have sent the message, so sending it again could
+    // deliver it twice.
+    await withFetch([brokenBody(200), ok()], async (calls) => {
+      const receipt = await new CloudflareTransport(config).send(message);
+      assert.ok(!receipt.successful);
+      assert.equal(calls.length, 1);
+    });
+  });
 
   it("does not report a failing attachment read as a validation error", async () => {
     await withFetch([ok()], async (calls) => {

@@ -219,7 +219,10 @@ export class CloudflareHttpClient {
 
   /**
    * Sends a request and reads its whole reply, so that the timeout and the
-   * caller's signal cover the body as well as the headers.
+   * caller's signal cover the body as well as the headers.  An error reply
+   * whose body cannot be read comes back with an empty body, so that its
+   * status still decides whether to retry.  A 2xx reply whose body cannot be
+   * read throws instead, since Cloudflare may have sent the message.
    */
   private async fetchWithAuth(
     url: string,
@@ -242,7 +245,12 @@ export class CloudflareHttpClient {
         headers,
         signal: combinedSignal.signal,
       });
-      return { response, text: await response.text() };
+      try {
+        return { response, text: await response.text() };
+      } catch (error) {
+        if (response.ok || options.signal?.aborted) throw error;
+        return { response, text: "" };
+      }
     } catch (error) {
       if (
         isAbortError(error) &&
