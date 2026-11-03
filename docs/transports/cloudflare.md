@@ -276,6 +276,10 @@ It behaves like the REST transport, including the
  -  Cancellation is best effort: the binding takes no `AbortSignal`, so
     aborting while it sends stops `send()` from waiting, but the message may
     still go out.
+ -  Messages with attachments, including calendar invitations, fail in the
+    local simulator of `wrangler dev`; see Cloudflare's
+    [local development] notes.
 
 [send_email]: https://developers.cloudflare.com/email-service/api/send-emails/workers-api/
 [send bindings]: https://developers.cloudflare.com/email-service/configuration/send-bindings/
+[local development]: https://developers.cloudflare.com/email-service/observability/local-development/sending/
