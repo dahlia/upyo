@@ -3,7 +3,6 @@ import { CloudflareTransport } from "./cloudflare-transport.ts";
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-// Tests are serialized because they all replace globalThis.fetch.
 let chain = Promise.resolve();
 
 interface Call {
@@ -11,6 +10,11 @@ interface Call {
   readonly init: RequestInit;
 }
 
+/**
+ * Runs a test with `globalThis.fetch` replaced by one that answers with the
+ * given responses in turn, repeating the last one.  Tests are serialized
+ * because they all replace `globalThis.fetch`.
+ */
 async function withFetch<T>(
   responses: readonly ((init: RequestInit) => Response | Promise<Response>)[],
   callback: (calls: Call[]) => Promise<T>,

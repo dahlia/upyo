@@ -240,6 +240,10 @@ const RETRIED_ERRORS: ReadonlySet<string> = new Set([
   "E_INTERNAL_SERVER_ERROR",
 ]);
 
+/**
+ * Turns the binding's result into a receipt.  A result without a message ID
+ * is a failure that is not retryable, since the message may have been sent.
+ */
 function resultToReceipt(
   result: CloudflareEmailSendResult | undefined,
   attempts: number,
@@ -292,6 +296,9 @@ function createBindingFailure(
   });
 }
 
+/**
+ * Reads the binding's `E_*` code from a thrown error, if it has one.
+ */
 function getErrorCode(error: unknown): string | undefined {
   if (typeof error !== "object" || error == null || !("code" in error)) {
     return undefined;

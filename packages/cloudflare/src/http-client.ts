@@ -262,6 +262,10 @@ export class CloudflareHttpClient {
   }
 }
 
+/**
+ * Parses a successful reply, which must be a JSON object that does not report
+ * a failure.
+ */
 function parseSuccess(text: string, attempt: number): CloudflareResponse {
   const body = parseResponse(text);
   if (body == null) {
@@ -294,11 +298,19 @@ function parseResponse(text: string): CloudflareResponse | undefined {
   }
 }
 
+/**
+ * Describes a failed reply that has no error list: its body, shortened to 500
+ * characters, or the HTTP status when the body is empty.
+ */
 function describeBody(text: string, status: number): string {
   const trimmed = text.length > 500 ? `${text.slice(0, 500)}...` : text;
   return trimmed === "" ? `HTTP ${status}` : trimmed;
 }
 
+/**
+ * Joins Cloudflare's errors into one message, with each numeric code, or
+ * returns `undefined` when there are none.
+ */
 function formatErrors(
   errors: readonly CloudflareError[] | undefined,
 ): string | undefined {
@@ -309,6 +321,9 @@ function formatErrors(
   return messages.join("; ");
 }
 
+/**
+ * Whether an error is the `AbortError` that an aborted `fetch()` throws.
+ */
 function isAbortError(error: unknown): boolean {
   return error instanceof Error && error.name === "AbortError";
 }

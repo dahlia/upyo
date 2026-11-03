@@ -120,6 +120,9 @@ function formatRecipient(address: Address): string {
   return `${name} <${address.address}>`;
 }
 
+/**
+ * Formats the sender or reply-to address as a REST API address object.
+ */
 function formatAddress(address: Address): CloudflareAddress {
   return address.name
     ? { address: address.address, name: address.name }
