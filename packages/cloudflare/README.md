@@ -19,12 +19,12 @@
 Features
 --------
 
- -  Email sending through Cloudflare's Email Sending REST API
- -  Works from any runtime (Node.js, Deno, Bun, edge functions)
+ -  `CloudflareTransport` sends through Cloudflare's Email Sending REST API
+    from any runtime (Node.js, Deno, Bun, edge functions)
+ -  `CloudflareWorkerTransport` sends through a `send_email` binding on
+    Cloudflare Workers, with no API token
  -  HTML and plain text content, attachments, inline images, custom headers
- -  Retries rate-limited (`429`) and server-error (`5xx`) responses with
-    backoff
- -  Cloudflare's own reply on every receipt, typed
+ -  Retries rate limits and server errors with backoff
  -  Type-safe configuration with sensible defaults
 
 
@@ -70,31 +70,89 @@ if (receipt.successful) {
 }
 ~~~~
 
+### On Cloudflare Workers
+
+Declare a `send_email` binding in *wrangler.jsonc*:
+
+~~~~ jsonc
+{ "send_email": [{ "name": "EMAIL" }] }
+~~~~
+
+Then send through it:
+
+~~~~ typescript
+import { CloudflareWorkerTransport } from "@upyo/cloudflare";
+
+const transport = new CloudflareWorkerTransport({ binding: env.EMAIL });
+const receipt = await transport.send(message);
+~~~~
+
 
 Configuration
 -------------
+
+`CloudflareTransport`:
 
  -  `accountId`: Your Cloudflare account ID
  -  `apiToken`: A Cloudflare API token with email sending permission
  -  `baseUrl`: API base URL (default: `https://api.cloudflare.com/client/v4`)
  -  `timeout`: Request timeout in milliseconds (default: `30000`)
- -  `retries`: Retries for `429` and `5xx` responses (default: `3`)
+ -  `retries`: Retries for `429` and `5xx` responses (default: `3`); waits
+    1 second, doubling up to 10 seconds, or as long as `Retry-After` says, up
+    to 60 seconds
  -  `headers`: Additional HTTP headers
+
+`CloudflareWorkerTransport`:
+
+ -  `binding`: The `send_email` binding, such as `env.EMAIL`
+ -  `retries`: Retries for `E_RATE_LIMIT_EXCEEDED` and
+    `E_INTERNAL_SERVER_ERROR` (default: `3`); waits 1 second, doubling up to
+    10 seconds
+
+Cloudflare has no idempotency key, so a retried server error may send a
+message twice; set `retries` to `0` if a duplicate is worse than a failed
+send.
+
+
+Checks before sending
+---------------------
+
+Cloudflare rejects these messages with an error that does not say why, so
+both transports fail them before sending, with a validation receipt naming the
+problem:
+
+ -  A custom header that Cloudflare generates, such as `Message-ID`, `Date`,
+    `DKIM-Signature`, or `ARC-*` (`cloudflare.header_not_allowed`) [headers]
+ -  A custom header that belongs in a message field: `From`, `To`, `Cc`,
+    `Bcc`, `Subject`, or `Reply-To` (`cloudflare.header_use_api_field`)
+    [headers]
+ -  More than 50 recipients across `to`, `cc`, and `bcc`
+    (`cloudflare.too_many_recipients`) [limits]
+
+Everything else, such as Cloudflare's header allowlist, its header and message
+size limits, and the number of attachments, is left to Cloudflare, which may
+change its rules.
+
+[headers]: https://developers.cloudflare.com/email-service/reference/headers/
+[limits]: https://developers.cloudflare.com/email-service/platform/limits/
 
 
 Limitations
 -----------
 
- -  Tags are ignored; the API has no equivalent.
- -  Only the first reply-to address is used.
+ -  Tags are ignored; the API has no equivalent [REST API].
+ -  Only the first reply-to address is used; both APIs take a single one
+    [REST API] [Workers API].
  -  `messageId` and `date` are ignored; Cloudflare generates `Message-ID` and
-    `Date`.  A custom header that Cloudflare controls, or that belongs in a
-    message field, is rejected before sending with a
-    `CloudflareValidationError`.
- -  At most 50 recipients across `to`, `cc`, and `bcc`; more is rejected
-    before sending.
+    `Date` [headers].
  -  `sendMany()` sends messages one at a time, since there is no batch
-    endpoint.
+    endpoint [REST API] [Workers API].
  -  A successful receipt means Cloudflare accepted the message for at least
     one recipient; it does not say which recipients were delivered to, which
     were queued, or which bounced.
+
+See the [documentation] for the details.
+
+[REST API]: https://developers.cloudflare.com/api/resources/email_sending/methods/send/
+[Workers API]: https://developers.cloudflare.com/email-service/api/send-emails/workers-api/
+[documentation]: https://upyo.org/transports/cloudflare

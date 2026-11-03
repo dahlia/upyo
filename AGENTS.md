@@ -288,8 +288,9 @@ the application.
 
  -  *@upyo/smtp*: Full-featured SMTP client with connection pooling, TLS
     support, and authentication
- -  *@upyo/cloudflare*: Cloudflare Email Service REST API transport with
-    attachments, inline images, and custom headers
+ -  *@upyo/cloudflare*: Cloudflare Email Service transports for the REST API
+    and the Workers `send_email` binding, with attachments, inline images, and
+    custom headers
  -  *@upyo/lettermint*: Lettermint HTTP API transport with idempotency, batch
     sending, routes, tags, metadata, and tracking settings
  -  *@upyo/maileroo*: Maileroo HTTP API transport with attachments, custom

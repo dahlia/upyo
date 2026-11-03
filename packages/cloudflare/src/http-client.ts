@@ -1,6 +1,7 @@
 import { combineSignals, parseRetryAfter } from "@upyo/core";
 import type { ResolvedCloudflareConfig } from "./config.ts";
 import type { CloudflareEmail } from "./message-converter.ts";
+import { backoffMilliseconds, sleep } from "./retry.ts";
 
 /**
  * The parsed reply of the Cloudflare Email Sending API, on success and on
@@ -206,7 +207,7 @@ export class CloudflareHttpClient {
       if (!retryable || attempt > this.config.retries) throw error;
 
       const backoffMs = error.retryAfterMilliseconds == null
-        ? Math.min(1000 * Math.pow(2, attempt - 1), 10000)
+        ? backoffMilliseconds(attempt)
         : Math.min(error.retryAfterMilliseconds, 60000);
       await sleep(backoffMs, signal);
     }
@@ -297,21 +298,6 @@ function formatErrors(
     e.code == null ? e.message : `${e.message} (code ${e.code})`
   );
   return messages.join("; ");
-}
-
-function sleep(ms: number, signal?: AbortSignal): Promise<void> {
-  return new Promise((resolve, reject) => {
-    signal?.throwIfAborted();
-    const onAbort = () => {
-      clearTimeout(timer);
-      reject(signal?.reason);
-    };
-    const timer = setTimeout(() => {
-      signal?.removeEventListener("abort", onAbort);
-      resolve();
-    }, ms);
-    signal?.addEventListener("abort", onAbort, { once: true });
-  });
 }
 
 function isAbortError(error: unknown): boolean {

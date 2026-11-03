@@ -1,9 +1,11 @@
 /**
  * @fileoverview Cloudflare Email Service transport for Upyo email library.
  *
- * This module provides a transport implementation for sending emails through
- * the Cloudflare Email Sending REST API.  It supports attachments, inline
- * images, custom headers, and automatic retry of rate-limited requests.
+ * This module provides two transports for Cloudflare Email Service:
+ * `CloudflareTransport` sends through the REST API from any runtime, and
+ * `CloudflareWorkerTransport` sends through a `send_email` binding on
+ * Cloudflare Workers.  Both support attachments, inline images, and custom
+ * headers.
  *
  * @example
  * ```typescript
@@ -39,6 +41,19 @@ export {
   CloudflareTransport,
 } from "./cloudflare-transport.ts";
 export type { CloudflareConfig, ResolvedCloudflareConfig } from "./config.ts";
+export {
+  type CloudflareWorkerConfig,
+  type CloudflareWorkerReceipt,
+  CloudflareWorkerTransport,
+  type ResolvedCloudflareWorkerConfig,
+} from "./worker-transport.ts";
+export type {
+  CloudflareBindingAddress,
+  CloudflareBindingAttachment,
+  CloudflareBindingMessage,
+  CloudflareEmailBinding,
+  CloudflareEmailSendResult,
+} from "./binding.ts";
 export { CloudflareValidationError } from "./errors.ts";
 export type { CloudflareValidationErrorCode } from "./errors.ts";
 export { CloudflareApiError } from "./http-client.ts";

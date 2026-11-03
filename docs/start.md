@@ -54,7 +54,8 @@ strengths and use cases:
 :   HTTP API service with advanced features and analytics
 
 [Cloudflare](./transports/cloudflare.md)
-:   Cloudflare Email Service REST API with attachments and custom headers
+:   Cloudflare Email Service through its REST API or a Workers binding, with
+    attachments and custom headers
 
 [Lettermint](./transports/lettermint.md)
 :   Transactional email API with routes, metadata, idempotency, and batch
