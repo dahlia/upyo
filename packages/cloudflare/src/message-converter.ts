@@ -126,23 +126,28 @@ function formatAddress(address: Address): CloudflareAddress {
     : { address: address.address };
 }
 
+/**
+ * `Uint8Array.prototype.toBase64()`, which TypeScript's libraries do not
+ * declare yet and not every runtime has.
+ */
+interface NativeBase64Converter {
+  toBase64?: () => string;
+}
+
+/**
+ * Encodes bytes as base64 with the runtime's native encoder when it has one,
+ * which is far faster for a large attachment, and with `btoa()` over 32 KiB
+ * chunks otherwise.
+ */
 function toBase64(bytes: Uint8Array): string {
-  const chars =
-    "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
-  let result = "";
-  for (let i = 0; i < bytes.length; i += 3) {
-    const a = bytes[i];
-    const b = i + 1 < bytes.length ? bytes[i + 1] : 0;
-    const c = i + 2 < bytes.length ? bytes[i + 2] : 0;
-    const bitmap = (a << 16) | (b << 8) | c;
-    result +=
-      chars[(bitmap >> 18) & 63] +
-      chars[(bitmap >> 12) & 63] +
-      chars[(bitmap >> 6) & 63] +
-      chars[bitmap & 63];
+  const candidate: Uint8Array & NativeBase64Converter = bytes;
+  if (typeof candidate.toBase64 === "function") return candidate.toBase64();
+  const chunkSize = 0x8000;
+  const chunks: string[] = [];
+  for (let offset = 0; offset < bytes.length; offset += chunkSize) {
+    chunks.push(
+      String.fromCharCode(...bytes.subarray(offset, offset + chunkSize)),
+    );
   }
-  const remainder = bytes.length % 3;
-  return remainder === 0
-    ? result
-    : result.slice(0, remainder - 3) + "=".repeat(3 - remainder);
+  return btoa(chunks.join(""));
 }

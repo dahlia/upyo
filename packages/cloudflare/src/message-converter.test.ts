@@ -83,6 +83,66 @@ describe("convertMessage", () => {
     assert.equal(data.attachments?.[1].content_id, "logo");
   });
 
+  it("uses the runtime's native base64 encoder when it has one", async () => {
+    const content = new Uint8Array([1, 2, 3]);
+    Object.defineProperty(content, "toBase64", {
+      configurable: true,
+      value(this: Uint8Array) {
+        assert.deepEqual([...this], [1, 2, 3]);
+        return "native-base64";
+      },
+    });
+    const data = await convertMessage(
+      createMessage({
+        from: "sender@example.com",
+        to: "a@example.com",
+        subject: "Hi",
+        content: { text: "x" },
+        attachments: [
+          {
+            inline: false,
+            contentId: "",
+            filename: "native.bin",
+            content,
+            contentType: "application/octet-stream",
+          },
+        ],
+      }),
+    );
+    assert.equal(data.attachments?.[0].content, "native-base64");
+  });
+
+  it("encodes base64 without a native encoder, across chunks", async () => {
+    // Every byte value, over more than two of the fallback's 32 KiB chunks,
+    // with a length that needs padding.
+    const content = Uint8Array.from({ length: 0x8000 * 2 + 4 }, (_, i) => i);
+    Object.defineProperty(content, "toBase64", {
+      configurable: true,
+      value: undefined,
+    });
+    const data = await convertMessage(
+      createMessage({
+        from: "sender@example.com",
+        to: "a@example.com",
+        subject: "Hi",
+        content: { text: "x" },
+        attachments: [
+          {
+            inline: false,
+            contentId: "",
+            filename: "bytes.bin",
+            content,
+            contentType: "application/octet-stream",
+          },
+        ],
+      }),
+    );
+    const encoded = data.attachments?.[0].content ?? "";
+    assert.ok(encoded.endsWith("="));
+    const decoded = Uint8Array.from(atob(encoded), (c) => c.charCodeAt(0));
+    assert.deepEqual(decoded, content.slice());
+  });
+
   // Cloudflare rejects an inline part without a content ID with error 10001.
   it("sends an inline part without a content ID as a regular attachment", async () => {
     const data = await convertMessage(
