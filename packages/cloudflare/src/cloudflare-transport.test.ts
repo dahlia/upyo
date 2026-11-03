@@ -222,6 +222,45 @@ describe("CloudflareTransport error reporting", () => {
     );
   });
 
+  it("fails without retrying when a 200 reply is not JSON", async () => {
+    await withFetch(
+      [() => new Response("<html>OK</html>", { status: 200 })],
+      async (calls) => {
+        const receipt = await new CloudflareTransport(config).send(message);
+        assert.ok(!receipt.successful);
+        assert.deepEqual(receipt.errorMessages, [
+          "Cloudflare API answered with a body that is not a JSON object.",
+        ]);
+        assert.equal(calls.length, 1);
+      },
+    );
+  });
+
+  it("fails without retrying when a 200 reply reports a failure", async () => {
+    await withFetch(
+      [
+        () =>
+          new Response(
+            JSON.stringify({
+              success: false,
+              errors: [{ code: 10202, message: "Invalid email." }],
+              result: null,
+            }),
+            { status: 200 },
+          ),
+      ],
+      async (calls) => {
+        const receipt = await new CloudflareTransport(config).send(message);
+        assert.ok(!receipt.successful);
+        assert.deepEqual(receipt.errorMessages, [
+          "Invalid email. (code 10202)",
+        ]);
+        assert.equal(receipt.errors?.[0].code, "cloudflare.10202");
+        assert.equal(calls.length, 1);
+      },
+    );
+  });
+
   it("returns a non-retryable validation receipt without calling the API", async () => {
     await withFetch([ok()], async (calls) => {
       const receipt = await new CloudflareTransport(config).send(
@@ -236,6 +275,22 @@ describe("CloudflareTransport error reporting", () => {
       assert.ok(!receipt.successful);
       assert.equal(receipt.errors?.[0].category, "validation");
       assert.equal(receipt.errors?.[0].code, "cloudflare.header_not_allowed");
+      assert.ok(!receipt.retryable);
+      assert.equal(calls.length, 0);
+    });
+  });
+
+  it("treats an invalid message identifier as a validation failure", async () => {
+    await withFetch([ok()], async (calls) => {
+      // createMessage() would reject the identifier, so it is set afterward,
+      // as a message built by hand could carry it.
+      const receipt = await new CloudflareTransport(config).send({
+        ...message,
+        inReplyTo: ["not an id"],
+      });
+      assert.ok(!receipt.successful);
+      assert.match(receipt.errorMessages[0], /not an id/);
+      assert.equal(receipt.errors?.[0].category, "validation");
       assert.ok(!receipt.retryable);
       assert.equal(calls.length, 0);
     });

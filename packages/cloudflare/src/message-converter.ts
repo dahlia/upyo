@@ -1,7 +1,6 @@
 import type { Address, Attachment, Message } from "@upyo/core";
 import {
   type PreparedMessage,
-  prepareMessage,
   readAttachments,
 } from "./message-preparation.ts";
 
@@ -106,32 +105,6 @@ export async function convertAttachments(
       ? { disposition: "inline", content_id: attachment.contentId }
       : { disposition: "attachment" }),
   }));
-}
-
-/**
- * Converts an Upyo Message to the REST API JSON format.  It combines
- * `prepareMessage()`, {@link buildEmail}, and {@link convertAttachments}.
- *
- * @param message The Upyo message to convert.
- * @param options Optional conversion options.
- * @returns JSON object ready for Cloudflare API submission.
- * @throws {TypeError} If the message carries an invalid message identifier or
- *         calendar.
- * @throws {CloudflareValidationError} If the message has more than 50
- *         recipients, or a custom header is one that Cloudflare generates or
- *         expects in a message field.
- */
-export async function convertMessage(
-  message: Message,
-  options: { readonly signal?: AbortSignal } = {},
-): Promise<CloudflareEmail> {
-  const prepared = prepareMessage(message);
-  const email = buildEmail(message, prepared);
-  const attachments = await convertAttachments(
-    prepared.attachments,
-    options.signal,
-  );
-  return attachments.length > 0 ? { ...email, attachments } : email;
 }
 
 /**

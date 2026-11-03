@@ -6,7 +6,6 @@ import type {
 } from "./binding.ts";
 import {
   type PreparedMessage,
-  prepareMessage,
   readAttachments,
 } from "./message-preparation.ts";
 
@@ -83,33 +82,6 @@ export async function convertBindingAttachments(
           content: contents[i],
         },
   );
-}
-
-/**
- * Converts an Upyo Message to the Workers binding format.  It combines
- * `prepareMessage()`, {@link buildBindingMessage}, and
- * {@link convertBindingAttachments}.
- *
- * @param message The Upyo message to convert.
- * @param options Optional conversion options.
- * @returns The message to pass to the binding's `send()`.
- * @throws {TypeError} If the message carries an invalid message identifier or
- *         calendar.
- * @throws {CloudflareValidationError} If the message has more than 50
- *         recipients, or a custom header is one that Cloudflare generates or
- *         expects in a message field.
- */
-export async function convertBindingMessage(
-  message: Message,
-  options: { readonly signal?: AbortSignal } = {},
-): Promise<CloudflareBindingMessage> {
-  const prepared = prepareMessage(message);
-  const built = buildBindingMessage(message, prepared);
-  const attachments = await convertBindingAttachments(
-    prepared.attachments,
-    options.signal,
-  );
-  return attachments.length > 0 ? { ...built, attachments } : built;
 }
 
 function formatAddress(address: Address): string | CloudflareBindingAddress {

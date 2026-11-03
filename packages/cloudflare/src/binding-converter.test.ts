@@ -1,6 +1,6 @@
 import { createMessage } from "@upyo/core";
-import { convertBindingMessage } from "./binding-converter.ts";
 import { CloudflareValidationError } from "./errors.ts";
+import { convertBindingMessage } from "./test-utils/convert.ts";
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 

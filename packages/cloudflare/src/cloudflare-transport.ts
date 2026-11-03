@@ -100,7 +100,7 @@ export class CloudflareTransport implements Transport<"cloudflare"> {
         throw error;
       }
 
-      // Reading attachments can fail for reasons that pass, such as a lazy
+      // Reading attachments can fail for transient reasons, such as a lazy
       // attachment whose fetch fails; those go through the generic path below.
       const attachments = await convertAttachments(
         prepared.attachments,
