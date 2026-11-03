@@ -190,6 +190,7 @@ body, and a list of files.
 | *@upyo/lettermint* | Sent as an *invite.ics* attachment        |
 | *@upyo/resend*     | Sent as an *invite.ics* attachment        |
 | *@upyo/plunk*      | Sent as an *invite.ics* attachment        |
+| *@upyo/cloudflare* | Sent as an *invite.ics* attachment        |
 | *@upyo/ses*        | Sent as an *invite.ics* attachment        |
 
 The composing transports place the calendar last inside a
