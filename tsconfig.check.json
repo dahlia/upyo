@@ -15,6 +15,7 @@
     "noEmit": true,
     "skipLibCheck": false,
     "paths": {
+      "@upyo/cloudflare": ["./packages/cloudflare/src/index.ts"],
       "@upyo/core": ["./packages/core/src/index.ts"],
       "@upyo/core/abort-signal": ["./packages/core/src/abort-signal.ts"],
       "@upyo/core/address": ["./packages/core/src/address.ts"],

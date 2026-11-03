@@ -29,18 +29,18 @@ export interface CloudflareBindingAddress {
  */
 export type CloudflareBindingAttachment =
   | {
-    readonly disposition: "inline";
-    readonly contentId: string;
-    readonly filename: string;
-    readonly type: string;
-    readonly content: Uint8Array;
-  }
+      readonly disposition: "inline";
+      readonly contentId: string;
+      readonly filename: string;
+      readonly type: string;
+      readonly content: Uint8Array;
+    }
   | {
-    readonly disposition: "attachment";
-    readonly filename: string;
-    readonly type: string;
-    readonly content: Uint8Array;
-  };
+      readonly disposition: "attachment";
+      readonly filename: string;
+      readonly type: string;
+      readonly content: Uint8Array;
+    };
 
 /**
  * The message the transport passes to the Workers binding's `send()`.

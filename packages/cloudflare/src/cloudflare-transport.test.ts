@@ -36,29 +36,33 @@ async function withFetch<T>(
   }
 }
 
-const ok = (result: Record<string, unknown> = {}) => () =>
-  new Response(
-    JSON.stringify({
-      success: true,
-      errors: [],
-      result: {
-        message_id: "<abc@cf>",
-        delivered: ["to@example.com"],
-        ...result,
-      },
-    }),
-    { status: 200 },
-  );
+const ok =
+  (result: Record<string, unknown> = {}) =>
+  () =>
+    new Response(
+      JSON.stringify({
+        success: true,
+        errors: [],
+        result: {
+          message_id: "<abc@cf>",
+          delivered: ["to@example.com"],
+          ...result,
+        },
+      }),
+      { status: 200 },
+    );
 
-const fail = (status: number, headers: Record<string, string> = {}) => () =>
-  new Response(
-    JSON.stringify({
-      success: false,
-      errors: [{ code: 1000, message: "Sender domain not verified" }],
-      result: null,
-    }),
-    { status, headers },
-  );
+const fail =
+  (status: number, headers: Record<string, string> = {}) =>
+  () =>
+    new Response(
+      JSON.stringify({
+        success: false,
+        errors: [{ code: 1000, message: "Sender domain not verified" }],
+        result: null,
+      }),
+      { status, headers },
+    );
 
 const message = createMessage({
   from: "sender@example.com",
@@ -122,15 +126,20 @@ describe("CloudflareTransport send", () => {
 
   it("does not retry network failures", async () => {
     let attempts = 0;
-    await withFetch([() => {
-      attempts++;
-      throw new TypeError("fetch failed");
-    }], async () => {
-      const receipt = await new CloudflareTransport(config).send(message);
-      assert.ok(!receipt.successful);
-      assert.notEqual(receipt.errors?.[0].category, "validation");
-      assert.equal(attempts, 1);
-    });
+    await withFetch(
+      [
+        () => {
+          attempts++;
+          throw new TypeError("fetch failed");
+        },
+      ],
+      async () => {
+        const receipt = await new CloudflareTransport(config).send(message);
+        assert.ok(!receipt.successful);
+        assert.notEqual(receipt.errors?.[0].category, "validation");
+        assert.equal(attempts, 1);
+      },
+    );
   });
 
   it("fails when every recipient permanently bounced", async () => {
@@ -170,14 +179,16 @@ describe("CloudflareTransport sendMany", () => {
   it("sends each message and yields a receipt per message", async () => {
     await withFetch([ok(), fail(400), ok()], async (calls) => {
       const receipts = [];
-      for await (
-        const r of new CloudflareTransport(config).sendMany([
-          message,
-          message,
-          message,
-        ])
-      ) receipts.push(r);
-      assert.deepEqual(receipts.map((r) => r.successful), [true, false, true]);
+      for await (const r of new CloudflareTransport(config).sendMany([
+        message,
+        message,
+        message,
+      ]))
+        receipts.push(r);
+      assert.deepEqual(
+        receipts.map((r) => r.successful),
+        [true, false, true],
+      );
       assert.equal(calls.length, 3);
     });
   });
@@ -201,8 +212,10 @@ describe("CloudflareTransport error reporting", () => {
     await withFetch(
       [() => new Response("Bad gateway", { status: 502 })],
       async () => {
-        const receipt = await new CloudflareTransport({ ...config, retries: 0 })
-          .send(message);
+        const receipt = await new CloudflareTransport({
+          ...config,
+          retries: 0,
+        }).send(message);
         assert.ok(!receipt.successful);
         assert.equal(receipt.errors?.[0].code, "cloudflare.502");
       },
@@ -255,11 +268,13 @@ describe("CloudflareTransport delivery outcome", () => {
 
   it("succeeds when some recipients were accepted", async () => {
     await withFetch(
-      [ok({
-        delivered: [],
-        queued: ["a@example.com"],
-        suppressed_recipients: ["b@example.com"],
-      })],
+      [
+        ok({
+          delivered: [],
+          queued: ["a@example.com"],
+          suppressed_recipients: ["b@example.com"],
+        }),
+      ],
       async () => {
         const receipt = await new CloudflareTransport(config).send(message);
         assert.ok(receipt.successful);
@@ -310,13 +325,15 @@ describe("CloudflareTransport failure classification", () => {
           to: "to@example.com",
           subject: "Hi",
           content: { text: "x" },
-          attachments: [{
-            inline: false,
-            contentId: "",
-            filename: "remote.pdf",
-            contentType: "application/pdf",
-            content: () => Promise.reject(new TypeError("fetch failed")),
-          }],
+          attachments: [
+            {
+              inline: false,
+              contentId: "",
+              filename: "remote.pdf",
+              contentType: "application/pdf",
+              content: () => Promise.reject(new TypeError("fetch failed")),
+            },
+          ],
         }),
       );
       assert.ok(!receipt.successful);

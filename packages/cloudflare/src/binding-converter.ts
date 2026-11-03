@@ -42,12 +42,13 @@ export function buildBindingMessage(
     subject: message.subject,
     ...("html" in message.content
       ? {
-        html: message.content.html,
-        ...(message.content.text ? { text: message.content.text } : {}),
-      }
+          html: message.content.html,
+          ...(message.content.text ? { text: message.content.text } : {}),
+        }
       : { text: message.content.text }),
-    ...(Object.keys(prepared.headers).length > 0 &&
-      { headers: { ...prepared.headers } }),
+    ...(Object.keys(prepared.headers).length > 0 && {
+      headers: { ...prepared.headers },
+    }),
   };
 }
 
@@ -69,18 +70,18 @@ export async function convertBindingAttachments(
   return attachments.map((attachment, i) =>
     attachment.inline && attachment.contentId
       ? {
-        disposition: "inline",
-        contentId: attachment.contentId,
-        filename: attachment.filename,
-        type: attachment.contentType,
-        content: contents[i],
-      }
+          disposition: "inline",
+          contentId: attachment.contentId,
+          filename: attachment.filename,
+          type: attachment.contentType,
+          content: contents[i],
+        }
       : {
-        disposition: "attachment",
-        filename: attachment.filename,
-        type: attachment.contentType,
-        content: contents[i],
-      }
+          disposition: "attachment",
+          filename: attachment.filename,
+          type: attachment.contentType,
+          content: contents[i],
+        },
   );
 }
 

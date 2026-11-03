@@ -44,8 +44,10 @@ const MAX_RECIPIENTS = 50;
  *         expects in a message field.
  */
 export function prepareMessage(message: Message): PreparedMessage {
-  const recipientCount = message.recipients.length +
-    message.ccRecipients.length + message.bccRecipients.length;
+  const recipientCount =
+    message.recipients.length +
+    message.ccRecipients.length +
+    message.bccRecipients.length;
   if (recipientCount > MAX_RECIPIENTS) {
     throw new CloudflareValidationError(
       `A message can have at most ${MAX_RECIPIENTS} recipients across to, ` +
@@ -59,9 +61,10 @@ export function prepareMessage(message: Message): PreparedMessage {
 
   // Neither API has a calendar field, so the scheduling payload travels as an
   // *invite.ics* attachment ahead of the caller's own files.
-  const attachments = message.calendar == null
-    ? message.attachments
-    : [createCalendarAttachment(message.calendar), ...message.attachments];
+  const attachments =
+    message.calendar == null
+      ? message.attachments
+      : [createCalendarAttachment(message.calendar), ...message.attachments];
 
   return { headers, attachments };
 }
@@ -84,7 +87,7 @@ export async function readAttachments(
   try {
     return await Promise.all(
       attachments.map((attachment) =>
-        readAttachmentContent(attachment.content, combined.signal)
+        readAttachmentContent(attachment.content, combined.signal),
       ),
     );
   } finally {
