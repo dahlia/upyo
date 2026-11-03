@@ -113,13 +113,10 @@ Configuration
 
 `retries`
 :   How many times to retry a request that Cloudflare answered with `429` or
-    a `5xx` status, as Cloudflare recommends.  Defaults to `3`.
-    The transport waits 1 second before the first retry, doubling after each
-    attempt, at most 10 seconds; a `Retry-After` header is honored instead, up
-    to 60 seconds.  Network failures and timeouts are not retried, because the
-    message may already have been accepted and the API has no idempotency key.
-    A `5xx` answer carries a smaller version of the same risk; set `retries` to
-    `0` if a duplicate message is worse for you than a failed send.
+    a `5xx` status.  Defaults to `3`.  The wait starts at 1 second and doubles,
+    up to 10 seconds, unless Cloudflare sends a `Retry-After` header.  Network
+    failures and timeouts are not retried.  A retried `5xx` may send a message
+    twice; set `retries` to `0` if that is worse for you than a failed send.
 
 `headers`
 :   Additional HTTP headers to send with every request.
@@ -131,8 +128,7 @@ Supported features
  -  HTML and plain text content, CC, BCC, and a reply-to address, with
     display names on every address
  -  Attachments and inline images (referenced with `cid:` URIs).  An inline
-    attachment needs a content ID; one without is sent as a regular
-    attachment, since Cloudflare rejects an inline one without it.
+    attachment without a content ID is sent as a regular attachment.
  -  Custom headers, including `List-Unsubscribe` and the reply threading
     fields `inReplyTo` and `references`
  -  Priority, sent as an `X-Priority` header unless the message sets its own
@@ -155,36 +151,23 @@ Some things are not available:
 Checks before sending
 ---------------------
 
-Both transports reject a few messages before sending them, because Cloudflare
-would reject them too, but with an error that does not say why: in our tests
-the REST API answered every one of these with the same generic error code.
-The message fails with a validation receipt that is not retryable, whose error
-says what is wrong:
+Both transports reject these messages before sending, with a validation
+receipt that is not retryable and whose error says what is wrong:
 
 `cloudflare.header_not_allowed`
-:   A custom header is one that Cloudflare generates: `Date`, `Message-ID`,
-    `MIME-Version`, `Content-Type`, `Content-Transfer-Encoding`,
-    `DKIM-Signature`, `Return-Path`, `Received`, `Feedback-ID`, `ARC-*`,
-    `TLS-Required`, `TLS-Report-Domain`, `TLS-Report-Submitter`,
-    `CFBL-Address`, or `CFBL-Feedback-ID` ([headers]).
+:   A custom header is one that Cloudflare generates, such as `Message-ID`,
+    `Date`, or `DKIM-Signature` (see [Cloudflare's list][headers]).
 
 `cloudflare.header_use_api_field`
 :   A custom header belongs in a message field: `From`, `To`, `Cc`, `Bcc`,
-    `Subject`, or `Reply-To` ([headers]).  The error names the field to use.
+    `Subject`, or `Reply-To`.
 
 `cloudflare.too_many_recipients`
-:   The message has more than 50 recipients across `to`, `cc`, and `bcc`
-    ([limits]).
+:   The message has more than 50 recipients across `to`, `cc`, and `bcc`.
 
-Header names are compared without regard to case.
-
-Everything else is left to Cloudflare, which may change its rules, and comes
-back as a failed receipt when Cloudflare rejects it: which other headers are
-on its [allowlist][headers] (any header starting with `X-` is allowed), its
-limits on header names, values, and total size, the subject length, the
-number of attachments, and the size of a message ([limits]).  Line breaks in
-a display name, a subject, or a filename cannot add headers either: Cloudflare
-rejects them in display names and encodes them in subjects and filenames.
+Cloudflare's other rules, such as its header allowlist and its size
+[limits], are left to Cloudflare; a message that breaks one comes back as a
+failed receipt.
 
 [limits]: https://developers.cloudflare.com/email-service/platform/limits/
 
@@ -280,25 +263,19 @@ Its options are:
 `retries`
 :   How many times to retry when the binding reports a rate limit
     (`E_RATE_LIMIT_EXCEEDED`) or a server error (`E_INTERNAL_SERVER_ERROR`).
-    Defaults to `3`.  The binding gives no retry delay, so the transport waits
-    1 second before the first retry, doubling after each attempt, at most 10
-    seconds.  As with the REST transport, a server error may hide a message
-    that was already accepted; set `retries` to `0` if a duplicate message is
-    worse for you than a failed send.
+    Defaults to `3`.  The wait starts at 1 second and doubles, up to 10
+    seconds.  A retried server error may send a message twice; set `retries`
+    to `0` if that is worse for you than a failed send.
 
 It behaves like the REST transport, including the
 [checks before sending](#checks-before-sending), with these differences:
 
  -  A failure's `code` is the binding's own, such as
     `cloudflare.E_RATE_LIMIT_EXCEEDED` or `cloudflare.E_VALIDATION_ERROR`,
-    and its `providerDetails` is `{ code, message }`.  The receipt says
-    whether retrying may help; rate limits, internal errors, and delivery
-    failures are retryable, though the transport itself retries only the
-    first two.
+    and its `providerDetails` is `{ code, message }`.
  -  Cancellation is best effort: the binding takes no `AbortSignal`, so
     aborting while it sends stops `send()` from waiting, but the message may
-    still go out.  Aborting while the transport waits to retry stops it at
-    once.
+    still go out.
 
 [send_email]: https://developers.cloudflare.com/email-service/api/send-emails/workers-api/
 [send bindings]: https://developers.cloudflare.com/email-service/configuration/send-bindings/

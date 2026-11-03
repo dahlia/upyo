@@ -98,8 +98,8 @@ Configuration
  -  `baseUrl`: API base URL (default: `https://api.cloudflare.com/client/v4`)
  -  `timeout`: Request timeout in milliseconds (default: `30000`)
  -  `retries`: Retries for `429` and `5xx` responses (default: `3`); waits
-    1 second, doubling up to 10 seconds, or as long as `Retry-After` says, up
-    to 60 seconds
+    1 second, doubling up to 10 seconds, unless Cloudflare sends
+    `Retry-After`
  -  `headers`: Additional HTTP headers
 
 `CloudflareWorkerTransport`:
@@ -109,17 +109,15 @@ Configuration
     `E_INTERNAL_SERVER_ERROR` (default: `3`); waits 1 second, doubling up to
     10 seconds
 
-Cloudflare has no idempotency key, so a retried server error may send a
-message twice; set `retries` to `0` if a duplicate is worse than a failed
-send.
+A retried server error may send a message twice; set `retries` to `0` if
+that is worse than a failed send.
 
 
 Checks before sending
 ---------------------
 
-Cloudflare rejects these messages with an error that does not say why, so
-both transports fail them before sending, with a validation receipt naming the
-problem:
+Both transports reject these messages before sending, with a validation
+receipt that says what is wrong:
 
  -  A custom header that Cloudflare generates, such as `Message-ID`, `Date`,
     `DKIM-Signature`, or `ARC-*` (`cloudflare.header_not_allowed`) [headers]
@@ -147,9 +145,9 @@ Limitations
     `Date` [headers].
  -  `sendMany()` sends messages one at a time, since there is no batch
     endpoint [REST API] [Workers API].
- -  A successful receipt means Cloudflare accepted the message for at least
-    one recipient; it does not say which recipients were delivered to, which
-    were queued, or which bounced.
+ -  A successful receipt means Cloudflare accepted the message; it does not
+    say which recipients were delivered to, which were queued, or which
+    bounced.
 
 See the [documentation] for the details.
 
