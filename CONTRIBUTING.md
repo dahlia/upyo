@@ -98,6 +98,57 @@ Run `mise run check:all`, `sacho check`, `mise run test:all`, and
 `mise run docs:build` before submitting a change. External provider tests
 need environment variables; see each package's test instructions.
 
+### Live provider tests
+
+The `main` workflow runs live provider tests on pushes, every Monday at
+00:17 UTC (09:17 in Seoul), and through *Actions → main → Run workflow*.
+Scheduled and manual runs do not publish packages or deploy documentation.
+The workflow must be on the default branch for scheduling and manual dispatch
+to be available. GitHub can disable scheduled workflows in public repositories
+after 60 days without activity; check that scheduling is enabled, or dispatch
+a run before a release.
+
+A separate `test-live` job holds the `upyo-live-providers` concurrency group
+while testing Node.js, Deno, and Bun in sequence. Ordinary runtime jobs keep
+running unit and local integration tests in parallel without provider
+credentials. Live failures still block publishing on pushes. Live Deno tests
+are separate from the ordinary Deno coverage report.
+
+The live lock spans refs and event types. It uses GitHub's default concurrency
+queue, which keeps one pending job and replaces it when another arrives;
+every queued run is not guaranteed to finish. The lock does not cancel a running
+job, but cancellation of its workflow still does: a newer push to the same ref
+can interrupt a live suite. A live job has a 60-minute limit, with a 10-minute
+hang backstop per provider suite. The lock does not reserve account quota
+against sends outside this workflow.
+
+To run the same suites locally:
+
+~~~~ bash
+mise run test:live       # Node.js, Deno, then Bun
+mise run test:live node  # Or deno or bun
+~~~~
+
+These commands send real email when credentials are configured. They read the
+root *.env*. Node.js and Deno ignore package-local *.env* files; Bun also loads
+the *.env* in each package directory. They select Mailgun, Resend,
+SendGrid, Lettermint, Maileroo, and Mailtrap, matching the workflow's existing
+credentials; missing configuration retains each suite's skip behavior. Plunk,
+SES, and SMTP OAuth 2.0 are excluded because CI has no credentials for them.
+The task builds npm packages once, runs provider suites serially, and reports
+failure after all selected suites have finished.
+
+[MailSenpai support] is still pending. When adding its live suite, query
+`GET /status` with a bounded timeout before each runtime sends mail and compare
+`residuo` with that suite's full send budget, including setup messages and
+possible retries. The free account allows 30 messages in the preceding hour,
+shared with other sends. Skip visibly when valid quota data shows insufficient
+headroom; authentication, network, HTTP, and malformed-response errors should
+fail the check. Fixtures must tolerate cancellation. This quota guard belongs
+to the future MailSenpai suite and is not implemented by the scheduler.
+
+[MailSenpai support]: https://github.com/dahlia/upyo/issues/79
+
 ### Editors
 
 The VS Code workspace recommends the Oxc extension for linting and formatting.
