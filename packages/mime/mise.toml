@@ -6,6 +6,7 @@ sources = ["deno.json", "package.json", "tsdown.config.ts", "src/**/*.ts", "../.
 outputs = ["dist/**/*"]
 
 [tasks."test:deno"]
+extends = "normalized-pwd"
 tools.deno = "{{ vars.deno_version }}"
 description = "Run @upyo/mime tests with Deno"
 usage = '''

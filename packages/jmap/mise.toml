@@ -20,6 +20,7 @@ description = "Stop Stalwart"
 run = "docker compose down"
 
 [tasks."test:deno"]
+extends = "normalized-pwd"
 tools.deno = "{{ vars.deno_version }}"
 description = "Run @upyo/jmap tests with Deno"
 env.DENO_JOBS = "1"

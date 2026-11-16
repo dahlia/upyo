@@ -26,6 +26,11 @@ _.file = { path = ".env", redact = true }
 [deps.pnpm]
 auto = true
 
+# Nushell rejects inherited PWD values with trailing slashes.  Normalize PWD
+# for tasks that run Nushell directly or through a child process.
+[task_templates.normalized-pwd]
+env = { PWD = "{{ config_root }}" }
+
 [hooks]
 postinstall = { task = "setup" }
 
@@ -39,6 +44,7 @@ description = "Install all project dependencies"
 run = "mise deps install"
 
 [tasks."hooks:install"]
+extends = "normalized-pwd"
 description = "Install the Git pre-commit hook"
 shell = "nu -c"
 run = """
@@ -66,6 +72,7 @@ sacho init --no-interactive
 """
 
 [tasks.bump-version]
+extends = "normalized-pwd"
 description = "Bump the version of all packages in the monorepo"
 usage = """
 arg "<version>" help="New version (e.g., 1.2.3, major, minor, patch)"
@@ -124,6 +131,7 @@ depends = ["deps"]
 run = "mise run '//packages/...:build'"
 
 [tasks."test:deno"]
+extends = "normalized-pwd"
 tools.deno = "{{ vars.deno_version }}"
 description = "Run Deno tests for all packages"
 usage = '''
@@ -260,6 +268,7 @@ dir = "docs"
 run = "pnpm exec vitepress preview"
 
 [tasks."publish:prepare"]
+extends = "normalized-pwd"
 description = "Prepare package versions for publishing"
 usage = '''
 flag "--tag <tag>" help="Release tag to validate"
@@ -295,6 +304,7 @@ mise run fmt
 '''
 
 [tasks.publish]
+extends = "normalized-pwd"
 tools.deno = "{{ vars.deno_version }}"
 description = "Publish packages to JSR and npm"
 depends = ["build"]
@@ -320,6 +330,7 @@ run = [
 ]
 
 [tasks."test:scripts"]
+extends = "normalized-pwd"
 description = "Test repository maintenance scripts with Node.js"
 run = "node --test scripts/*.test.ts"
 
@@ -350,6 +361,7 @@ description = "Run development and Deno/JSR compatibility checks"
 depends = ["check", "check:deno", "check:jsr"]
 
 [tasks."check:pack"]
+extends = "normalized-pwd"
 description = "Build and pack npm packages without publishing"
 depends = ["build"]
 shell = "nu -c"
