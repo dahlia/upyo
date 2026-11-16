@@ -48,3 +48,8 @@ depends = ["test:node"]
 [tasks."test:all"]
 description = "Run @upyo/cloudflare tests across all runtimes"
 depends = ["test:deno", "test:node", "test:bun"]
+
+[tasks."test:edge"]
+description = "Test the built Workers transport in workerd without Node compatibility"
+depends = ["build"]
+run = "node --experimental-transform-types edge/runner.mjs"

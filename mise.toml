@@ -313,8 +313,11 @@ if ($env.usage_tag? | default "false" | into bool) {
 '''
 
 [tasks."test:edge"]
-description = "Test MIME composition in workerd"
-run = "mise run //packages/mime:test:edge"
+description = "Test MIME composition and the Cloudflare Workers binding in workerd"
+run = [
+  "mise run //packages/mime:test:edge",
+  "mise run //packages/cloudflare:test:edge",
+]
 
 [tasks."test:scripts"]
 description = "Test repository maintenance scripts with Node.js"

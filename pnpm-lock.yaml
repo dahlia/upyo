@@ -184,6 +184,12 @@ importers:
         specifier: workspace:*
         version: link:../core
     devDependencies:
+      esbuild:
+        specifier: 'catalog:'
+        version: 0.28.2
+      miniflare:
+        specifier: 'catalog:'
+        version: 4.20260730.0
       tsdown:
         specifier: 'catalog:'
         version: 0.12.9(supports-color@10.2.2)(typescript@5.8.3)

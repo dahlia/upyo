@@ -340,7 +340,7 @@ the application.
 ### Testing strategy
 
  -  *Multi-runtime testing*: Unit tests run on Deno, Node.js, and Bun; built
-    MIME exports also run in workerd
+    MIME exports and the Cloudflare Workers transport also run in workerd
  -  *Integration tests*: SMTP uses Docker Compose with Mailpit for local
     testing
  -  *E2E tests*: External services like Mailgun, SendGrid, and SES with

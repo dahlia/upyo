@@ -57,6 +57,8 @@
     "@upyo/core": "workspace:*"
   },
   "devDependencies": {
+    "esbuild": "catalog:",
+    "miniflare": "catalog:",
     "tsdown": "catalog:",
     "typescript": "catalog:"
   },

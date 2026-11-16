@@ -86,7 +86,8 @@ repository root:
     checks.
  -  `mise run test:deno` and `mise run test:bun` run the respective runtime
     suites. Deno's task also accepts `--coverage` and `--junit-path`.
- -  `mise run test:edge` tests the built MIME package in workerd.
+ -  `mise run test:edge` tests the built MIME package and the Cloudflare Workers
+    transport in workerd.
  -  `mise run test:all` runs the package tests across Deno, Node.js, Bun, and
     workerd. Package-local `mise :test:all` runs Deno, Node.js, and Bun tests.
 
