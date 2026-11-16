@@ -5,7 +5,7 @@ import {
 } from "./message-preparation.ts";
 
 /**
- * Cloudflare address object, used for the sender and the reply-to address.
+ * Cloudflare address object, used for every address field.
  */
 interface CloudflareAddress {
   readonly address: string;
@@ -28,9 +28,9 @@ export interface CloudflareAttachment {
  */
 export interface CloudflareEmail {
   readonly from: CloudflareAddress;
-  readonly to: readonly string[];
-  readonly cc?: readonly string[];
-  readonly bcc?: readonly string[];
+  readonly to?: readonly CloudflareAddress[];
+  readonly cc?: readonly CloudflareAddress[];
+  readonly bcc?: readonly CloudflareAddress[];
   readonly reply_to?: CloudflareAddress;
   readonly subject: string;
   readonly html?: string;
@@ -43,9 +43,10 @@ export interface CloudflareEmail {
  * Builds the REST API request body, without attachments, from a message and
  * its prepared parts.
  *
- * Recipients keep their display names.  Tags are not supported by the API and
- * are ignored, and so are the `messageId` and `date` fields, because
- * Cloudflare generates both itself.
+ * Named addresses become `{ address, name }` objects, so names need no quoting.
+ * An empty `to` is left out, as Cloudflare takes `cc` or `bcc` alone.  Tags
+ * are not supported by the API and are ignored, and so are the `messageId` and
+ * `date` fields, because Cloudflare generates both itself.
  *
  * @param message The Upyo message to convert.
  * @param prepared The message's checked headers and attachments.
@@ -57,12 +58,14 @@ export function buildEmail(
 ): CloudflareEmail {
   return {
     from: formatAddress(message.sender),
-    to: message.recipients.map(formatRecipient),
+    ...(message.recipients.length > 0 && {
+      to: message.recipients.map(formatAddress),
+    }),
     ...(message.ccRecipients.length > 0 && {
-      cc: message.ccRecipients.map(formatRecipient),
+      cc: message.ccRecipients.map(formatAddress),
     }),
     ...(message.bccRecipients.length > 0 && {
-      bcc: message.bccRecipients.map(formatRecipient),
+      bcc: message.bccRecipients.map(formatAddress),
     }),
     // The API accepts a single reply-to address, so the first one is used.
     ...(message.replyRecipients.length > 0 && {
@@ -108,20 +111,7 @@ export async function convertAttachments(
 }
 
 /**
- * Formats a recipient as `Name <address>`, or as the bare address when it has
- * no name.  A name with characters that are special in an address list is
- * quoted.
- */
-function formatRecipient(address: Address): string {
-  if (!address.name) return address.address;
-  const name = /^[A-Za-z0-9 !#$%&'*+\-/=?^_`{|}~]+$/.test(address.name)
-    ? address.name
-    : `"${address.name.replace(/[\\"]/g, "\\$&")}"`;
-  return `${name} <${address.address}>`;
-}
-
-/**
- * Formats the sender or reply-to address as a REST API address object.
+ * Formats an address as a REST API address object.
  */
 function formatAddress(address: Address): CloudflareAddress {
   return address.name

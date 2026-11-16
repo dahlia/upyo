@@ -18,7 +18,10 @@ describe("convertMessage", () => {
       address: "sender@example.com",
       name: "Sender",
     });
-    assert.deepEqual(data.to, ["a@example.com", "b@example.com"]);
+    assert.deepEqual(data.to, [
+      { address: "a@example.com" },
+      { address: "b@example.com" },
+    ]);
     assert.equal(data.subject, "Hi");
     assert.equal(data.text, "Hello");
     assert.equal(data.html, undefined);
@@ -39,8 +42,8 @@ describe("convertMessage", () => {
     );
     assert.equal(data.html, "<p>x</p>");
     assert.equal(data.text, "x");
-    assert.deepEqual(data.cc, ["c@example.com"]);
-    assert.deepEqual(data.bcc, ["d@example.com"]);
+    assert.deepEqual(data.cc, [{ address: "c@example.com" }]);
+    assert.deepEqual(data.bcc, [{ address: "d@example.com" }]);
     assert.deepEqual(data.reply_to, {
       address: "r@example.com",
       name: "Reply",
@@ -319,7 +322,7 @@ describe("convertMessage header validation", () => {
 });
 
 describe("convertMessage recipients", () => {
-  it("keeps display names on to, cc and bcc, mixed with bare addresses", async () => {
+  it("passes to, cc and bcc as address objects", async () => {
     const data = await convertMessage(
       createMessage({
         from: "sender@example.com",
@@ -331,31 +334,46 @@ describe("convertMessage recipients", () => {
       }),
     );
     assert.deepEqual(data.to, [
-      "Sykez <sykez@example.com>",
-      "cloudflare@example.com",
+      { address: "sykez@example.com", name: "Sykez" },
+      { address: "cloudflare@example.com" },
     ]);
-    assert.deepEqual(data.cc, ["Cc <cc@example.com>"]);
-    assert.deepEqual(data.bcc, ["Bcc <bcc@example.com>", "bcc2@example.com"]);
+    assert.deepEqual(data.cc, [{ address: "cc@example.com", name: "Cc" }]);
+    assert.deepEqual(data.bcc, [
+      { address: "bcc@example.com", name: "Bcc" },
+      { address: "bcc2@example.com" },
+    ]);
   });
 
-  it("quotes names that contain special characters", async () => {
+  it("keeps names with special characters as they are", async () => {
     const data = await convertMessage(
       createMessage({
         from: "sender@example.com",
         to: [
           { name: "Support, Team", address: "quoted@example.com" },
           { name: 'Say "hi"', address: "hi@example.com" },
-          { name: "Plain Name", address: "plain@example.com" },
         ],
         subject: "Hi",
         content: { text: "x" },
       }),
     );
     assert.deepEqual(data.to, [
-      '"Support, Team" <quoted@example.com>',
-      '"Say \\"hi\\"" <hi@example.com>',
-      "Plain Name <plain@example.com>",
+      { address: "quoted@example.com", name: "Support, Team" },
+      { address: "hi@example.com", name: 'Say "hi"' },
     ]);
+  });
+
+  it("leaves out an empty to", async () => {
+    const data = await convertMessage(
+      createMessage({
+        from: "sender@example.com",
+        to: [],
+        cc: "cc@example.com",
+        subject: "Hi",
+        content: { text: "x" },
+      }),
+    );
+    assert.ok(!("to" in data));
+    assert.deepEqual(data.cc, [{ address: "cc@example.com" }]);
   });
 });
 
@@ -375,7 +393,7 @@ describe("convertMessage recipient limit", () => {
       }),
     );
     assert.equal(
-      data.to.length + (data.cc?.length ?? 0) + (data.bcc?.length ?? 0),
+      (data.to?.length ?? 0) + (data.cc?.length ?? 0) + (data.bcc?.length ?? 0),
       50,
     );
   });

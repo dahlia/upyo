@@ -65,6 +65,23 @@ describe("convertBindingMessage addresses", () => {
     assert.ok(!("headers" in data));
     assert.ok(!("attachments" in data));
   });
+
+  it("leaves out an empty to when cc or bcc is present", async () => {
+    for (const extra of [{ cc: "cc@example.com" }, { bcc: "b@example.com" }]) {
+      const data = await convertBindingMessage(
+        createMessage({ ...base, to: [], ...extra }),
+      );
+      assert.ok(!("to" in data));
+    }
+  });
+
+  it("keeps an empty to when there is no other recipient", async () => {
+    // Cloudflare then rejects the message, as it would any without one.
+    const data = await convertBindingMessage(
+      createMessage({ ...base, to: [] }),
+    );
+    assert.deepEqual(data.to, []);
+  });
 });
 
 describe("convertBindingMessage content", () => {

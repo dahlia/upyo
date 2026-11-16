@@ -27,13 +27,7 @@ export function buildBindingMessage(
 ): CloudflareBindingMessage {
   return {
     from: formatAddress(message.sender),
-    to: message.recipients.map(formatAddress),
-    ...(message.ccRecipients.length > 0 && {
-      cc: message.ccRecipients.map(formatAddress),
-    }),
-    ...(message.bccRecipients.length > 0 && {
-      bcc: message.bccRecipients.map(formatAddress),
-    }),
+    ...formatRecipients(message),
     // The binding takes a single reply-to address, so the first one is used.
     ...(message.replyRecipients.length > 0 && {
       replyTo: formatAddress(message.replyRecipients[0]),
@@ -82,6 +76,28 @@ export async function convertBindingAttachments(
           content: contents[i],
         },
   );
+}
+
+/**
+ * Formats `to`, `cc`, and `bcc`, leaving out the empty ones.  An empty `to`
+ * stays when there is no other recipient, since the binding needs one of the
+ * three; Cloudflare then rejects the message.
+ */
+function formatRecipients(
+  message: Message,
+):
+  | { readonly to: (string | CloudflareBindingAddress)[] }
+  | { readonly cc: (string | CloudflareBindingAddress)[] }
+  | { readonly bcc: (string | CloudflareBindingAddress)[] } {
+  const to = message.recipients.map(formatAddress);
+  const cc = message.ccRecipients.map(formatAddress);
+  const bcc = message.bccRecipients.map(formatAddress);
+  const copies = {
+    ...(cc.length > 0 && { cc }),
+    ...(bcc.length > 0 && { bcc }),
+  };
+  if (to.length > 0 || cc.length + bcc.length < 1) return { to, ...copies };
+  return cc.length > 0 ? { cc, ...copies } : { bcc, ...copies };
 }
 
 /**

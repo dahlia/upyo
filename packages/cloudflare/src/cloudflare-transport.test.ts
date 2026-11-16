@@ -141,7 +141,7 @@ describe("CloudflareTransport send", () => {
       assert.equal(headers.get("Content-Type"), "application/json");
       const body = JSON.parse(String(calls[0].init.body));
       assert.deepEqual(body.from, { address: "sender@example.com" });
-      assert.deepEqual(body.to, ["to@example.com"]);
+      assert.deepEqual(body.to, [{ address: "to@example.com" }]);
     });
   });
 

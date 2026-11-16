@@ -43,11 +43,12 @@ export type CloudflareBindingAttachment =
     };
 
 /**
- * The message the transport passes to the Workers binding's `send()`.
+ * The message the transport passes to the Workers binding's `send()`.  Like
+ * the binding, it needs at least one of `to`, `cc`, and `bcc`.
  *
  * @since 0.7.0
  */
-export interface CloudflareBindingMessage {
+export type CloudflareBindingMessage = {
   /**
    * The sender.
    */
@@ -56,7 +57,7 @@ export interface CloudflareBindingMessage {
   /**
    * The recipients.
    */
-  readonly to: (string | CloudflareBindingAddress)[];
+  readonly to?: (string | CloudflareBindingAddress)[];
 
   /**
    * The carbon copy recipients.
@@ -97,7 +98,11 @@ export interface CloudflareBindingMessage {
    * Attachments and inline parts.
    */
   readonly attachments?: CloudflareBindingAttachment[];
-}
+} & (
+  | { readonly to: (string | CloudflareBindingAddress)[] }
+  | { readonly cc: (string | CloudflareBindingAddress)[] }
+  | { readonly bcc: (string | CloudflareBindingAddress)[] }
+);
 
 /**
  * What the Workers binding's `send()` resolves to.

@@ -70,6 +70,21 @@ describe("CloudflareTransport E2E", { skip: config == null }, () => {
     assert.ok(receipt.successful, JSON.stringify(receipt));
   });
 
+  it("sends to a named cc recipient without to", async () => {
+    const { from, to, ...transportConfig } = config!;
+    const transport = new CloudflareTransport(transportConfig);
+    const receipt = await transport.send(
+      createMessage({
+        from,
+        to: [],
+        cc: `"Upyo, Cc Recipient" <${to}>`,
+        subject: "Upyo Cloudflare E2E test: cc only",
+        content: { text: "Sent with cc and no to." },
+      }),
+    );
+    assert.ok(receipt.successful, JSON.stringify(receipt));
+  });
+
   it("rejects a header Cloudflare controls before sending", async () => {
     const { from, to, ...transportConfig } = config!;
     const transport = new CloudflareTransport(transportConfig);
