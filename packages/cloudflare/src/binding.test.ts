@@ -2,12 +2,13 @@ import type { CloudflareEmailBinding } from "./binding.ts";
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-// The declarations below are copied from @cloudflare/workers-types
-// 5.20261023.1 (index.d.ts), renamed with a `Workers` prefix.  The package
+// The declarations below are a snapshot of @cloudflare/workers-types
+// 5.20261116.1 (index.d.ts), renamed with a `Workers` prefix.  The package
 // itself is not a dependency: its global declarations clash with the
 // `Request` and `Response` types of Deno and Node.js.  This test only has to
-// compile; it fails type checking if `env.EMAIL` stops fitting
-// `CloudflareEmailBinding`.
+// compile; it fails type checking if `CloudflareEmailBinding` stops fitting
+// this snapshot, but not if Cloudflare changes its types, so copy them again
+// when updating.
 
 interface WorkersEmailSendResult {
   messageId: string;
