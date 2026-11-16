@@ -1,6 +1,6 @@
 {
   "name": "@upyo/lettermint",
-  "version": "0.5.7",
+  "version": "0.5.8",
   "description": "Lettermint transport for Upyo email library",
   "keywords": [
     "email",

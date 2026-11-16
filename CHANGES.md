@@ -1,6 +1,12 @@
 Upyo changelog
 ==============
 
+Version 0.5.8
+-------------
+
+To be released.
+
+
 Version 0.5.7
 -------------
 
