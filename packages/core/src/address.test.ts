@@ -13,6 +13,106 @@ test("formatAddress()", () => {
   assert.strictEqual(addr2, "jane@example.com");
 });
 
+test("formatAddress() quotes display-name specials and whitespace", () => {
+  const cases = [
+    ["Doe, John", '"Doe, John"'],
+    ["a:b", '"a:b"'],
+    ['a"b', '"a\\"b"'],
+    ["a\\b", '"a\\\\b"'],
+    ['a\\"b', '"a\\\\\\"b"'],
+    ["", '""'],
+    [" lead", '" lead"'],
+    ["trail ", '"trail "'],
+    ["  ", '"  "'],
+    ["a  b", '"a  b"'],
+    ["a\tb", '"a\tb"'],
+    ["John Q. Public", '"John Q. Public"'],
+    ["Doe, José", '"Doe, José"'],
+    ["John Doe", "John Doe"],
+    ["José María", "José María"],
+    ["!#$%&'*+-/=?^_`{|}~", "!#$%&'*+-/=?^_`{|}~"],
+  ];
+  for (const [name, expected] of cases) {
+    assert.strictEqual(
+      formatAddress({ name, address: "a@example.com" }),
+      `${expected} <a@example.com>`,
+      name,
+    );
+  }
+  for (const special of '()<>[]:;@\\,."') {
+    const name = `a${special}b`;
+    const escaped = special === "\\" || special === '"'
+      ? `\\${special}`
+      : special;
+    assert.strictEqual(
+      formatAddress({ name, address: "a@example.com" }),
+      `"a${escaped}b" <a@example.com>`,
+    );
+  }
+});
+
+test("display names round-trip through formatAddress() and parseAddress()", () => {
+  for (
+    const name of [
+      "Doe, John",
+      "a:b",
+      'a"b',
+      "a\\b",
+      'a\\"b',
+      "ends\\",
+      "(",
+      "a<b",
+      "a>b",
+      'a <b@c> "d" \\',
+      '"x"',
+      "John Q. Public",
+      "",
+      " lead",
+      "trail ",
+      "  ",
+      "a  b",
+      "a\tb",
+      "Doe, José",
+    ]
+  ) {
+    const address = { name, address: "a@example.com" } as const;
+    assert.deepStrictEqual(parseAddress(formatAddress(address)), address);
+  }
+});
+
+test("parseAddress() decodes only a whole quoted display name", () => {
+  assert.deepStrictEqual(parseAddress('"a\\!b"<a@example.com>'), {
+    name: "a!b",
+    address: "a@example.com",
+  });
+  assert.deepStrictEqual(parseAddress('"a<b" <"x<y"@example.com>'), {
+    name: "a<b",
+    address: '"x<y"@example.com',
+  });
+  assert.deepStrictEqual(parseAddress('a <"x<y"@example.com>'), {
+    name: "a",
+    address: '"x<y"@example.com',
+  });
+  assert.deepStrictEqual(parseAddress('"A" "B" <a@example.com>'), {
+    name: '"A" "B"',
+    address: "a@example.com",
+  });
+  assert.strictEqual(parseAddress('"a<b" <invalid>'), undefined);
+});
+
+test("parseAddress() rejects line breaks inside quoted display names", () => {
+  for (const newline of ["\r", "\n", "\r\n"]) {
+    assert.strictEqual(
+      parseAddress(`"a${newline}b" <a@example.com>`),
+      undefined,
+    );
+    assert.strictEqual(
+      parseAddress(`"a\\${newline}b" <a@example.com>`),
+      undefined,
+    );
+  }
+});
+
 test("parseAddress()", () => {
   // Test plain email address
   const addr1 = parseAddress("john@example.com");
@@ -231,6 +331,11 @@ test("parseAddress() - complex name parsing", () => {
     name: "John   Doe",
     address: "john@example.com",
   });
+  assert.deepStrictEqual(parseAddress('"A" "B" <a@example.com>'), {
+    name: '"A" "B"',
+    address: "a@example.com",
+  });
+  assert.strictEqual(parseAddress('"a<b" <invalid>'), undefined);
 });
 
 test("parseAddress() - edge cases with valid email patterns", () => {
