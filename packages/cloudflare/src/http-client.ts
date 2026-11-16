@@ -363,17 +363,37 @@ function parseSuccess(
 
 /**
  * Parses a reply body, or returns `undefined` when it is not a JSON object,
- * such as an HTML error page from a proxy.
+ * such as an HTML error page from a proxy.  Malformed error entries are
+ * dropped, so that a reply without valid ones is classified by its status.
  */
 function parseResponse(text: string): CloudflareResponse | undefined {
+  let body: unknown;
   try {
-    const body: unknown = JSON.parse(text);
-    return typeof body === "object" && body != null && !Array.isArray(body)
-      ? (body as CloudflareResponse)
-      : undefined;
+    body = JSON.parse(text);
   } catch {
     return undefined;
   }
+  if (typeof body !== "object" || body == null || Array.isArray(body)) {
+    return undefined;
+  }
+  const { errors, ...rest } = body as Record<string, unknown>;
+  const valid = Array.isArray(errors) ? errors.filter(isCloudflareError) : [];
+  return {
+    ...rest,
+    ...(valid.length > 0 && { errors: valid }),
+  } as CloudflareResponse;
+}
+
+/**
+ * Whether a value is an error entry with a message and, if any, a numeric
+ * code.
+ */
+function isCloudflareError(value: unknown): value is CloudflareError {
+  if (typeof value !== "object" || value == null) return false;
+  const { code, message } = value as Record<string, unknown>;
+  return (
+    typeof message === "string" && (code == null || typeof code === "number")
+  );
 }
 
 /**

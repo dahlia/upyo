@@ -306,6 +306,36 @@ describe("CloudflareTransport error reporting", () => {
     });
   });
 
+  it("retries a 503 whose errors field is malformed", async () => {
+    await withFetch(
+      [
+        () =>
+          new Response(JSON.stringify({ success: false, errors: "down" }), {
+            status: 503,
+            headers: { "Retry-After": "0" },
+          }),
+        ok(),
+      ],
+      async (calls) => {
+        const receipt = await new CloudflareTransport(config).send(message);
+        assert.ok(receipt.successful);
+        assert.equal(calls.length, 2);
+      },
+    );
+  });
+
+  it("classifies by status when the error entries are malformed", async () => {
+    await withFetch(
+      [() => new Response(JSON.stringify({ errors: [null] }), { status: 400 })],
+      async () => {
+        const receipt = await new CloudflareTransport(config).send(message);
+        assert.ok(!receipt.successful);
+        assert.equal(receipt.errors?.[0].code, "cloudflare.400");
+        assert.equal(receipt.errors?.[0].statusCode, 400);
+      },
+    );
+  });
+
   it("fails without retrying when a 200 reply is not JSON", async () => {
     await withFetch(
       [() => new Response("<html>OK</html>", { status: 200 })],
