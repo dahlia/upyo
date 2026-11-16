@@ -579,7 +579,14 @@ function encodeAddress(address: Address): string {
 
   // Encode only the display name part, leave email address as-is
   const encodedDisplayName = encodeHeaderValue(address.name, true);
-  return `${encodedDisplayName} <${address.address}>`;
+  // RFC 2047 words must remain unquoted. Plain ASCII names, however, need
+  // quoting when they contain RFC 5322 specials or significant whitespace.
+  const displayName =
+    encodedDisplayName !== address.name ||
+    /^[^()<>\[\]:;@\\,."\s]+(?: [^()<>\[\]:;@\\,."\s]+)*$/.test(address.name)
+      ? encodedDisplayName
+      : `"${address.name.replace(/[\\"]/g, "\\$&")}"`;
+  return `${displayName} <${address.address}>`;
 }
 
 function encodeHeaderValue(

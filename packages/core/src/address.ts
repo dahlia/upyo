@@ -41,9 +41,16 @@ export interface Address {
  * @return A string representation of the address.
  */
 export function formatAddress(address: Address): string {
-  return address.name == null
-    ? address.address
-    : `${address.name} <${address.address}>`;
+  if (address.name == null) return address.address;
+
+  // Keep ordinary words (including Unicode) readable, but quote RFC 5322
+  // specials and whitespace that would otherwise be lost when parsing.
+  const name = /^[^()<>\[\]:;@\\,."\s]+(?: [^()<>\[\]:;@\\,."\s]+)*$/.test(
+    address.name,
+  )
+    ? address.name
+    : `"${address.name.replace(/[\\"]/g, "\\$&")}"`;
+  return `${name} <${address.address}>`;
 }
 
 /**
@@ -85,6 +92,20 @@ export function parseAddress(address: string): Address | undefined {
     return undefined;
   }
 
+  // Consume a quoted name as a unit, so a < inside it is not mistaken for
+  // the address delimiter. Decode quoted-pairs exactly once.
+  const quotedNameMatch = trimmed.match(
+    /^"((?:[^"\\\r\n]|\\[^\r\n])*)"\s*<(.+)>$/,
+  );
+  if (quotedNameMatch) {
+    const email = quotedNameMatch[2].trim();
+    if (!isValidEmail(email)) return undefined;
+    return {
+      name: quotedNameMatch[1].replace(/\\([\s\S])/g, "$1"),
+      address: email as EmailAddress,
+    };
+  }
+
   // Check for name and angle bracket format: "Name <email@domain.com>"
   const nameAngleBracketMatch = trimmed.match(/^(.+?)\s*<(.+?)>$/);
   if (nameAngleBracketMatch) {
@@ -95,9 +116,7 @@ export function parseAddress(address: string): Address | undefined {
       return undefined;
     }
 
-    // Remove quotes from name if present
-    const cleanName = name.replace(/^"(.+)"$/, "$1");
-    return { name: cleanName, address: email as EmailAddress };
+    return { name, address: email as EmailAddress };
   }
 
   // Check for angle bracket format without name: "<email@domain.com>"
