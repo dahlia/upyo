@@ -20,22 +20,23 @@ const providers = [
   "lettermint",
   "maileroo",
   "mailtrap",
+  "cloudflare",
 ];
 
-test("live selection runs only the six CI provider suites in runtime order", () => {
+test("live selection runs only the seven CI provider suites in runtime order", () => {
   const commands = liveCommands("all", root);
-  assert.equal(commands.length, 18);
+  assert.equal(commands.length, 21);
   assert.deepEqual(
     commands.map((c) => c.runtime),
     [
-      ...Array<string>(6).fill("node"),
-      ...Array<string>(6).fill("deno"),
-      ...Array<string>(6).fill("bun"),
+      ...Array<string>(7).fill("node"),
+      ...Array<string>(7).fill("deno"),
+      ...Array<string>(7).fill("bun"),
     ],
   );
   for (let index = 0; index < commands.length; index++) {
     const command = commands[index];
-    const provider = providers[index % 6];
+    const provider = providers[index % 7];
     assert.equal(command.cwd, join(root, "packages", provider));
     assert.equal(
       command.args.at(-1),
@@ -83,7 +84,7 @@ test("live runner aggregates failures and waits for every selected suite", () =>
     (message) => messages.push(message),
   );
   assert.equal(result, 1);
-  assert.equal(count, 6);
+  assert.equal(count, 7);
   assert.equal(messages.filter((m) => m.includes("failed")).length, 3);
 });
 
@@ -101,7 +102,7 @@ test("live runner succeeds only when every selected suite succeeds", () => {
     ),
     0,
   );
-  assert.equal(count, 18);
+  assert.equal(count, 21);
   assert.throws(
     () =>
       runLiveTests("invalid", root, () => {

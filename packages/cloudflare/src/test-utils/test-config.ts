@@ -24,14 +24,14 @@ export interface TestConfig extends CloudflareConfig {
  */
 export function createTestConfig(): TestConfig {
   const accountId = process.env.CLOUDFLARE_ACCOUNT_ID;
-  const apiToken = process.env.CLOUDFLARE_API_TOKEN;
+  const apiToken = process.env.CLOUDFLARE_EMAIL_API_TOKEN;
   const from = process.env.CLOUDFLARE_FROM;
   const to = process.env.CLOUDFLARE_TO;
 
   if (!accountId || !apiToken || !from || !to) {
     throw new Error(
-      "CLOUDFLARE_ACCOUNT_ID, CLOUDFLARE_API_TOKEN, CLOUDFLARE_FROM, and " +
-        "CLOUDFLARE_TO environment variables are required for E2E tests.",
+      "CLOUDFLARE_ACCOUNT_ID, CLOUDFLARE_EMAIL_API_TOKEN, CLOUDFLARE_FROM, " +
+        "and CLOUDFLARE_TO environment variables are required for E2E tests.",
     );
   }
 

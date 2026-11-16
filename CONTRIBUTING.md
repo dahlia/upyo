@@ -132,11 +132,11 @@ mise run test:live node  # Or deno or bun
 These commands send real email when credentials are configured. They read the
 root *.env*. Node.js and Deno ignore package-local *.env* files; Bun also loads
 the *.env* in each package directory. They select Mailgun, Resend,
-SendGrid, Lettermint, Maileroo, and Mailtrap, matching the workflow's existing
-credentials; missing configuration retains each suite's skip behavior. Plunk,
-SES, and SMTP OAuth 2.0 are excluded because CI has no credentials for them.
-The task builds npm packages once, runs provider suites serially, and reports
-failure after all selected suites have finished.
+SendGrid, Lettermint, Maileroo, Mailtrap, and Cloudflare, matching the
+workflow's existing credentials; missing configuration retains each suite's
+skip behavior. Plunk, SES, and SMTP OAuth 2.0 are excluded because CI has no
+credentials for them. The task builds npm packages once, runs provider suites
+serially, and reports failure after all selected suites have finished.
 
 [MailSenpai support] is still pending. When adding its live suite, query
 `GET /status` with a bounded timeout before each runtime sends mail and compare

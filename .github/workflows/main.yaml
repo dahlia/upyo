@@ -132,7 +132,7 @@ jobs:
       MAILGUN_DOMAIN: ${{ secrets.MAILGUN_DOMAIN }}
       MAILGUN_REGION: ${{ secrets.MAILGUN_REGION }}
       CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-      CLOUDFLARE_API_TOKEN: ${{ github.event_name == 'pull_request' && secrets.CLOUDFLARE_API_TOKEN || '' }}
+      CLOUDFLARE_EMAIL_API_TOKEN: ${{ github.event_name != 'pull_request' && secrets.CLOUDFLARE_EMAIL_API_TOKEN || '' }}
       CLOUDFLARE_FROM: ${{ secrets.CLOUDFLARE_FROM }}
       CLOUDFLARE_TO: ${{ secrets.CLOUDFLARE_TO }}
       RESEND_API_KEY: ${{ github.event_name != 'pull_request' && secrets.RESEND_API_KEY || '' }}
