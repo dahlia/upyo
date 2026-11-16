@@ -117,7 +117,10 @@ Configuration
     up to 10 seconds, or is as long as Cloudflare's `Retry-After` header asks.
     Since `timeout` covers each request but not these waits, pass an
     `AbortSignal` to `send()` to bound the total time.  Network failures and
-    timeouts are not retried.  A retried `5xx` may send a message
+    timeouts are not retried.  Their receipts are still `retryable`, which
+    means another attempt may succeed, not that it is safe from duplicates;
+    a `RetryTransport` wrapped around this transport retries them unless you
+    exclude them.  A retried `5xx` may send a message
     twice; set `retries` to `0` if that is worse for you than a failed send.
 
 `headers`

@@ -44,4 +44,32 @@ describe("createCloudflareConfig", () => {
       TypeError,
     );
   });
+
+  it("rejects retries that are not a non-negative integer", () => {
+    for (const retries of [NaN, Infinity, -1, 1.5]) {
+      assert.throws(
+        () =>
+          createCloudflareConfig({ accountId: "a", apiToken: "t", retries }),
+        RangeError,
+        String(retries),
+      );
+    }
+  });
+
+  it("rejects a timeout that a timer cannot honor", () => {
+    for (const timeout of [NaN, 0, -1, Infinity, 2 ** 31]) {
+      assert.throws(
+        () =>
+          createCloudflareConfig({ accountId: "a", apiToken: "t", timeout }),
+        RangeError,
+        String(timeout),
+      );
+    }
+    const resolved = createCloudflareConfig({
+      accountId: "a",
+      apiToken: "t",
+      timeout: 2 ** 31 - 1,
+    });
+    assert.equal(resolved.timeout, 2 ** 31 - 1);
+  });
 });

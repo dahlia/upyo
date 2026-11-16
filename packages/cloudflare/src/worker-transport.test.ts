@@ -115,6 +115,20 @@ describe("CloudflareWorkerTransport send", () => {
       TypeError,
     );
   });
+
+  it("rejects retries that are not a non-negative integer", () => {
+    for (const retries of [NaN, Infinity, -1, 1.5]) {
+      assert.throws(
+        () =>
+          new CloudflareWorkerTransport({
+            binding: new FakeBinding(),
+            retries,
+          }),
+        RangeError,
+        String(retries),
+      );
+    }
+  });
 });
 
 describe("CloudflareWorkerTransport binding errors", () => {

@@ -15,6 +15,7 @@ import {
   buildBindingMessage,
   convertBindingAttachments,
 } from "./binding-converter.ts";
+import { checkRetries } from "./config.ts";
 import { type PreparedMessage, prepareMessage } from "./message-preparation.ts";
 import {
   type CloudflareFailure,
@@ -99,6 +100,7 @@ export class CloudflareWorkerTransport implements Transport<"cloudflare"> {
    *
    * @param config The binding to send through, and how often to retry.
    * @throws {TypeError} If `config.binding` has no `send()` method.
+   * @throws {RangeError} If `config.retries` is not a non-negative integer.
    */
   constructor(config: CloudflareWorkerConfig) {
     if (typeof config?.binding?.send !== "function") {
@@ -106,7 +108,10 @@ export class CloudflareWorkerTransport implements Transport<"cloudflare"> {
         "A Cloudflare send_email binding, such as env.EMAIL, is required.",
       );
     }
-    this.config = { binding: config.binding, retries: config.retries ?? 3 };
+    this.config = {
+      binding: config.binding,
+      retries: checkRetries(config.retries ?? 3),
+    };
   }
 
   /**
