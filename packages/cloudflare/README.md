@@ -121,12 +121,13 @@ Both transports reject these messages before sending, with a validation
 receipt that says what is wrong:
 
  -  A custom header that Cloudflare generates, such as `Message-ID`, `Date`,
-    `DKIM-Signature`, or `ARC-*` (`cloudflare.header_not_allowed`) [headers]
+    `DKIM-Signature`, or `ARC-*` (`cloudflare.header_not_allowed`; see
+    [headers])
  -  A custom header that belongs in a message field: `From`, `To`, `Cc`,
-    `Bcc`, `Subject`, or `Reply-To` (`cloudflare.header_use_api_field`)
-    [headers]
+    `Bcc`, `Subject`, or `Reply-To` (`cloudflare.header_use_api_field`; see
+    [headers])
  -  More than 50 recipients across `to`, `cc`, and `bcc`
-    (`cloudflare.too_many_recipients`) [limits]
+    (`cloudflare.too_many_recipients`; see [limits])
 
 Everything else, such as Cloudflare's header allowlist, its header and message
 size limits, and the number of attachments, is left to Cloudflare, which may
@@ -139,13 +140,13 @@ change its rules.
 Limitations
 -----------
 
- -  Tags are ignored; the API has no equivalent [REST API].
+ -  Tags are ignored; the API has no equivalent ([REST API]).
  -  Only the first reply-to address is used; both APIs take a single one
-    [REST API] [Workers API].
+    ([REST API], [Workers API]).
  -  `messageId` and `date` are ignored; Cloudflare generates `Message-ID` and
-    `Date` [headers].
+    `Date` ([headers]).
  -  `sendMany()` sends messages one at a time, since there is no batch
-    endpoint [REST API] [Workers API].
+    endpoint ([REST API], [Workers API]).
  -  A successful receipt means Cloudflare accepted the message; it does not
     say which recipients were delivered to, which were queued, or which
     bounced.
