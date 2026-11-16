@@ -11,6 +11,7 @@ import {
   CloudflareApiError,
   CloudflareHttpClient,
   type CloudflareResponse,
+  classifyApiError,
 } from "./http-client.ts";
 import { buildEmail, convertAttachments } from "./message-converter.ts";
 import { type PreparedMessage, prepareMessage } from "./message-preparation.ts";
@@ -110,11 +111,11 @@ export class CloudflareTransport implements Transport<"cloudflare"> {
       options?.signal?.throwIfAborted();
 
       const email = buildEmail(message, prepared);
-      const response = await this.httpClient.sendMessage(
+      const { response, attempts } = await this.httpClient.sendMessage(
         attachments.length > 0 ? { ...email, attachments } : email,
         options?.signal,
       );
-      return responseToReceipt(response);
+      return responseToReceipt(response, attempts);
     } catch (error) {
       if (isCallerAbort(error, options?.signal)) throw error;
 
@@ -149,9 +150,13 @@ export class CloudflareTransport implements Transport<"cloudflare"> {
 
 /**
  * Turns Cloudflare's reply into a receipt.  A reply that reached no recipient,
- * or that lacks a message ID, is a failure even though the request succeeded.
+ * or that lacks a message ID, is a failure even though the request succeeded;
+ * it carries Cloudflare's result, so that callers can see each recipient.
  */
-function responseToReceipt(response: CloudflareResponse): CloudflareReceipt {
+function responseToReceipt(
+  response: CloudflareResponse,
+  attempts: number,
+): CloudflareReceipt {
   const result = response.result;
   const accepted =
     (result?.delivered?.length ?? 0) + (result?.queued?.length ?? 0);
@@ -173,6 +178,8 @@ function responseToReceipt(response: CloudflareResponse): CloudflareReceipt {
         category: "rejected",
         code: "cloudflare.recipients_rejected",
         retryable: false,
+        providerDetails: result,
+        attempts,
       },
     );
   }
@@ -186,6 +193,8 @@ function responseToReceipt(response: CloudflareResponse): CloudflareReceipt {
         category: "unknown",
         code: "cloudflare.missing_message_id",
         retryable: false,
+        ...(result != null && { providerDetails: result }),
+        attempts,
       },
     );
   }
@@ -210,6 +219,7 @@ function createCloudflareFailure(
         : error.statusCode != null
           ? { code: `cloudflare.${error.statusCode}` }
           : {}),
+      ...classifyApiError(error),
       ...(error.errors != null && { providerDetails: error.errors }),
       statusCode: error.statusCode,
       retryAfterMilliseconds: error.retryAfterMilliseconds,

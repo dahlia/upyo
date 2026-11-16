@@ -201,9 +201,9 @@ Each error has a `code`:
 :   Cloudflare's own numeric error code, such as `cloudflare.1000`.  The
     errors from the response are in `providerDetails`.  If the response has
     no error code, the code is `cloudflare.<HTTP status>`.  If Cloudflare
-    answered with a `2xx` status but its reply cannot be read or reports
-    a failure, the error is not retryable, because the message may have been
-    sent.
+    answered with a `2xx` status but its reply cannot be read, the error is
+    not retryable, because the message may have been sent; nor is a `2xx`
+    reply that reports a failure.
 
 `cloudflare.header_not_allowed`, `cloudflare.header_use_api_field`,
 `cloudflare.too_many_recipients`
@@ -212,7 +212,8 @@ Each error has a `code`:
 
 `cloudflare.recipients_rejected`
 :   Cloudflare accepted the request, but every recipient bounced or is on the
-    suppression list.
+    suppression list.  Cloudflare's result, which lists them, is in
+    `providerDetails`.
 
 `cloudflare.missing_message_id`
 :   Cloudflare accepted the request but did not return a message ID.  The

@@ -1,4 +1,8 @@
-import { combineSignals, parseRetryAfter } from "@upyo/core";
+import {
+  combineSignals,
+  parseRetryAfter,
+  type ReceiptErrorClassification,
+} from "@upyo/core";
 import type { ResolvedCloudflareConfig } from "./config.ts";
 import type { CloudflareEmail } from "./message-converter.ts";
 import { retryDelayMilliseconds, sleep } from "./retry.ts";
@@ -152,6 +156,41 @@ export class CloudflareApiError extends Error {
 }
 
 /**
+ * Cloudflare's error codes that their HTTP status would classify wrongly, from
+ * https://developers.cloudflare.com/email-service/api/send-emails/rest-api/.
+ * Other codes are classified by their status.
+ */
+const API_ERRORS: ReadonlyMap<
+  number,
+  Omit<ReceiptErrorClassification, "code">
+> = new Map([
+  // email.sending.error.not_found: a wrong account ID or base URL.
+  [10000, { category: "configuration", retryable: false }],
+  // email.sending.error.not_implemented
+  [10003, { category: "unknown", retryable: false }],
+  // email.sending.error.authentication.not_entitled
+  [10105, { category: "configuration", retryable: false }],
+  // email.sending.error.email.sending_disabled
+  [10203, { category: "configuration", retryable: false }],
+  // email.sending.error.email.account_suspended
+  [10207, { category: "configuration", retryable: false }],
+]);
+
+/**
+ * The classification of an error's first Cloudflare error code, when its
+ * HTTP status would classify it wrongly.
+ *
+ * @param error The error to classify.
+ * @returns The classification, or `undefined` to classify by status.
+ */
+export function classifyApiError(
+  error: CloudflareApiError,
+): Omit<ReceiptErrorClassification, "code"> | undefined {
+  const code = error.errors?.find((e) => e.code != null)?.code;
+  return code == null ? undefined : API_ERRORS.get(code);
+}
+
+/**
  * HTTP client wrapper for Cloudflare Email Sending API requests.
  */
 export class CloudflareHttpClient {
@@ -166,7 +205,8 @@ export class CloudflareHttpClient {
    *
    * @param email The request body.
    * @param signal Optional AbortSignal for cancellation.
-   * @returns Promise that resolves to Cloudflare's parsed reply.
+   * @returns Promise that resolves to Cloudflare's parsed reply and the
+   *          number of attempts it took.
    * @throws {CloudflareApiError} If Cloudflare rejects the request, answers
    *         with something other than a successful JSON reply, or does not
    *         answer within the timeout.
@@ -174,7 +214,10 @@ export class CloudflareHttpClient {
   async sendMessage(
     email: CloudflareEmail,
     signal?: AbortSignal,
-  ): Promise<CloudflareResponse> {
+  ): Promise<{
+    readonly response: CloudflareResponse;
+    readonly attempts: number;
+  }> {
     const baseUrl = this.config.baseUrl.replace(/\/+$/, "");
     const url = `${baseUrl}/accounts/${encodeURIComponent(
       this.config.accountId,
@@ -196,7 +239,10 @@ export class CloudflareHttpClient {
       );
 
       if (response.ok) {
-        return parseSuccess(text, response.status, attempt);
+        return {
+          response: parseSuccess(text, response.status, attempt),
+          attempts: attempt,
+        };
       }
 
       const parsed = parseResponse(text);
@@ -211,7 +257,9 @@ export class CloudflareHttpClient {
           response: parsed,
         },
       );
-      const retryable = response.status === 429 || response.status >= 500;
+      const retryable =
+        classifyApiError(error)?.retryable ??
+        (response.status === 429 || response.status >= 500);
       if (!retryable || attempt > this.config.retries) throw error;
 
       await sleep(
@@ -288,8 +336,9 @@ export class CloudflareHttpClient {
 
 /**
  * Parses a successful reply, which must be a JSON object that does not report
- * a failure.  Errors keep the 2xx status, so that they are not retried: the
- * message may have been sent.
+ * a failure.  Errors keep the 2xx status, so that they are not retried: a body
+ * that is not JSON leaves open whether the message was sent, and a failure
+ * under a success status contradicts itself.
  */
 function parseSuccess(
   text: string,

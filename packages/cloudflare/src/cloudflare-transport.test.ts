@@ -69,6 +69,19 @@ const fail =
     );
 
 /**
+ * An error reply with one numeric Cloudflare error code.
+ */
+const failWith = (status: number, code: number) => () =>
+  new Response(
+    JSON.stringify({
+      success: false,
+      errors: [{ code, message: `error ${code}` }],
+      result: null,
+    }),
+    { status },
+  );
+
+/**
  * A reply whose headers arrive but whose body never finishes, unless the
  * request's signal aborts.
  */
@@ -261,6 +274,35 @@ describe("CloudflareTransport error reporting", () => {
     );
   });
 
+  it("classifies codes whose HTTP status would mislead", async () => {
+    for (const [status, code, category] of [
+      [403, 10207, "configuration"],
+      [403, 10203, "configuration"],
+      [403, 10105, "configuration"],
+      [404, 10000, "configuration"],
+      [403, 10102, "auth"],
+    ] as const) {
+      await withFetch([failWith(status, code)], async (calls) => {
+        const receipt = await new CloudflareTransport(config).send(message);
+        assert.ok(!receipt.successful);
+        assert.equal(receipt.errors?.[0].category, category, `${code}`);
+        assert.equal(receipt.errors?.[0].code, `cloudflare.${code}`);
+        assert.ok(!receipt.retryable);
+        assert.equal(calls.length, 1);
+      });
+    }
+  });
+
+  it("does not retry a 500 for an operation Cloudflare does not implement", async () => {
+    await withFetch([failWith(500, 10003), ok()], async (calls) => {
+      const receipt = await new CloudflareTransport(config).send(message);
+      assert.ok(!receipt.successful);
+      assert.equal(receipt.errors?.[0].category, "unknown");
+      assert.ok(!receipt.retryable);
+      assert.equal(calls.length, 1);
+    });
+  });
+
   it("fails without retrying when a 200 reply is not JSON", async () => {
     await withFetch(
       [() => new Response("<html>OK</html>", { status: 200 })],
@@ -397,6 +439,37 @@ describe("CloudflareTransport delivery outcome", () => {
       async () => {
         const receipt = await new CloudflareTransport(config).send(message);
         assert.ok(receipt.successful);
+      },
+    );
+  });
+
+  it("reports attempts and the result when every recipient bounced", async () => {
+    await withFetch(
+      [
+        fail(429, { "Retry-After": "0" }),
+        ok({ delivered: [], permanent_bounces: ["to@example.com"] }),
+      ],
+      async () => {
+        const receipt = await new CloudflareTransport(config).send(message);
+        assert.ok(!receipt.successful);
+        assert.equal(receipt.attempts, 2);
+        assert.deepEqual(receipt.errors?.[0].providerDetails, {
+          message_id: "<abc@cf>",
+          delivered: [],
+          permanent_bounces: ["to@example.com"],
+        });
+      },
+    );
+  });
+
+  it("reports attempts when the reply has no message ID", async () => {
+    await withFetch(
+      [fail(429, { "Retry-After": "0" }), ok({ message_id: undefined })],
+      async () => {
+        const receipt = await new CloudflareTransport(config).send(message);
+        assert.ok(!receipt.successful);
+        assert.equal(receipt.errors?.[0].code, "cloudflare.missing_message_id");
+        assert.equal(receipt.attempts, 2);
       },
     );
   });
