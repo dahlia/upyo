@@ -137,7 +137,7 @@ describe("CloudflareWorkerTransport binding errors", () => {
       ["E_RATE_LIMIT_EXCEEDED", "rate-limit", true],
       ["E_DAILY_LIMIT_EXCEEDED", "rate-limit", false],
       ["E_INTERNAL_SERVER_ERROR", "server-error", true],
-      ["E_DELIVERY_FAILED", "unknown", true],
+      ["E_DELIVERY_FAILED", "rejected", false],
       ["E_SENDER_NOT_VERIFIED", "configuration", false],
       ["E_SENDER_DOMAIN_NOT_AVAILABLE", "configuration", false],
       ["E_RECIPIENT_NOT_ALLOWED", "configuration", false],

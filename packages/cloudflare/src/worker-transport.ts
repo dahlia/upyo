@@ -216,7 +216,9 @@ const BINDING_ERRORS: ReadonlyMap<
   ["E_RATE_LIMIT_EXCEEDED", { category: "rate-limit", retryable: true }],
   ["E_DAILY_LIMIT_EXCEEDED", { category: "rate-limit", retryable: false }],
   ["E_INTERNAL_SERVER_ERROR", { category: "server-error", retryable: true }],
-  ["E_DELIVERY_FAILED", { category: "unknown", retryable: true }],
+  // Some recipients may already have the message, so a retry could duplicate
+  // it, as with the REST transport's recipients_rejected.
+  ["E_DELIVERY_FAILED", { category: "rejected", retryable: false }],
   ["E_SENDER_NOT_VERIFIED", { category: "configuration", retryable: false }],
   [
     "E_SENDER_DOMAIN_NOT_AVAILABLE",
