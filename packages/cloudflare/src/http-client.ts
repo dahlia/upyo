@@ -208,8 +208,8 @@ export class CloudflareHttpClient {
    * @returns Promise that resolves to Cloudflare's parsed reply and the
    *          number of attempts it took.
    * @throws {CloudflareApiError} If Cloudflare rejects the request, answers
-   *         with something other than a successful JSON reply, or does not
-   *         answer within the timeout.
+   *         with something other than a successful JSON reply, does not
+   *         answer within the timeout, or cannot be reached.
    */
   async sendMessage(
     email: CloudflareEmail,
