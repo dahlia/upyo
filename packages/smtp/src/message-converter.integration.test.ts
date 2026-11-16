@@ -20,6 +20,127 @@ describe("Message Converter Integration Tests", () => {
     ...overrides,
   });
 
+  describe("Display-name quoting", () => {
+    test("should quote ASCII specials without changing the envelope", async () => {
+      const cases = [
+        ["Doe, John", '"Doe, John"'],
+        ["a:b", '"a:b"'],
+        ['a"b', '"a\\"b"'],
+        ["a\\b", '"a\\\\b"'],
+        ['a\\"b', '"a\\\\\\"b"'],
+        ["", '""'],
+        [" lead", '" lead"'],
+        ["trail ", '"trail "'],
+        ["a  b", '"a  b"'],
+        ["John Q. Public", '"John Q. Public"'],
+        ["John Doe", "John Doe"],
+        ["!#$%&'*+-/=?^_`{|}~", "!#$%&'*+-/=?^_`{|}~"],
+      ];
+      for (const special of '()<>[]:;@\\,."') {
+        const escaped = special === "\\" || special === '"'
+          ? `\\${special}`
+          : special;
+        cases.push([`a${special}b`, `"a${escaped}b"`]);
+      }
+      for (const [name, expected] of cases) {
+        const result = await convertMessage(createTestMessage({
+          sender: { name, address: "john@example.com" },
+        }));
+        assert.ok(
+          result.raw.split("\r\n").includes(
+            `From: ${expected} <john@example.com>`,
+          ),
+          name,
+        );
+        assert.strictEqual(result.envelope.from, "john@example.com");
+      }
+      const unnamed = await convertMessage(createTestMessage({
+        sender: { address: "john@example.com" },
+      }));
+      assert.ok(unnamed.raw.includes("From: john@example.com\r\n"));
+    });
+
+    test("should quote names in each address header", async () => {
+      const address = {
+        name: "Doe, John",
+        address: "john@example.com",
+      } as const;
+      const result = await convertMessage(createTestMessage({
+        sender: address,
+        recipients: [address, { address: "other@example.com" }],
+        ccRecipients: [address],
+        replyRecipients: [address],
+        bccRecipients: [{ name: "Hidden, Person", address: "bcc@example.com" }],
+      }));
+      const lines = result.raw.split("\r\n");
+      for (const field of ["From", "Cc", "Reply-To"]) {
+        assert.ok(lines.includes(`${field}: "Doe, John" <john@example.com>`));
+      }
+      assert.ok(
+        lines.includes(
+          'To: "Doe, John" <john@example.com>, other@example.com',
+        ),
+      );
+      assert.deepStrictEqual(result.envelope, {
+        from: "john@example.com",
+        to: [
+          "john@example.com",
+          "other@example.com",
+          "john@example.com",
+          "bcc@example.com",
+        ],
+      });
+      assert.ok(!result.raw.includes("Bcc:"));
+      assert.ok(!result.raw.includes("Hidden, Person"));
+    });
+
+    test("should leave RFC 2047 encoded names unquoted", async () => {
+      for (
+        const name of [
+          "Doe, José",
+          `${"x".repeat(61)}, Jr`,
+          "tab\there",
+          "line\nbreak",
+        ]
+      ) {
+        const result = await convertMessage(createTestMessage({
+          sender: { name, address: "john@example.com" },
+        }));
+        const unfolded = result.raw.replace(/\r\n(?=[ \t])/g, "");
+        const header = unfolded.split("\r\n").find((line) =>
+          line.startsWith("From:")
+        );
+        assert.ok(header);
+        assert.match(header, /^From: =\?UTF-8\?B\?/);
+        assert.ok(header.endsWith("?= <john@example.com>"));
+        const decoded = [...header.matchAll(/=\?UTF-8\?B\?([^?]+)\?=/g)]
+          .map((match) => Buffer.from(match[1], "base64").toString("utf8"))
+          .join("");
+        assert.strictEqual(decoded, name);
+      }
+    });
+
+    test("should preserve whitespace when folding a long quoted name", async () => {
+      const name = "Doe,  John ".repeat(30);
+      const result = await convertMessage(createTestMessage({
+        sender: { name, address: "john@example.com" },
+      }));
+      const header = result.raw.match(/^From:.*(?:\r\n[ \t].*)*/m)?.[0];
+      assert.ok(header);
+      assert.ok(header.includes("\r\n"));
+      const closingQuote = header.lastIndexOf('"');
+      assert.ok(header.indexOf("\r\n") < closingQuote);
+      assert.strictEqual(
+        header.replace(/\r\n(?=[ \t])/g, ""),
+        `From: "${name}" <john@example.com>`,
+      );
+      assert.ok(!header.includes("=?UTF-8?"));
+      for (const line of header.split("\r\n")) {
+        assert.ok(line.length <= 78);
+      }
+    });
+  });
+
   describe("Basic Message Conversion", () => {
     test("should convert simple text message to SMTP format", async () => {
       const message = createTestMessage();
