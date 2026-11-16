@@ -68,6 +68,7 @@ export class CloudflareTransport implements Transport<"cloudflare"> {
    *
    * @param config Cloudflare configuration including account ID and API token.
    * @throws {TypeError} If the account ID or the API token is empty.
+   * @throws {RangeError} If `retries` or `timeout` is out of range.
    */
   constructor(config: CloudflareConfig) {
     this.config = createCloudflareConfig(config);
@@ -82,6 +83,7 @@ export class CloudflareTransport implements Transport<"cloudflare"> {
    *                cancellation.
    * @returns A promise that resolves to a receipt indicating success or
    *          failure.
+   * @throws The caller's abort reason if `options.signal` is aborted.
    */
   async send(
     message: Message,
@@ -135,6 +137,7 @@ export class CloudflareTransport implements Transport<"cloudflare"> {
    * @param options Optional transport options including `AbortSignal` for
    *                cancellation.
    * @returns An async iterable of receipts, one for each message.
+   * @throws The caller's abort reason if `options.signal` is aborted.
    */
   async *sendMany(
     messages: Iterable<Message> | AsyncIterable<Message>,

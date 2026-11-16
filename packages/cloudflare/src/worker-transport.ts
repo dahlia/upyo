@@ -126,6 +126,7 @@ export class CloudflareWorkerTransport implements Transport<"cloudflare"> {
    *                cancellation.
    * @returns A promise that resolves to a receipt indicating success or
    *          failure.
+   * @throws The caller's abort reason if `options.signal` is aborted.
    */
   async send(
     message: Message,
@@ -189,6 +190,7 @@ export class CloudflareWorkerTransport implements Transport<"cloudflare"> {
    * @param options Optional transport options including `AbortSignal` for
    *                cancellation.
    * @returns An async iterable of receipts, one for each message.
+   * @throws The caller's abort reason if `options.signal` is aborted.
    */
   async *sendMany(
     messages: Iterable<Message> | AsyncIterable<Message>,
