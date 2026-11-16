@@ -114,8 +114,10 @@ Configuration
 `retries`
 :   How many times to retry a request that Cloudflare answered with `429` or
     a `5xx` status.  Defaults to `3`.  The wait starts at 1 second and doubles,
-    up to 10 seconds, unless Cloudflare sends a `Retry-After` header.  Network
-    failures and timeouts are not retried.  A retried `5xx` may send a message
+    up to 10 seconds, or is as long as Cloudflare's `Retry-After` header asks.
+    Since `timeout` covers each request but not these waits, pass an
+    `AbortSignal` to `send()` to bound the total time.  Network failures and
+    timeouts are not retried.  A retried `5xx` may send a message
     twice; set `retries` to `0` if that is worse for you than a failed send.
 
 `headers`
@@ -198,7 +200,10 @@ Each error has a `code`:
 `cloudflare.<number>`
 :   Cloudflare's own numeric error code, such as `cloudflare.1000`.  The
     errors from the response are in `providerDetails`.  If the response has
-    no error code, the code is `cloudflare.<HTTP status>`.
+    no error code, the code is `cloudflare.<HTTP status>`.  If Cloudflare
+    answered with a `2xx` status but its reply cannot be read or reports
+    a failure, the error is not retryable, because the message may have been
+    sent.
 
 `cloudflare.header_not_allowed`, `cloudflare.header_use_api_field`,
 `cloudflare.too_many_recipients`

@@ -1,7 +1,7 @@
 import { combineSignals, parseRetryAfter } from "@upyo/core";
 import type { ResolvedCloudflareConfig } from "./config.ts";
 import type { CloudflareEmail } from "./message-converter.ts";
-import { backoffMilliseconds, sleep } from "./retry.ts";
+import { retryDelayMilliseconds, sleep } from "./retry.ts";
 
 /**
  * The parsed reply of the Cloudflare Email Sending API, on success and on
@@ -93,6 +93,11 @@ export interface CloudflareApiErrorOptions {
    * Cloudflare's parsed reply, if it answered with JSON.
    */
   readonly response?: CloudflareResponse;
+
+  /**
+   * The underlying error, such as a network failure.
+   */
+  readonly cause?: unknown;
 }
 
 /**
@@ -128,7 +133,7 @@ export class CloudflareApiError extends Error {
    * @param options Details of the failed request.
    */
   constructor(message: string, options: CloudflareApiErrorOptions = {}) {
-    super(message);
+    super(message, { cause: options.cause });
     this.name = "CloudflareApiError";
     this.statusCode = options.statusCode;
     this.retryAfterMilliseconds = options.retryAfterMilliseconds;
@@ -191,7 +196,7 @@ export class CloudflareHttpClient {
       );
 
       if (response.ok) {
-        return parseSuccess(text, attempt);
+        return parseSuccess(text, response.status, attempt);
       }
 
       const parsed = parseResponse(text);
@@ -209,11 +214,10 @@ export class CloudflareHttpClient {
       const retryable = response.status === 429 || response.status >= 500;
       if (!retryable || attempt > this.config.retries) throw error;
 
-      const backoffMs =
-        error.retryAfterMilliseconds == null
-          ? backoffMilliseconds(attempt)
-          : Math.min(error.retryAfterMilliseconds, 60000);
-      await sleep(backoffMs, signal);
+      await sleep(
+        retryDelayMilliseconds(attempt, error.retryAfterMilliseconds),
+        signal,
+      );
     }
   }
 
@@ -221,8 +225,12 @@ export class CloudflareHttpClient {
    * Sends a request and reads its whole reply, so that the timeout and the
    * caller's signal cover the body as well as the headers.  An error reply
    * whose body cannot be read comes back with an empty body, so that its
-   * status still decides whether to retry.  A 2xx reply whose body cannot be
-   * read throws instead, since Cloudflare may have sent the message.
+   * status still decides whether to retry, unless the read timed out.
+   *
+   * @throws {CloudflareApiError} If the request fails or times out.  When
+   *         the reply was 2xx, the error keeps its status, since Cloudflare
+   *         may have sent the message.
+   * @throws The caller's abort reason if the caller aborted.
    */
   private async fetchWithAuth(
     url: string,
@@ -239,8 +247,9 @@ export class CloudflareHttpClient {
     const timeoutId = setTimeout(() => controller.abort(), this.config.timeout);
     const combinedSignal = combineSignals(controller.signal, options.signal);
 
+    let response: Response | undefined;
     try {
-      const response = await fetch(url, {
+      response = await fetch(url, {
         ...options,
         headers,
         signal: combinedSignal.signal,
@@ -248,21 +257,28 @@ export class CloudflareHttpClient {
       try {
         return { response, text: await response.text() };
       } catch (error) {
-        if (response.ok || options.signal?.aborted) throw error;
+        if (response.ok || controller.signal.aborted) throw error;
+        options.signal?.throwIfAborted();
         return { response, text: "" };
       }
     } catch (error) {
-      if (
-        isAbortError(error) &&
-        controller.signal.aborted &&
-        !options.signal?.aborted
-      ) {
+      options.signal?.throwIfAborted();
+      const timedOut = isAbortError(error) && controller.signal.aborted;
+      const reason = error instanceof Error ? error.message : String(error);
+      if (response?.ok) {
         throw new CloudflareApiError(
-          `Cloudflare API request timed out after ${this.config.timeout} ms.`,
-          { attempts: attempt },
+          timedOut
+            ? `Cloudflare accepted the request, but reading its reply timed out after ${this.config.timeout} ms.`
+            : `Cloudflare accepted the request, but reading its reply failed: ${reason}`,
+          { statusCode: response.status, attempts: attempt, cause: error },
         );
       }
-      throw error;
+      throw new CloudflareApiError(
+        timedOut
+          ? `Cloudflare API request timed out after ${this.config.timeout} ms.`
+          : reason,
+        { attempts: attempt, cause: error },
+      );
     } finally {
       combinedSignal.cleanup();
       clearTimeout(timeoutId);
@@ -272,20 +288,25 @@ export class CloudflareHttpClient {
 
 /**
  * Parses a successful reply, which must be a JSON object that does not report
- * a failure.
+ * a failure.  Errors keep the 2xx status, so that they are not retried: the
+ * message may have been sent.
  */
-function parseSuccess(text: string, attempt: number): CloudflareResponse {
+function parseSuccess(
+  text: string,
+  status: number,
+  attempt: number,
+): CloudflareResponse {
   const body = parseResponse(text);
   if (body == null) {
     throw new CloudflareApiError(
       "Cloudflare API answered with a body that is not a JSON object.",
-      { attempts: attempt },
+      { statusCode: status, attempts: attempt },
     );
   }
   if (body.success === false) {
     throw new CloudflareApiError(
       formatErrors(body.errors) ?? "Cloudflare API reported a failure.",
-      { attempts: attempt, response: body },
+      { statusCode: status, attempts: attempt, response: body },
     );
   }
   return body;

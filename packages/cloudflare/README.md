@@ -98,8 +98,8 @@ Configuration
  -  `baseUrl`: API base URL (default: `https://api.cloudflare.com/client/v4`)
  -  `timeout`: Request timeout in milliseconds (default: `30000`)
  -  `retries`: Retries for `429` and `5xx` responses (default: `3`); waits
-    1 second, doubling up to 10 seconds, unless Cloudflare sends
-    `Retry-After`
+    1 second, doubling up to 10 seconds, or as long as Cloudflare's
+    `Retry-After` asks
  -  `headers`: Additional HTTP headers
 
 `CloudflareWorkerTransport`:

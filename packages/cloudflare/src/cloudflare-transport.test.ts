@@ -72,18 +72,20 @@ const fail =
  * A reply whose headers arrive but whose body never finishes, unless the
  * request's signal aborts.
  */
-const stalledBody = (init: RequestInit) =>
-  new Response(
-    new ReadableStream<Uint8Array>({
-      start(controller) {
-        controller.enqueue(new TextEncoder().encode("{"));
-        init.signal?.addEventListener("abort", () => {
-          controller.error(init.signal?.reason);
-        });
-      },
-    }),
-    { status: 200 },
-  );
+const stalledBody =
+  (status = 200) =>
+  (init: RequestInit) =>
+    new Response(
+      new ReadableStream<Uint8Array>({
+        start(controller) {
+          controller.enqueue(new TextEncoder().encode("{"));
+          init.signal?.addEventListener("abort", () => {
+            controller.error(init.signal?.reason);
+          });
+        },
+      }),
+      { status },
+    );
 
 /**
  * A reply whose headers arrive but whose body fails to read, as when the
@@ -268,6 +270,8 @@ describe("CloudflareTransport error reporting", () => {
         assert.deepEqual(receipt.errorMessages, [
           "Cloudflare API answered with a body that is not a JSON object.",
         ]);
+        assert.equal(receipt.errors?.[0].statusCode, 200);
+        assert.ok(!receipt.retryable);
         assert.equal(calls.length, 1);
       },
     );
@@ -294,6 +298,29 @@ describe("CloudflareTransport error reporting", () => {
         ]);
         assert.equal(receipt.errors?.[0].code, "cloudflare.10202");
         assert.equal(calls.length, 1);
+      },
+    );
+  });
+
+  it("does not mark a failure in a 200 reply as retryable", async () => {
+    // Its wording would otherwise read as a transient network error.
+    await withFetch(
+      [
+        () =>
+          new Response(
+            JSON.stringify({
+              success: false,
+              errors: [{ message: "Upstream connection reset." }],
+              result: null,
+            }),
+            { status: 200 },
+          ),
+      ],
+      async () => {
+        const receipt = await new CloudflareTransport(config).send(message);
+        assert.ok(!receipt.successful);
+        assert.equal(receipt.errors?.[0].statusCode, 200);
+        assert.ok(!receipt.retryable);
       },
     );
   });
@@ -413,17 +440,81 @@ describe("CloudflareTransport failure classification", () => {
     "times out while reading a stalled reply body",
     { timeout: 5000 },
     async () => {
-      await withFetch([stalledBody], async () => {
+      await withFetch([stalledBody()], async () => {
         const receipt = await new CloudflareTransport({
           ...config,
           timeout: 20,
-          retries: 0,
         }).send(message);
         assert.ok(!receipt.successful);
         assert.match(receipt.errorMessages[0], /timed out/);
+        // Cloudflare may have sent the message, so this is not retryable.
+        assert.equal(receipt.errors?.[0].statusCode, 200);
+        assert.ok(!receipt.retryable);
+        assert.equal(receipt.attempts, 1);
       });
     },
   );
+
+  it(
+    "does not retry a 503 whose body times out",
+    { timeout: 5000 },
+    async () => {
+      await withFetch([stalledBody(503), ok()], async (calls) => {
+        const receipt = await new CloudflareTransport({
+          ...config,
+          timeout: 20,
+          retries: 1,
+        }).send(message);
+        assert.ok(!receipt.successful);
+        assert.equal(receipt.errors?.[0].category, "timeout");
+        assert.equal(calls.length, 1);
+      });
+    },
+  );
+
+  it("rethrows a caller abort that breaks the reply body", async () => {
+    const controller = new AbortController();
+    await withFetch(
+      [
+        (init) =>
+          new Response(
+            new ReadableStream<Uint8Array>({
+              start(stream) {
+                init.signal?.addEventListener("abort", () => {
+                  stream.error(new TypeError("terminated"));
+                });
+              },
+            }),
+            { status: 200 },
+          ),
+      ],
+      async () => {
+        const sending = new CloudflareTransport(config).send(message, {
+          signal: controller.signal,
+        });
+        setTimeout(() => controller.abort(new Error("stop")), 20);
+        await assert.rejects(sending, /stop/);
+      },
+    );
+  });
+
+  it("reports the attempts of a network failure after a retry", async () => {
+    await withFetch(
+      [
+        fail(503, { "Retry-After": "0" }),
+        () => {
+          throw new TypeError("fetch failed");
+        },
+      ],
+      async (calls) => {
+        const receipt = await new CloudflareTransport(config).send(message);
+        assert.ok(!receipt.successful);
+        assert.equal(receipt.errors?.[0].category, "network");
+        assert.equal(receipt.attempts, 2);
+        assert.equal(calls.length, 2);
+      },
+    );
+  });
 
   it(
     "rethrows a caller abort while reading the reply body",
@@ -438,7 +529,7 @@ describe("CloudflareTransport failure classification", () => {
         value: undefined,
       });
       try {
-        await withFetch([stalledBody], async () => {
+        await withFetch([stalledBody()], async () => {
           const controller = new AbortController();
           const sending = new CloudflareTransport(config).send(message, {
             signal: controller.signal,
@@ -479,6 +570,9 @@ describe("CloudflareTransport failure classification", () => {
     await withFetch([brokenBody(200), ok()], async (calls) => {
       const receipt = await new CloudflareTransport(config).send(message);
       assert.ok(!receipt.successful);
+      assert.equal(receipt.errors?.[0].statusCode, 200);
+      assert.ok(!receipt.retryable);
+      assert.equal(receipt.attempts, 1);
       assert.equal(calls.length, 1);
     });
   });

@@ -10,6 +10,21 @@ export function backoffMilliseconds(attempt: number): number {
 }
 
 /**
+ * How long to wait before retrying: Cloudflare's `Retry-After` delay in full
+ * when it sends one, or the backoff otherwise.
+ *
+ * @param attempt The attempt that just failed, starting at 1.
+ * @param retryAfterMilliseconds The delay from `Retry-After`, if any.
+ * @returns The delay in milliseconds.
+ */
+export function retryDelayMilliseconds(
+  attempt: number,
+  retryAfterMilliseconds: number | undefined,
+): number {
+  return retryAfterMilliseconds ?? backoffMilliseconds(attempt);
+}
+
+/**
  * Waits for the given time, or until the signal aborts.
  *
  * @param ms The time to wait in milliseconds.
