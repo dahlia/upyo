@@ -62,7 +62,7 @@ const fail =
     new Response(
       JSON.stringify({
         success: false,
-        errors: [{ code: 1000, message: "Sender domain not verified" }],
+        errors: [{ code: 10202, message: "email.sending.error.email.invalid" }],
         result: null,
       }),
       { status, headers },
@@ -149,7 +149,10 @@ describe("CloudflareTransport send", () => {
     await withFetch([fail(400)], async (calls) => {
       const receipt = await new CloudflareTransport(config).send(message);
       assert.ok(!receipt.successful);
-      assert.match(receipt.errorMessages[0], /Sender domain not verified/);
+      assert.match(
+        receipt.errorMessages[0],
+        /email.sending.error.email.invalid/,
+      );
       assert.equal(receipt.errors?.[0].statusCode, 400);
       assert.equal(calls.length, 1);
     });
@@ -252,10 +255,10 @@ describe("CloudflareTransport error reporting", () => {
       const receipt = await new CloudflareTransport(config).send(message);
       assert.ok(!receipt.successful);
       const error = receipt.errors?.[0];
-      assert.equal(error?.code, "cloudflare.1000");
+      assert.equal(error?.code, "cloudflare.10202");
       assert.equal(error?.statusCode, 400);
       assert.deepEqual(error?.providerDetails, [
-        { code: 1000, message: "Sender domain not verified" },
+        { code: 10202, message: "email.sending.error.email.invalid" },
       ]);
     });
   });

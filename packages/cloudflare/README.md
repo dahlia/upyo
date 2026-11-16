@@ -43,7 +43,8 @@ bun  add       @upyo/core @upyo/cloudflare
 Usage
 -----
 
-The sender's domain must be onboarded to Cloudflare Email Sending first.
+Until the sender's domain is onboarded to Cloudflare Email Sending, messages
+can go only to the account's verified destination addresses.
 
 ~~~~ typescript
 import { createMessage } from "@upyo/core";

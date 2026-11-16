@@ -60,8 +60,9 @@ Getting started
 
 You need three things before sending:
 
-1.  A sending domain onboarded to Cloudflare Email Sending.  The `from`
-    address of every message must belong to it.
+1.  A domain on Cloudflare to send from.  Once it is onboarded to Cloudflare
+    Email Sending, messages can go to any recipient; before that, they can go
+    only to the account's [verified destination addresses].
 2.  Your Cloudflare account ID.
 3.  An [API token] with permission to send email.
 
@@ -93,6 +94,7 @@ if (receipt.successful) {
 Keep the account ID and token in environment variables or a secret store
 rather than in source code.
 
+[verified destination addresses]: https://developers.cloudflare.com/email-service/platform/limits/
 [API token]: https://developers.cloudflare.com/fundamentals/api/get-started/create-token/
 
 
@@ -201,7 +203,7 @@ help.  Cancelling through the `AbortSignal` passed to `send()` throws as usual.
 Each error has a `code`:
 
 `cloudflare.<number>`
-:   Cloudflare's own numeric error code, such as `cloudflare.1000`.  The
+:   Cloudflare's own numeric error code, such as `cloudflare.10202`.  The
     errors from the response are in `providerDetails`.  If the response has
     no error code, the code is `cloudflare.<HTTP status>`.  If Cloudflare
     answered with a `2xx` status but its reply cannot be read, the error is
@@ -229,9 +231,9 @@ Cloudflare Workers
 Code running on Cloudflare Workers can send through a
 [`send_email` binding][send_email] instead of the REST API.  The binding
 belongs to the account the Worker runs in and carries the permission, so
-there is no account ID or API token to configure.  The `from` address must
-still belong to a domain onboarded to Cloudflare Email Sending in that
-account.  Declare the binding in *wrangler.jsonc*:
+there is no account ID or API token to configure.  Sending domains and
+verified destination addresses work as they do for the REST API.  Declare
+the binding in *wrangler.jsonc*:
 
 ~~~~ jsonc
 {
@@ -282,9 +284,14 @@ It behaves like the REST transport, including the
  -  A failure's `code` is the binding's own, such as
     `cloudflare.E_RATE_LIMIT_EXCEEDED` or `cloudflare.E_VALIDATION_ERROR`,
     and its `providerDetails` is `{ code, message }`.
- -  Cancellation is best effort: the binding takes no `AbortSignal`, so
+ -  There is no `timeout`: `send()` waits until the binding settles.
+    Cancellation is best effort: the binding takes no `AbortSignal`, so
     aborting while it sends stops `send()` from waiting, but the message may
     still go out.
+ -  Failures carry no `statusCode` or `retryAfterMilliseconds`.
+ -  `cloudflare.recipients_rejected` does not occur, because the binding
+    reports a rejected recipient as an error such as
+    `cloudflare.E_RECIPIENT_SUPPRESSED`.
  -  Messages with attachments, including calendar invitations, fail in the
     local simulator of `wrangler dev`; see Cloudflare's
     [local development] notes.

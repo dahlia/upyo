@@ -32,8 +32,8 @@ export type CloudflareReceipt = Receipt<"cloudflare">;
  * Cloudflare Email Service transport implementation for sending emails via
  * the Cloudflare Email Sending REST API.
  *
- * The sender's domain must be onboarded to Cloudflare Email Sending before
- * messages can be delivered.
+ * Until the sender's domain is onboarded to Cloudflare Email Sending, messages
+ * can go only to the account's verified destination addresses.
  *
  * @example
  * ```typescript
