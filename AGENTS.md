@@ -35,6 +35,7 @@ functions.  It's structured as a monorepo with multiple packages:
  -  *@upyo/core*: Shared types and interfaces for email messages
  -  *@upyo/mime*: Portable MIME composition and DKIM signing
  -  *@upyo/smtp*: SMTP transport implementation
+ -  *@upyo/cloudflare*: Cloudflare Email Service transport implementation
  -  *@upyo/lettermint*: Lettermint transport implementation
  -  *@upyo/logtape*: LogTape observability transport
  -  *@upyo/maileroo*: Maileroo transport implementation
@@ -287,6 +288,9 @@ the application.
 
  -  *@upyo/smtp*: Full-featured SMTP client with connection pooling, TLS
     support, and authentication
+ -  *@upyo/cloudflare*: Cloudflare Email Service transports for the REST API
+    and the Workers `send_email` binding, with attachments, inline images, and
+    custom headers
  -  *@upyo/lettermint*: Lettermint HTTP API transport with idempotency, batch
     sending, routes, tags, metadata, and tracking settings
  -  *@upyo/maileroo*: Maileroo HTTP API transport with attachments, custom
@@ -315,8 +319,8 @@ the application.
 
  -  *SMTP*: Direct protocol implementation, works with any SMTP server,
     supports connection reuse
- -  *HTTP-based* (Lettermint, Mailtrap, Mailgun, SendGrid, SES): Stateless,
-    simpler configuration, provider-specific features
+ -  *HTTP-based* (Cloudflare, Lettermint, Mailtrap, Mailgun, SendGrid, SES):
+    Stateless, simpler configuration, provider-specific features
  -  *Mock*: In-memory storage, failure simulation, comprehensive testing
     utilities
  -  *OpenTelemetry*: Transparent wrapper, metrics collection, distributed
@@ -336,7 +340,7 @@ the application.
 ### Testing strategy
 
  -  *Multi-runtime testing*: Unit tests run on Deno, Node.js, and Bun; built
-    MIME exports also run in workerd
+    MIME exports and the Cloudflare Workers transport also run in workerd
  -  *Integration tests*: SMTP uses Docker Compose with Mailpit for local
     testing
  -  *E2E tests*: External services like Mailgun, SendGrid, and SES with

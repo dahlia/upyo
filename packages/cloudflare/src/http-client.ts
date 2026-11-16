@@ -1,0 +1,427 @@
+import {
+  combineSignals,
+  parseRetryAfter,
+  type ReceiptErrorClassification,
+} from "@upyo/core";
+import type { ResolvedCloudflareConfig } from "./config.ts";
+import type { CloudflareEmail } from "./message-converter.ts";
+import { retryDelayMilliseconds, sleep } from "./retry.ts";
+
+/**
+ * The parsed reply of the Cloudflare Email Sending API, on success and on
+ * failure.
+ *
+ * @since 0.7.0
+ */
+export interface CloudflareResponse {
+  /**
+   * Whether Cloudflare reported the request as successful.
+   */
+  readonly success: boolean;
+
+  /**
+   * Errors reported by Cloudflare.
+   */
+  readonly errors?: readonly CloudflareError[];
+
+  /**
+   * The delivery result.
+   */
+  readonly result?: {
+    /**
+     * The identifier of the sent message.
+     */
+    readonly message_id?: string;
+
+    /**
+     * Recipients to whom the message was delivered immediately.
+     */
+    readonly delivered?: readonly string[];
+
+    /**
+     * Recipients whose delivery has been queued.
+     */
+    readonly queued?: readonly string[];
+
+    /**
+     * Recipients that permanently bounced.
+     */
+    readonly permanent_bounces?: readonly string[];
+
+    /**
+     * Recipients dropped because they are on the suppression list.
+     */
+    readonly suppressed_recipients?: readonly string[];
+  } | null;
+}
+
+/**
+ * An error entry in a Cloudflare API response.
+ *
+ * @since 0.7.0
+ */
+export interface CloudflareError {
+  /**
+   * Numeric Cloudflare error code.
+   */
+  readonly code?: number;
+
+  /**
+   * Error message from Cloudflare.
+   */
+  readonly message: string;
+}
+
+/**
+ * Options for creating a {@link CloudflareApiError}.
+ *
+ * @since 0.7.0
+ */
+export interface CloudflareApiErrorOptions {
+  /**
+   * HTTP status code returned by Cloudflare, if the request reached the API.
+   */
+  readonly statusCode?: number;
+
+  /**
+   * Retry delay from Cloudflare's `Retry-After` response header.
+   */
+  readonly retryAfterMilliseconds?: number;
+
+  /**
+   * Number of attempts made before this error was produced.
+   */
+  readonly attempts?: number;
+
+  /**
+   * Cloudflare's parsed reply, if it answered with JSON.
+   */
+  readonly response?: CloudflareResponse;
+
+  /**
+   * The underlying error, such as a network failure.
+   */
+  readonly cause?: unknown;
+}
+
+/**
+ * Error thrown when a Cloudflare API request fails.
+ *
+ * @since 0.7.0
+ */
+export class CloudflareApiError extends Error {
+  /**
+   * HTTP status code returned by Cloudflare, if the request reached the API.
+   */
+  readonly statusCode?: number;
+
+  /**
+   * Retry delay from Cloudflare's `Retry-After` response header.
+   */
+  readonly retryAfterMilliseconds?: number;
+
+  /**
+   * Number of attempts made before this error was produced.
+   */
+  readonly attempts?: number;
+
+  /**
+   * Cloudflare's parsed reply, if it answered with JSON.
+   */
+  readonly response?: CloudflareResponse;
+
+  /**
+   * Creates a Cloudflare API error.
+   *
+   * @param message Error message.
+   * @param options Details of the failed request.
+   */
+  constructor(message: string, options: CloudflareApiErrorOptions = {}) {
+    super(message, { cause: options.cause });
+    this.name = "CloudflareApiError";
+    this.statusCode = options.statusCode;
+    this.retryAfterMilliseconds = options.retryAfterMilliseconds;
+    this.attempts = options.attempts;
+    this.response = options.response;
+  }
+
+  /**
+   * Errors listed in Cloudflare's reply, if any.  Each has Cloudflare's
+   * numeric error code.
+   */
+  get errors(): readonly CloudflareError[] | undefined {
+    const errors = this.response?.errors;
+    return errors != null && errors.length > 0 ? errors : undefined;
+  }
+}
+
+/**
+ * Cloudflare's error codes that their HTTP status would classify wrongly, from
+ * https://developers.cloudflare.com/email-service/api/send-emails/rest-api/.
+ * Other codes are classified by their status.
+ */
+const API_ERRORS: ReadonlyMap<
+  number,
+  Omit<ReceiptErrorClassification, "code">
+> = new Map([
+  // email.sending.error.not_found: a wrong account ID or base URL.
+  [10000, { category: "configuration", retryable: false }],
+  // email.sending.error.not_implemented
+  [10003, { category: "unknown", retryable: false }],
+  // email.sending.error.authentication.not_entitled
+  [10105, { category: "configuration", retryable: false }],
+  // email.sending.error.email.sending_disabled
+  [10203, { category: "configuration", retryable: false }],
+  // email.sending.error.email.account_suspended
+  [10207, { category: "configuration", retryable: false }],
+]);
+
+/**
+ * The classification of an error's first Cloudflare error code, when its
+ * HTTP status would classify it wrongly.
+ *
+ * @param error The error to classify.
+ * @returns The classification, or `undefined` to classify by status.
+ */
+export function classifyApiError(
+  error: CloudflareApiError,
+): Omit<ReceiptErrorClassification, "code"> | undefined {
+  const code = error.errors?.find((e) => e.code != null)?.code;
+  return code == null ? undefined : API_ERRORS.get(code);
+}
+
+/**
+ * HTTP client wrapper for Cloudflare Email Sending API requests.
+ */
+export class CloudflareHttpClient {
+  private config: ResolvedCloudflareConfig;
+
+  constructor(config: ResolvedCloudflareConfig) {
+    this.config = config;
+  }
+
+  /**
+   * Sends a single message via the Cloudflare Email Sending API.
+   *
+   * @param email The request body.
+   * @param signal Optional AbortSignal for cancellation.
+   * @returns Promise that resolves to Cloudflare's parsed reply and the
+   *          number of attempts it took.
+   * @throws {CloudflareApiError} If Cloudflare rejects the request, answers
+   *         with something other than a successful JSON reply, does not
+   *         answer within the timeout, or cannot be reached.
+   */
+  async sendMessage(
+    email: CloudflareEmail,
+    signal?: AbortSignal,
+  ): Promise<{
+    readonly response: CloudflareResponse;
+    readonly attempts: number;
+  }> {
+    const baseUrl = this.config.baseUrl.replace(/\/+$/, "");
+    const url = `${baseUrl}/accounts/${encodeURIComponent(
+      this.config.accountId,
+    )}/email/sending/send`;
+    const body = JSON.stringify(email);
+
+    let attempt = 0;
+    while (true) {
+      attempt++;
+      const { response, text } = await this.fetchWithAuth(
+        url,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body,
+          signal,
+        },
+        attempt,
+      );
+
+      if (response.ok) {
+        return {
+          response: parseSuccess(text, response.status, attempt),
+          attempts: attempt,
+        };
+      }
+
+      const parsed = parseResponse(text);
+      const error = new CloudflareApiError(
+        formatErrors(parsed?.errors) ?? describeBody(text, response.status),
+        {
+          statusCode: response.status,
+          retryAfterMilliseconds: parseRetryAfter(
+            response.headers.get("Retry-After"),
+          ),
+          attempts: attempt,
+          response: parsed,
+        },
+      );
+      const retryable =
+        classifyApiError(error)?.retryable ??
+        (response.status === 429 || response.status >= 500);
+      if (!retryable || attempt > this.config.retries) throw error;
+
+      await sleep(
+        retryDelayMilliseconds(attempt, error.retryAfterMilliseconds),
+        signal,
+      );
+    }
+  }
+
+  /**
+   * Sends a request and reads its whole reply, so that the timeout and the
+   * caller's signal cover the body as well as the headers.  An error reply
+   * whose body cannot be read comes back with an empty body, so that its
+   * status still decides whether to retry, unless the read timed out.
+   *
+   * @throws {CloudflareApiError} If the request fails or times out.  When
+   *         the reply was 2xx, the error keeps its status, since Cloudflare
+   *         may have sent the message.
+   * @throws The caller's abort reason if the caller aborted.
+   */
+  private async fetchWithAuth(
+    url: string,
+    options: RequestInit,
+    attempt: number,
+  ): Promise<{ readonly response: Response; readonly text: string }> {
+    const headers = new Headers(options.headers);
+    for (const [key, value] of Object.entries(this.config.headers)) {
+      headers.set(key, value);
+    }
+    headers.set("Authorization", `Bearer ${this.config.apiToken}`);
+
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), this.config.timeout);
+    const combinedSignal = combineSignals(controller.signal, options.signal);
+
+    let response: Response | undefined;
+    try {
+      response = await fetch(url, {
+        ...options,
+        headers,
+        signal: combinedSignal.signal,
+      });
+      try {
+        return { response, text: await response.text() };
+      } catch (error) {
+        if (response.ok || controller.signal.aborted) throw error;
+        options.signal?.throwIfAborted();
+        return { response, text: "" };
+      }
+    } catch (error) {
+      options.signal?.throwIfAborted();
+      const timedOut = isAbortError(error) && controller.signal.aborted;
+      const reason = error instanceof Error ? error.message : String(error);
+      if (response?.ok) {
+        throw new CloudflareApiError(
+          timedOut
+            ? `Cloudflare accepted the request, but reading its reply timed out after ${this.config.timeout} ms.`
+            : `Cloudflare accepted the request, but reading its reply failed: ${reason}`,
+          { statusCode: response.status, attempts: attempt, cause: error },
+        );
+      }
+      throw new CloudflareApiError(
+        timedOut
+          ? `Cloudflare API request timed out after ${this.config.timeout} ms.`
+          : reason,
+        { attempts: attempt, cause: error },
+      );
+    } finally {
+      combinedSignal.cleanup();
+      clearTimeout(timeoutId);
+    }
+  }
+}
+
+/**
+ * Parses a successful reply, which must be a JSON object that does not report
+ * a failure.  Errors keep the 2xx status, so that they are not retried: a body
+ * that is not JSON leaves open whether the message was sent, and a failure
+ * under a success status contradicts itself.
+ */
+function parseSuccess(
+  text: string,
+  status: number,
+  attempt: number,
+): CloudflareResponse {
+  const body = parseResponse(text);
+  if (body == null) {
+    throw new CloudflareApiError(
+      "Cloudflare API answered with a body that is not a JSON object.",
+      { statusCode: status, attempts: attempt },
+    );
+  }
+  if (body.success === false) {
+    throw new CloudflareApiError(
+      formatErrors(body.errors) ?? "Cloudflare API reported a failure.",
+      { statusCode: status, attempts: attempt, response: body },
+    );
+  }
+  return body;
+}
+
+/**
+ * Parses a reply body, or returns `undefined` when it is not a JSON object,
+ * such as an HTML error page from a proxy.  Malformed error entries are
+ * dropped, so that a reply without valid ones is classified by its status.
+ */
+function parseResponse(text: string): CloudflareResponse | undefined {
+  let body: unknown;
+  try {
+    body = JSON.parse(text);
+  } catch {
+    return undefined;
+  }
+  if (typeof body !== "object" || body == null || Array.isArray(body)) {
+    return undefined;
+  }
+  const { errors, ...rest } = body as Record<string, unknown>;
+  const valid = Array.isArray(errors) ? errors.filter(isCloudflareError) : [];
+  return {
+    ...rest,
+    ...(valid.length > 0 && { errors: valid }),
+  } as CloudflareResponse;
+}
+
+/**
+ * Whether a value is an error entry with a message and, if any, a numeric
+ * code.
+ */
+function isCloudflareError(value: unknown): value is CloudflareError {
+  if (typeof value !== "object" || value == null) return false;
+  const { code, message } = value as Record<string, unknown>;
+  return (
+    typeof message === "string" && (code == null || typeof code === "number")
+  );
+}
+
+/**
+ * Describes a failed reply that has no error list: its body, shortened to 500
+ * characters, or the HTTP status when the body is empty.
+ */
+function describeBody(text: string, status: number): string {
+  const trimmed = text.length > 500 ? `${text.slice(0, 500)}...` : text;
+  return trimmed === "" ? `HTTP ${status}` : trimmed;
+}
+
+/**
+ * Joins Cloudflare's errors into one message, with each numeric code, or
+ * returns `undefined` when there are none.
+ */
+function formatErrors(
+  errors: readonly CloudflareError[] | undefined,
+): string | undefined {
+  if (!Array.isArray(errors) || errors.length < 1) return undefined;
+  const messages = errors.map((e) =>
+    e.code == null ? e.message : `${e.message} (code ${e.code})`,
+  );
+  return messages.join("; ");
+}
+
+/**
+ * Whether an error is the `AbortError` that an aborted `fetch()` throws.
+ */
+function isAbortError(error: unknown): boolean {
+  return error instanceof Error && error.name === "AbortError";
+}

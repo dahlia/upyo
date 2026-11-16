@@ -40,6 +40,7 @@ const credentials = [
   "LETTERMINT_API_TOKEN",
   "MAILEROO_API_KEY",
   "MAILTRAP_API_TOKEN",
+  "CLOUDFLARE_EMAIL_API_TOKEN",
 ];
 
 test("weekly and manual runs preserve push/PR and never publish", () => {

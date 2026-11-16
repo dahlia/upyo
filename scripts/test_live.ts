@@ -10,6 +10,7 @@ const providers = [
   "lettermint",
   "maileroo",
   "mailtrap",
+  "cloudflare",
 ] as const;
 const runtimes = ["node", "deno", "bun"] as const;
 type Runtime = (typeof runtimes)[number];

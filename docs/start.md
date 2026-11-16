@@ -53,6 +53,10 @@ strengths and use cases:
 [Mailgun](./transports/mailgun.md)
 :   HTTP API service with advanced features and analytics
 
+[Cloudflare](./transports/cloudflare.md)
+:   Cloudflare Email Service through its REST API or a Workers binding, with
+    attachments and custom headers
+
 [Lettermint](./transports/lettermint.md)
 :   Transactional email API with routes, metadata, idempotency, and batch
     sending

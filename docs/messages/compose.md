@@ -376,12 +376,14 @@ whatever the message asked for.
 | *@upyo/lettermint* | Not sent                | Sent as a custom header        |
 | *@upyo/resend*     | Not sent                | Sent as a custom header        |
 | *@upyo/plunk*      | Not sent                | Sent as a custom header        |
+| *@upyo/cloudflare* | Not sent                | Sent as a custom header        |
 | *@upyo/ses*        | Not sent                | Not sent                       |
 
 “Not sent” describes Upyo, not the provider.  Most of these APIs accept a
 custom `Message-ID` without documenting whether the value survives their
 pipeline; Lettermint documents that it replaces one unless a separate opt-in
-header accompanies it, and Amazon SES documents that it overrides both fields
+header accompanies it, Cloudflare documents that it generates both and rejects
+them as custom headers, and Amazon SES documents that it overrides both fields
 even for a raw MIME message.  Rather than promise preservation Upyo cannot
 verify, those transports leave the fields alone.  *@upyo/ses* sends no custom
 headers at all.
