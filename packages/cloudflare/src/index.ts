@@ -9,6 +9,7 @@
  *
  * @example
  * ```typescript
+ * import { createMessage } from "@upyo/core";
  * import { CloudflareTransport } from "@upyo/cloudflare";
  *
  * const transport = new CloudflareTransport({
@@ -16,24 +17,21 @@
  *   apiToken: "your-api-token",
  * });
  *
- * const receipt = await transport.send({
- *   sender: { address: "hello@example.com" },
- *   recipients: [{ address: "user@example.com" }],
- *   ccRecipients: [],
- *   bccRecipients: [],
- *   replyRecipients: [],
- *   subject: "Welcome!",
- *   content: { html: "<h1>Hello!</h1>" },
- *   attachments: [],
- *   priority: "normal",
- *   tags: [],
- *   headers: new Headers(),
- * });
+ * const receipt = await transport.send(
+ *   createMessage({
+ *     from: "hello@example.com",
+ *     to: "user@example.com",
+ *     subject: "Welcome!",
+ *     content: { html: "<h1>Hello!</h1>" },
+ *   }),
+ * );
  *
  * if (receipt.successful) {
  *   console.log("Message sent:", receipt.messageId);
  * }
  * ```
+ *
+ * @since 0.7.0
  */
 
 export {
